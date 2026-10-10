@@ -95,6 +95,17 @@ user@host:lithica$ docker compose pull
 
     will give you a breakdown on all available commands.
 
+    The server never rewrites existing posts on its own. When posts lack
+    data that a newer version computes (image signatures for the
+    similar-image search, MD5 checksums), the server says so in its log at
+    startup, and you create the data with:
+
+    ```console
+    user@host:lithica$ docker compose run server ./lithica-admin backfill all
+    ```
+
+    It can be repeated and can run while the server is up.
+
 2. **Using a seperate domain to host static files (image content)**
 
     If you want to host your website on, (`http://example.com/`) but want

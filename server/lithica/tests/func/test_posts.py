@@ -1363,3 +1363,133 @@ def test_deleting_post_deletes_signature_words(
     db.session.commit()
     assert db.session.query(model.PostSignature).count() == 0
     assert db.session.query(model.PostSignatureWord).count() == 0
+
+
+@pytest.fixture
+def backfill_posts(tmpdir, config_injector, post_factory, read_asset):
+    """
+    Posts as an old installation has them: files on disk, but no signature
+    and no MD5 checksum. One image has lost its file.
+    """
+    config_injector(
+        {
+            "data_dir": str(tmpdir.mkdir("data")),
+            "secret": "test",
+            "allow_broken_uploads": False,
+            "delete_source_files": False,
+        }
+    )
+    specs = [
+        ("png", model.Post.TYPE_IMAGE, "png.png"),
+        ("jpeg", model.Post.TYPE_IMAGE, "jpeg.jpg"),
+        ("gif", model.Post.TYPE_ANIMATION, "gif-animated.gif"),
+        ("video", model.Post.TYPE_VIDEO, "mp4.mp4"),
+        ("lost", model.Post.TYPE_IMAGE, None),
+    ]
+    result = {}
+    for name, post_type, asset in specs:
+        post = post_factory(type=post_type, checksum=name)
+        db.session.add(post)
+        db.session.flush()
+        if asset:
+            files.save(posts.get_post_content_path(post), read_asset(asset))
+        result[name] = post.post_id
+    db.session.commit()
+    return result
+
+
+def test_count_posts_without_signature(backfill_posts):
+    # the video does not get a signature
+    assert posts.count_posts_without_signature() == 4
+    assert posts.count_posts_without_md5_checksum() == 5
+
+
+def test_update_all_post_signatures(backfill_posts, read_asset):
+    assert posts.update_all_post_signatures() == (3, 1)
+    assert posts.count_posts_without_signature() == 1
+    signed = {
+        signature.post_id: signature
+        for signature in db.session.query(model.PostSignature).all()
+    }
+    assert set(signed) == {
+        backfill_posts["png"],
+        backfill_posts["jpeg"],
+        backfill_posts["gif"],
+    }
+    expected = image_hash.generate_signature(read_asset("jpeg.jpg"))
+    jpeg_signature = signed[backfill_posts["jpeg"]]
+    assert jpeg_signature.signature == image_hash.pack_signature(expected)
+    assert jpeg_signature.words == image_hash.generate_words(expected)
+    # the backfilled post is found by the search
+    found = posts.search_by_image(read_asset("jpeg-similar.jpg"))
+    assert [post.post_id for _distance, post in found] == [backfill_posts["jpeg"]]
+
+
+def test_update_all_post_signatures_is_repeatable(backfill_posts):
+    assert posts.update_all_post_signatures() == (3, 1)
+    # nothing is left but the post without a file, which fails again
+    assert posts.update_all_post_signatures() == (0, 1)
+    assert db.session.query(model.PostSignature).count() == 3
+
+
+def test_update_all_md5_checksums(backfill_posts, read_asset):
+    assert posts.update_all_md5_checksums() == (4, 1)
+    assert posts.count_posts_without_md5_checksum() == 1
+    checksums = {
+        post.post_id: post.checksum_md5 for post in db.session.query(model.Post).all()
+    }
+    assert checksums[backfill_posts["png"]] == util.get_md5(read_asset("png.png"))
+    assert checksums[backfill_posts["video"]] == util.get_md5(read_asset("mp4.mp4"))
+    assert checksums[backfill_posts["lost"]] is None
+    assert posts.update_all_md5_checksums() == (0, 1)
+
+
+def test_backfill_goes_through_every_batch(backfill_posts, monkeypatch):
+    monkeypatch.setattr(posts, "BACKFILL_BATCH_SIZE", 2)
+    assert posts.update_all_md5_checksums() == (4, 1)
+    assert posts.update_all_post_signatures() == (3, 1)
+
+
+def test_backfill_does_nothing_when_complete(backfill_posts):
+    posts.update_all_md5_checksums()
+    db.session.delete(posts.get_post_by_id(backfill_posts["lost"]))
+    db.session.commit()
+    with patch("lithica.func.files.get") as get:
+        assert posts.update_all_md5_checksums() == (0, 0)
+        get.assert_not_called()
+
+
+def test_warn_about_pending_backfills(backfill_posts, caplog):
+    with caplog.at_level("WARNING", logger="lithica.func.posts"):
+        posts.warn_about_pending_backfills()
+    messages = [record.getMessage() for record in caplog.records]
+    assert messages == [
+        "4 posts have no image signature, so similar-image search does not "
+        "find them. Run 'lithica-admin backfill signatures'.",
+        "5 posts have no MD5 checksum, so they cannot be found by MD5. "
+        "Run 'lithica-admin backfill md5'.",
+    ]
+
+
+def test_warn_about_pending_backfills_is_silent_when_complete(caplog):
+    with caplog.at_level("WARNING", logger="lithica.func.posts"):
+        posts.warn_about_pending_backfills()
+    assert not caplog.records
+
+
+def test_backfill_continues_after_an_error(backfill_posts):
+    real_get_md5 = util.get_md5
+    calls = []
+
+    def failing_once(content):
+        calls.append(content)
+        if len(calls) == 2:
+            raise RuntimeError("disk error")
+        return real_get_md5(content)
+
+    with patch("lithica.func.util.get_md5", side_effect=failing_once):
+        # second post fails, the two after it are still processed; the post
+        # without a file never reaches the checksum
+        assert posts.update_all_md5_checksums() == (3, 2)
+    assert posts.count_posts_without_md5_checksum() == 2
+    assert posts.update_all_md5_checksums() == (1, 1)

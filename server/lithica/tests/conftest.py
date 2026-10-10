@@ -8,7 +8,6 @@ import freezegun
 import pytest
 import sqlalchemy as sa
 import sqlalchemy.orm as sa_orm
-from sqlalchemy import event
 
 from lithica import config
 
@@ -110,16 +109,10 @@ def transacted_postgresql_db(_pg_engine):
     """Database fixture; the name is kept from pytest_pgsql, which it replaced."""
     conn = _pg_engine.connect()
     trans = conn.begin()
-    # bind= is deprecated in SA 2.0 but still functional; removed in SA 3.0
-    session = sa_orm.Session(bind=conn)
-    # A savepoint makes session.commit() release the savepoint rather than
-    # committing the outer connection-level transaction.
-    session.begin_nested()
-
-    @event.listens_for(session, "after_transaction_end")
-    def _restart_savepoint(session, transaction):
-        if transaction.nested and not transaction._parent.nested:
-            session.begin_nested()
+    # The session works in savepoints of the outer transaction: commit()
+    # releases one and rollback() rolls one back, so neither touches the
+    # tables the test created, and the outer rollback still undoes it all.
+    session = sa_orm.Session(bind=conn, join_transaction_mode="create_savepoint")
 
     try:
         yield _TransactedTestDB(conn, session, trans)

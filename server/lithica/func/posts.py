@@ -555,40 +555,135 @@ def generate_post_signature(post: model.Post, content: bytes) -> None:
             raise InvalidPostContentError("Unable to generate image hash data.") from ex
 
 
-def update_all_post_signatures() -> None:
-    posts_to_hash = (
+BACKFILL_BATCH_SIZE = 100
+
+
+def _query_posts_without_signature() -> sa.orm.Query:
+    return (
         db.session.query(model.Post)
         .filter(
             (model.Post.type == model.Post.TYPE_IMAGE)
             | (model.Post.type == model.Post.TYPE_ANIMATION)
         )
         .filter(model.Post.signature == None)  # noqa: E711
-        .order_by(model.Post.post_id.asc())
-        .all()
     )
-    for post in posts_to_hash:
-        try:
-            generate_post_signature(post, files.get(get_post_content_path(post)))
-            db.session.commit()
-            logger.info("Created Signature - Post %d", post.post_id)
-        except Exception as ex:
-            logger.exception(ex)
 
 
-def update_all_md5_checksums() -> None:
-    posts_to_hash = (
-        db.session.query(model.Post)
-        .filter(model.Post.checksum_md5 == None)  # noqa: E711
-        .order_by(model.Post.post_id.asc())
-        .all()
+def _query_posts_without_md5_checksum() -> sa.orm.Query:
+    return db.session.query(model.Post).filter(
+        model.Post.checksum_md5 == None  # noqa: E711
     )
-    for post in posts_to_hash:
-        try:
-            post.checksum_md5 = util.get_md5(files.get(get_post_content_path(post)))
-            db.session.commit()
-            logger.info("Created MD5 - Post %d", post.post_id)
-        except Exception as ex:
-            logger.exception(ex)
+
+
+def count_posts_without_signature() -> int:
+    return _query_posts_without_signature().count()
+
+
+def count_posts_without_md5_checksum() -> int:
+    return _query_posts_without_md5_checksum().count()
+
+
+def _backfill(
+    query_factory: Callable[[], sa.orm.Query],
+    fill: Callable[[model.Post], bool],
+    description: str,
+) -> tuple[int, int]:
+    """
+    Run fill() on every post the query returns, a batch at a time, committing
+    after each post. Returns how many posts were filled and how many were
+    not. Posts that could not be filled are skipped, not retried, so the run
+    always ends; running it again is safe and picks up only what is left.
+    """
+    filled = 0
+    failed = 0
+    last_post_id = 0
+    while True:
+        batch = (
+            query_factory()
+            .filter(model.Post.post_id > last_post_id)
+            .order_by(model.Post.post_id.asc())
+            .limit(BACKFILL_BATCH_SIZE)
+            .all()
+        )
+        if not batch:
+            break
+        post_ids = [post.post_id for post in batch]
+        last_post_id = post_ids[-1]
+        for post_id, post in zip(post_ids, batch, strict=True):
+            try:
+                done = fill(post)
+                db.session.commit()
+            except Exception as ex:
+                db.session.rollback()
+                logger.exception(ex)
+                done = False
+            if done:
+                filled += 1
+                logger.info("Created %s - Post %d", description, post_id)
+            else:
+                failed += 1
+                logger.warning("Could not create %s - Post %d", description, post_id)
+    return filled, failed
+
+
+def update_all_post_signatures() -> tuple[int, int]:
+    """Create the image signature of every post that lacks one."""
+
+    def fill(post: model.Post) -> bool:
+        content = files.get(get_post_content_path(post))
+        if content is None:
+            logger.warning("Post %d has no content file", post.post_id)
+            return False
+        generate_post_signature(post, content)
+        # with allow_broken_uploads an unreadable image is left unsigned
+        return post.signature is not None
+
+    return _backfill(_query_posts_without_signature, fill, "Signature")
+
+
+def update_all_md5_checksums() -> tuple[int, int]:
+    """Compute the MD5 checksum of every post that lacks one."""
+
+    def fill(post: model.Post) -> bool:
+        content = files.get(get_post_content_path(post))
+        if content is None:
+            logger.warning("Post %d has no content file", post.post_id)
+            return False
+        post.checksum_md5 = util.get_md5(content)
+        return True
+
+    return _backfill(_query_posts_without_md5_checksum, fill, "MD5")
+
+
+def warn_about_pending_backfills() -> None:
+    """
+    Tell the administrator, in the log, that posts wait for a backfill. The
+    server does not run backfills itself: with several server processes each
+    would start one.
+    """
+    pending = [
+        (
+            count_posts_without_signature(),
+            "image signature",
+            "signatures",
+            "similar-image search does not find them",
+        ),
+        (
+            count_posts_without_md5_checksum(),
+            "MD5 checksum",
+            "md5",
+            "they cannot be found by MD5",
+        ),
+    ]
+    for count, what, command, consequence in pending:
+        if count:
+            logger.warning(
+                "%d posts have no %s, so %s. Run 'lithica-admin backfill %s'.",
+                count,
+                what,
+                consequence,
+                command,
+            )
 
 
 def update_post_content(post: model.Post, content: bytes | None) -> None:

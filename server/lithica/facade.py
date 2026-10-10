@@ -14,10 +14,9 @@ import sqlalchemy.orm.exc
 # routes and the request hooks
 from lithica import api, config, db, errors, middleware, rest  # noqa: F401
 from lithica.func.file_uploads import purge_old_uploads
-from lithica.func.posts import (
-    update_all_md5_checksums,
-    update_all_post_signatures,
-)
+from lithica.func.posts import warn_about_pending_backfills
+
+logger = logging.getLogger(__name__)
 
 
 def _map_error(
@@ -146,12 +145,6 @@ def purge_old_uploads_daemon() -> None:
         time.sleep(60 * 5)
 
 
-_live_migrations = (
-    update_all_post_signatures,
-    update_all_md5_checksums,
-)
-
-
 def create_app() -> Callable[[Any, Any], Any]:
     """Create a WSGI compatible App object."""
     validate_config()
@@ -163,10 +156,13 @@ def create_app() -> Callable[[Any, Any], Any]:
 
     threading.Thread(target=purge_old_uploads_daemon, daemon=True).start()
 
-    for migration in _live_migrations:
-        threading.Thread(target=migration, daemon=False).start()
-
-    db.session.commit()
+    try:
+        warn_about_pending_backfills()
+    except Exception as ex:
+        # a missing backfill is no reason to stay down
+        logger.exception(ex)
+    finally:
+        db.session.remove()
 
     rest.errors.handle(errors.AuthError, _on_auth_error)
     rest.errors.handle(errors.ValidationError, _on_validation_error)
