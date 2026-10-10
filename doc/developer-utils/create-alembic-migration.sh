@@ -21,8 +21,8 @@ docker exec -i \
     ${CONTAINER} alembic revision -m "$1"
 
 # Copy the file over from the container
-docker cp ${CONTAINER}:/opt/app/szurubooru/migrations/versions/ \
-    "${WORKDIR}/szurubooru/migrations/"
+docker cp ${CONTAINER}:/opt/app/lithica/migrations/versions/ \
+    "${WORKDIR}/lithica/migrations/"
 
 # Destroy the dummy container
 docker rm -f ${CONTAINER} > /dev/null

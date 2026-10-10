@@ -24,5 +24,5 @@ jobs:
           docker run --rm -t test_container
           --color=no
           --cov-report=term-missing:skip-covered
-          --cov=szurubooru
-          szurubooru/
+          --cov=lithica
+          lithica/

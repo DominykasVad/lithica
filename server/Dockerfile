@@ -34,7 +34,7 @@ RUN pip3 install --no-cache-dir --disable-pip-version-check --break-system-packa
 RUN apk --no-cache del py3-pip
 
 COPY ./ /opt/app/
-RUN rm -rf /opt/app/szurubooru/tests
+RUN rm -rf /opt/app/lithica/tests
 
 
 FROM --platform=$BUILDPLATFORM prereqs AS testing
@@ -54,12 +54,12 @@ RUN apk --no-cache add \
  && adduser -SDH -h /opt/app -g '' -G app app \
  && chown app:app /opt/app
 
-COPY --chown=app:app ./szurubooru/tests /opt/app/szurubooru/tests/
+COPY --chown=app:app ./lithica/tests /opt/app/lithica/tests/
 
 ENV TEST_ENVIRONMENT="true"
 USER app
 ENTRYPOINT ["pytest", "--tb=short"]
-CMD ["szurubooru/"]
+CMD ["lithica/"]
 
 
 FROM prereqs AS development
@@ -96,7 +96,7 @@ VOLUME ["/data/"]
 FROM prereqs AS release
 
 COPY ./ /opt/app/
-RUN rm -rf /opt/app/szurubooru/tests
+RUN rm -rf /opt/app/lithica/tests
 
 WORKDIR /opt/app
 

@@ -12,10 +12,10 @@ from argparse import ArgumentParser
 from getpass import getpass
 from sys import stderr
 
-from szurubooru import config, db, errors, model
-from szurubooru.func import files, images
-from szurubooru.func import posts as postfuncs
-from szurubooru.func import users as userfuncs
+from lithica import config, db, errors, model
+from lithica.func import files, images
+from lithica.func import posts as postfuncs
+from lithica.func import users as userfuncs
 
 
 def reset_password(username: str) -> None:

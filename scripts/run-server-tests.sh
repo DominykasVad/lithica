@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Usage: scripts/run-server-tests.sh [path]
-# - path: optional dir/file/node (default: szurubooru/, example, szurubooru/tests/api/test_info.py)
+# - path: optional dir/file/node (default: lithica/, example, lithica/tests/api/test_info.py)
 
 set -euo pipefail
 
@@ -8,7 +8,7 @@ set -euo pipefail
 docker buildx build --load --target testing -t szuru-server-tests ./server
 
 # Optional path filter (dir/file/node), default to full suite.
-TARGET="${1:-szurubooru/}"
+TARGET="${1:-lithica/}"
 
 run_tests() {
   local output_file
@@ -25,7 +25,7 @@ run_tests() {
   echo "-----------------------------"
   if grep -qE "no tests ran|collected 0 items" "$output_file"; then
     echo "No tests collected for target '${TARGET}'."
-    echo "Check the path (tests live under szurubooru/ in the container, so an example path looks like \`szurubooru/tests/api/test_info.py\`)."
+    echo "Check the path (tests live under lithica/ in the container, so an example path looks like \`lithica/tests/api/test_info.py\`)."
   fi
   rm -f "$output_file"
   return "$status"
