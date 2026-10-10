@@ -87,6 +87,50 @@ def test_reset_sending_email(context_factory, user):
         assert re.fullmatch(r"[A-Za-z0-9_-]{43}", token)
 
 
+@pytest.mark.parametrize(
+    "headers",
+    [
+        {"HTTP_ORIGIN": "https://evil.example.net"},
+        {"HTTP_REFERER": "https://evil.example.net/page"},
+        {"HTTP_HOST": "evil.example.net"},
+        {
+            "HTTP_ORIGIN": "https://evil.example.net",
+            "HTTP_REFERER": "https://evil.example.net/",
+            "HTTP_HOST": "evil.example.net",
+            "HTTP_X_FORWARDED_HOST": "evil.example.net",
+        },
+    ],
+)
+def test_reset_link_ignores_request_headers(context_factory, user, headers):
+    context = context_factory()
+    context.env.clear()
+    context.env.update(headers)
+    with patch("lithica.func.mailer.send_mail"):
+        api.password_reset_api.start_password_reset(context, {"user_name": "u1"})
+        body = mailer.send_mail.call_args[0][3]
+    assert URL_PREFIX in body
+    assert "evil.example.net" not in body
+
+
+def test_reset_link_tolerates_trailing_slash_in_domain(
+    context_factory, user, config_injector
+):
+    config_injector(
+        {
+            "domain": "http://example.com/",
+            "name": "Test instance",
+            "password_reset_token_lifetime": 3600,
+            "smtp": {"from": "noreply@example.com"},
+        }
+    )
+    with patch("lithica.func.mailer.send_mail"):
+        api.password_reset_api.start_password_reset(
+            context_factory(), {"user_name": "u1"}
+        )
+        body = mailer.send_mail.call_args[0][3]
+    assert URL_PREFIX in body
+
+
 def test_tokens_are_random(user, request_token):
     assert request_token() != request_token()
 

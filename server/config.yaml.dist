@@ -3,7 +3,8 @@
 
 # shown in the website title and on the front page
 name: lithica
-# full url to the homepage of this Lithica site, with no trailing slash
+# full url to the homepage of this Lithica site, with no trailing slash.
+# required when smtp is configured below: password reset mails link to it
 domain: # example: http://example.com
 # used to salt the users' password hashes and generate filenames for static content.
 # the server refuses to start until this is changed to your own long random

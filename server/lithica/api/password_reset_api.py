@@ -19,15 +19,14 @@ def start_password_reset(ctx: rest.Context, params: dict[str, str]) -> rest.Resp
         )
     token = password_reset.create_token(user)
 
-    if config.config["domain"]:
-        url = config.config["domain"]
-    elif "HTTP_ORIGIN" in ctx.env:
-        url = ctx.env["HTTP_ORIGIN"].rstrip("/")
-    elif "HTTP_REFERER" in ctx.env:
-        url = ctx.env["HTTP_REFERER"].rstrip("/")
-    else:
-        url = ""
-    url += "/password-reset/%s:%s" % (user.name, token)
+    # The link is built from the configured domain only. Origin and Referer
+    # come from whoever sends the request, and a link built from them would
+    # mail the user a valid token pointing at the sender's own host.
+    url = "%s/password-reset/%s:%s" % (
+        (config.config["domain"] or "").rstrip("/"),
+        user.name,
+        token,
+    )
 
     mailer.send_mail(
         config.config["smtp"]["from"],
