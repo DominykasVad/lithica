@@ -14,7 +14,7 @@ RUN apk --no-cache add \
         libavif \
         libavif-dev \
         ffmpeg \
-        # from requirements.txt: \
+        # also declared in pyproject.toml: \
         py3-yaml \
         py3-psycopg2 \
         py3-sqlalchemy \
