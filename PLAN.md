@@ -59,30 +59,14 @@ None. (The signature `ARRAY` + `unnest()` and `ilike` uses are removed in phase 
 
 ### Decision log
 
-Agents append decisions made during tasks here: date, task, decision, reason.
+Rules: only real decisions (a choice between alternatives that later work must
+respect). One line each, max ~120 characters: `date — task — decision (reason)`.
+No status notes, no "left untouched", no results — those go in commit messages.
+When a phase is merged, its entries are folded into the tables above or deleted.
 
-- 2026-10-10 — planning — initial decisions above.
-- 2026-10-10 — 0.1 — baseline recorded: `scripts/run-server-tests.sh` on the
-  existing Alpine 3.22 test image (Python 3.12.15, SQLAlchemy 2.0.40,
-  linux/arm64) gives **1257 passed, 10 skipped, 1 xfailed** (1268 collected),
-  0 failed. This is the reference count for "nothing changed". Note the
-  baseline interpreter is already 3.12, not 3.9.
-- 2026-10-10 — 0.1 — default branch renamed `master` → `main` at the owner's
-  request; `fork-point` tag created locally at `10ac850`.
-- 2026-10-10 — 0.2 — repository URLs in docs, OCI labels and the legacy
-  client footer use `https://github.com/DominykasVad/lithica` (AGENTS.md: new
-  names everywhere). They resolve only once the owner renames the GitHub
-  repo; until then the clone URL in `doc/INSTALL.md` does not work.
-- 2026-10-10 — 0.2 — rebrand also changed the example defaults
-  (`POSTGRES_USER=lithica`, `/var/local/lithica/...` in `doc/example.env` and
-  `doc/install.sh`). Existing installs keep their own `.env`, so nothing
-  moves. Left untouched as outside the listed items: legacy client
-  `package.json` name, `build.js` app name, About page text, `doc/API.md`.
-- 2026-10-10 — 0.2 — GHCR image names are in `docker-compose.yml` and the
-  install docs, but no image is published until the first release, so
-  `docker compose pull` fails until then (0.6 switches compose to `build:`).
-  `build-containers.yml` still names the Docker Hub images; it only triggers
-  on the removed `master` branch and is deleted in 0.7, so it was left alone.
+- 2026-10-10 — 0.1 — default branch is `main`, not `master` (owner's choice)
+- 2026-10-10 — 0.2 — repo URLs use `DominykasVad/lithica` ahead of the GitHub rename
+- 2026-10-10 — 0.2 — example env defaults renamed to `lithica` (user, paths)
 
 ---
 
@@ -93,7 +77,7 @@ nothing behaves differently.
 
 ### 0.1 Baseline
 - [x] Tag `10ac850` as `fork-point`.
-- [x] Confirm the current suite passes on the existing Alpine test image; record the result (pass/fail counts) in the decision log. This is the reference for "nothing changed".
+- [x] Confirm the current suite passes on the existing Alpine test image. **Reference for "nothing changed": 1257 passed, 10 skipped, 1 xfailed (1268 collected), on Python 3.12.**
 
 ### 0.2 Rename and rebrand (mechanical, separate commits)
 - [x] Rename package `server/szurubooru/` → `server/lithica/`; update all imports, `alembic.ini`, `migrations/env.py`, entry points, test paths, scripts. No other changes in this commit.
@@ -116,7 +100,7 @@ nothing behaves differently.
 - [ ] Configure ruff in `pyproject.toml` (line length 88, isort rules, pyflakes, pycodestyle, bugbear, pyupgrade). Remove black/isort/flake8 config (`.flake8`, `[tool.black]`, `[tool.isort]`).
 - [ ] One commit: `ruff format` over the whole server. Nothing else in it.
 - [ ] One or more commits: fix `ruff check` findings (or add justified per-file ignores).
-- [ ] Configure pyright `basic`. Record the initial error count in the decision log; it does not need to be zero in this phase, but CI reports it.
+- [ ] Configure pyright `basic`. Write the initial error count into this task line; it does not need to be zero in this phase, but CI reports it.
 - [ ] Update `.pre-commit-config.yaml`: ruff hooks for server; keep prettier/eslint for legacy client only if it still runs, otherwise drop them.
 
 ### 0.6 Docker
@@ -131,7 +115,7 @@ nothing behaves differently.
 
 **Exit criteria:** suite green on 3.13/Debian/uv; same pass count as 0.1;
 `docker compose up` works and the legacy client can log in, upload, tag,
-search and view a post (record the manual smoke test in the decision log).
+search and view a post (state the smoke test result in the phase PR description).
 
 ---
 
