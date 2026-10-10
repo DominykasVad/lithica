@@ -36,7 +36,7 @@ and the Docker Compose CLI (version 1.27.0 or greater) already installed.
 
 4. Pull the containers:
 
-    This pulls the latest containers from docker.io:
+    This pulls the latest containers from ghcr.io:
     ```console
     user@host:lithica$ docker compose pull
     ```
@@ -70,11 +70,11 @@ and the Docker Compose CLI (version 1.27.0 or greater) already installed.
     ```diff yaml
     ...
     server:
-    - image: szurubooru/server:latest
+    - image: ghcr.io/dominykasvad/lithica-server:latest
     + build: server
     ...
     client:
-    - image: szurubooru/client:latest
+    - image: ghcr.io/dominykasvad/lithica-client-legacy:latest
     + build: legacy/client
     ...
     ```
