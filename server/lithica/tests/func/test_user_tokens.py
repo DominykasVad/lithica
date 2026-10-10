@@ -154,3 +154,42 @@ def test_bump_usage_time(user_token_factory, fake_datetime):
     with fake_datetime("1997-01-01"):
         user_tokens.bump_usage_time(user_token)
         assert user_token.last_usage_time == datetime(1997, 1, 1)
+
+
+def test_get_by_user_and_token_picks_the_matching_token(
+    user_factory, user_token_factory
+):
+    user = user_factory()
+    other_user = user_factory()
+    db.session.add_all([user, other_user])
+    first = user_token_factory(user=user, token="first-token")
+    second = user_token_factory(user=user, token="second-token")
+    foreign = user_token_factory(user=other_user, token="foreign-token")
+    db.session.add_all([first, second, foreign])
+    db.session.flush()
+    assert user_tokens.get_by_user_and_token(user, "first-token") is first
+    assert user_tokens.get_by_user_and_token(user, "second-token") is second
+    assert user_tokens.get_by_user_and_token(other_user, "foreign-token") is foreign
+
+
+@pytest.mark.parametrize(
+    "token",
+    ["", "first", "first-token ", "First-Token", "first-tokem", "zażółć", "%"],
+)
+def test_get_by_user_and_token_with_wrong_token(
+    user_factory, user_token_factory, token
+):
+    user = user_factory()
+    db.session.add(user)
+    db.session.add(user_token_factory(user=user, token="first-token"))
+    db.session.flush()
+    assert user_tokens.get_by_user_and_token(user, token) is None
+
+
+def test_get_by_user_and_token_of_another_user(user_factory, user_token_factory):
+    user = user_factory()
+    other_user = user_factory()
+    db.session.add_all([user, other_user])
+    db.session.add(user_token_factory(user=other_user, token="foreign-token"))
+    db.session.flush()
+    assert user_tokens.get_by_user_and_token(user, "foreign-token") is None

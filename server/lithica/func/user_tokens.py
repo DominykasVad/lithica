@@ -1,3 +1,4 @@
+import hmac
 from collections.abc import Callable
 from typing import Any
 
@@ -74,13 +75,15 @@ def serialize_user_token(
     return UserTokenSerializer(user_token, auth_user).serialize(options)
 
 
-def get_by_user_and_token(user: model.User, token: str) -> model.UserToken:
-    return (
-        db.session.query(model.UserToken)
-        .filter(model.UserToken.user_id == user.user_id)
-        .filter(model.UserToken.token == token)
-        .one_or_none()
-    )
+def get_by_user_and_token(user: model.User, token: str) -> model.UserToken | None:
+    # The tokens are compared here rather than in the query, so that the
+    # comparison takes the same time wherever the first difference is.
+    candidate = token.encode("utf8")
+    found = None
+    for user_token in get_user_tokens(user):
+        if hmac.compare_digest(user_token.token.encode("utf8"), candidate):
+            found = user_token
+    return found
 
 
 def get_user_tokens(user: model.User) -> list[model.UserToken]:
