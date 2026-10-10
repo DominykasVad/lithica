@@ -112,12 +112,12 @@ with `--no-cache`.*
 
 1. **CLI-level administrative tools**
 
-    You can use the included `szuru-admin` script to perform various
+    You can use the included `lithica-admin` script to perform various
     administrative tasks such as changing or resetting a user password. To
     run from docker:
 
     ```console
-    user@host:szuru$ docker compose run server ./szuru-admin --help
+    user@host:szuru$ docker compose run server ./lithica-admin --help
     ```
 
     will give you a breakdown on all available commands.
