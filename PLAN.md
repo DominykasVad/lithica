@@ -84,7 +84,7 @@ nothing behaves differently.
 ### 0.2 Rename and rebrand (mechanical, separate commits)
 - [x] Rename package `server/szurubooru/` → `server/lithica/`; update all imports, `alembic.ini`, `migrations/env.py`, entry points, test paths, scripts. No other changes in this commit.
 - [x] Rename `szuru-admin` → `lithica-admin`.
-- [ ] Move `client/` → `legacy/client/`; fix compose files and scripts so it still builds and serves.
+- [x] Move `client/` → `legacy/client/`; fix compose files and scripts so it still builds and serves.
 - [ ] Rebrand docs and metadata: `README.md` (state clearly: fork of szurubooru at `10ac850`, GPLv3, modified — GPLv3 §5a notice), `doc/INSTALL.md`, `doc/install.sh`, OCI labels in both Dockerfiles, `config.yaml.dist` default `name`, legacy client footer "Build" link and `package.json` script.
 - [ ] Image names: `ghcr.io/dominykasvad/lithica-server`, `ghcr.io/dominykasvad/lithica-client-legacy`.
 
