@@ -110,7 +110,7 @@ nothing behaves differently.
 
 ### 0.6 Docker
 - [x] Rewrite `server/Dockerfile` on `python:3.13-slim-trixie` with uv (`uv sync --frozen --no-dev` for release). System packages via apt: ffmpeg, libheif, libavif as needed by the wheels. Keep targets `testing`, `development`, `release`. Non-root user, dumb-init (or `tini`) kept.
-- [ ] PostgreSQL 11 → 17 in both compose files. Write `doc/UPGRADING.md` with the dump/restore procedure for an existing 11 data directory.
+- [x] PostgreSQL 11 → 17 in both compose files. Write `doc/UPGRADING.md` with the dump/restore procedure for an existing 11 data directory.
 - [ ] `docker-compose.yml` uses `build:` for the server and legacy client by default (published images optional, commented).
 
 ### 0.7 CI
