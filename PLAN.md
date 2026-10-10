@@ -116,7 +116,7 @@ nothing behaves differently.
 ### 0.7 CI
 - [x] Delete `build-containers.yml` (Docker Hub).
 - [x] `ci.yml` on push and PR: `uv sync --frozen`, ruff check, ruff format --check, pyright (report only in phase 0), pytest against a `postgres:17` service container via `LITHICA_TEST_DATABASE_URL`.
-- [ ] `release.yml` on `release: published`: build multi-arch images, push to GHCR with the release tag and `latest`, using `GITHUB_TOKEN` only.
+- [x] `release.yml` on `release: published`: build multi-arch images, push to GHCR with the release tag and `latest`, using `GITHUB_TOKEN` only.
 
 **Exit criteria:** suite green on 3.13/Debian/uv; same pass count as 0.1;
 `docker compose up` works and the legacy client can log in, upload, tag,
