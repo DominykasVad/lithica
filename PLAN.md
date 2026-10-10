@@ -67,6 +67,8 @@ When a phase is merged, its entries are folded into the tables above or deleted.
 - 2026-10-10 — 0.1 — default branch is `main`, not `master` (owner's choice)
 - 2026-10-10 — 0.2 — repo URLs use `DominykasVad/lithica` ahead of the GitHub rename
 - 2026-10-10 — 0.2 — example env defaults renamed to `lithica` (user, paths)
+- 2026-10-10 — 0.3 — SQLAlchemy held at `<2.1`: 2.1 defaults to psycopg 3, a driver change outside phase 0
+- 2026-10-10 — 0.3 — `lithica` is an installable package built with `uv_build` (flat layout, no `src/`)
 
 ---
 
@@ -87,7 +89,7 @@ nothing behaves differently.
 - [x] Image names: `ghcr.io/dominykasvad/lithica-server`, `ghcr.io/dominykasvad/lithica-client-legacy`.
 
 ### 0.3 uv project
-- [ ] `server/pyproject.toml` as a uv project: `requires-python = ">=3.13,<3.14"`, `.python-version` = `3.13`. Dependencies taken from what the **Dockerfile actually installs today** (it is the source of truth, not `requirements.txt`), at current compatible versions.
+- [x] `server/pyproject.toml` as a uv project: `requires-python = ">=3.13,<3.14"`, `.python-version` = `3.13`. Dependencies taken from what the **Dockerfile actually installs today** (it is the source of truth, not `requirements.txt`), at current compatible versions.
 - [ ] Dev dependency group: pytest, pytest-xdist, pytest-cov, freezegun, ruff, pyright, import-linter.
 - [ ] Test database from Docker instead of local binaries: add `docker-compose.test.yml` (`postgres:17`, port 5433, tmpfs data, fsync off). `conftest.py` reads `LITHICA_TEST_DATABASE_URL` and creates one database per xdist worker (`test_<worker_id>`), dropped at session end. Remove `testing.postgresql` and `pytest-pgsql`.
 - [ ] Commit `uv.lock`. Delete `requirements.txt` and `dev-requirements.txt`.

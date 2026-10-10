@@ -13,3 +13,9 @@ hooks/
 
 # User configured config file
 config.yaml
+
+# Local environment
+.venv/
+uv.lock
+.python-version
+docker-compose.test.yml
