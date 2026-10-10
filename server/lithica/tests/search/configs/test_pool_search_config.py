@@ -13,9 +13,7 @@ def executor():
 @pytest.fixture
 def verify_unpaged(executor):
     def verify(input, expected_pool_names):
-        actual_count, actual_pools = executor.execute(
-            input, offset=0, limit=100
-        )
+        actual_count, actual_pools = executor.execute(input, offset=0, limit=100)
         actual_pool_names = [u.names[0].name for u in actual_pools]
         assert actual_count == len(expected_pool_names)
         assert actual_pool_names == expected_pool_names
@@ -33,9 +31,7 @@ def verify_unpaged(executor):
         ("T1,T2", ["t1", "t2"]),
     ],
 )
-def test_filter_anonymous(
-    verify_unpaged, pool_factory, input, expected_pool_names
-):
+def test_filter_anonymous(verify_unpaged, pool_factory, input, expected_pool_names):
     db.session.add(pool_factory(id=1, names=["t1"]))
     db.session.add(pool_factory(id=2, names=["t2"]))
     db.session.flush()
@@ -117,9 +113,7 @@ def test_filter_anonymous(
         ("psycopg2", "\\\\asd", ["\\asd"]),
     ],
 )
-def test_escaping(
-    executor, pool_factory, input, expected_pool_names, db_driver
-):
+def test_escaping(executor, pool_factory, input, expected_pool_names, db_driver):
     db.session.add_all(
         [
             pool_factory(id=1, names=["t1"]),
@@ -140,9 +134,7 @@ def test_escaping(
         with pytest.raises(errors.SearchError):
             executor.execute(input, offset=0, limit=100)
     else:
-        actual_count, actual_pools = executor.execute(
-            input, offset=0, limit=100
-        )
+        actual_count, actual_pools = executor.execute(input, offset=0, limit=100)
         actual_pool_names = [u.names[0].name for u in actual_pools]
         assert actual_count == len(expected_pool_names)
         assert sorted(actual_pool_names) == sorted(expected_pool_names)
@@ -180,9 +172,7 @@ def test_filter_anonymous_starting_with_colon(verify_unpaged, pool_factory):
         ("name:pool4,pool5", ["pool4"]),
     ],
 )
-def test_filter_by_name(
-    verify_unpaged, pool_factory, input, expected_pool_names
-):
+def test_filter_by_name(verify_unpaged, pool_factory, input, expected_pool_names):
     db.session.add(pool_factory(id=1, names=["pool1"]))
     db.session.add(pool_factory(id=2, names=["pool2"]))
     db.session.add(pool_factory(id=3, names=["pool3"]))
@@ -264,9 +254,7 @@ def test_filter_by_creation_time(
         ("edit-time:2014", ["t1", "t3"]),
     ],
 )
-def test_filter_by_edit_time(
-    verify_unpaged, pool_factory, input, expected_pool_names
-):
+def test_filter_by_edit_time(verify_unpaged, pool_factory, input, expected_pool_names):
     pool1 = pool_factory(id=1, names=["t1"])
     pool2 = pool_factory(id=2, names=["t2"])
     pool3 = pool_factory(id=3, names=["t3"])
@@ -332,9 +320,7 @@ def test_filter_by_invalid_input(executor, input):
         ("-sort:name,desc", ["t1", "t2"]),
     ],
 )
-def test_sort_by_name(
-    verify_unpaged, pool_factory, input, expected_pool_names
-):
+def test_sort_by_name(verify_unpaged, pool_factory, input, expected_pool_names):
     db.session.add(pool_factory(id=2, names=["t2"]))
     db.session.add(pool_factory(id=1, names=["t1"]))
     db.session.flush()

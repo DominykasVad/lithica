@@ -29,10 +29,11 @@ def test_simple_updating(user_factory, tag_category_factory, context_factory):
     category = tag_category_factory(name="name", color="black")
     db.session.add(category)
     db.session.flush()
-    with patch("lithica.func.tag_categories.serialize_category"), patch(
-        "lithica.func.tag_categories.update_category_name"
-    ), patch("lithica.func.tag_categories.update_category_color"), patch(
-        "lithica.func.snapshots.modify"
+    with (
+        patch("lithica.func.tag_categories.serialize_category"),
+        patch("lithica.func.tag_categories.update_category_name"),
+        patch("lithica.func.tag_categories.update_category_color"),
+        patch("lithica.func.snapshots.modify"),
     ):
         tag_categories.update_category_name.side_effect = _update_category_name
         tag_categories.serialize_category.return_value = "serialized category"
@@ -44,12 +45,8 @@ def test_simple_updating(user_factory, tag_category_factory, context_factory):
             {"category_name": "name"},
         )
         assert result == "serialized category"
-        tag_categories.update_category_name.assert_called_once_with(
-            category, "changed"
-        )
-        tag_categories.update_category_color.assert_called_once_with(
-            category, "white"
-        )
+        tag_categories.update_category_name.assert_called_once_with(category, "changed")
+        tag_categories.update_category_color.assert_called_once_with(category, "white")
         snapshots.modify.assert_called_once_with(category, auth_user)
 
 
@@ -64,9 +61,11 @@ def test_omitting_optional_field(
         "color": "white",
     }
     del params[field]
-    with patch("lithica.func.tag_categories.serialize_category"), patch(
-        "lithica.func.tag_categories.update_category_name"
-    ), patch("lithica.func.snapshots._post_to_webhooks"):
+    with (
+        patch("lithica.func.tag_categories.serialize_category"),
+        patch("lithica.func.tag_categories.update_category_name"),
+        patch("lithica.func.snapshots._post_to_webhooks"),
+    ):
         api.tag_category_api.update_tag_category(
             context_factory(
                 params={**params, **{"version": 1}},
@@ -113,8 +112,9 @@ def test_set_as_default(user_factory, tag_category_factory, context_factory):
     category = tag_category_factory(name="name", color="black")
     db.session.add(category)
     db.session.commit()
-    with patch("lithica.func.tag_categories.serialize_category"), patch(
-        "lithica.func.tag_categories.set_default_category"
+    with (
+        patch("lithica.func.tag_categories.serialize_category"),
+        patch("lithica.func.tag_categories.set_default_category"),
     ):
         tag_categories.update_category_name.side_effect = _update_category_name
         tag_categories.serialize_category.return_value = "serialized category"

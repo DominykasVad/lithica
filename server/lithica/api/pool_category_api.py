@@ -11,9 +11,7 @@ from lithica.func import (
 )
 
 
-def _serialize(
-    ctx: rest.Context, category: model.PoolCategory
-) -> rest.Response:
+def _serialize(ctx: rest.Context, category: model.PoolCategory) -> rest.Response:
     return pool_categories.serialize_category(
         category, options=serialization.get_serialization_options(ctx)
     )
@@ -46,28 +44,20 @@ def create_pool_category(
 
 
 @rest.routes.get("/pool-category/(?P<category_name>[^/]+)/?")
-def get_pool_category(
-    ctx: rest.Context, params: Dict[str, str]
-) -> rest.Response:
+def get_pool_category(ctx: rest.Context, params: Dict[str, str]) -> rest.Response:
     auth.verify_privilege(ctx.user, "pool_categories:view")
     category = pool_categories.get_category_by_name(params["category_name"])
     return _serialize(ctx, category)
 
 
 @rest.routes.put("/pool-category/(?P<category_name>[^/]+)/?")
-def update_pool_category(
-    ctx: rest.Context, params: Dict[str, str]
-) -> rest.Response:
-    category = pool_categories.get_category_by_name(
-        params["category_name"], lock=True
-    )
+def update_pool_category(ctx: rest.Context, params: Dict[str, str]) -> rest.Response:
+    category = pool_categories.get_category_by_name(params["category_name"], lock=True)
     versions.verify_version(category, ctx)
     versions.bump_version(category)
     if ctx.has_param("name"):
         auth.verify_privilege(ctx.user, "pool_categories:edit:name")
-        pool_categories.update_category_name(
-            category, ctx.get_param_as_string("name")
-        )
+        pool_categories.update_category_name(category, ctx.get_param_as_string("name"))
     if ctx.has_param("color"):
         auth.verify_privilege(ctx.user, "pool_categories:edit:color")
         pool_categories.update_category_color(
@@ -80,12 +70,8 @@ def update_pool_category(
 
 
 @rest.routes.delete("/pool-category/(?P<category_name>[^/]+)/?")
-def delete_pool_category(
-    ctx: rest.Context, params: Dict[str, str]
-) -> rest.Response:
-    category = pool_categories.get_category_by_name(
-        params["category_name"], lock=True
-    )
+def delete_pool_category(ctx: rest.Context, params: Dict[str, str]) -> rest.Response:
+    category = pool_categories.get_category_by_name(params["category_name"], lock=True)
     versions.verify_version(category, ctx)
     auth.verify_privilege(ctx.user, "pool_categories:delete")
     pool_categories.delete_category(category)
@@ -99,9 +85,7 @@ def set_pool_category_as_default(
     ctx: rest.Context, params: Dict[str, str]
 ) -> rest.Response:
     auth.verify_privilege(ctx.user, "pool_categories:set_default")
-    category = pool_categories.get_category_by_name(
-        params["category_name"], lock=True
-    )
+    category = pool_categories.get_category_by_name(params["category_name"], lock=True)
     pool_categories.set_default_category(category)
     ctx.session.flush()
     snapshots.modify(category, ctx.user)

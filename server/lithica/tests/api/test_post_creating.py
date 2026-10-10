@@ -27,20 +27,16 @@ def test_creating_minimal_posts(context_factory, post_factory, user_factory):
     db.session.add(post)
     db.session.flush()
 
-    with patch("lithica.func.posts.create_post"), patch(
-        "lithica.func.posts.update_post_safety"
-    ), patch("lithica.func.posts.update_post_source"), patch(
-        "lithica.func.posts.update_post_relations"
-    ), patch(
-        "lithica.func.posts.update_post_notes"
-    ), patch(
-        "lithica.func.posts.update_post_flags"
-    ), patch(
-        "lithica.func.posts.update_post_thumbnail"
-    ), patch(
-        "lithica.func.posts.serialize_post"
-    ), patch(
-        "lithica.func.snapshots.create"
+    with (
+        patch("lithica.func.posts.create_post"),
+        patch("lithica.func.posts.update_post_safety"),
+        patch("lithica.func.posts.update_post_source"),
+        patch("lithica.func.posts.update_post_relations"),
+        patch("lithica.func.posts.update_post_notes"),
+        patch("lithica.func.posts.update_post_flags"),
+        patch("lithica.func.posts.update_post_thumbnail"),
+        patch("lithica.func.posts.serialize_post"),
+        patch("lithica.func.snapshots.create"),
     ):
         posts.create_post.return_value = (post, [])
         posts.serialize_post.return_value = "serialized post"
@@ -63,20 +59,14 @@ def test_creating_minimal_posts(context_factory, post_factory, user_factory):
         posts.create_post.assert_called_once_with(
             "post-content", ["tag1", "tag2"], auth_user
         )
-        posts.update_post_thumbnail.assert_called_once_with(
-            post, "post-thumbnail"
-        )
+        posts.update_post_thumbnail.assert_called_once_with(post, "post-thumbnail")
         posts.update_post_safety.assert_called_once_with(post, "safe")
         posts.update_post_source.assert_called_once_with(post, "")
         posts.update_post_relations.assert_called_once_with(post, [])
         posts.update_post_notes.assert_called_once_with(post, [])
         posts.update_post_flags.assert_called_once_with(post, [])
-        posts.update_post_thumbnail.assert_called_once_with(
-            post, "post-thumbnail"
-        )
-        posts.serialize_post.assert_called_once_with(
-            post, auth_user, options=[]
-        )
+        posts.update_post_thumbnail.assert_called_once_with(post, "post-thumbnail")
+        posts.serialize_post.assert_called_once_with(post, auth_user, options=[])
         snapshots.create.assert_called_once_with(post, auth_user)
 
 
@@ -86,18 +76,15 @@ def test_creating_full_posts(context_factory, post_factory, user_factory):
     db.session.add(post)
     db.session.flush()
 
-    with patch("lithica.func.posts.create_post"), patch(
-        "lithica.func.posts.update_post_safety"
-    ), patch("lithica.func.posts.update_post_source"), patch(
-        "lithica.func.posts.update_post_relations"
-    ), patch(
-        "lithica.func.posts.update_post_notes"
-    ), patch(
-        "lithica.func.posts.update_post_flags"
-    ), patch(
-        "lithica.func.posts.serialize_post"
-    ), patch(
-        "lithica.func.snapshots.create"
+    with (
+        patch("lithica.func.posts.create_post"),
+        patch("lithica.func.posts.update_post_safety"),
+        patch("lithica.func.posts.update_post_source"),
+        patch("lithica.func.posts.update_post_relations"),
+        patch("lithica.func.posts.update_post_notes"),
+        patch("lithica.func.posts.update_post_flags"),
+        patch("lithica.func.posts.serialize_post"),
+        patch("lithica.func.snapshots.create"),
     ):
         posts.create_post.return_value = (post, [])
         posts.serialize_post.return_value = "serialized post"
@@ -126,15 +113,9 @@ def test_creating_full_posts(context_factory, post_factory, user_factory):
         posts.update_post_safety.assert_called_once_with(post, "safe")
         posts.update_post_source.assert_called_once_with(post, "source")
         posts.update_post_relations.assert_called_once_with(post, [1, 2])
-        posts.update_post_notes.assert_called_once_with(
-            post, ["note1", "note2"]
-        )
-        posts.update_post_flags.assert_called_once_with(
-            post, ["flag1", "flag2"]
-        )
-        posts.serialize_post.assert_called_once_with(
-            post, auth_user, options=[]
-        )
+        posts.update_post_notes.assert_called_once_with(post, ["note1", "note2"])
+        posts.update_post_flags.assert_called_once_with(post, ["flag1", "flag2"])
+        posts.serialize_post.assert_called_once_with(post, auth_user, options=[])
         snapshots.create.assert_called_once_with(post, auth_user)
 
 
@@ -146,10 +127,11 @@ def test_anonymous_uploads(
     db.session.add(post)
     db.session.flush()
 
-    with patch("lithica.func.posts.serialize_post"), patch(
-        "lithica.func.posts.create_post"
-    ), patch("lithica.func.posts.update_post_source"), patch(
-        "lithica.func.snapshots._post_to_webhooks"
+    with (
+        patch("lithica.func.posts.serialize_post"),
+        patch("lithica.func.posts.create_post"),
+        patch("lithica.func.posts.update_post_source"),
+        patch("lithica.func.snapshots._post_to_webhooks"),
     ):
         config_injector(
             {
@@ -186,12 +168,12 @@ def test_creating_from_url_saves_source(
     db.session.add(post)
     db.session.flush()
 
-    with patch("lithica.func.net.download"), patch(
-        "lithica.func.posts.serialize_post"
-    ), patch("lithica.func.posts.create_post"), patch(
-        "lithica.func.posts.update_post_source"
-    ), patch(
-        "lithica.func.snapshots._post_to_webhooks"
+    with (
+        patch("lithica.func.net.download"),
+        patch("lithica.func.posts.serialize_post"),
+        patch("lithica.func.posts.create_post"),
+        patch("lithica.func.posts.update_post_source"),
+        patch("lithica.func.snapshots._post_to_webhooks"),
     ):
         config_injector(
             {
@@ -213,9 +195,7 @@ def test_creating_from_url_saves_source(
                 user=auth_user,
             )
         )
-        net.download.assert_called_once_with(
-            "example.com", use_video_downloader=False
-        )
+        net.download.assert_called_once_with("example.com", use_video_downloader=False)
         posts.create_post.assert_called_once_with(
             b"content", ["tag1", "tag2"], auth_user
         )
@@ -230,12 +210,12 @@ def test_creating_from_url_with_source_specified(
     db.session.add(post)
     db.session.flush()
 
-    with patch("lithica.func.net.download"), patch(
-        "lithica.func.posts.serialize_post"
-    ), patch("lithica.func.posts.create_post"), patch(
-        "lithica.func.posts.update_post_source"
-    ), patch(
-        "lithica.func.snapshots._post_to_webhooks"
+    with (
+        patch("lithica.func.net.download"),
+        patch("lithica.func.posts.serialize_post"),
+        patch("lithica.func.posts.create_post"),
+        patch("lithica.func.posts.update_post_source"),
+        patch("lithica.func.snapshots._post_to_webhooks"),
     ):
         config_injector(
             {
@@ -258,9 +238,7 @@ def test_creating_from_url_with_source_specified(
                 user=auth_user,
             )
         )
-        net.download.assert_called_once_with(
-            "example.com", use_video_downloader=True
-        )
+        net.download.assert_called_once_with("example.com", use_video_downloader=True)
         posts.create_post.assert_called_once_with(
             b"content", ["tag1", "tag2"], auth_user
         )
@@ -283,12 +261,8 @@ def test_trying_to_omit_mandatory_field(context_factory, user_factory, field):
         )
 
 
-@pytest.mark.parametrize(
-    "field", ["tags", "relations", "source", "notes", "flags"]
-)
-def test_omitting_optional_field(
-    field, context_factory, post_factory, user_factory
-):
+@pytest.mark.parametrize("field", ["tags", "relations", "source", "notes", "flags"])
+def test_omitting_optional_field(field, context_factory, post_factory, user_factory):
     auth_user = user_factory(rank=model.User.RANK_REGULAR)
     post = post_factory()
     db.session.add(post)
@@ -302,18 +276,15 @@ def test_omitting_optional_field(
         "flags": ["flag1", "flag2"],
     }
     del params[field]
-    with patch("lithica.func.posts.create_post"), patch(
-        "lithica.func.posts.update_post_safety"
-    ), patch("lithica.func.posts.update_post_source"), patch(
-        "lithica.func.posts.update_post_relations"
-    ), patch(
-        "lithica.func.posts.update_post_notes"
-    ), patch(
-        "lithica.func.posts.update_post_flags"
-    ), patch(
-        "lithica.func.posts.serialize_post"
-    ), patch(
-        "lithica.func.snapshots.create"
+    with (
+        patch("lithica.func.posts.create_post"),
+        patch("lithica.func.posts.update_post_safety"),
+        patch("lithica.func.posts.update_post_source"),
+        patch("lithica.func.posts.update_post_relations"),
+        patch("lithica.func.posts.update_post_notes"),
+        patch("lithica.func.posts.update_post_flags"),
+        patch("lithica.func.posts.serialize_post"),
+        patch("lithica.func.snapshots.create"),
     ):
         posts.create_post.return_value = (post, [])
         posts.serialize_post.return_value = "serialized post"
@@ -348,9 +319,11 @@ def test_errors_not_spending_ids(
     auth_user = user_factory(rank=model.User.RANK_REGULAR)
 
     # successful request
-    with patch("lithica.func.posts.serialize_post"), patch(
-        "lithica.func.posts.update_post_tags"
-    ), patch("lithica.func.snapshots._post_to_webhooks"):
+    with (
+        patch("lithica.func.posts.serialize_post"),
+        patch("lithica.func.posts.update_post_tags"),
+        patch("lithica.func.snapshots._post_to_webhooks"),
+    ):
         posts.serialize_post.side_effect = lambda post, *_, **__: post.post_id
         post1_id = api.post_api.create_post(
             context_factory(
@@ -371,9 +344,11 @@ def test_errors_not_spending_ids(
         )
 
     # successful request
-    with patch("lithica.func.posts.serialize_post"), patch(
-        "lithica.func.posts.update_post_tags"
-    ), patch("lithica.func.snapshots._post_to_webhooks"):
+    with (
+        patch("lithica.func.posts.serialize_post"),
+        patch("lithica.func.posts.update_post_tags"),
+        patch("lithica.func.snapshots._post_to_webhooks"),
+    ):
         posts.serialize_post.side_effect = lambda post, *_, **__: post.post_id
         post2_id = api.post_api.create_post(
             context_factory(
@@ -401,9 +376,7 @@ def test_trying_to_omit_content(context_factory, user_factory):
         )
 
 
-def test_trying_to_create_post_without_privileges(
-    context_factory, user_factory
-):
+def test_trying_to_create_post_without_privileges(context_factory, user_factory):
     with pytest.raises(errors.AuthError):
         api.post_api.create_post(
             context_factory(
@@ -426,9 +399,11 @@ def test_trying_to_create_tags_without_privileges(
             },
         }
     )
-    with pytest.raises(errors.AuthError), patch(
-        "lithica.func.posts.update_post_content"
-    ), patch("lithica.func.posts.update_post_tags"):
+    with (
+        pytest.raises(errors.AuthError),
+        patch("lithica.func.posts.update_post_content"),
+        patch("lithica.func.posts.update_post_tags"),
+    ):
         posts.update_post_tags.return_value = ["new-tag"]
         api.post_api.create_post(
             context_factory(

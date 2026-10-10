@@ -42,9 +42,7 @@ def _assert_tag_siblings(result, expected_names_and_occurrences):
         ),
     ],
 )
-def test_sort_tags(
-    input, expected_tag_names, tag_factory, tag_category_factory
-):
+def test_sort_tags(input, expected_tag_names, tag_factory, tag_category_factory):
     db_tags = []
     for tag in input:
         tag_name, category_name, category_is_default = tag
@@ -446,12 +444,12 @@ def test_merge_tags_doesnt_create_relation_loop_for_parents(tag_factory):
 
 
 def test_create_tag(fake_datetime):
-    with patch("lithica.func.tags.update_tag_names"), patch(
-        "lithica.func.tags.update_tag_category_name"
-    ), patch("lithica.func.tags.update_tag_suggestions"), patch(
-        "lithica.func.tags.update_tag_implications"
-    ), fake_datetime(
-        "1997-01-01"
+    with (
+        patch("lithica.func.tags.update_tag_names"),
+        patch("lithica.func.tags.update_tag_category_name"),
+        patch("lithica.func.tags.update_tag_suggestions"),
+        patch("lithica.func.tags.update_tag_implications"),
+        fake_datetime("1997-01-01"),
     ):
         tag = tags.create_tag(["name"], "cat", ["sug"], ["imp"])
         assert tag.creation_time == datetime(1997, 1, 1)
@@ -498,9 +496,7 @@ def test_update_tag_names_with_duplicate_names(config_injector, tag_factory):
     assert [tag_name.name for tag_name in tag.names] == ["a"]
 
 
-def test_update_tag_names_trying_to_use_taken_name(
-    config_injector, tag_factory
-):
+def test_update_tag_names_trying_to_use_taken_name(config_injector, tag_factory):
     config_injector({"tag_name_regex": "^[a-zA-Z]*$"})
     existing_tag = tag_factory(names=["a"])
     db.session.add(existing_tag)

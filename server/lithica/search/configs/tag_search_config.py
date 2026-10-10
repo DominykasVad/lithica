@@ -14,9 +14,7 @@ from lithica.search.typing import SaColumn, SaQuery
 
 class TagSearchConfig(BaseSearchConfig):
     def create_filter_query(self, _disable_eager_loads: bool) -> SaQuery:
-        strategy = (
-            sa.orm.lazyload if _disable_eager_loads else sa.orm.subqueryload
-        )
+        strategy = sa.orm.lazyload if _disable_eager_loads else sa.orm.subqueryload
         return (
             db.session.query(model.Tag)
             .join(model.TagCategory)

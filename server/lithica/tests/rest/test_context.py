@@ -13,9 +13,7 @@ def test_has_param():
 
 
 def test_get_file():
-    ctx = rest.Context(
-        env={}, method=None, url=None, files={"key": b"content"}
-    )
+    ctx = rest.Context(env={}, method=None, url=None, files={"key": b"content"})
     assert ctx.get_file("key") == b"content"
     with pytest.raises(errors.ValidationError):
         ctx.get_file("non-existing")
@@ -28,9 +26,7 @@ def test_get_file_from_url():
             env={}, method=None, url=None, params={"keyUrl": "example.com"}
         )
         assert ctx.get_file("key") == b"content"
-        net.download.assert_called_once_with(
-            "example.com", use_video_downloader=False
-        )
+        net.download.assert_called_once_with("example.com", use_video_downloader=False)
         with pytest.raises(errors.ValidationError):
             assert ctx.get_file("non-existing")
 
@@ -88,9 +84,7 @@ def test_getting_int_parameter():
 
 def test_getting_bool_parameter():
     def test(value):
-        ctx = rest.Context(
-            env={}, method=None, url=None, params={"key": value}
-        )
+        ctx = rest.Context(env={}, method=None, url=None, params={"key": value})
         return ctx.get_param_as_bool("key")
 
     assert test("1") is True

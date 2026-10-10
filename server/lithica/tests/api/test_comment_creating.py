@@ -9,26 +9,18 @@ from lithica.func import comments, posts
 
 @pytest.fixture(autouse=True)
 def inject_config(config_injector):
-    config_injector(
-        {"privileges": {"comments:create": model.User.RANK_REGULAR}}
-    )
+    config_injector({"privileges": {"comments:create": model.User.RANK_REGULAR}})
 
 
-def test_creating_comment(
-    user_factory, post_factory, context_factory, fake_datetime
-):
+def test_creating_comment(user_factory, post_factory, context_factory, fake_datetime):
     post = post_factory()
     user = user_factory(rank=model.User.RANK_REGULAR)
     db.session.add_all([post, user])
     db.session.flush()
-    with patch("lithica.func.comments.serialize_comment"), fake_datetime(
-        "1997-01-01"
-    ):
+    with patch("lithica.func.comments.serialize_comment"), fake_datetime("1997-01-01"):
         comments.serialize_comment.return_value = "serialized comment"
         result = api.comment_api.create_comment(
-            context_factory(
-                params={"text": "input", "postId": post.post_id}, user=user
-            )
+            context_factory(params={"text": "input", "postId": post.post_id}, user=user)
         )
         assert result == "serialized comment"
         comment = db.session.query(model.Comment).one()
@@ -59,9 +51,7 @@ def test_trying_to_pass_invalid_params(
     for key, value in params.items():
         real_params[key] = value
     with pytest.raises(errors.ValidationError):
-        api.comment_api.create_comment(
-            context_factory(params=real_params, user=user)
-        )
+        api.comment_api.create_comment(context_factory(params=real_params, user=user))
 
 
 @pytest.mark.parametrize("field", ["text", "postId"])
@@ -73,9 +63,7 @@ def test_trying_to_omit_mandatory_field(user_factory, context_factory, field):
     del params[field]
     with pytest.raises(errors.ValidationError):
         api.comment_api.create_comment(
-            context_factory(
-                params={}, user=user_factory(rank=model.User.RANK_REGULAR)
-            )
+            context_factory(params={}, user=user_factory(rank=model.User.RANK_REGULAR))
         )
 
 

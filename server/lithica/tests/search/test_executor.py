@@ -8,8 +8,9 @@ from lithica.func import cache
 
 def test_retrieving_from_cache():
     config = unittest.mock.MagicMock()
-    with unittest.mock.patch("lithica.func.cache.has"), unittest.mock.patch(
-        "lithica.func.cache.get"
+    with (
+        unittest.mock.patch("lithica.func.cache.has"),
+        unittest.mock.patch("lithica.func.cache.get"),
     ):
         cache.has.side_effect = lambda *args: True
         executor = search.Executor(config)
@@ -19,8 +20,9 @@ def test_retrieving_from_cache():
 
 def test_putting_equivalent_queries_into_cache():
     config = search.configs.PostSearchConfig()
-    with unittest.mock.patch("lithica.func.cache.has"), unittest.mock.patch(
-        "lithica.func.cache.put"
+    with (
+        unittest.mock.patch("lithica.func.cache.has"),
+        unittest.mock.patch("lithica.func.cache.put"),
     ):
         hashes = []
 
@@ -42,8 +44,9 @@ def test_putting_equivalent_queries_into_cache():
 
 def test_putting_non_equivalent_queries_into_cache():
     config = search.configs.PostSearchConfig()
-    with unittest.mock.patch("lithica.func.cache.has"), unittest.mock.patch(
-        "lithica.func.cache.put"
+    with (
+        unittest.mock.patch("lithica.func.cache.has"),
+        unittest.mock.patch("lithica.func.cache.put"),
     ):
         hashes = []
 
@@ -110,8 +113,9 @@ def test_putting_non_equivalent_queries_into_cache():
 )
 def test_putting_auth_dependent_queries_into_cache(user_factory, input):
     config = search.configs.PostSearchConfig()
-    with unittest.mock.patch("lithica.func.cache.has"), unittest.mock.patch(
-        "lithica.func.cache.put"
+    with (
+        unittest.mock.patch("lithica.func.cache.has"),
+        unittest.mock.patch("lithica.func.cache.put"),
     ):
         hashes = []
 

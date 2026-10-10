@@ -61,9 +61,7 @@ def _on_stale_data_error(_ex: Exception) -> None:
     raise rest.errors.HttpConflict(
         name="IntegrityError",
         title="Integrity violation",
-        description=(
-            "Someone else modified this in the meantime. " "Please try again."
-        ),
+        description=("Someone else modified this in the meantime. Please try again."),
     )
 
 
@@ -87,9 +85,7 @@ def validate_config() -> None:
 
     for key in ["data_url", "data_dir"]:
         if not config.config[key]:
-            raise errors.ConfigError(
-                "Service is not configured: %r is missing" % key
-            )
+            raise errors.ConfigError("Service is not configured: %r is missing" % key)
 
     if not os.path.isabs(config.config["data_dir"]):
         raise errors.ConfigError("data_dir must be an absolute path")
@@ -97,22 +93,16 @@ def validate_config() -> None:
     if not config.config["database"]:
         raise errors.ConfigError("Database is not configured")
 
-    if config.config["webhooks"] and not isinstance(
-        config.config["webhooks"], list
-    ):
+    if config.config["webhooks"] and not isinstance(config.config["webhooks"], list):
         raise errors.ConfigError("Webhooks must be provided as a list of URLs")
 
     if config.config["smtp"]["host"]:
         if not config.config["smtp"]["port"]:
             raise errors.ConfigError("SMTP host is set but port is not set")
         if not config.config["smtp"]["user"]:
-            raise errors.ConfigError(
-                "SMTP host is set but username is not set"
-            )
+            raise errors.ConfigError("SMTP host is set but username is not set")
         if not config.config["smtp"]["pass"]:
-            raise errors.ConfigError(
-                "SMTP host is set but password is not set"
-            )
+            raise errors.ConfigError("SMTP host is set but password is not set")
         if not config.config["smtp"]["from"]:
             raise errors.ConfigError(
                 "From address must be set to use mail-based password reset"

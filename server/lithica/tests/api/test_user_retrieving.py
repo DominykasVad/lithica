@@ -41,9 +41,7 @@ def test_retrieving_multiple(user_factory, context_factory):
         }
 
 
-def test_trying_to_retrieve_multiple_without_privileges(
-    user_factory, context_factory
-):
+def test_trying_to_retrieve_multiple_without_privileges(user_factory, context_factory):
     with pytest.raises(errors.AuthError):
         api.user_api.get_users(
             context_factory(
@@ -69,18 +67,12 @@ def test_retrieving_single(user_factory, context_factory):
 def test_trying_to_retrieve_single_non_existing(user_factory, context_factory):
     auth_user = user_factory(rank=model.User.RANK_REGULAR)
     with pytest.raises(users.UserNotFoundError):
-        api.user_api.get_user(
-            context_factory(user=auth_user), {"user_name": "-"}
-        )
+        api.user_api.get_user(context_factory(user=auth_user), {"user_name": "-"})
 
 
-def test_trying_to_retrieve_single_without_privileges(
-    user_factory, context_factory
-):
+def test_trying_to_retrieve_single_without_privileges(user_factory, context_factory):
     auth_user = user_factory(rank=model.User.RANK_ANONYMOUS)
     db.session.add(user_factory(name="u1", rank=model.User.RANK_REGULAR))
     db.session.flush()
     with pytest.raises(errors.AuthError):
-        api.user_api.get_user(
-            context_factory(user=auth_user), {"user_name": "u1"}
-        )
+        api.user_api.get_user(context_factory(user=auth_user), {"user_name": "u1"})

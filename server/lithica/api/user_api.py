@@ -6,21 +6,14 @@ from lithica.func import auth, serialization, users, versions
 _search_executor = search.Executor(search.configs.UserSearchConfig())
 
 
-def _serialize(
-    ctx: rest.Context, user: model.User, **kwargs: Any
-) -> rest.Response:
+def _serialize(ctx: rest.Context, user: model.User, **kwargs: Any) -> rest.Response:
     return users.serialize_user(
-        user,
-        ctx.user,
-        options=serialization.get_serialization_options(ctx),
-        **kwargs
+        user, ctx.user, options=serialization.get_serialization_options(ctx), **kwargs
     )
 
 
 @rest.routes.get("/users/?")
-def get_users(
-    ctx: rest.Context, _params: Dict[str, str] = {}
-) -> rest.Response:
+def get_users(ctx: rest.Context, _params: Dict[str, str] = {}) -> rest.Response:
     auth.verify_privilege(ctx.user, "users:list")
     return _search_executor.execute_and_serialize(
         ctx, lambda user: _serialize(ctx, user)
@@ -28,9 +21,7 @@ def get_users(
 
 
 @rest.routes.post("/users/?")
-def create_user(
-    ctx: rest.Context, _params: Dict[str, str] = {}
-) -> rest.Response:
+def create_user(ctx: rest.Context, _params: Dict[str, str] = {}) -> rest.Response:
     if ctx.user.user_id is None:
         auth.verify_privilege(ctx.user, "users:create:self")
     else:

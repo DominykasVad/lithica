@@ -4,9 +4,7 @@ from lithica import model, rest
 from lithica.func import auth, serialization, user_tokens, users, versions
 
 
-def _serialize(
-    ctx: rest.Context, user_token: model.UserToken
-) -> rest.Response:
+def _serialize(ctx: rest.Context, user_token: model.UserToken) -> rest.Response:
     return user_tokens.serialize_user_token(
         user_token,
         ctx.user,
@@ -15,9 +13,7 @@ def _serialize(
 
 
 @rest.routes.get("/user-tokens/(?P<user_name>[^/]+)/?")
-def get_user_tokens(
-    ctx: rest.Context, params: Dict[str, str] = {}
-) -> rest.Response:
+def get_user_tokens(ctx: rest.Context, params: Dict[str, str] = {}) -> rest.Response:
     user = users.get_user_by_name(params["user_name"])
     infix = "self" if ctx.user.user_id == user.user_id else "any"
     auth.verify_privilege(ctx.user, "user_tokens:list:%s" % infix)
@@ -26,9 +22,7 @@ def get_user_tokens(
 
 
 @rest.routes.post("/user-token/(?P<user_name>[^/]+)/?")
-def create_user_token(
-    ctx: rest.Context, params: Dict[str, str] = {}
-) -> rest.Response:
+def create_user_token(ctx: rest.Context, params: Dict[str, str] = {}) -> rest.Response:
     user = users.get_user_by_name(params["user_name"])
     infix = "self" if ctx.user.user_id == user.user_id else "any"
     auth.verify_privilege(ctx.user, "user_tokens:create:%s" % infix)
@@ -39,18 +33,14 @@ def create_user_token(
         user_tokens.update_user_token_note(user_token, note)
     if ctx.has_param("expirationTime"):
         expiration_time = ctx.get_param_as_string("expirationTime")
-        user_tokens.update_user_token_expiration_time(
-            user_token, expiration_time
-        )
+        user_tokens.update_user_token_expiration_time(user_token, expiration_time)
     ctx.session.add(user_token)
     ctx.session.commit()
     return _serialize(ctx, user_token)
 
 
 @rest.routes.put("/user-token/(?P<user_name>[^/]+)/(?P<user_token>[^/]+)/?")
-def update_user_token(
-    ctx: rest.Context, params: Dict[str, str] = {}
-) -> rest.Response:
+def update_user_token(ctx: rest.Context, params: Dict[str, str] = {}) -> rest.Response:
     user = users.get_user_by_name(params["user_name"])
     infix = "self" if ctx.user.user_id == user.user_id else "any"
     auth.verify_privilege(ctx.user, "user_tokens:edit:%s" % infix)
@@ -69,18 +59,14 @@ def update_user_token(
     if ctx.has_param("expirationTime"):
         auth.verify_privilege(ctx.user, "user_tokens:edit:%s" % infix)
         expiration_time = ctx.get_param_as_string("expirationTime")
-        user_tokens.update_user_token_expiration_time(
-            user_token, expiration_time
-        )
+        user_tokens.update_user_token_expiration_time(user_token, expiration_time)
     user_tokens.update_user_token_edit_time(user_token)
     ctx.session.commit()
     return _serialize(ctx, user_token)
 
 
 @rest.routes.delete("/user-token/(?P<user_name>[^/]+)/(?P<user_token>[^/]+)/?")
-def delete_user_token(
-    ctx: rest.Context, params: Dict[str, str]
-) -> rest.Response:
+def delete_user_token(ctx: rest.Context, params: Dict[str, str]) -> rest.Response:
     user = users.get_user_by_name(params["user_name"])
     infix = "self" if ctx.user.user_id == user.user_id else "any"
     auth.verify_privilege(ctx.user, "user_tokens:delete:%s" % infix)

@@ -125,8 +125,7 @@ class TagSerializer(serialization.BaseSerializer):
 
     def serialize_suggestions(self) -> Any:
         return [
-            serialize_relation(relation)
-            for relation in sort_tags(self.tag.suggestions)
+            serialize_relation(relation) for relation in sort_tags(self.tag.suggestions)
         ]
 
     def serialize_implications(self) -> Any:
@@ -136,9 +135,7 @@ class TagSerializer(serialization.BaseSerializer):
         ]
 
 
-def serialize_tag(
-    tag: model.Tag, options: List[str] = []
-) -> Optional[rest.Response]:
+def serialize_tag(tag: model.Tag, options: List[str] = []) -> Optional[rest.Response]:
     if not tag:
         return None
     return TagSerializer(tag).serialize(options)
@@ -169,8 +166,7 @@ def get_tags_by_names(names: List[str]) -> List[model.Tag]:
         .join(model.TagName)
         .filter(
             sa.sql.or_(
-                sa.func.lower(model.TagName.name) == name.lower()
-                for name in names
+                sa.func.lower(model.TagName.name) == name.lower() for name in names
             )
         )
         .all()
@@ -187,9 +183,7 @@ def get_or_create_tags_by_names(
     for name in names:
         found = False
         for existing_tag in existing_tags:
-            if _check_name_intersection(
-                _get_names(existing_tag), [name], False
-            ):
+            if _check_name_intersection(_get_names(existing_tag), [name], False):
                 found = True
                 break
         if not found:
@@ -338,9 +332,7 @@ def update_tag_names(tag: model.Tag, names: List[str]) -> None:
         expr = expr & (model.TagName.tag_id != tag.tag_id)
     existing_tags = db.session.query(model.TagName).filter(expr).all()
     if len(existing_tags):
-        raise TagAlreadyExistsError(
-            "One of names is already used by another tag."
-        )
+        raise TagAlreadyExistsError("One of names is already used by another tag.")
 
     # remove unwanted items
     for tag_name in tag.names[:]:

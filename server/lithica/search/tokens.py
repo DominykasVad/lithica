@@ -11,9 +11,7 @@ class AnonymousToken:
 
 
 class NamedToken(AnonymousToken):
-    def __init__(
-        self, name: str, criterion: BaseCriterion, negated: bool
-    ) -> None:
+    def __init__(self, name: str, criterion: BaseCriterion, negated: bool) -> None:
         super().__init__(criterion, negated)
         self.name = name
 

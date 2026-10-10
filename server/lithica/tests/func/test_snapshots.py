@@ -132,8 +132,9 @@ def test_create(tag_factory, user_factory):
     tag = tag_factory(names=["dummy"])
     db.session.add(tag)
     db.session.flush()
-    with patch("lithica.func.snapshots.get_tag_snapshot"), patch(
-        "lithica.func.snapshots._post_to_webhooks"
+    with (
+        patch("lithica.func.snapshots.get_tag_snapshot"),
+        patch("lithica.func.snapshots._post_to_webhooks"),
     ):
         snapshots.get_tag_snapshot.return_value = "mocked"
         snapshots.create(tag, user_factory())
@@ -158,8 +159,9 @@ def test_delete(tag_factory, user_factory):
     tag = tag_factory(names=["dummy"])
     db.session.add(tag)
     db.session.flush()
-    with patch("lithica.func.snapshots.get_tag_snapshot"), patch(
-        "lithica.func.snapshots._post_to_webhooks"
+    with (
+        patch("lithica.func.snapshots.get_tag_snapshot"),
+        patch("lithica.func.snapshots._post_to_webhooks"),
     ):
         snapshots.get_tag_snapshot.return_value = "mocked"
         snapshots.delete(tag, user_factory())

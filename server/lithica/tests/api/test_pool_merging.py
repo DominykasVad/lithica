@@ -25,9 +25,11 @@ def test_merging(user_factory, pool_factory, context_factory, post_factory):
     db.session.commit()
     assert source_pool.post_count == 1
     assert target_pool.post_count == 0
-    with patch("lithica.func.pools.serialize_pool"), patch(
-        "lithica.func.pools.merge_pools"
-    ), patch("lithica.func.snapshots.merge"):
+    with (
+        patch("lithica.func.pools.serialize_pool"),
+        patch("lithica.func.pools.merge_pools"),
+        patch("lithica.func.snapshots.merge"),
+    ):
         api.pool_api.merge_pools(
             context_factory(
                 params={
@@ -40,9 +42,7 @@ def test_merging(user_factory, pool_factory, context_factory, post_factory):
             )
         )
         pools.merge_pools.assert_called_once_with(source_pool, target_pool)
-        snapshots.merge.assert_called_once_with(
-            source_pool, target_pool, auth_user
-        )
+        snapshots.merge.assert_called_once_with(source_pool, target_pool, auth_user)
 
 
 @pytest.mark.parametrize(
@@ -73,9 +73,7 @@ def test_trying_to_omit_mandatory_field(
         )
 
 
-def test_trying_to_merge_non_existing(
-    user_factory, pool_factory, context_factory
-):
+def test_trying_to_merge_non_existing(user_factory, pool_factory, context_factory):
     db.session.add(pool_factory(id=1))
     db.session.commit()
     with pytest.raises(pools.PoolNotFoundError):

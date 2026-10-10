@@ -26,18 +26,15 @@ def test_simple_updating(user_factory, pool_factory, context_factory):
     pool = pool_factory(id=1, names=["pool1", "pool2"])
     db.session.add(pool)
     db.session.commit()
-    with patch("lithica.func.pools.create_pool"), patch(
-        "lithica.func.posts.get_posts_by_ids"
-    ), patch("lithica.func.pools.update_pool_names"), patch(
-        "lithica.func.pools.update_pool_category_name"
-    ), patch(
-        "lithica.func.pools.update_pool_description"
-    ), patch(
-        "lithica.func.pools.update_pool_posts"
-    ), patch(
-        "lithica.func.pools.serialize_pool"
-    ), patch(
-        "lithica.func.snapshots.modify"
+    with (
+        patch("lithica.func.pools.create_pool"),
+        patch("lithica.func.posts.get_posts_by_ids"),
+        patch("lithica.func.pools.update_pool_names"),
+        patch("lithica.func.pools.update_pool_category_name"),
+        patch("lithica.func.pools.update_pool_description"),
+        patch("lithica.func.pools.update_pool_posts"),
+        patch("lithica.func.pools.serialize_pool"),
+        patch("lithica.func.snapshots.modify"),
     ):
         posts.get_posts_by_ids.return_value = ([], [])
         pools.serialize_pool.return_value = "serialized pool"
@@ -73,9 +70,7 @@ def test_simple_updating(user_factory, pool_factory, context_factory):
         "posts",
     ],
 )
-def test_omitting_optional_field(
-    user_factory, pool_factory, context_factory, field
-):
+def test_omitting_optional_field(user_factory, pool_factory, context_factory, field):
     db.session.add(pool_factory(id=1))
     db.session.commit()
     params = {
@@ -85,10 +80,11 @@ def test_omitting_optional_field(
         "posts": [],
     }
     del params[field]
-    with patch("lithica.func.pools.create_pool"), patch(
-        "lithica.func.pools.update_pool_names"
-    ), patch("lithica.func.pools.update_pool_category_name"), patch(
-        "lithica.func.pools.serialize_pool"
+    with (
+        patch("lithica.func.pools.create_pool"),
+        patch("lithica.func.pools.update_pool_names"),
+        patch("lithica.func.pools.update_pool_category_name"),
+        patch("lithica.func.pools.serialize_pool"),
     ):
         api.pool_api.update_pool(
             context_factory(

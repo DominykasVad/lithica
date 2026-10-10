@@ -71,9 +71,7 @@ class Context:
 
         if default is not MISSING:
             return cast(bytes, default)
-        raise errors.MissingRequiredFileError(
-            "Required file %r is missing." % name
-        )
+        raise errors.MissingRequiredFileError("Required file %r is missing." % name)
 
     def has_param(self, name: str) -> bool:
         return name in self._params
@@ -94,9 +92,7 @@ class Context:
             return [value]
         if type(value) is list:
             return value
-        raise errors.InvalidParameterError(
-            "Parameter %r must be a list." % name
-        )
+        raise errors.InvalidParameterError("Parameter %r must be a list." % name)
 
     def get_param_as_int_list(
         self, name: str, default: Union[object, List[int]] = MISSING

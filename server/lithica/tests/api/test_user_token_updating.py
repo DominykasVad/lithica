@@ -15,14 +15,13 @@ def test_edit_user_token(user_token_factory, context_factory, fake_datetime):
     user_token = user_token_factory()
     db.session.add(user_token)
     db.session.commit()
-    with patch("lithica.func.user_tokens.get_by_user_and_token"), patch(
-        "lithica.func.user_tokens.update_user_token_enabled"
-    ), patch("lithica.func.user_tokens.update_user_token_edit_time"), patch(
-        "lithica.func.user_tokens.serialize_user_token"
-    ), patch(
-        "lithica.func.users.get_user_by_name"
-    ), fake_datetime(
-        "1969-02-12"
+    with (
+        patch("lithica.func.user_tokens.get_by_user_and_token"),
+        patch("lithica.func.user_tokens.update_user_token_enabled"),
+        patch("lithica.func.user_tokens.update_user_token_edit_time"),
+        patch("lithica.func.user_tokens.serialize_user_token"),
+        patch("lithica.func.users.get_user_by_name"),
+        fake_datetime("1969-02-12"),
     ):
         users.get_user_by_name.return_value = user_token.user
         user_tokens.serialize_user_token.return_value = "serialized user token"
@@ -44,9 +43,5 @@ def test_edit_user_token(user_token_factory, context_factory, fake_datetime):
         user_tokens.get_by_user_and_token.assert_called_once_with(
             user_token.user, user_token.token
         )
-        user_tokens.update_user_token_enabled.assert_called_once_with(
-            user_token, False
-        )
-        user_tokens.update_user_token_edit_time.assert_called_once_with(
-            user_token
-        )
+        user_tokens.update_user_token_enabled.assert_called_once_with(user_token, False)
+        user_tokens.update_user_token_edit_time.assert_called_once_with(user_token)

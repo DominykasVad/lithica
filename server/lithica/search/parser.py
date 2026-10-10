@@ -6,9 +6,7 @@ from lithica.search.configs import util
 from lithica.search.query import SearchQuery
 
 
-def _create_criterion(
-    original_value: str, value: str
-) -> criteria.BaseCriterion:
+def _create_criterion(original_value: str, value: str) -> criteria.BaseCriterion:
     if re.search(r"(?<!\\),", value):
         values = re.split(r"(?<!\\),", value)
         if any(not term.strip() for term in values):
@@ -90,9 +88,7 @@ class Parser:
                 elif key == "special":
                     query.special_tokens.append(_parse_special(value, negated))
                 else:
-                    query.named_tokens.append(
-                        _parse_named(key, value, negated)
-                    )
+                    query.named_tokens.append(_parse_named(key, value, negated))
             else:
                 query.anonymous_tokens.append(_parse_anonymous(chunk, negated))
         return query

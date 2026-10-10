@@ -114,9 +114,7 @@ def test_get_liked_post_count(
     user = user_factory()
     post = post_factory()
     auth_user = user if same_user else user_factory()
-    score = model.PostScore(
-        post=post, user=user, score=score, time=datetime.now()
-    )
+    score = model.PostScore(post=post, user=user, score=score, time=datetime.now())
     db.session.add_all([post, user, score])
     db.session.flush()
     actual_liked_post_count = users.get_liked_post_count(user, auth_user)
@@ -130,10 +128,11 @@ def test_serialize_user_when_empty():
 
 
 def test_serialize_user(user_factory):
-    with patch("lithica.func.users.get_email"), patch(
-        "lithica.func.users.get_avatar_url"
-    ), patch("lithica.func.users.get_liked_post_count"), patch(
-        "lithica.func.users.get_disliked_post_count"
+    with (
+        patch("lithica.func.users.get_email"),
+        patch("lithica.func.users.get_avatar_url"),
+        patch("lithica.func.users.get_liked_post_count"),
+        patch("lithica.func.users.get_disliked_post_count"),
     ):
         users.get_email.return_value = "test@example.com"
         users.get_avatar_url.return_value = "https://example.com/avatar.png"
@@ -231,10 +230,11 @@ def test_get_user_by_name_or_email(user_factory):
 
 
 def test_create_user_for_first_user(fake_datetime):
-    with patch("lithica.func.users.update_user_name"), patch(
-        "lithica.func.users.update_user_password"
-    ), patch("lithica.func.users.update_user_email"), fake_datetime(
-        "1997-01-01"
+    with (
+        patch("lithica.func.users.update_user_name"),
+        patch("lithica.func.users.update_user_password"),
+        patch("lithica.func.users.update_user_email"),
+        fake_datetime("1997-01-01"),
     ):
         user = users.create_user("name", "password", "email")
         assert user.creation_time == datetime(1997, 1, 1)
@@ -249,9 +249,11 @@ def test_create_user_for_subsequent_users(user_factory, config_injector):
     config_injector({"default_rank": "regular"})
     db.session.add(user_factory())
     db.session.flush()
-    with patch("lithica.func.users.update_user_name"), patch(
-        "lithica.func.users.update_user_email"
-    ), patch("lithica.func.users.update_user_password"):
+    with (
+        patch("lithica.func.users.update_user_name"),
+        patch("lithica.func.users.update_user_email"),
+        patch("lithica.func.users.update_user_password"),
+    ):
         user = users.create_user("name", "password", "email")
         assert user.rank == model.User.RANK_REGULAR
 
@@ -309,14 +311,10 @@ def test_update_user_name_for_new_user(user_factory, config_injector):
 def test_update_user_name_moves_avatar(user_factory, config_injector):
     config_injector({"user_name_regex": "^[a-z]+$"})
     user = user_factory(name="old")
-    with patch("lithica.func.files.has"), patch(
-        "lithica.func.files.move"
-    ):
+    with patch("lithica.func.files.has"), patch("lithica.func.files.move"):
         files.has.return_value = True
         users.update_user_name(user, "new")
-        files.move.assert_called_once_with(
-            "avatars/old.png", "avatars/new.png"
-        )
+        files.move.assert_called_once_with("avatars/old.png", "avatars/new.png")
 
 
 def test_update_user_password_with_empty_string(user_factory):
@@ -325,9 +323,7 @@ def test_update_user_password_with_empty_string(user_factory):
         users.update_user_password(user, None)
 
 
-def test_update_user_password_with_invalid_string(
-    user_factory, config_injector
-):
+def test_update_user_password_with_invalid_string(user_factory, config_injector):
     config_injector({"password_regex": "^[a-z]+$"})
     user = user_factory()
     with pytest.raises(users.InvalidPasswordError):
@@ -337,8 +333,9 @@ def test_update_user_password_with_invalid_string(
 def test_update_user_password(user_factory, config_injector):
     config_injector({"password_regex": "^[a-z]+$"})
     user = user_factory()
-    with patch("lithica.func.auth.create_password"), patch(
-        "lithica.func.auth.get_password_hash"
+    with (
+        patch("lithica.func.auth.create_password"),
+        patch("lithica.func.auth.get_password_hash"),
     ):
         auth.create_password.return_value = "salt"
         auth.get_password_hash.return_value = ("hash", 3)
@@ -434,9 +431,7 @@ def test_update_user_avatar_to_gravatar(user_factory):
 
 def test_update_user_avatar_to_empty_manual(user_factory):
     user = user_factory()
-    with patch("lithica.func.files.has"), pytest.raises(
-        users.InvalidAvatarError
-    ):
+    with patch("lithica.func.files.has"), pytest.raises(users.InvalidAvatarError):
         files.has.return_value = False
         users.update_user_avatar(user, "manual", b"")
 
@@ -449,9 +444,7 @@ def test_update_user_avatar_to_previous_manual(user_factory):
 
 
 def test_update_user_avatar_to_new_manual(user_factory, config_injector):
-    config_injector(
-        {"thumbnails": {"avatar_width": 500, "avatar_height": 500}}
-    )
+    config_injector({"thumbnails": {"avatar_width": 500, "avatar_height": 500}})
     user = user_factory()
     with patch("lithica.func.files.save"):
         users.update_user_avatar(user, "manual", EMPTY_PIXEL)
@@ -467,8 +460,9 @@ def test_bump_user_login_time(user_factory, fake_datetime):
 
 
 def test_reset_user_password(user_factory):
-    with patch("lithica.func.auth.create_password"), patch(
-        "lithica.func.auth.get_password_hash"
+    with (
+        patch("lithica.func.auth.create_password"),
+        patch("lithica.func.auth.get_password_hash"),
     ):
         user = user_factory()
         auth.create_password.return_value = "salt"

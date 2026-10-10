@@ -28,34 +28,25 @@ def inject_config(config_injector):
     )
 
 
-def test_post_updating(
-    context_factory, post_factory, user_factory, fake_datetime
-):
+def test_post_updating(context_factory, post_factory, user_factory, fake_datetime):
     auth_user = user_factory(rank=model.User.RANK_REGULAR)
     post = post_factory()
     db.session.add(post)
     db.session.flush()
 
-    with patch("lithica.func.posts.create_post"), patch(
-        "lithica.func.posts.update_post_tags"
-    ), patch("lithica.func.posts.update_post_content"), patch(
-        "lithica.func.posts.update_post_thumbnail"
-    ), patch(
-        "lithica.func.posts.update_post_safety"
-    ), patch(
-        "lithica.func.posts.update_post_source"
-    ), patch(
-        "lithica.func.posts.update_post_relations"
-    ), patch(
-        "lithica.func.posts.update_post_notes"
-    ), patch(
-        "lithica.func.posts.update_post_flags"
-    ), patch(
-        "lithica.func.posts.serialize_post"
-    ), patch(
-        "lithica.func.snapshots.modify"
-    ), fake_datetime(
-        "1997-01-01"
+    with (
+        patch("lithica.func.posts.create_post"),
+        patch("lithica.func.posts.update_post_tags"),
+        patch("lithica.func.posts.update_post_content"),
+        patch("lithica.func.posts.update_post_thumbnail"),
+        patch("lithica.func.posts.update_post_safety"),
+        patch("lithica.func.posts.update_post_source"),
+        patch("lithica.func.posts.update_post_relations"),
+        patch("lithica.func.posts.update_post_notes"),
+        patch("lithica.func.posts.update_post_flags"),
+        patch("lithica.func.posts.serialize_post"),
+        patch("lithica.func.snapshots.modify"),
+        fake_datetime("1997-01-01"),
     ):
         posts.serialize_post.return_value = "serialized post"
 
@@ -83,37 +74,27 @@ def test_post_updating(
         posts.create_post.assert_not_called()
         posts.update_post_tags.assert_called_once_with(post, ["tag1", "tag2"])
         posts.update_post_content.assert_called_once_with(post, "post-content")
-        posts.update_post_thumbnail.assert_called_once_with(
-            post, "post-thumbnail"
-        )
+        posts.update_post_thumbnail.assert_called_once_with(post, "post-thumbnail")
         posts.update_post_safety.assert_called_once_with(post, "safe")
         posts.update_post_source.assert_called_once_with(post, "source")
         posts.update_post_relations.assert_called_once_with(post, [1, 2])
-        posts.update_post_notes.assert_called_once_with(
-            post, ["note1", "note2"]
-        )
-        posts.update_post_flags.assert_called_once_with(
-            post, ["flag1", "flag2"]
-        )
-        posts.serialize_post.assert_called_once_with(
-            post, auth_user, options=[]
-        )
+        posts.update_post_notes.assert_called_once_with(post, ["note1", "note2"])
+        posts.update_post_flags.assert_called_once_with(post, ["flag1", "flag2"])
+        posts.serialize_post.assert_called_once_with(post, auth_user, options=[])
         snapshots.modify.assert_called_once_with(post, auth_user)
         assert post.last_edit_time == datetime(1997, 1, 1)
 
 
-def test_uploading_from_url_saves_source(
-    context_factory, post_factory, user_factory
-):
+def test_uploading_from_url_saves_source(context_factory, post_factory, user_factory):
     post = post_factory()
     db.session.add(post)
     db.session.flush()
-    with patch("lithica.func.net.download"), patch(
-        "lithica.func.posts.serialize_post"
-    ), patch("lithica.func.posts.update_post_content"), patch(
-        "lithica.func.posts.update_post_source"
-    ), patch(
-        "lithica.func.snapshots.modify"
+    with (
+        patch("lithica.func.net.download"),
+        patch("lithica.func.posts.serialize_post"),
+        patch("lithica.func.posts.update_post_content"),
+        patch("lithica.func.posts.update_post_source"),
+        patch("lithica.func.snapshots.modify"),
     ):
         net.download.return_value = b"content"
         api.post_api.update_post(
@@ -123,9 +104,7 @@ def test_uploading_from_url_saves_source(
             ),
             {"post_id": post.post_id},
         )
-        net.download.assert_called_once_with(
-            "example.com", use_video_downloader=True
-        )
+        net.download.assert_called_once_with("example.com", use_video_downloader=True)
         posts.update_post_content.assert_called_once_with(post, b"content")
         posts.update_post_source.assert_called_once_with(post, "example.com")
 
@@ -136,12 +115,12 @@ def test_uploading_from_url_with_source_specified(
     post = post_factory()
     db.session.add(post)
     db.session.flush()
-    with patch("lithica.func.net.download"), patch(
-        "lithica.func.posts.serialize_post"
-    ), patch("lithica.func.posts.update_post_content"), patch(
-        "lithica.func.posts.update_post_source"
-    ), patch(
-        "lithica.func.snapshots.modify"
+    with (
+        patch("lithica.func.net.download"),
+        patch("lithica.func.posts.serialize_post"),
+        patch("lithica.func.posts.update_post_content"),
+        patch("lithica.func.posts.update_post_source"),
+        patch("lithica.func.snapshots.modify"),
     ):
         net.download.return_value = b"content"
         api.post_api.update_post(
@@ -155,9 +134,7 @@ def test_uploading_from_url_with_source_specified(
             ),
             {"post_id": post.post_id},
         )
-        net.download.assert_called_once_with(
-            "example.com", use_video_downloader=True
-        )
+        net.download.assert_called_once_with("example.com", use_video_downloader=True)
         posts.update_post_content.assert_called_once_with(post, b"content")
         posts.update_post_source.assert_called_once_with(post, "example2.com")
 
@@ -209,9 +186,7 @@ def test_trying_to_create_tags_without_privileges(
     post = post_factory()
     db.session.add(post)
     db.session.flush()
-    with pytest.raises(errors.AuthError), patch(
-        "lithica.func.posts.update_post_tags"
-    ):
+    with pytest.raises(errors.AuthError), patch("lithica.func.posts.update_post_tags"):
         posts.update_post_tags.return_value = ["new-tag"]
         api.post_api.update_post(
             context_factory(

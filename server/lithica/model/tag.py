@@ -112,9 +112,7 @@ class Tag(Base):
     )
 
     post_count = sa.orm.column_property(
-        sa.sql.expression.select(
-            sa.sql.expression.func.count(PostTag.post_id)
-        )
+        sa.sql.expression.select(sa.sql.expression.func.count(PostTag.post_id))
         .where(PostTag.tag_id == tag_id)
         .correlate_except(PostTag)
         .scalar_subquery()

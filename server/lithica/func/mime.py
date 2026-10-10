@@ -9,10 +9,10 @@ def get_mime_type(content: bytes) -> str:
     if content[0:3] in (b"CWS", b"FWS", b"ZWS"):
         return "application/x-shockwave-flash"
 
-    if content[0:3] == b"\xFF\xD8\xFF":
+    if content[0:3] == b"\xff\xd8\xff":
         return "image/jpeg"
 
-    if content[0:6] == b"\x89PNG\x0D\x0A":
+    if content[0:6] == b"\x89PNG\x0d\x0a":
         return "image/png"
 
     if content[0:6] in (b"GIF87a", b"GIF89a"):
@@ -33,10 +33,16 @@ def get_mime_type(content: bytes) -> str:
     if content[4:12] in (b"ftypheic", b"ftypheix"):
         return "image/heic"
 
-    if content[0:4] == b"\x1A\x45\xDF\xA3":
+    if content[0:4] == b"\x1a\x45\xdf\xa3":
         return "video/webm"
 
-    if content[4:12] in (b"ftypisom", b"ftypiso5", b"ftypiso6", b"ftypmp42", b"ftypM4V "):
+    if content[4:12] in (
+        b"ftypisom",
+        b"ftypiso5",
+        b"ftypiso6",
+        b"ftypmp42",
+        b"ftypM4V ",
+    ):
         return "video/mp4"
 
     if content[4:12] == b"ftypqt  ":
@@ -91,10 +97,9 @@ def is_image(mime_type: str) -> bool:
 
 
 def is_animated_gif(content: bytes) -> bool:
-    pattern = b"\x21\xF9\x04[\x00-\xFF]{4}\x00[\x2C\x21]"
+    pattern = b"\x21\xf9\x04[\x00-\xff]{4}\x00[\x2c\x21]"
     return (
-        get_mime_type(content) == "image/gif"
-        and len(re.findall(pattern, content)) > 1
+        get_mime_type(content) == "image/gif" and len(re.findall(pattern, content)) > 1
     )
 
 

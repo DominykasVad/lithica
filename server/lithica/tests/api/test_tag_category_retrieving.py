@@ -16,9 +16,7 @@ def inject_config(config_injector):
     )
 
 
-def test_retrieving_multiple(
-    user_factory, tag_category_factory, context_factory
-):
+def test_retrieving_multiple(user_factory, tag_category_factory, context_factory):
     db.session.add_all(
         [
             tag_category_factory(name="c1"),
@@ -32,9 +30,7 @@ def test_retrieving_multiple(
     assert [cat["name"] for cat in result["results"]] == ["c1", "c2"]
 
 
-def test_retrieving_single(
-    user_factory, tag_category_factory, context_factory
-):
+def test_retrieving_single(user_factory, tag_category_factory, context_factory):
     db.session.add(tag_category_factory(name="cat"))
     db.session.flush()
     result = api.tag_category_api.get_tag_category(
@@ -59,9 +55,7 @@ def test_trying_to_retrieve_single_non_existing(user_factory, context_factory):
         )
 
 
-def test_trying_to_retrieve_single_without_privileges(
-    user_factory, context_factory
-):
+def test_trying_to_retrieve_single_without_privileges(user_factory, context_factory):
     with pytest.raises(errors.AuthError):
         api.tag_category_api.get_tag_category(
             context_factory(user=user_factory(rank=model.User.RANK_ANONYMOUS)),

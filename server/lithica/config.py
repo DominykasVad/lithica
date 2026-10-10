@@ -25,9 +25,7 @@ def _container_config() -> Dict:
     if "TEST_ENVIRONMENT" not in os.environ:
         for key in ["POSTGRES_USER", "POSTGRES_PASSWORD", "POSTGRES_HOST"]:
             if key not in os.environ:
-                raise errors.ConfigError(
-                    f'Environment variable "{key}" not set'
-                )
+                raise errors.ConfigError(f'Environment variable "{key}" not set')
     return {
         "debug": True,
         "show_sql": int(os.getenv("LOG_SQL", 0)),
@@ -63,9 +61,7 @@ def _read_config() -> Dict:
     if os.path.isfile("config.yaml"):
         ret = _merge(ret, _file_config("config.yaml"))
     elif os.path.isdir("config.yaml"):
-        logger.warning(
-            "'config.yaml' should be a file, not a directory, skipping"
-        )
+        logger.warning("'config.yaml' should be a file, not a directory, skipping")
     if _running_inside_container():
         ret = _merge(ret, _container_config())
     return ret

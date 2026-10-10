@@ -68,9 +68,7 @@ def auth_executor(executor, user_factory):
 @pytest.fixture
 def verify_unpaged(executor):
     def verify(input, expected_post_ids, test_order=False):
-        actual_count, actual_posts = executor.execute(
-            input, offset=0, limit=100
-        )
+        actual_count, actual_posts = executor.execute(input, offset=0, limit=100)
         actual_post_ids = list([p.post_id for p in actual_posts])
         if not test_order:
             actual_post_ids = sorted(actual_post_ids)
@@ -414,9 +412,7 @@ def test_filter_by_feature_count(
         ("type:swf", [4]),
     ],
 )
-def test_filter_by_type(
-    verify_unpaged, post_factory, input, expected_post_ids
-):
+def test_filter_by_type(verify_unpaged, post_factory, input, expected_post_ids):
     post1 = post_factory(id=1)
     post2 = post_factory(id=2)
     post3 = post_factory(id=3)
@@ -439,9 +435,7 @@ def test_filter_by_type(
         ("safety:unsafe", [3]),
     ],
 )
-def test_filter_by_safety(
-    verify_unpaged, post_factory, input, expected_post_ids
-):
+def test_filter_by_safety(verify_unpaged, post_factory, input, expected_post_ids):
     post1 = post_factory(id=1)
     post2 = post_factory(id=2)
     post3 = post_factory(id=3)
@@ -488,9 +482,7 @@ def test_filter_by_content_checksum(
         ("file-size:100,102", [1, 3]),
     ],
 )
-def test_filter_by_file_size(
-    verify_unpaged, post_factory, input, expected_post_ids
-):
+def test_filter_by_file_size(verify_unpaged, post_factory, input, expected_post_ids):
     post1 = post_factory(id=1)
     post2 = post_factory(id=2)
     post3 = post_factory(id=3)
@@ -522,9 +514,7 @@ def test_filter_by_file_size(
         ("image-ar:0.62..0.63", [4]),
     ],
 )
-def test_filter_by_image_size(
-    verify_unpaged, post_factory, input, expected_post_ids
-):
+def test_filter_by_image_size(verify_unpaged, post_factory, input, expected_post_ids):
     post1 = post_factory(id=1)
     post2 = post_factory(id=2)
     post3 = post_factory(id=3)
@@ -747,9 +737,7 @@ def test_sort_tokens(verify_unpaged, post_factory, input):
         ("t4b", [4]),
     ],
 )
-def test_anonymous(
-    verify_unpaged, post_factory, tag_factory, input, expected_post_ids
-):
+def test_anonymous(verify_unpaged, post_factory, tag_factory, input, expected_post_ids):
     post1 = post_factory(id=1)
     post2 = post_factory(id=2)
     post3 = post_factory(id=3)
@@ -773,9 +761,7 @@ def test_own_liked(
     db.session.add_all(
         [
             score_factory(post=post1, user=auth_user, score=1),
-            score_factory(
-                post=post2, user=user_factory(name="dummy"), score=1
-            ),
+            score_factory(post=post2, user=user_factory(name="dummy"), score=1),
             score_factory(post=post3, user=auth_user, score=-1),
             post1,
             post2,
@@ -797,9 +783,7 @@ def test_own_disliked(
     db.session.add_all(
         [
             score_factory(post=post1, user=auth_user, score=-1),
-            score_factory(
-                post=post2, user=user_factory(name="dummy"), score=-1
-            ),
+            score_factory(post=post2, user=user_factory(name="dummy"), score=-1),
             score_factory(post=post3, user=auth_user, score=1),
             post1,
             post2,

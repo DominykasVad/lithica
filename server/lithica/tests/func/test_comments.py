@@ -55,8 +55,9 @@ def test_create_comment(user_factory, post_factory, fake_datetime):
     user = user_factory()
     post = post_factory()
     db.session.add_all([user, post])
-    with patch("lithica.func.comments.update_comment_text"), fake_datetime(
-        "1997-01-01"
+    with (
+        patch("lithica.func.comments.update_comment_text"),
+        fake_datetime("1997-01-01"),
     ):
         comment = comments.create_comment(user, post, "text")
         assert comment.creation_time == datetime(1997, 1, 1)

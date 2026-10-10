@@ -59,9 +59,7 @@ def _parse_multipart(env: Dict[str, Any]) -> Dict[str, Union[bytes, str]]:
     if env.get("CONTENT_LENGTH"):
         headers["Content-Length"] = env["CONTENT_LENGTH"].encode("latin-1")
     try:
-        python_multipart.parse_form(
-            headers, env["wsgi.input"], on_field, on_file
-        )
+        python_multipart.parse_form(headers, env["wsgi.input"], on_field, on_file)
     except (FormParserError, UnicodeDecodeError):
         raise errors.HttpBadRequest(
             "ValidationError", "Could not decode the multipart request body."
@@ -84,9 +82,7 @@ def _create_context(env: Dict[str, Any]) -> context.Context:
     if "multipart" in env.get("CONTENT_TYPE", ""):
         files = _parse_multipart(env)
         if not files:
-            raise errors.HttpBadRequest(
-                "ValidationError", "No files attached."
-            )
+            raise errors.HttpBadRequest("ValidationError", "No files attached.")
         body = files.get("metadata")
     else:
         body = env["wsgi.input"].read()
@@ -140,7 +136,13 @@ def application(
                 for hook in middleware.pre_hooks:
                     hook(ctx)
                 try:
-                    response = handler(ctx, {k: urllib.parse.unquote(v) for k, v in match.groupdict().items()})
+                    response = handler(
+                        ctx,
+                        {
+                            k: urllib.parse.unquote(v)
+                            for k, v in match.groupdict().items()
+                        },
+                    )
                 except Exception:
                     ctx.session.rollback()
                     raise

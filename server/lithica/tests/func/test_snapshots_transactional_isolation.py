@@ -48,12 +48,8 @@ def test_modify_saves_non_empty_diffs(post_factory, user_factory):
                 },
                 "notes": {
                     "type": "list change",
-                    "removed": [
-                        {"polygon": [[0, 0], [0, 1], [1, 1]], "text": "old"}
-                    ],
-                    "added": [
-                        {"polygon": [[0, 0], [0, 1], [1, 1]], "text": "new"}
-                    ],
+                    "removed": [{"polygon": [[0, 0], [0, 1], [1, 1]], "text": "old"}],
+                    "added": [{"polygon": [[0, 0], [0, 1], [1, 1]], "text": "new"}],
                 },
             },
         }

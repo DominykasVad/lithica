@@ -1,4 +1,4 @@
-""" Various hooks that get executed for each request. """
+"""Various hooks that get executed for each request."""
 
 import lithica.middleware.authenticator
 import lithica.middleware.cache_purger

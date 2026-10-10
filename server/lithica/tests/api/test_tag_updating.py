@@ -27,20 +27,16 @@ def test_simple_updating(user_factory, tag_factory, context_factory):
     tag = tag_factory(names=["tag1", "tag2"])
     db.session.add(tag)
     db.session.commit()
-    with patch("lithica.func.tags.create_tag"), patch(
-        "lithica.func.tags.get_or_create_tags_by_names"
-    ), patch("lithica.func.tags.update_tag_names"), patch(
-        "lithica.func.tags.update_tag_category_name"
-    ), patch(
-        "lithica.func.tags.update_tag_description"
-    ), patch(
-        "lithica.func.tags.update_tag_suggestions"
-    ), patch(
-        "lithica.func.tags.update_tag_implications"
-    ), patch(
-        "lithica.func.tags.serialize_tag"
-    ), patch(
-        "lithica.func.snapshots.modify"
+    with (
+        patch("lithica.func.tags.create_tag"),
+        patch("lithica.func.tags.get_or_create_tags_by_names"),
+        patch("lithica.func.tags.update_tag_names"),
+        patch("lithica.func.tags.update_tag_category_name"),
+        patch("lithica.func.tags.update_tag_description"),
+        patch("lithica.func.tags.update_tag_suggestions"),
+        patch("lithica.func.tags.update_tag_implications"),
+        patch("lithica.func.tags.serialize_tag"),
+        patch("lithica.func.snapshots.modify"),
     ):
         tags.get_or_create_tags_by_names.return_value = ([], [])
         tags.serialize_tag.return_value = "serialized tag"
@@ -63,12 +59,8 @@ def test_simple_updating(user_factory, tag_factory, context_factory):
         tags.update_tag_names.assert_called_once_with(tag, ["tag3"])
         tags.update_tag_category_name.assert_called_once_with(tag, "character")
         tags.update_tag_description.assert_called_once_with(tag, "desc")
-        tags.update_tag_suggestions.assert_called_once_with(
-            tag, ["sug1", "sug2"]
-        )
-        tags.update_tag_implications.assert_called_once_with(
-            tag, ["imp1", "imp2"]
-        )
+        tags.update_tag_suggestions.assert_called_once_with(tag, ["sug1", "sug2"])
+        tags.update_tag_implications.assert_called_once_with(tag, ["imp1", "imp2"])
         tags.serialize_tag.assert_called_once_with(tag, options=[])
         snapshots.modify.assert_called_once_with(tag, auth_user)
 
@@ -83,9 +75,7 @@ def test_simple_updating(user_factory, tag_factory, context_factory):
         "suggestions",
     ],
 )
-def test_omitting_optional_field(
-    user_factory, tag_factory, context_factory, field
-):
+def test_omitting_optional_field(user_factory, tag_factory, context_factory, field):
     db.session.add(tag_factory(names=["tag"]))
     db.session.commit()
     params = {
@@ -96,10 +86,11 @@ def test_omitting_optional_field(
         "implications": [],
     }
     del params[field]
-    with patch("lithica.func.tags.create_tag"), patch(
-        "lithica.func.tags.update_tag_names"
-    ), patch("lithica.func.tags.update_tag_category_name"), patch(
-        "lithica.func.tags.serialize_tag"
+    with (
+        patch("lithica.func.tags.create_tag"),
+        patch("lithica.func.tags.update_tag_names"),
+        patch("lithica.func.tags.update_tag_category_name"),
+        patch("lithica.func.tags.serialize_tag"),
     ):
         api.tag_api.update_tag(
             context_factory(

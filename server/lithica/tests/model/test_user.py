@@ -85,12 +85,8 @@ def test_liked_post_count(user_factory, post_factory):
     post2 = post_factory()
     db.session.add_all(
         [
-            model.PostScore(
-                post=post1, time=datetime.utcnow(), user=user1, score=1
-            ),
-            model.PostScore(
-                post=post2, time=datetime.utcnow(), user=user2, score=1
-            ),
+            model.PostScore(post=post1, time=datetime.utcnow(), user=user1, score=1),
+            model.PostScore(post=post2, time=datetime.utcnow(), user=user2, score=1),
         ]
     )
     db.session.flush()
@@ -110,12 +106,8 @@ def test_disliked_post_count(user_factory, post_factory):
     post2 = post_factory()
     db.session.add_all(
         [
-            model.PostScore(
-                post=post1, time=datetime.utcnow(), user=user1, score=-1
-            ),
-            model.PostScore(
-                post=post2, time=datetime.utcnow(), user=user2, score=1
-            ),
+            model.PostScore(post=post1, time=datetime.utcnow(), user=user1, score=-1),
+            model.PostScore(post=post2, time=datetime.utcnow(), user=user2, score=1),
         ]
     )
     db.session.flush()

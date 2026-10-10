@@ -14,10 +14,11 @@ def inject_config(config_injector):
 def test_creating_simple_tags(tag_factory, user_factory, context_factory):
     auth_user = user_factory(rank=model.User.RANK_REGULAR)
     tag = tag_factory()
-    with patch("lithica.func.tags.create_tag"), patch(
-        "lithica.func.tags.get_or_create_tags_by_names"
-    ), patch("lithica.func.tags.serialize_tag"), patch(
-        "lithica.func.snapshots.create"
+    with (
+        patch("lithica.func.tags.create_tag"),
+        patch("lithica.func.tags.get_or_create_tags_by_names"),
+        patch("lithica.func.tags.serialize_tag"),
+        patch("lithica.func.snapshots.create"),
     ):
         tags.get_or_create_tags_by_names.return_value = ([], [])
         tags.create_tag.return_value = tag
@@ -59,9 +60,7 @@ def test_trying_to_omit_mandatory_field(user_factory, context_factory, field):
 
 
 @pytest.mark.parametrize("field", ["implications", "suggestions"])
-def test_omitting_optional_field(
-    tag_factory, user_factory, context_factory, field
-):
+def test_omitting_optional_field(tag_factory, user_factory, context_factory, field):
     params = {
         "names": ["tag1", "tag2"],
         "category": "meta",
@@ -69,9 +68,11 @@ def test_omitting_optional_field(
         "implications": [],
     }
     del params[field]
-    with patch("lithica.func.tags.create_tag"), patch(
-        "lithica.func.tags.serialize_tag"
-    ), patch("lithica.func.snapshots._post_to_webhooks"):
+    with (
+        patch("lithica.func.tags.create_tag"),
+        patch("lithica.func.tags.serialize_tag"),
+        patch("lithica.func.snapshots._post_to_webhooks"),
+    ):
         tags.create_tag.return_value = tag_factory()
         api.tag_api.create_tag(
             context_factory(
@@ -80,9 +81,7 @@ def test_omitting_optional_field(
         )
 
 
-def test_trying_to_create_tag_without_privileges(
-    user_factory, context_factory
-):
+def test_trying_to_create_tag_without_privileges(user_factory, context_factory):
     with pytest.raises(errors.AuthError):
         api.tag_api.create_tag(
             context_factory(

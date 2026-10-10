@@ -29,9 +29,7 @@ def test_deleting_own_comment(user_factory, comment_factory, context_factory):
     assert db.session.query(model.Comment).count() == 0
 
 
-def test_deleting_someones_else_comment(
-    user_factory, comment_factory, context_factory
-):
+def test_deleting_someones_else_comment(user_factory, comment_factory, context_factory):
     user1 = user_factory(rank=model.User.RANK_REGULAR)
     user2 = user_factory(rank=model.User.RANK_MODERATOR)
     comment = comment_factory(user=user1)

@@ -25,9 +25,11 @@ def test_merging(user_factory, tag_factory, context_factory, post_factory):
     db.session.commit()
     assert source_tag.post_count == 1
     assert target_tag.post_count == 0
-    with patch("lithica.func.tags.serialize_tag"), patch(
-        "lithica.func.tags.merge_tags"
-    ), patch("lithica.func.snapshots.merge"):
+    with (
+        patch("lithica.func.tags.serialize_tag"),
+        patch("lithica.func.tags.merge_tags"),
+        patch("lithica.func.snapshots.merge"),
+    ):
         api.tag_api.merge_tags(
             context_factory(
                 params={
@@ -40,9 +42,7 @@ def test_merging(user_factory, tag_factory, context_factory, post_factory):
             )
         )
         tags.merge_tags.assert_called_once_with(source_tag, target_tag)
-        snapshots.merge.assert_called_once_with(
-            source_tag, target_tag, auth_user
-        )
+        snapshots.merge.assert_called_once_with(source_tag, target_tag, auth_user)
 
 
 @pytest.mark.parametrize(
@@ -73,9 +73,7 @@ def test_trying_to_omit_mandatory_field(
         )
 
 
-def test_trying_to_merge_non_existing(
-    user_factory, tag_factory, context_factory
-):
+def test_trying_to_merge_non_existing(user_factory, tag_factory, context_factory):
     db.session.add(tag_factory(names=["good"]))
     db.session.commit()
     with pytest.raises(tags.TagNotFoundError):
@@ -94,9 +92,7 @@ def test_trying_to_merge_non_existing(
         )
 
 
-def test_trying_to_merge_without_privileges(
-    user_factory, tag_factory, context_factory
-):
+def test_trying_to_merge_without_privileges(user_factory, tag_factory, context_factory):
     db.session.add_all(
         [
             tag_factory(names=["source"]),

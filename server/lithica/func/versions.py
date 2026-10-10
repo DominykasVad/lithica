@@ -8,8 +8,7 @@ def verify_version(
     expected_version = entity.version
     if actual_version != expected_version:
         raise errors.IntegrityError(
-            "Someone else modified this in the meantime. "
-            + "Please try again."
+            "Someone else modified this in the meantime. " + "Please try again."
         )
 
 

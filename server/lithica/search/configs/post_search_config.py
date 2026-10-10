@@ -60,8 +60,7 @@ def _create_score_filter(score: int) -> Filter:
         assert criterion
         if not getattr(criterion, "internal", False):
             raise errors.SearchError(
-                "Votes cannot be seen publicly. Did you mean %r?"
-                % "special:liked"
+                "Votes cannot be seen publicly. Did you mean %r?" % "special:liked"
             )
         user_alias = sa.orm.aliased(model.User)
         score_alias = sa.orm.aliased(model.PostScore)
@@ -133,14 +132,10 @@ def _category_filter(
     )
 
     # Step 2. find the tags with that category
-    q2 = db.session.query(model.Tag.tag_id).filter(
-        model.Tag.category_id.in_(q1)
-    )
+    q2 = db.session.query(model.Tag.tag_id).filter(model.Tag.category_id.in_(q1))
 
     # Step 3. find all posts that have at least one of those tags
-    q3 = db.session.query(model.PostTag.post_id).filter(
-        model.PostTag.tag_id.in_(q2)
-    )
+    q3 = db.session.query(model.PostTag.post_id).filter(model.PostTag.tag_id.in_(q2))
 
     # Step 4. profit
     expr = model.Post.post_id.in_(q3)
@@ -160,9 +155,7 @@ class PostSearchConfig(BaseSearchConfig):
             if token.value in ("fav", "liked", "disliked"):
                 assert self.user
                 if self.user.rank == "anonymous":
-                    raise errors.SearchError(
-                        "Must be logged in to use this feature."
-                    )
+                    raise errors.SearchError("Must be logged in to use this feature.")
                 criterion = criteria.PlainCriterion(
                     original_text=self.user.name, value=self.user.name
                 )
@@ -182,9 +175,7 @@ class PostSearchConfig(BaseSearchConfig):
         return db.session.query(model.Post).options(sa.orm.lazyload("*"))
 
     def create_filter_query(self, disable_eager_loads: bool) -> SaQuery:
-        strategy = (
-            sa.orm.lazyload if disable_eager_loads else sa.orm.subqueryload
-        )
+        strategy = sa.orm.lazyload if disable_eager_loads else sa.orm.subqueryload
         return db.session.query(model.Post).options(
             sa.orm.lazyload("*"),
             # use config optimized for official client
@@ -236,9 +227,7 @@ class PostSearchConfig(BaseSearchConfig):
                         model.PostTag.post_id,
                         model.TagName.name,
                         search_util.create_str_filter,
-                        lambda subquery: subquery.join(model.Tag).join(
-                            model.TagName
-                        ),
+                        lambda subquery: subquery.join(model.Tag).join(model.TagName),
                     ),
                 ),
                 (["score"], search_util.create_num_filter(model.Post.score)),
@@ -297,9 +286,7 @@ class PostSearchConfig(BaseSearchConfig):
                 ),
                 (
                     ["type"],
-                    search_util.create_str_filter(
-                        model.Post.type, _type_transformer
-                    ),
+                    search_util.create_str_filter(model.Post.type, _type_transformer),
                 ),
                 (
                     ["content-checksum", "sha1"],
@@ -353,15 +340,11 @@ class PostSearchConfig(BaseSearchConfig):
                 ),
                 (
                     ["fav-date", "fav-time"],
-                    search_util.create_date_filter(
-                        model.Post.last_favorite_time
-                    ),
+                    search_util.create_date_filter(model.Post.last_favorite_time),
                 ),
                 (
                     ["feature-date", "feature-time"],
-                    search_util.create_date_filter(
-                        model.Post.last_feature_time
-                    ),
+                    search_util.create_date_filter(model.Post.last_feature_time),
                 ),
                 (
                     ["safety", "rating"],

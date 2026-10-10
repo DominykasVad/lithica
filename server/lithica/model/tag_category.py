@@ -12,9 +12,7 @@ class TagCategory(Base):
     tag_category_id = sa.Column("id", sa.Integer, primary_key=True)
     version = sa.Column("version", sa.Integer, default=1, nullable=False)
     name = sa.Column("name", sa.Unicode(32), nullable=False)
-    color = sa.Column(
-        "color", sa.Unicode(32), nullable=False, default="#000000"
-    )
+    color = sa.Column("color", sa.Unicode(32), nullable=False, default="#000000")
     default = sa.Column("default", sa.Boolean, nullable=False, default=False)
     order = sa.Column("order", sa.Integer, nullable=False, default=1)
 

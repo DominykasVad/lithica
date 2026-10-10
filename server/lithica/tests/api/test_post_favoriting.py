@@ -9,9 +9,7 @@ from lithica.func import posts
 
 @pytest.fixture(autouse=True)
 def inject_config(config_injector):
-    config_injector(
-        {"privileges": {"posts:favorite": model.User.RANK_REGULAR}}
-    )
+    config_injector({"privileges": {"posts:favorite": model.User.RANK_REGULAR}})
 
 
 def test_adding_to_favorites(
@@ -21,9 +19,7 @@ def test_adding_to_favorites(
     db.session.add(post)
     db.session.commit()
     assert post.score == 0
-    with patch("lithica.func.posts.serialize_post"), fake_datetime(
-        "1997-12-01"
-    ):
+    with patch("lithica.func.posts.serialize_post"), fake_datetime("1997-12-01"):
         posts.serialize_post.return_value = "serialized post"
         result = api.post_api.add_post_to_favorites(
             context_factory(user=user_factory()), {"post_id": post.post_id}
@@ -60,9 +56,7 @@ def test_removing_from_favorites(
         assert post.favorite_count == 0
 
 
-def test_favoriting_twice(
-    user_factory, post_factory, context_factory, fake_datetime
-):
+def test_favoriting_twice(user_factory, post_factory, context_factory, fake_datetime):
     user = user_factory()
     post = post_factory()
     db.session.add(post)
@@ -81,9 +75,7 @@ def test_favoriting_twice(
         assert post.favorite_count == 1
 
 
-def test_removing_twice(
-    user_factory, post_factory, context_factory, fake_datetime
-):
+def test_removing_twice(user_factory, post_factory, context_factory, fake_datetime):
     user = user_factory()
     post = post_factory()
     db.session.add(post)
@@ -136,9 +128,7 @@ def test_trying_to_update_non_existing(user_factory, context_factory):
         )
 
 
-def test_trying_to_rate_without_privileges(
-    user_factory, post_factory, context_factory
-):
+def test_trying_to_rate_without_privileges(user_factory, post_factory, context_factory):
     post = post_factory()
     db.session.add(post)
     db.session.commit()

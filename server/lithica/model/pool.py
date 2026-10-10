@@ -87,9 +87,7 @@ class Pool(Base):
 
     post_count = sa.orm.column_property(
         (
-            sa.sql.expression.select(
-                sa.sql.expression.func.count(PoolPost.post_id)
-            )
+            sa.sql.expression.select(sa.sql.expression.func.count(PoolPost.post_id))
             .where(PoolPost.pool_id == pool_id)
             .scalar_subquery()
         ),

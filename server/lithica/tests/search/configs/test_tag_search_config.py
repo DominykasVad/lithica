@@ -13,9 +13,7 @@ def executor():
 @pytest.fixture
 def verify_unpaged(executor):
     def verify(input, expected_tag_names):
-        actual_count, actual_tags = executor.execute(
-            input, offset=0, limit=100
-        )
+        actual_count, actual_tags = executor.execute(input, offset=0, limit=100)
         actual_tag_names = [u.names[0].name for u in actual_tags]
         assert actual_count == len(expected_tag_names)
         assert actual_tag_names == expected_tag_names
@@ -33,9 +31,7 @@ def verify_unpaged(executor):
         ("T1,T2", ["t1", "t2"]),
     ],
 )
-def test_filter_anonymous(
-    verify_unpaged, tag_factory, input, expected_tag_names
-):
+def test_filter_anonymous(verify_unpaged, tag_factory, input, expected_tag_names):
     db.session.add(tag_factory(names=["t1"]))
     db.session.add(tag_factory(names=["t2"]))
     db.session.flush()
@@ -138,9 +134,7 @@ def test_escaping(executor, tag_factory, input, expected_tag_names, db_driver):
         with pytest.raises(errors.SearchError):
             executor.execute(input, offset=0, limit=100)
     else:
-        actual_count, actual_tags = executor.execute(
-            input, offset=0, limit=100
-        )
+        actual_count, actual_tags = executor.execute(input, offset=0, limit=100)
         actual_tag_names = [u.names[0].name for u in actual_tags]
         assert actual_count == len(expected_tag_names)
         assert sorted(actual_tag_names) == sorted(expected_tag_names)
@@ -178,9 +172,7 @@ def test_filter_anonymous_starting_with_colon(verify_unpaged, tag_factory):
         ("name:tag4,tag5", ["tag4"]),
     ],
 )
-def test_filter_by_name(
-    verify_unpaged, tag_factory, input, expected_tag_names
-):
+def test_filter_by_name(verify_unpaged, tag_factory, input, expected_tag_names):
     db.session.add(tag_factory(names=["tag1"]))
     db.session.add(tag_factory(names=["tag2"]))
     db.session.add(tag_factory(names=["tag3"]))
@@ -262,9 +254,7 @@ def test_filter_by_creation_time(
         ("edit-time:2014", ["t1", "t3"]),
     ],
 )
-def test_filter_by_edit_time(
-    verify_unpaged, tag_factory, input, expected_tag_names
-):
+def test_filter_by_edit_time(verify_unpaged, tag_factory, input, expected_tag_names):
     tag1 = tag_factory(names=["t1"])
     tag2 = tag_factory(names=["t2"])
     tag3 = tag_factory(names=["t3"])
@@ -397,9 +387,7 @@ def test_sort_by_name(verify_unpaged, tag_factory, input, expected_tag_names):
         ("sort:creation-time", ["t3", "t2", "t1"]),
     ],
 )
-def test_sort_by_creation_time(
-    verify_unpaged, tag_factory, input, expected_tag_names
-):
+def test_sort_by_creation_time(verify_unpaged, tag_factory, input, expected_tag_names):
     tag1 = tag_factory(names=["t1"])
     tag2 = tag_factory(names=["t2"])
     tag3 = tag_factory(names=["t3"])
@@ -421,9 +409,7 @@ def test_sort_by_creation_time(
         ("sort:edit-time", ["t3", "t2", "t1"]),
     ],
 )
-def test_sort_by_last_edit_time(
-    verify_unpaged, tag_factory, input, expected_tag_names
-):
+def test_sort_by_last_edit_time(verify_unpaged, tag_factory, input, expected_tag_names):
     tag1 = tag_factory(names=["t1"])
     tag2 = tag_factory(names=["t2"])
     tag3 = tag_factory(names=["t3"])

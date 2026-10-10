@@ -294,9 +294,7 @@ class Image:
                     " ".join(shlex.quote(arg) for arg in cli),
                     err,
                 )
-                if (len(out) > 0 and not ignore_error_if_data) or len(
-                    out
-                ) == 0:
+                if (len(out) > 0 and not ignore_error_if_data) or len(out) == 0:
                     raise errors.ProcessingError(
                         "Error while processing image.\n" + err.decode("utf-8")
                     )
@@ -322,6 +320,4 @@ class Image:
         assert "streams" in self.info
         if len(self.info["streams"]) < 1:
             logger.warning("The video contains no video streams.")
-            raise errors.ProcessingError(
-                "The video contains no video streams."
-            )
+            raise errors.ProcessingError("The video contains no video streams.")

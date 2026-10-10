@@ -19,21 +19,15 @@ def inject_config(config_injector):
     )
 
 
-def test_simple_updating(
-    user_factory, comment_factory, context_factory, fake_datetime
-):
+def test_simple_updating(user_factory, comment_factory, context_factory, fake_datetime):
     user = user_factory(rank=model.User.RANK_REGULAR)
     comment = comment_factory(user=user)
     db.session.add(comment)
     db.session.commit()
-    with patch("lithica.func.comments.serialize_comment"), fake_datetime(
-        "1997-12-01"
-    ):
+    with patch("lithica.func.comments.serialize_comment"), fake_datetime("1997-12-01"):
         comments.serialize_comment.return_value = "serialized comment"
         result = api.comment_api.update_comment(
-            context_factory(
-                params={"text": "new text", "version": 1}, user=user
-            ),
+            context_factory(params={"text": "new text", "version": 1}, user=user),
             {"comment_id": comment.comment_id},
         )
         assert result == "serialized comment"
@@ -64,9 +58,7 @@ def test_trying_to_pass_invalid_params(
         )
 
 
-def test_trying_to_omit_mandatory_field(
-    user_factory, comment_factory, context_factory
-):
+def test_trying_to_omit_mandatory_field(user_factory, comment_factory, context_factory):
     user = user_factory()
     comment = comment_factory(user=user)
     db.session.add(comment)
@@ -99,9 +91,7 @@ def test_trying_to_update_someones_comment_without_privileges(
     db.session.commit()
     with pytest.raises(errors.AuthError):
         api.comment_api.update_comment(
-            context_factory(
-                params={"text": "new text", "version": 1}, user=user2
-            ),
+            context_factory(params={"text": "new text", "version": 1}, user=user2),
             {"comment_id": comment.comment_id},
         )
 
@@ -116,8 +106,6 @@ def test_updating_someones_comment_with_privileges(
     db.session.commit()
     with patch("lithica.func.comments.serialize_comment"):
         api.comment_api.update_comment(
-            context_factory(
-                params={"text": "new text", "version": 1}, user=user2
-            ),
+            context_factory(params={"text": "new text", "version": 1}, user=user2),
             {"comment_id": comment.comment_id},
         )

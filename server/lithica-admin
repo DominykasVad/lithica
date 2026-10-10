@@ -48,10 +48,7 @@ def check_audio() -> None:
         try:
             has_sound_data = images.Image(content).check_for_sound()
         except errors.ProcessingError:
-            print(
-                "Post %d caused an error when checking for sound"
-                % post.post_id
-            )
+            print("Post %d caused an error when checking for sound" % post.post_id)
 
         if has_sound_data and not has_existing_flag:
             print("Post %d has sound data but is not flagged" % post.post_id)
@@ -126,8 +123,7 @@ def main() -> None:
     parser.add_argument(
         "--regenerate-thumbnails",
         action="store_true",
-        help="regenerate the thumbnails for posts if the "
-        "thumbnail files are missing",
+        help="regenerate the thumbnails for posts if the thumbnail files are missing",
     )
     command = parser_top.parse_args()
 

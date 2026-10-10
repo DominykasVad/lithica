@@ -13,9 +13,7 @@ def executor():
 @pytest.fixture
 def verify_unpaged(executor):
     def verify(input, expected_comment_text):
-        actual_count, actual_comments = executor.execute(
-            input, offset=0, limit=100
-        )
+        actual_count, actual_comments = executor.execute(input, offset=0, limit=100)
         actual_comment_text = [c.text for c in actual_comments]
         assert actual_count == len(expected_comment_text)
         assert actual_comment_text == expected_comment_text
@@ -53,9 +51,7 @@ def test_filter_by_creation_time(
         ("text:t*", ["t1", "t2"]),
     ],
 )
-def test_filter_by_text(
-    verify_unpaged, comment_factory, input, expected_comment_text
-):
+def test_filter_by_text(verify_unpaged, comment_factory, input, expected_comment_text):
     comment1 = comment_factory(text="t1")
     comment2 = comment_factory(text="t2")
     db.session.add_all([comment1, comment2])
@@ -106,9 +102,7 @@ def test_filter_by_post(
         ("t1,t2", ["t1", "t2"]),
     ],
 )
-def test_anonymous(
-    verify_unpaged, comment_factory, input, expected_comment_text
-):
+def test_anonymous(verify_unpaged, comment_factory, input, expected_comment_text):
     db.session.add(comment_factory(text="t1"))
     db.session.add(comment_factory(text="t2"))
     db.session.flush()

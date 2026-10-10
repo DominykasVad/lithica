@@ -40,9 +40,11 @@ def test_create_batches_post_and_new_tag_snapshots(
     db.session.add_all([post, tag, user])
     db.session.flush()
 
-    with patch("lithica.func.snapshots.get_post_snapshot"), patch(
-        "lithica.func.snapshots.get_tag_snapshot"
-    ), patch("lithica.func.snapshots._post_to_webhooks"):
+    with (
+        patch("lithica.func.snapshots.get_post_snapshot"),
+        patch("lithica.func.snapshots.get_tag_snapshot"),
+        patch("lithica.func.snapshots._post_to_webhooks"),
+    ):
         snapshots.get_post_snapshot.return_value = "mocked-post"
         snapshots.get_tag_snapshot.return_value = "mocked-tag"
         snapshots.create(post, user)

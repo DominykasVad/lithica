@@ -14,10 +14,11 @@ def inject_config(config_injector):
 def test_creating_simple_pools(pool_factory, user_factory, context_factory):
     auth_user = user_factory(rank=model.User.RANK_REGULAR)
     pool = pool_factory()
-    with patch("lithica.func.pools.create_pool"), patch(
-        "lithica.func.pools.get_or_create_pools_by_names"
-    ), patch("lithica.func.pools.serialize_pool"), patch(
-        "lithica.func.snapshots.create"
+    with (
+        patch("lithica.func.pools.create_pool"),
+        patch("lithica.func.pools.get_or_create_pools_by_names"),
+        patch("lithica.func.pools.serialize_pool"),
+        patch("lithica.func.snapshots.create"),
     ):
         posts.get_posts_by_ids.return_value = ([], [])
         pools.create_pool.return_value = pool
@@ -34,9 +35,7 @@ def test_creating_simple_pools(pool_factory, user_factory, context_factory):
             )
         )
         assert result == "serialized pool"
-        pools.create_pool.assert_called_once_with(
-            ["pool1", "pool2"], "default", [1, 2]
-        )
+        pools.create_pool.assert_called_once_with(["pool1", "pool2"], "default", [1, 2])
         snapshots.create.assert_called_once_with(pool, auth_user)
 
 
@@ -58,9 +57,7 @@ def test_trying_to_omit_mandatory_field(user_factory, context_factory, field):
 
 
 @pytest.mark.parametrize("field", ["description", "posts"])
-def test_omitting_optional_field(
-    pool_factory, user_factory, context_factory, field
-):
+def test_omitting_optional_field(pool_factory, user_factory, context_factory, field):
     params = {
         "names": ["pool1", "pool2"],
         "category": "default",
@@ -68,9 +65,11 @@ def test_omitting_optional_field(
         "posts": [],
     }
     del params[field]
-    with patch("lithica.func.pools.create_pool"), patch(
-        "lithica.func.pools.serialize_pool"
-    ), patch("lithica.func.snapshots._post_to_webhooks"):
+    with (
+        patch("lithica.func.pools.create_pool"),
+        patch("lithica.func.pools.serialize_pool"),
+        patch("lithica.func.snapshots._post_to_webhooks"),
+    ):
         pools.create_pool.return_value = pool_factory()
         api.pool_api.create_pool(
             context_factory(
@@ -79,9 +78,7 @@ def test_omitting_optional_field(
         )
 
 
-def test_trying_to_create_pool_without_privileges(
-    user_factory, context_factory
-):
+def test_trying_to_create_pool_without_privileges(user_factory, context_factory):
     with pytest.raises(errors.AuthError):
         api.pool_api.create_pool(
             context_factory(

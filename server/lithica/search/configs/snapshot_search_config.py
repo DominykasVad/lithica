@@ -25,18 +25,10 @@ class SnapshotSearchConfig(BaseSearchConfig):
     @property
     def named_filters(self) -> Dict[str, Filter]:
         return {
-            "type": search_util.create_str_filter(
-                model.Snapshot.resource_type
-            ),
+            "type": search_util.create_str_filter(model.Snapshot.resource_type),
             "id": search_util.create_str_filter(model.Snapshot.resource_name),
-            "date": search_util.create_date_filter(
-                model.Snapshot.creation_time
-            ),
-            "time": search_util.create_date_filter(
-                model.Snapshot.creation_time
-            ),
-            "operation": search_util.create_str_filter(
-                model.Snapshot.operation
-            ),
+            "date": search_util.create_date_filter(model.Snapshot.creation_time),
+            "time": search_util.create_date_filter(model.Snapshot.creation_time),
+            "operation": search_util.create_str_filter(model.Snapshot.operation),
             "user": search_util.create_str_filter(model.User.name),
         }

@@ -15,9 +15,7 @@ def test_get_password_hash():
     result, revision = auth.get_password_hash(salt, password)
     assert result
     assert revision == 3
-    hash_parts = list(
-        filter(lambda e: e is not None and e != "", result.split("$"))
-    )
+    hash_parts = list(filter(lambda e: e is not None and e != "", result.split("$")))
     assert len(hash_parts) == 5
     assert hash_parts[0] == "argon2id"
 

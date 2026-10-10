@@ -34,9 +34,7 @@ def get_password_hash(salt: str, password: str) -> Tuple[str, int]:
     )
 
 
-def get_sha256_legacy_password_hash(
-    salt: str, password: str
-) -> Tuple[str, int]:
+def get_sha256_legacy_password_hash(salt: str, password: str) -> Tuple[str, int]:
     """Retrieve old-style sha256 password hash."""
     digest = hashlib.sha256()
     digest.update(config.config["secret"].encode("utf8"))
@@ -111,9 +109,7 @@ def has_privilege(user: model.User, privilege_name: str) -> bool:
     all_ranks = list(RANK_MAP.keys())
     assert privilege_name in config.config["privileges"]
     assert user.rank in all_ranks
-    minimal_rank = util.flip(RANK_MAP)[
-        config.config["privileges"][privilege_name]
-    ]
+    minimal_rank = util.flip(RANK_MAP)[config.config["privileges"][privilege_name]]
     good_ranks = all_ranks[all_ranks.index(minimal_rank) :]
     return user.rank in good_ranks
 

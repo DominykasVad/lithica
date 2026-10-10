@@ -40,9 +40,7 @@ def test_retrieving_multiple(user_factory, comment_factory, context_factory):
         }
 
 
-def test_trying_to_retrieve_multiple_without_privileges(
-    user_factory, context_factory
-):
+def test_trying_to_retrieve_multiple_without_privileges(user_factory, context_factory):
     with pytest.raises(errors.AuthError):
         api.comment_api.get_comments(
             context_factory(
@@ -73,9 +71,7 @@ def test_trying_to_retrieve_single_non_existing(user_factory, context_factory):
         )
 
 
-def test_trying_to_retrieve_single_without_privileges(
-    user_factory, context_factory
-):
+def test_trying_to_retrieve_single_without_privileges(user_factory, context_factory):
     with pytest.raises(errors.AuthError):
         api.comment_api.get_comment(
             context_factory(user=user_factory(rank=model.User.RANK_ANONYMOUS)),

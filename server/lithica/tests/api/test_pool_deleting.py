@@ -26,9 +26,7 @@ def test_deleting(user_factory, pool_factory, context_factory):
         snapshots.delete.assert_called_once_with(pool, auth_user)
 
 
-def test_deleting_used(
-    user_factory, pool_factory, context_factory, post_factory
-):
+def test_deleting_used(user_factory, pool_factory, context_factory, post_factory):
     pool = pool_factory(id=1)
     post = post_factory(id=1)
     pool.posts.append(post)

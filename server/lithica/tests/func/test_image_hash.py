@@ -8,12 +8,8 @@ def test_signature_functions(read_asset, config_injector):
     sig1 = image_hash.generate_signature(read_asset("jpeg.jpg"))
     sig2 = image_hash.generate_signature(read_asset("jpeg-similar.jpg"))
 
-    sig1_repacked = image_hash.unpack_signature(
-        image_hash.pack_signature(sig1)
-    )
-    sig2_repacked = image_hash.unpack_signature(
-        image_hash.pack_signature(sig2)
-    )
+    sig1_repacked = image_hash.unpack_signature(image_hash.pack_signature(sig1))
+    sig2_repacked = image_hash.unpack_signature(image_hash.pack_signature(sig2))
     assert array_equal(sig1, sig1_repacked)
     assert array_equal(sig2, sig2_repacked)
 
@@ -33,12 +29,8 @@ def test_signature_heif(read_asset, config_injector):
     sig1 = image_hash.generate_signature(read_asset("heif.heif"))
     sig2 = image_hash.generate_signature(read_asset("heif-similar.heif"))
 
-    sig1_repacked = image_hash.unpack_signature(
-        image_hash.pack_signature(sig1)
-    )
-    sig2_repacked = image_hash.unpack_signature(
-        image_hash.pack_signature(sig2)
-    )
+    sig1_repacked = image_hash.unpack_signature(image_hash.pack_signature(sig1))
+    sig2_repacked = image_hash.unpack_signature(image_hash.pack_signature(sig2))
     assert array_equal(sig1, sig1_repacked)
     assert array_equal(sig2, sig2_repacked)
 
@@ -58,12 +50,8 @@ def test_signature_avif(read_asset, config_injector):
     sig1 = image_hash.generate_signature(read_asset("avif.avif"))
     sig2 = image_hash.generate_signature(read_asset("avif-similar.avif"))
 
-    sig1_repacked = image_hash.unpack_signature(
-        image_hash.pack_signature(sig1)
-    )
-    sig2_repacked = image_hash.unpack_signature(
-        image_hash.pack_signature(sig2)
-    )
+    sig1_repacked = image_hash.unpack_signature(image_hash.pack_signature(sig1))
+    sig2_repacked = image_hash.unpack_signature(image_hash.pack_signature(sig2))
     assert array_equal(sig1, sig1_repacked)
     assert array_equal(sig2, sig2_repacked)
 

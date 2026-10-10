@@ -10,7 +10,7 @@ from lithica import config, errors
 from lithica.func import mime
 
 logger = logging.getLogger(__name__)
-_dl_chunk_size = 2 ** 15
+_dl_chunk_size = 2**15
 
 
 class DownloadError(errors.ProcessingError):
@@ -101,9 +101,7 @@ def _post_to_webhook(webhook: str, payload: Dict[str, Any]) -> int:
     try:
         res = urllib.request.urlopen(req)
         if not 200 <= res.status <= 299:
-            logger.warning(
-                f"Webhook {webhook} returned {res.status} {res.reason}"
-            )
+            logger.warning(f"Webhook {webhook} returned {res.status} {res.reason}")
         return res.status
     except urllib.error.URLError as ex:
         logger.warning(f"Unable to call webhook {webhook}: {ex}")

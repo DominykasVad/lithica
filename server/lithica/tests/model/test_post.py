@@ -7,9 +7,7 @@ from lithica import db, model
 
 @pytest.fixture(autouse=True)
 def inject_config(config_injector):
-    config_injector(
-        {"secret": "secret", "data_dir": "", "delete_source_files": False}
-    )
+    config_injector({"secret": "secret", "data_dir": "", "delete_source_files": False})
 
 
 def test_saving_post(post_factory, user_factory, tag_factory):
@@ -50,9 +48,7 @@ def test_saving_post(post_factory, user_factory, tag_factory):
     assert len(related_post2.relations) == 0
 
 
-def test_cascade_deletions(
-    post_factory, user_factory, tag_factory, comment_factory
-):
+def test_cascade_deletions(post_factory, user_factory, tag_factory, comment_factory):
     user = user_factory()
     tag1 = tag_factory()
     tag2 = tag_factory()
@@ -60,9 +56,7 @@ def test_cascade_deletions(
     related_post2 = post_factory()
     post = post_factory()
     comment = comment_factory(post=post, user=user)
-    db.session.add_all(
-        [user, tag1, tag2, post, related_post1, related_post2, comment]
-    )
+    db.session.add_all([user, tag1, tag2, post, related_post1, related_post2, comment])
     db.session.flush()
 
     score = model.PostScore()

@@ -31,9 +31,7 @@ def _serialize(ctx: rest.Context, comment: model.Comment) -> rest.Response:
 
 
 @rest.routes.get("/comments/?")
-def get_comments(
-    ctx: rest.Context, _params: Dict[str, str] = {}
-) -> rest.Response:
+def get_comments(ctx: rest.Context, _params: Dict[str, str] = {}) -> rest.Response:
     auth.verify_privilege(ctx.user, "comments:list")
     return _search_executor.execute_and_serialize(
         ctx, lambda comment: _serialize(ctx, comment)
@@ -41,9 +39,7 @@ def get_comments(
 
 
 @rest.routes.post("/comments/?")
-def create_comment(
-    ctx: rest.Context, _params: Dict[str, str] = {}
-) -> rest.Response:
+def create_comment(ctx: rest.Context, _params: Dict[str, str] = {}) -> rest.Response:
     auth.verify_privilege(ctx.user, "comments:create")
     text = ctx.get_param_as_string("text")
     post_id = ctx.get_param_as_int("postId")
@@ -87,9 +83,7 @@ def delete_comment(ctx: rest.Context, params: Dict[str, str]) -> rest.Response:
 
 
 @rest.routes.put("/comment/(?P<comment_id>[^/]+)/score/?")
-def set_comment_score(
-    ctx: rest.Context, params: Dict[str, str]
-) -> rest.Response:
+def set_comment_score(ctx: rest.Context, params: Dict[str, str]) -> rest.Response:
     auth.verify_privilege(ctx.user, "comments:score")
     score = ctx.get_param_as_int("score")
     comment = _get_comment(params)
@@ -99,9 +93,7 @@ def set_comment_score(
 
 
 @rest.routes.delete("/comment/(?P<comment_id>[^/]+)/score/?")
-def delete_comment_score(
-    ctx: rest.Context, params: Dict[str, str]
-) -> rest.Response:
+def delete_comment_score(ctx: rest.Context, params: Dict[str, str]) -> rest.Response:
     auth.verify_privilege(ctx.user, "comments:score")
     comment = _get_comment(params)
     scores.delete_score(comment, ctx.user)

@@ -17,9 +17,11 @@ def test_merging(user_factory, context_factory, post_factory):
     target_post = post_factory()
     db.session.add_all([source_post, target_post])
     db.session.flush()
-    with patch("lithica.func.posts.serialize_post"), patch(
-        "lithica.func.posts.merge_posts"
-    ), patch("lithica.func.snapshots.merge"):
+    with (
+        patch("lithica.func.posts.serialize_post"),
+        patch("lithica.func.posts.merge_posts"),
+        patch("lithica.func.snapshots.merge"),
+    ):
         api.post_api.merge_posts(
             context_factory(
                 params={
@@ -33,9 +35,7 @@ def test_merging(user_factory, context_factory, post_factory):
             )
         )
         posts.merge_posts.assert_called_once_with(source_post, target_post, False)
-        snapshots.merge.assert_called_once_with(
-            source_post, target_post, auth_user
-        )
+        snapshots.merge.assert_called_once_with(source_post, target_post, auth_user)
 
 
 @pytest.mark.parametrize(
@@ -64,9 +64,7 @@ def test_trying_to_omit_mandatory_field(
         )
 
 
-def test_trying_to_merge_non_existing(
-    user_factory, post_factory, context_factory
-):
+def test_trying_to_merge_non_existing(user_factory, post_factory, context_factory):
     post = post_factory()
     db.session.add(post)
     db.session.commit()

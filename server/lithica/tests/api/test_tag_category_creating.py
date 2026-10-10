@@ -19,17 +19,16 @@ def inject_config(config_injector):
     )
 
 
-def test_creating_category(
-    tag_category_factory, user_factory, context_factory
-):
+def test_creating_category(tag_category_factory, user_factory, context_factory):
     auth_user = user_factory(rank=model.User.RANK_REGULAR)
     category = tag_category_factory(name="meta")
     db.session.add(category)
 
-    with patch("lithica.func.tag_categories.create_category"), patch(
-        "lithica.func.tag_categories.serialize_category"
-    ), patch("lithica.func.tag_categories.update_category_name"), patch(
-        "lithica.func.snapshots.create"
+    with (
+        patch("lithica.func.tag_categories.create_category"),
+        patch("lithica.func.tag_categories.serialize_category"),
+        patch("lithica.func.tag_categories.update_category_name"),
+        patch("lithica.func.snapshots.create"),
     ):
         tag_categories.create_category.return_value = category
         tag_categories.update_category_name.side_effect = _update_category_name
@@ -41,9 +40,7 @@ def test_creating_category(
             )
         )
         assert result == "serialized category"
-        tag_categories.create_category.assert_called_once_with(
-            "meta", "black", 0
-        )
+        tag_categories.create_category.assert_called_once_with("meta", "black", 0)
         snapshots.create.assert_called_once_with(category, auth_user)
 
 

@@ -109,15 +109,15 @@ def test_serialize_post(
     config_injector,
 ):
     config_injector({"data_url": "http://example.com/", "secret": "test"})
-    with patch("lithica.func.comments.serialize_comment"), patch(
-        "lithica.func.users.serialize_micro_user"
-    ), patch("lithica.func.posts.files.has"):
+    with (
+        patch("lithica.func.comments.serialize_comment"),
+        patch("lithica.func.users.serialize_micro_user"),
+        patch("lithica.func.posts.files.has"),
+    ):
         files.has.return_value = True
-        users.serialize_micro_user.side_effect = (
-            lambda user, auth_user: user.name
-        )
-        comments.serialize_comment.side_effect = (
-            lambda comment, auth_user: comment.user.name
+        users.serialize_micro_user.side_effect = lambda user, auth_user: user.name
+        comments.serialize_comment.side_effect = lambda comment, auth_user: (
+            comment.user.name
         )
 
         auth_user = user_factory(name="auth user")
@@ -130,9 +130,7 @@ def test_serialize_post(
                 names=["tag1", "tag2"],
                 category=tag_category_factory("test-cat1"),
             ),
-            tag_factory(
-                names=["tag3"], category=tag_category_factory("test-cat2")
-            ),
+            tag_factory(names=["tag3"], category=tag_category_factory("test-cat2")),
         ]
         post.safety = model.Post.SAFETY_SAFE
         post.source = "4gag"
@@ -281,9 +279,7 @@ def test_serialize_post(
 
 def test_serialize_micro_post(post_factory, user_factory):
     with patch("lithica.func.posts.get_post_thumbnail_url"):
-        posts.get_post_thumbnail_url.return_value = (
-            "https://example.com/thumb.png"
-        )
+        posts.get_post_thumbnail_url.return_value = "https://example.com/thumb.png"
         auth_user = user_factory()
         post = post_factory()
         db.session.add(post)
@@ -321,9 +317,11 @@ def test_get_post_by_id(post_factory):
 
 
 def test_create_post(user_factory, fake_datetime):
-    with patch("lithica.func.posts.update_post_content"), patch(
-        "lithica.func.posts.update_post_tags"
-    ), fake_datetime("1997-01-01"):
+    with (
+        patch("lithica.func.posts.update_post_content"),
+        patch("lithica.func.posts.update_post_tags"),
+        fake_datetime("1997-01-01"),
+    ):
         auth_user = user_factory()
         post, _new_tags = posts.create_post("content", ["tag"], auth_user)
         assert post.creation_time == datetime(1997, 1, 1)
@@ -481,9 +479,7 @@ def test_update_post_content_for_new_post(
     if input_file == "avif-avis.avif":
         pytest.xfail("avif-avis file format not supported in pillow-heif>=1.3.0")
 
-    with patch("lithica.func.util.get_sha1"), patch(
-        "lithica.func.util.get_md5"
-    ):
+    with patch("lithica.func.util.get_sha1"), patch("lithica.func.util.get_md5"):
         util.get_sha1.return_value = "crc"
         util.get_md5.return_value = "md5"
         config_injector(
@@ -576,9 +572,7 @@ def test_update_post_content_with_broken_content(
 
 
 @pytest.mark.parametrize("input_content", [None, b"not a media file"])
-def test_update_post_content_with_invalid_content(
-    config_injector, input_content
-):
+def test_update_post_content_with_invalid_content(config_injector, input_content):
     config_injector(
         {
             "allow_broken_uploads": True,
@@ -610,12 +604,10 @@ def test_update_post_thumbnail_to_new_one(
         db.session.flush()
     assert post.post_id
     generated_path = (
-        "{}/data/generated-thumbnails/".format(tmpdir)
-        + "1_244c8840887984c4.jpg"
+        "{}/data/generated-thumbnails/".format(tmpdir) + "1_244c8840887984c4.jpg"
     )
     source_path = (
-        "{}/data/posts/custom-thumbnails/".format(tmpdir)
-        + "1_244c8840887984c4.dat"
+        "{}/data/posts/custom-thumbnails/".format(tmpdir) + "1_244c8840887984c4.dat"
     )
     assert not os.path.exists(generated_path)
     assert not os.path.exists(source_path)
@@ -651,12 +643,10 @@ def test_update_post_thumbnail_to_default(
         db.session.flush()
     assert post.post_id
     generated_path = (
-        "{}/data/generated-thumbnails/".format(tmpdir)
-        + "1_244c8840887984c4.jpg"
+        "{}/data/generated-thumbnails/".format(tmpdir) + "1_244c8840887984c4.jpg"
     )
     source_path = (
-        "{}/data/posts/custom-thumbnails/".format(tmpdir)
-        + "1_244c8840887984c4.dat"
+        "{}/data/posts/custom-thumbnails/".format(tmpdir) + "1_244c8840887984c4.dat"
     )
     assert not os.path.exists(generated_path)
     assert not os.path.exists(source_path)
@@ -691,12 +681,10 @@ def test_update_post_thumbnail_with_broken_thumbnail(
         db.session.flush()
     assert post.post_id
     generated_path = (
-        "{}/data/generated-thumbnails/".format(tmpdir)
-        + "1_244c8840887984c4.jpg"
+        "{}/data/generated-thumbnails/".format(tmpdir) + "1_244c8840887984c4.jpg"
     )
     source_path = (
-        "{}/data/posts/custom-thumbnails/".format(tmpdir)
-        + "1_244c8840887984c4.dat"
+        "{}/data/posts/custom-thumbnails/".format(tmpdir) + "1_244c8840887984c4.dat"
     )
     assert not os.path.exists(generated_path)
     assert not os.path.exists(source_path)
@@ -736,12 +724,10 @@ def test_update_post_content_leaving_custom_thumbnail(
     posts.update_post_content(post, read_asset("png.png"))
     db.session.flush()
     generated_path = (
-        "{}/data/generated-thumbnails/".format(tmpdir)
-        + "1_244c8840887984c4.jpg"
+        "{}/data/generated-thumbnails/".format(tmpdir) + "1_244c8840887984c4.jpg"
     )
     source_path = (
-        "{}/data/posts/custom-thumbnails/".format(tmpdir)
-        + "1_244c8840887984c4.dat"
+        "{}/data/posts/custom-thumbnails/".format(tmpdir) + "1_244c8840887984c4.dat"
     )
     assert os.path.exists(source_path)
     assert os.path.exists(generated_path)
@@ -768,12 +754,10 @@ def test_update_post_content_convert_heif_to_png_when_processing(
     posts.update_post_thumbnail(post, read_asset(filename))
     db.session.flush()
     generated_path = (
-        "{}/data/generated-thumbnails/".format(tmpdir)
-        + "1_244c8840887984c4.jpg"
+        "{}/data/generated-thumbnails/".format(tmpdir) + "1_244c8840887984c4.jpg"
     )
     source_path = (
-        "{}/data/posts/custom-thumbnails/".format(tmpdir)
-        + "1_244c8840887984c4.dat"
+        "{}/data/posts/custom-thumbnails/".format(tmpdir) + "1_244c8840887984c4.dat"
     )
     assert os.path.exists(source_path)
     assert os.path.exists(generated_path)
@@ -955,9 +939,7 @@ def test_merge_posts_moves_tags(post_factory, tag_factory, config_injector):
     assert posts.get_post_by_id(target_post.post_id).tag_count == 1
 
 
-def test_merge_posts_doesnt_duplicate_tags(
-    post_factory, tag_factory, config_injector
-):
+def test_merge_posts_doesnt_duplicate_tags(post_factory, tag_factory, config_injector):
     config_injector({"delete_source_files": False})
     source_post = post_factory()
     target_post = post_factory()
@@ -973,9 +955,7 @@ def test_merge_posts_doesnt_duplicate_tags(
     assert posts.get_post_by_id(target_post.post_id).tag_count == 1
 
 
-def test_merge_posts_moves_comments(
-    post_factory, comment_factory, config_injector
-):
+def test_merge_posts_moves_comments(post_factory, comment_factory, config_injector):
     config_injector({"delete_source_files": False})
     source_post = post_factory()
     target_post = post_factory()
@@ -990,9 +970,7 @@ def test_merge_posts_moves_comments(
     assert posts.get_post_by_id(target_post.post_id).comment_count == 1
 
 
-def test_merge_posts_moves_scores(
-    post_factory, post_score_factory, config_injector
-):
+def test_merge_posts_moves_scores(post_factory, post_score_factory, config_injector):
     config_injector({"delete_source_files": False})
     source_post = post_factory()
     target_post = post_factory()
@@ -1078,9 +1056,7 @@ def test_merge_posts_moves_child_relations(post_factory, config_injector):
     assert posts.get_post_by_id(target_post.post_id).relation_count == 1
 
 
-def test_merge_posts_doesnt_duplicate_child_relations(
-    post_factory, config_injector
-):
+def test_merge_posts_doesnt_duplicate_child_relations(post_factory, config_injector):
     config_injector({"delete_source_files": False})
     source_post = post_factory()
     target_post = post_factory()
@@ -1115,9 +1091,7 @@ def test_merge_posts_moves_parent_relations(post_factory, config_injector):
     assert posts.get_post_by_id(related_post.post_id).relation_count == 1
 
 
-def test_merge_posts_doesnt_duplicate_parent_relations(
-    post_factory, config_injector
-):
+def test_merge_posts_doesnt_duplicate_parent_relations(post_factory, config_injector):
     config_injector({"delete_source_files": False})
     source_post = post_factory()
     target_post = post_factory()
@@ -1191,15 +1165,9 @@ def test_merge_posts_replaces_content(
     db.session.commit()
     posts.update_post_content(source_post, content)
     db.session.flush()
-    source_path = os.path.join(
-        "{}/data/posts/1_244c8840887984c4.png".format(tmpdir)
-    )
-    target_path1 = os.path.join(
-        "{}/data/posts/2_49caeb3ec1643406.png".format(tmpdir)
-    )
-    target_path2 = os.path.join(
-        "{}/data/posts/2_49caeb3ec1643406.dat".format(tmpdir)
-    )
+    source_path = os.path.join("{}/data/posts/1_244c8840887984c4.png".format(tmpdir))
+    target_path1 = os.path.join("{}/data/posts/2_49caeb3ec1643406.png".format(tmpdir))
+    target_path2 = os.path.join("{}/data/posts/2_49caeb3ec1643406.dat".format(tmpdir))
     assert os.path.exists(source_path)
     assert not os.path.exists(target_path1)
     assert not os.path.exists(target_path2)

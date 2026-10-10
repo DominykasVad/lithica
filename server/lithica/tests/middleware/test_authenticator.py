@@ -22,8 +22,9 @@ def test_process_request_bump_login(context_factory, user_factory):
         headers={"Authorization": "Basic dGVzdFVzZXI6dGVzdFRva2Vu"},
         params={"bump-login": "true"},
     )
-    with patch("lithica.func.auth.is_valid_password"), patch(
-        "lithica.func.users.get_user_by_name"
+    with (
+        patch("lithica.func.auth.is_valid_password"),
+        patch("lithica.func.users.get_user_by_name"),
     ):
         users.get_user_by_name.return_value = user
         auth.is_valid_password.return_value = True
@@ -31,9 +32,7 @@ def test_process_request_bump_login(context_factory, user_factory):
         assert user.last_login_time is not None
 
 
-def test_process_request_bump_login_with_token(
-    context_factory, user_token_factory
-):
+def test_process_request_bump_login_with_token(context_factory, user_token_factory):
     user_token = user_token_factory()
     db.session.add(user_token)
     db.session.flush()
@@ -41,9 +40,11 @@ def test_process_request_bump_login_with_token(
         headers={"Authorization": "Token dGVzdFVzZXI6dGVzdFRva2Vu"},
         params={"bump-login": "true"},
     )
-    with patch("lithica.func.auth.is_valid_token"), patch(
-        "lithica.func.users.get_user_by_name"
-    ), patch("lithica.func.user_tokens.get_by_user_and_token"):
+    with (
+        patch("lithica.func.auth.is_valid_token"),
+        patch("lithica.func.users.get_user_by_name"),
+        patch("lithica.func.user_tokens.get_by_user_and_token"),
+    ):
         users.get_user_by_name.return_value = user_token.user
         user_tokens.get_by_user_and_token.return_value = user_token
         auth.is_valid_token.return_value = True
@@ -57,8 +58,9 @@ def test_process_request_basic_auth_valid(context_factory, user_factory):
     ctx = context_factory(
         headers={"Authorization": "Basic dGVzdFVzZXI6dGVzdFBhc3N3b3Jk"}
     )
-    with patch("lithica.func.auth.is_valid_password"), patch(
-        "lithica.func.users.get_user_by_name"
+    with (
+        patch("lithica.func.auth.is_valid_password"),
+        patch("lithica.func.users.get_user_by_name"),
     ):
         users.get_user_by_name.return_value = user
         auth.is_valid_password.return_value = True
@@ -68,12 +70,12 @@ def test_process_request_basic_auth_valid(context_factory, user_factory):
 
 def test_process_request_token_auth_valid(context_factory, user_token_factory):
     user_token = user_token_factory()
-    ctx = context_factory(
-        headers={"Authorization": "Token dGVzdFVzZXI6dGVzdFRva2Vu"}
-    )
-    with patch("lithica.func.auth.is_valid_token"), patch(
-        "lithica.func.users.get_user_by_name"
-    ), patch("lithica.func.user_tokens.get_by_user_and_token"):
+    ctx = context_factory(headers={"Authorization": "Token dGVzdFVzZXI6dGVzdFRva2Vu"})
+    with (
+        patch("lithica.func.auth.is_valid_token"),
+        patch("lithica.func.users.get_user_by_name"),
+        patch("lithica.func.user_tokens.get_by_user_and_token"),
+    ):
         users.get_user_by_name.return_value = user_token.user
         user_tokens.get_by_user_and_token.return_value = user_token
         auth.is_valid_token.return_value = True

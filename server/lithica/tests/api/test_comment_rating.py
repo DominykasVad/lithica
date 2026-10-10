@@ -8,21 +8,15 @@ from lithica.func import comments
 
 @pytest.fixture(autouse=True)
 def inject_config(config_injector):
-    config_injector(
-        {"privileges": {"comments:score": model.User.RANK_REGULAR}}
-    )
+    config_injector({"privileges": {"comments:score": model.User.RANK_REGULAR}})
 
 
-def test_simple_rating(
-    user_factory, comment_factory, context_factory, fake_datetime
-):
+def test_simple_rating(user_factory, comment_factory, context_factory, fake_datetime):
     user = user_factory(rank=model.User.RANK_REGULAR)
     comment = comment_factory(user=user)
     db.session.add(comment)
     db.session.commit()
-    with patch("lithica.func.comments.serialize_comment"), fake_datetime(
-        "1997-12-01"
-    ):
+    with patch("lithica.func.comments.serialize_comment"), fake_datetime("1997-12-01"):
         comments.serialize_comment.return_value = "serialized comment"
         result = api.comment_api.set_comment_score(
             context_factory(params={"score": 1}, user=user),
@@ -34,9 +28,7 @@ def test_simple_rating(
         assert comment.score == 1
 
 
-def test_updating_rating(
-    user_factory, comment_factory, context_factory, fake_datetime
-):
+def test_updating_rating(user_factory, comment_factory, context_factory, fake_datetime):
     user = user_factory(rank=model.User.RANK_REGULAR)
     comment = comment_factory(user=user)
     db.session.add(comment)
@@ -80,9 +72,7 @@ def test_updating_rating_to_zero(
         assert comment.score == 0
 
 
-def test_deleting_rating(
-    user_factory, comment_factory, context_factory, fake_datetime
-):
+def test_deleting_rating(user_factory, comment_factory, context_factory, fake_datetime):
     user = user_factory(rank=model.User.RANK_REGULAR)
     comment = comment_factory(user=user)
     db.session.add(comment)
@@ -126,9 +116,7 @@ def test_ratings_from_multiple_users(
         assert comment.score == 0
 
 
-def test_trying_to_omit_mandatory_field(
-    user_factory, comment_factory, context_factory
-):
+def test_trying_to_omit_mandatory_field(user_factory, comment_factory, context_factory):
     user = user_factory()
     comment = comment_factory(user=user)
     db.session.add(comment)

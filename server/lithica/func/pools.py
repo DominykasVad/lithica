@@ -138,8 +138,7 @@ class PoolSerializer(serialization.BaseSerializer):
         return [
             post
             for post in [
-                posts.serialize_micro_post(rel, None)
-                for rel in self.pool.posts
+                posts.serialize_micro_post(rel, None) for rel in self.pool.posts
             ]
         ]
 
@@ -160,9 +159,7 @@ def serialize_micro_pool(pool: model.Pool) -> Optional[rest.Response]:
 
 def try_get_pool_by_id(pool_id: int) -> Optional[model.Pool]:
     return (
-        db.session.query(model.Pool)
-        .filter(model.Pool.pool_id == pool_id)
-        .one_or_none()
+        db.session.query(model.Pool).filter(model.Pool.pool_id == pool_id).one_or_none()
     )
 
 
@@ -198,8 +195,7 @@ def get_pools_by_names(names: List[str]) -> List[model.Pool]:
         .join(model.PoolName)
         .filter(
             sa.sql.or_(
-                sa.func.lower(model.PoolName.name) == name.lower()
-                for name in names
+                sa.func.lower(model.PoolName.name) == name.lower() for name in names
             )
         )
         .all()
@@ -216,9 +212,7 @@ def get_or_create_pools_by_names(
     for name in names:
         found = False
         for existing_pool in existing_pools:
-            if _check_name_intersection(
-                _get_names(existing_pool), [name], False
-            ):
+            if _check_name_intersection(_get_names(existing_pool), [name], False):
                 found = True
                 break
         if not found:
@@ -292,9 +286,7 @@ def update_pool_names(pool: model.Pool, names: List[str]) -> None:
         expr = expr & (model.PoolName.pool_id != pool.pool_id)
     existing_pools = db.session.query(model.PoolName).filter(expr).all()
     if len(existing_pools):
-        raise PoolAlreadyExistsError(
-            "One of names is already used by another pool."
-        )
+        raise PoolAlreadyExistsError("One of names is already used by another pool.")
 
     # remove unwanted items
     for pool_name in pool.names[:]:

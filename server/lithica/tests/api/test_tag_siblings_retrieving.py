@@ -14,12 +14,12 @@ def inject_config(config_injector):
 def test_get_tag_siblings(user_factory, tag_factory, context_factory):
     db.session.add(tag_factory(names=["tag"]))
     db.session.flush()
-    with patch("lithica.func.tags.serialize_tag"), patch(
-        "lithica.func.tags.get_tag_siblings"
+    with (
+        patch("lithica.func.tags.serialize_tag"),
+        patch("lithica.func.tags.get_tag_siblings"),
     ):
-        tags.serialize_tag.side_effect = (
-            lambda tag, *args, **kwargs: "serialized tag %s"
-            % tag.names[0].name
+        tags.serialize_tag.side_effect = lambda tag, *args, **kwargs: (
+            "serialized tag %s" % tag.names[0].name
         )
         tags.get_tag_siblings.return_value = [
             (tag_factory(names=["sib1"]), 1),

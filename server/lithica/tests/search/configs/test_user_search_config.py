@@ -13,9 +13,7 @@ def executor():
 @pytest.fixture
 def verify_unpaged(executor):
     def verify(input, expected_user_names):
-        actual_count, actual_users = executor.execute(
-            input, offset=0, limit=100
-        )
+        actual_count, actual_users = executor.execute(input, offset=0, limit=100)
         actual_user_names = [u.name for u in actual_users]
         assert actual_count == len(expected_user_names)
         assert actual_user_names == expected_user_names
@@ -85,9 +83,7 @@ def test_filter_by_creation_time(
         ("-name:user1,user3", ["user2"]),
     ],
 )
-def test_filter_by_name(
-    verify_unpaged, input, expected_user_names, user_factory
-):
+def test_filter_by_name(verify_unpaged, input, expected_user_names, user_factory):
     db.session.add(user_factory(name="user1"))
     db.session.add(user_factory(name="user2"))
     db.session.add(user_factory(name="user3"))
@@ -157,9 +153,7 @@ def test_anonymous(verify_unpaged, input, expected_user_names, user_factory):
         ("creation-time:2016 u2", []),
     ],
 )
-def test_combining_tokens(
-    verify_unpaged, input, expected_user_names, user_factory
-):
+def test_combining_tokens(verify_unpaged, input, expected_user_names, user_factory):
     user1 = user_factory(name="u1")
     user2 = user_factory(name="u2")
     user3 = user_factory(name="u3")
@@ -195,9 +189,7 @@ def test_paging(
     db.session.add(user_factory(name="u1"))
     db.session.add(user_factory(name="u2"))
     db.session.flush()
-    actual_count, actual_users = executor.execute(
-        "", offset=offset, limit=limit
-    )
+    actual_count, actual_users = executor.execute("", offset=offset, limit=limit)
     actual_user_names = [u.name for u in actual_users]
     assert actual_count == expected_total_count
     assert actual_user_names == expected_user_names
@@ -215,9 +207,7 @@ def test_paging(
         ("-sort:name,desc", ["u1", "u2"]),
     ],
 )
-def test_sort_by_name(
-    verify_unpaged, input, expected_user_names, user_factory
-):
+def test_sort_by_name(verify_unpaged, input, expected_user_names, user_factory):
     db.session.add(user_factory(name="u2"))
     db.session.add(user_factory(name="u1"))
     db.session.flush()
@@ -281,9 +271,7 @@ def test_random_sort(executor, user_factory):
     user3 = user_factory(name="u3")
     db.session.add_all([user3, user1, user2])
     db.session.flush()
-    actual_count, actual_users = executor.execute(
-        "sort:random", offset=0, limit=100
-    )
+    actual_count, actual_users = executor.execute("sort:random", offset=0, limit=100)
     actual_user_names = [u.name for u in actual_users]
     assert actual_count == 3
     assert len(actual_user_names) == 3

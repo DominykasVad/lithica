@@ -52,9 +52,7 @@ def test_trying_to_delete_used(
     assert db.session.query(model.PoolCategory).count() == 1
 
 
-def test_trying_to_delete_last(
-    user_factory, pool_category_factory, context_factory
-):
+def test_trying_to_delete_last(user_factory, pool_category_factory, context_factory):
     db.session.add(pool_category_factory(name="root"))
     db.session.commit()
     with pytest.raises(pool_categories.PoolCategoryIsInUseError):

@@ -48,7 +48,7 @@ def _preprocess_image(content: bytes) -> NpMatrix:
         return np.asarray(img.convert("L"), dtype=np.uint8)
     except (IOError, ValueError):
         raise errors.ProcessingError(
-            "Unable to generate a signature hash " "for this image."
+            "Unable to generate a signature hash for this image."
         )
 
 
@@ -95,19 +95,17 @@ def _normalize_and_threshold(
         diff_array[diff_array < 0.0], np.linspace(100, 0, n_levels + 1)
     )
     for level, interval in enumerate(
-        positive_cutoffs[i : i + 2]
-        for i in range(positive_cutoffs.shape[0] - 1)
+        positive_cutoffs[i : i + 2] for i in range(positive_cutoffs.shape[0] - 1)
     ):
-        diff_array[
-            (diff_array >= interval[0]) & (diff_array <= interval[1])
-        ] = (level + 1)
+        diff_array[(diff_array >= interval[0]) & (diff_array <= interval[1])] = (
+            level + 1
+        )
     for level, interval in enumerate(
-        negative_cutoffs[i : i + 2]
-        for i in range(negative_cutoffs.shape[0] - 1)
+        negative_cutoffs[i : i + 2] for i in range(negative_cutoffs.shape[0] - 1)
     ):
-        diff_array[
-            (diff_array <= interval[0]) & (diff_array >= interval[1])
-        ] = -(level + 1)
+        diff_array[(diff_array <= interval[0]) & (diff_array >= interval[1])] = -(
+            level + 1
+        )
 
 
 def _compute_grid_points(
@@ -165,14 +163,10 @@ def _compute_differentials(grey_level_matrix: NpMatrix) -> NpMatrix:
         (right_neighbors[:, -1:], right_neighbors[:, :-1]), axis=1
     )
     up_neighbors = -np.concatenate((down_neighbors[-1:], down_neighbors[:-1]))
-    diagonals = np.arange(
-        -grey_level_matrix.shape[0] + 1, grey_level_matrix.shape[0]
-    )
+    diagonals = np.arange(-grey_level_matrix.shape[0] + 1, grey_level_matrix.shape[0])
     upper_left_neighbors = sum(
         [
-            np.diagflat(
-                np.insert(np.diff(np.diag(grey_level_matrix, i)), 0, 0), i
-            )
+            np.diagflat(np.insert(np.diff(np.diag(grey_level_matrix, i)), 0, 0), i)
             for i in diagonals
         ]
     )
@@ -211,9 +205,7 @@ def _words_to_int(word_array: NpMatrix) -> List[int]:
 
 
 def _get_words(array: NpMatrix, k: int, n: int) -> NpMatrix:
-    word_positions = np.linspace(0, array.shape[0], n, endpoint=False).astype(
-        "int"
-    )
+    word_positions = np.linspace(0, array.shape[0], n, endpoint=False).astype("int")
     assert k <= array.shape[0]
     assert word_positions.shape[0] <= array.shape[0]
     words = np.zeros((n, k)).astype("int8")
@@ -236,9 +228,7 @@ def generate_signature(content: bytes) -> NpMatrix:
         lower_percentile=LOWER_PERCENTILE,
         upper_percentile=UPPER_PERCENTILE,
     )
-    x_coords, y_coords = _compute_grid_points(
-        im_array, n=N, window=image_limits
-    )
+    x_coords, y_coords = _compute_grid_points(im_array, n=N, window=image_limits)
     avg_grey = _compute_mean_level(im_array, x_coords, y_coords, p=P)
     diff_matrix = _compute_differentials(avg_grey)
     _normalize_and_threshold(
@@ -282,9 +272,7 @@ def pack_signature(signature: NpMatrix) -> bytes:
         np.array(
             [
                 np.dot(x, coding_vector)
-                for x in np.reshape(
-                    signature + N_LEVELS, (-1, SIG_CHUNK_WIDTH)
-                )
+                for x in np.reshape(signature + N_LEVELS, (-1, SIG_CHUNK_WIDTH))
             ]
         )
         .astype(f"uint{SIG_CHUNK_BITS}")
@@ -303,9 +291,7 @@ def unpack_signature(packed: bytes) -> NpMatrix:
             [
                 [
                     int(digit) - N_LEVELS
-                    for digit in np.base_repr(e, base=SIG_BASE).zfill(
-                        SIG_CHUNK_WIDTH
-                    )
+                    for digit in np.base_repr(e, base=SIG_BASE).zfill(SIG_CHUNK_WIDTH)
                 ]
                 for e in np.frombuffer(packed, dtype=f"uint{SIG_CHUNK_BITS}")
             ]

@@ -17,9 +17,7 @@ def get_list_diff(old: List[Any], new: List[Any]) -> Any:
             added.append(item)
 
     return (
-        None
-        if equal
-        else {"type": "list change", "added": added, "removed": removed}
+        None if equal else {"type": "list change", "added": added, "removed": removed}
     )
 
 

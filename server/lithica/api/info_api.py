@@ -15,9 +15,7 @@ def _get_disk_usage() -> int:
     global _cache_time, _cache_result, _cache_computing
     threshold = timedelta(hours=48)
     now = datetime.utcnow()
-    if not _cache_computing and (
-        not _cache_time or now - _cache_time > threshold
-    ):
+    if not _cache_computing and (not _cache_time or now - _cache_time > threshold):
         threading.Thread(target=_compute_disk_usage, daemon=False).start()
     return _cache_result
 
@@ -62,14 +60,10 @@ def get_info(ctx: rest.Context, _params: Dict[str, str] = {}) -> rest.Response:
     }
     if auth.has_privilege(ctx.user, "posts:view:featured"):
         ret["featuredPost"] = (
-            posts.serialize_post(post_feature.post, ctx.user)
-            if post_feature
-            else None
+            posts.serialize_post(post_feature.post, ctx.user) if post_feature else None
         )
         ret["featuringUser"] = (
-            users.serialize_user(post_feature.user, ctx.user)
-            if post_feature
-            else None
+            users.serialize_user(post_feature.user, ctx.user) if post_feature else None
         )
         ret["featuringTime"] = post_feature.time if post_feature else None
     return ret

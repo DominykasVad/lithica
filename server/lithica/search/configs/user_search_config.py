@@ -32,24 +32,16 @@ class UserSearchConfig(BaseSearchConfig):
     def named_filters(self) -> Dict[str, Filter]:
         return {
             "name": search_util.create_str_filter(model.User.name),
-            "creation-date": search_util.create_date_filter(
-                model.User.creation_time
-            ),
-            "creation-time": search_util.create_date_filter(
-                model.User.creation_time
-            ),
+            "creation-date": search_util.create_date_filter(model.User.creation_time),
+            "creation-time": search_util.create_date_filter(model.User.creation_time),
             "last-login-date": search_util.create_date_filter(
                 model.User.last_login_time
             ),
             "last-login-time": search_util.create_date_filter(
                 model.User.last_login_time
             ),
-            "login-date": search_util.create_date_filter(
-                model.User.last_login_time
-            ),
-            "login-time": search_util.create_date_filter(
-                model.User.last_login_time
-            ),
+            "login-date": search_util.create_date_filter(model.User.last_login_time),
+            "login-time": search_util.create_date_filter(model.User.last_login_time),
         }
 
     @property

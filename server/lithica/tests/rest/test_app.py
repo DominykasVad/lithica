@@ -110,9 +110,7 @@ def test_multipart_non_ascii_metadata():
 def test_multipart_file_content_is_byte_exact():
     payload = bytes(range(256)) + b"\r\n--not-the-boundary\r\n" + b"\x00\xff"
     ctx = app._create_context(
-        _multipart_env(
-            [("content", "data.bin", "application/octet-stream", payload)]
-        )
+        _multipart_env([("content", "data.bin", "application/octet-stream", payload)])
     )
     assert ctx.get_file("content") == payload
 

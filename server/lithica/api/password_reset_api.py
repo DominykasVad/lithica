@@ -13,15 +13,12 @@ MAIL_BODY = (
 
 
 @rest.routes.get("/password-reset/(?P<user_name>[^/]+)/?")
-def start_password_reset(
-    ctx: rest.Context, params: Dict[str, str]
-) -> rest.Response:
+def start_password_reset(ctx: rest.Context, params: Dict[str, str]) -> rest.Response:
     user_name = params["user_name"]
     user = users.get_user_by_name_or_email(user_name)
     if not user.email:
         raise errors.ValidationError(
-            "User %r hasn't supplied email. Cannot reset password."
-            % (user_name)
+            "User %r hasn't supplied email. Cannot reset password." % (user_name)
         )
     token = auth.generate_authentication_token(user)
 
@@ -50,9 +47,7 @@ def _hash(token: str) -> str:
 
 
 @rest.routes.post("/password-reset/(?P<user_name>[^/]+)/?")
-def finish_password_reset(
-    ctx: rest.Context, params: Dict[str, str]
-) -> rest.Response:
+def finish_password_reset(ctx: rest.Context, params: Dict[str, str]) -> rest.Response:
     user_name = params["user_name"]
     user = users.get_user_by_name_or_email(user_name)
     good_token = auth.generate_authentication_token(user)

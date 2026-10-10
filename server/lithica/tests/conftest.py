@@ -168,9 +168,7 @@ def query_logger(pytestconfig):
 
         import coloredlogs
 
-        coloredlogs.install(
-            fmt="[%(asctime)-15s] %(name)s %(message)s", isatty=True
-        )
+        coloredlogs.install(fmt="[%(asctime)-15s] %(name)s %(message)s", isatty=True)
         logging.basicConfig()
         logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
 
@@ -362,9 +360,7 @@ def post_favorite_factory(user_factory, post_factory):
             user = user_factory()
         if post is None:
             post = post_factory()
-        return model.PostFavorite(
-            post=post, user=user, time=datetime(1999, 1, 1)
-        )
+        return model.PostFavorite(post=post, user=user, time=datetime(1999, 1, 1))
 
     return factory
 
@@ -383,9 +379,7 @@ def pool_category_factory():
 
 @pytest.fixture
 def pool_factory():
-    def factory(
-        id=None, names=None, description=None, category=None, time=None
-    ):
+    def factory(id=None, names=None, description=None, category=None, time=None):
         if not category:
             category = model.PoolCategory(get_unique_name())
             db.session.add(category)

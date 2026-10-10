@@ -43,9 +43,7 @@ def test_retrieving_multiple(user_factory, context_factory):
     assert len(result["results"]) == 2
 
 
-def test_trying_to_retrieve_multiple_without_privileges(
-    user_factory, context_factory
-):
+def test_trying_to_retrieve_multiple_without_privileges(user_factory, context_factory):
     with pytest.raises(errors.AuthError):
         api.snapshot_api.get_snapshots(
             context_factory(

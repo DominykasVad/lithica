@@ -339,9 +339,7 @@ class PostSerializer(serialization.BaseSerializer):
     def serialize_pools(self) -> List[Any]:
         return [
             pools.serialize_micro_pool(pool)
-            for pool in sorted(
-                self.post.pools, key=lambda pool: pool.creation_time
-            )
+            for pool in sorted(self.post.pools, key=lambda pool: pool.creation_time)
         ]
 
 
@@ -356,9 +354,7 @@ def serialize_post(
 def serialize_micro_post(
     post: model.Post, auth_user: model.User
 ) -> Optional[rest.Response]:
-    return serialize_post(
-        post, auth_user=auth_user, options=["id", "thumbnailUrl"]
-    )
+    return serialize_post(post, auth_user=auth_user, options=["id", "thumbnailUrl"])
 
 
 def get_post_count() -> int:
@@ -367,9 +363,7 @@ def get_post_count() -> int:
 
 def try_get_post_by_id(post_id: int) -> Optional[model.Post]:
     return (
-        db.session.query(model.Post)
-        .filter(model.Post.post_id == post_id)
-        .one_or_none()
+        db.session.query(model.Post).filter(model.Post.post_id == post_id).one_or_none()
     )
 
 
@@ -443,23 +437,17 @@ def update_post_source(post: model.Post, source: Optional[str]) -> None:
 
 
 @sa.event.listens_for(model.Post, "after_insert")
-def _after_post_insert(
-    _mapper: Any, _connection: Any, post: model.Post
-) -> None:
+def _after_post_insert(_mapper: Any, _connection: Any, post: model.Post) -> None:
     _sync_post_content(post)
 
 
 @sa.event.listens_for(model.Post, "after_update")
-def _after_post_update(
-    _mapper: Any, _connection: Any, post: model.Post
-) -> None:
+def _after_post_update(_mapper: Any, _connection: Any, post: model.Post) -> None:
     _sync_post_content(post)
 
 
 @sa.event.listens_for(model.Post, "before_delete")
-def _before_post_delete(
-    _mapper: Any, _connection: Any, post: model.Post
-) -> None:
+def _before_post_delete(_mapper: Any, _connection: Any, post: model.Post) -> None:
     if post.post_id:
         if config.config["delete_source_files"]:
             files.delete(get_post_content_path(post))
@@ -553,15 +541,11 @@ def generate_post_signature(post: model.Post, content: bytes) -> None:
         words = image_hash.generate_words(unpacked_signature)
 
         db.session.add(
-            model.PostSignature(
-                post=post, signature=packed_signature, words=words
-            )
+            model.PostSignature(post=post, signature=packed_signature, words=words)
         )
     except errors.ProcessingError:
         if not config.config["allow_broken_uploads"]:
-            raise InvalidPostContentError(
-                "Unable to generate image hash data."
-            )
+            raise InvalidPostContentError("Unable to generate image hash data.")
 
 
 def update_all_post_signatures() -> None:
@@ -577,9 +561,7 @@ def update_all_post_signatures() -> None:
     )
     for post in posts_to_hash:
         try:
-            generate_post_signature(
-                post, files.get(get_post_content_path(post))
-            )
+            generate_post_signature(post, files.get(get_post_content_path(post)))
             db.session.commit()
             logger.info("Created Signature - Post %d", post.post_id)
         except Exception as ex:
@@ -595,9 +577,7 @@ def update_all_md5_checksums() -> None:
     )
     for post in posts_to_hash:
         try:
-            post.checksum_md5 = util.get_md5(
-                files.get(get_post_content_path(post))
-            )
+            post.checksum_md5 = util.get_md5(files.get(get_post_content_path(post)))
             db.session.commit()
             logger.info("Created MD5 - Post %d", post.post_id)
         except Exception as ex:
@@ -622,9 +602,7 @@ def update_post_content(post: model.Post, content: Optional[bytes]) -> None:
     elif mime.is_video(post.mime_type):
         post.type = model.Post.TYPE_VIDEO
     else:
-        raise InvalidPostContentError(
-            "Unhandled file type: %r" % post.mime_type
-        )
+        raise InvalidPostContentError("Unhandled file type: %r" % post.mime_type)
 
     post.checksum = util.get_sha1(content)
     post.checksum_md5 = util.get_md5(content)
@@ -634,11 +612,7 @@ def update_post_content(post: model.Post, content: Optional[bytes]) -> None:
         .filter(model.Post.post_id != post.post_id)
         .one_or_none()
     )
-    if (
-        other_post
-        and other_post.post_id
-        and other_post.post_id != post.post_id
-    ):
+    if other_post and other_post.post_id and other_post.post_id != post.post_id:
         raise PostAlreadyUploadedError(other_post)
 
     if update_signature:
@@ -670,9 +644,7 @@ def update_post_content(post: model.Post, content: Optional[bytes]) -> None:
     setattr(post, "__content", content)
 
 
-def update_post_thumbnail(
-    post: model.Post, content: Optional[bytes] = None
-) -> None:
+def update_post_thumbnail(post: model.Post, content: Optional[bytes] = None) -> None:
     assert post
     setattr(post, "__thumbnail", content)
 
@@ -695,9 +667,7 @@ def generate_post_thumbnail(post: model.Post) -> None:
         files.save(get_post_thumbnail_path(post), EMPTY_PIXEL)
 
 
-def update_post_tags(
-    post: model.Post, tag_names: List[str]
-) -> List[model.Tag]:
+def update_post_tags(post: model.Post, tag_names: List[str]) -> List[model.Tag]:
     assert post
     existing_tags, new_tags = tags.get_or_create_tags_by_names(tag_names)
     post.tags = existing_tags + new_tags
@@ -745,13 +715,9 @@ def update_post_notes(post: model.Post, notes: Any) -> None:
         if not note["text"]:
             raise InvalidPostNoteError("A note's text cannot be empty.")
         if not isinstance(note["polygon"], (list, tuple)):
-            raise InvalidPostNoteError(
-                "A note's polygon must be a list of points."
-            )
+            raise InvalidPostNoteError("A note's polygon must be a list of points.")
         if len(note["polygon"]) < 3:
-            raise InvalidPostNoteError(
-                "A note's polygon must have at least 3 points."
-            )
+            raise InvalidPostNoteError("A note's polygon must have at least 3 points.")
         for point in note["polygon"]:
             if not isinstance(point, (list, tuple)):
                 raise InvalidPostNoteError(
@@ -769,9 +735,7 @@ def update_post_notes(post: model.Post, notes: Any) -> None:
                         "All points must fit in the image (0..1 range)."
                     )
             except ValueError:
-                raise InvalidPostNoteError(
-                    "A point in note's polygon must be numeric."
-                )
+                raise InvalidPostNoteError("A point in note's polygon must be numeric.")
         if util.value_exceeds_column_size(note["text"], model.PostNote.text):
             raise InvalidPostNoteError("Note text is too long.")
         post.notes.append(
@@ -963,9 +927,7 @@ def search_by_image(image_content: bytes) -> List[Tuple[float, model.Post]]:
         distances = image_hash.normalized_distance(sigarray, query_signature)
         return [
             (distance, try_get_post_by_id(candidate_post_id))
-            for candidate_post_id, distance in zip(
-                candidate_post_ids, distances
-            )
+            for candidate_post_id, distance in zip(candidate_post_ids, distances)
             if distance < image_hash.DISTANCE_CUTOFF
         ]
     else:

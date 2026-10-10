@@ -48,12 +48,8 @@ class CommentSearchConfig(BaseSearchConfig):
             "last-edit-time": search_util.create_date_filter(
                 model.Comment.last_edit_time
             ),
-            "edit-date": search_util.create_date_filter(
-                model.Comment.last_edit_time
-            ),
-            "edit-time": search_util.create_date_filter(
-                model.Comment.last_edit_time
-            ),
+            "edit-date": search_util.create_date_filter(model.Comment.last_edit_time),
+            "edit-time": search_util.create_date_filter(model.Comment.last_edit_time),
         }
 
     @property

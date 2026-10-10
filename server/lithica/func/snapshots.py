@@ -57,9 +57,7 @@ def get_post_snapshot(post: model.Post) -> Dict[str, Any]:
         "notes": sorted(
             [
                 {
-                    "polygon": [
-                        [point[0], point[1]] for point in note.polygon
-                    ],
+                    "polygon": [[point[0], point[1]] for point in note.polygon],
                     "text": note.text,
                 }
                 for note in post.notes
@@ -103,9 +101,7 @@ def _post_to_webhooks(snapshot: model.Snapshot) -> None:
 def _create(
     operation: str, entity: model.Base, auth_user: Optional[model.User]
 ) -> model.Snapshot:
-    resource_type, resource_pkey, resource_name = model.util.get_resource_info(
-        entity
-    )
+    resource_type, resource_pkey, resource_name = model.util.get_resource_info(entity)
 
     if auth_user and not auth_user.name:
         auth_user = None
@@ -166,9 +162,7 @@ def merge(
 ) -> None:
     assert source_entity
     assert target_entity
-    snapshot = _create(
-        model.Snapshot.OPERATION_MERGED, source_entity, auth_user
-    )
+    snapshot = _create(model.Snapshot.OPERATION_MERGED, source_entity, auth_user)
     (
         resource_type,
         _resource_pkey,

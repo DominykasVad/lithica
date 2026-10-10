@@ -8,9 +8,7 @@ _search_executor = search.Executor(search.configs.TagSearchConfig())
 
 
 def _serialize(ctx: rest.Context, tag: model.Tag) -> rest.Response:
-    return tags.serialize_tag(
-        tag, options=serialization.get_serialization_options(ctx)
-    )
+    return tags.serialize_tag(tag, options=serialization.get_serialization_options(ctx))
 
 
 def _get_tag(params: Dict[str, str]) -> model.Tag:
@@ -31,15 +29,11 @@ def _create_if_needed(tag_names: List[str], user: model.User) -> None:
 @rest.routes.get("/tags/?")
 def get_tags(ctx: rest.Context, _params: Dict[str, str] = {}) -> rest.Response:
     auth.verify_privilege(ctx.user, "tags:list")
-    return _search_executor.execute_and_serialize(
-        ctx, lambda tag: _serialize(ctx, tag)
-    )
+    return _search_executor.execute_and_serialize(ctx, lambda tag: _serialize(ctx, tag))
 
 
 @rest.routes.post("/tags/?")
-def create_tag(
-    ctx: rest.Context, _params: Dict[str, str] = {}
-) -> rest.Response:
+def create_tag(ctx: rest.Context, _params: Dict[str, str] = {}) -> rest.Response:
     auth.verify_privilege(ctx.user, "tags:create")
 
     names = ctx.get_param_as_string_list("names")
@@ -80,9 +74,7 @@ def update_tag(ctx: rest.Context, params: Dict[str, str]) -> rest.Response:
         tags.update_tag_category_name(tag, ctx.get_param_as_string("category"))
     if ctx.has_param("description"):
         auth.verify_privilege(ctx.user, "tags:edit:description")
-        tags.update_tag_description(
-            tag, ctx.get_param_as_string("description")
-        )
+        tags.update_tag_description(tag, ctx.get_param_as_string("description"))
     if ctx.has_param("suggestions"):
         auth.verify_privilege(ctx.user, "tags:edit:suggestions")
         suggestions = ctx.get_param_as_string_list("suggestions")
@@ -112,9 +104,7 @@ def delete_tag(ctx: rest.Context, params: Dict[str, str]) -> rest.Response:
 
 
 @rest.routes.post("/tag-merge/?")
-def merge_tags(
-    ctx: rest.Context, _params: Dict[str, str] = {}
-) -> rest.Response:
+def merge_tags(ctx: rest.Context, _params: Dict[str, str] = {}) -> rest.Response:
     source_tag_name = ctx.get_param_as_string("remove")
     target_tag_name = ctx.get_param_as_string("mergeTo")
     source_tag = tags.get_tag_by_name(source_tag_name)
@@ -130,9 +120,7 @@ def merge_tags(
 
 
 @rest.routes.get("/tag-siblings/(?P<tag_name>.+)")
-def get_tag_siblings(
-    ctx: rest.Context, params: Dict[str, str]
-) -> rest.Response:
+def get_tag_siblings(ctx: rest.Context, params: Dict[str, str]) -> rest.Response:
     auth.verify_privilege(ctx.user, "tags:view")
     tag = _get_tag(params)
     result = tags.get_tag_siblings(tag)

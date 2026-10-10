@@ -25,8 +25,9 @@ def test_featuring(user_factory, post_factory, context_factory):
     db.session.add(post)
     db.session.flush()
     assert not posts.get_post_by_id(1).is_featured
-    with patch("lithica.func.posts.serialize_post"), patch(
-        "lithica.func.snapshots.modify"
+    with (
+        patch("lithica.func.posts.serialize_post"),
+        patch("lithica.func.snapshots.modify"),
     ):
         posts.serialize_post.return_value = "serialized post"
         result = api.post_api.set_featured_post(
@@ -55,8 +56,9 @@ def test_trying_to_feature_the_same_post_twice(
 ):
     db.session.add(post_factory(id=1))
     db.session.commit()
-    with patch("lithica.func.posts.serialize_post"), patch(
-        "lithica.func.snapshots._post_to_webhooks"
+    with (
+        patch("lithica.func.posts.serialize_post"),
+        patch("lithica.func.snapshots._post_to_webhooks"),
     ):
         api.post_api.set_featured_post(
             context_factory(
@@ -82,8 +84,9 @@ def test_featuring_one_post_after_another(
     assert posts.try_get_featured_post() is None
     assert not posts.get_post_by_id(1).is_featured
     assert not posts.get_post_by_id(2).is_featured
-    with patch("lithica.func.posts.serialize_post"), patch(
-        "lithica.func.snapshots._post_to_webhooks"
+    with (
+        patch("lithica.func.posts.serialize_post"),
+        patch("lithica.func.snapshots._post_to_webhooks"),
     ):
         with fake_datetime("1997"):
             api.post_api.set_featured_post(

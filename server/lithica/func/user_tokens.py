@@ -17,9 +17,7 @@ class InvalidNoteError(errors.ValidationError):
 
 
 class UserTokenSerializer(serialization.BaseSerializer):
-    def __init__(
-        self, user_token: model.UserToken, auth_user: model.User
-    ) -> None:
+    def __init__(self, user_token: model.UserToken, auth_user: model.User) -> None:
         self.user_token = user_token
         self.auth_user = auth_user
 
@@ -103,9 +101,7 @@ def create_user_token(user: model.User, enabled: bool) -> model.UserToken:
     return user_token
 
 
-def update_user_token_enabled(
-    user_token: model.UserToken, enabled: bool
-) -> None:
+def update_user_token_enabled(user_token: model.UserToken, enabled: bool) -> None:
     assert user_token
     user_token.enabled = enabled
     update_user_token_edit_time(user_token)
@@ -124,9 +120,7 @@ def update_user_token_expiration_time(
         expiration_time = rfc3339_parser.parse(expiration_time_str, utc=True)
         expiration_time = expiration_time.astimezone(pytz.UTC)
         if expiration_time < datetime.utcnow().replace(tzinfo=pytz.UTC):
-            raise InvalidExpirationError(
-                "Expiration cannot happen in the past"
-            )
+            raise InvalidExpirationError("Expiration cannot happen in the past")
         user_token.expiration_time = expiration_time
         update_user_token_edit_time(user_token)
     except ValueError:

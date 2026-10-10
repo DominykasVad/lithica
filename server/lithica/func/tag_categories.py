@@ -32,9 +32,7 @@ class InvalidTagCategoryColorError(errors.ValidationError):
 def _verify_name_validity(name: str) -> None:
     name_regex = config.config["tag_category_name_regex"]
     if not re.fullmatch(name_regex, name):
-        raise InvalidTagCategoryNameError(
-            "Name must satisfy regex %r." % name_regex
-        )
+        raise InvalidTagCategoryNameError("Name must satisfy regex %r." % name_regex)
 
 
 class TagCategorySerializer(serialization.BaseSerializer):
@@ -94,16 +92,10 @@ def update_category_name(category: model.TagCategory, name: str) -> None:
         raise InvalidTagCategoryNameError("Name cannot be empty.")
     expr = sa.func.lower(model.TagCategory.name) == name.lower()
     if category.tag_category_id:
-        expr = expr & (
-            model.TagCategory.tag_category_id != category.tag_category_id
-        )
-    already_exists = (
-        db.session.query(model.TagCategory).filter(expr).count() > 0
-    )
+        expr = expr & (model.TagCategory.tag_category_id != category.tag_category_id)
+    already_exists = db.session.query(model.TagCategory).filter(expr).count() > 0
     if already_exists:
-        raise TagCategoryAlreadyExistsError(
-            "A category with this name already exists."
-        )
+        raise TagCategoryAlreadyExistsError("A category with this name already exists.")
     if util.value_exceeds_column_size(name, model.TagCategory.name):
         raise InvalidTagCategoryNameError("Name is too long.")
     _verify_name_validity(name)
@@ -160,9 +152,7 @@ def get_all_categories() -> List[model.TagCategory]:
 def try_get_default_category(
     lock: bool = False,
 ) -> Optional[model.TagCategory]:
-    query = db.session.query(model.TagCategory).filter(
-        model.TagCategory.default
-    )
+    query = db.session.query(model.TagCategory).filter(model.TagCategory.default)
     if lock:
         query = query.with_for_update()
     category = query.first()

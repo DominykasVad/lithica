@@ -11,15 +11,11 @@ def inject_config(config_injector):
     config_injector({"privileges": {"posts:score": model.User.RANK_REGULAR}})
 
 
-def test_simple_rating(
-    user_factory, post_factory, context_factory, fake_datetime
-):
+def test_simple_rating(user_factory, post_factory, context_factory, fake_datetime):
     post = post_factory()
     db.session.add(post)
     db.session.commit()
-    with patch("lithica.func.posts.serialize_post"), fake_datetime(
-        "1997-12-01"
-    ):
+    with patch("lithica.func.posts.serialize_post"), fake_datetime("1997-12-01"):
         posts.serialize_post.return_value = "serialized post"
         result = api.post_api.set_post_score(
             context_factory(params={"score": 1}, user=user_factory()),
@@ -32,9 +28,7 @@ def test_simple_rating(
         assert post.score == 1
 
 
-def test_updating_rating(
-    user_factory, post_factory, context_factory, fake_datetime
-):
+def test_updating_rating(user_factory, post_factory, context_factory, fake_datetime):
     user = user_factory()
     post = post_factory()
     db.session.add(post)
@@ -78,9 +72,7 @@ def test_updating_rating_to_zero(
         assert post.score == 0
 
 
-def test_deleting_rating(
-    user_factory, post_factory, context_factory, fake_datetime
-):
+def test_deleting_rating(user_factory, post_factory, context_factory, fake_datetime):
     user = user_factory()
     post = post_factory()
     db.session.add(post)
@@ -124,9 +116,7 @@ def test_ratings_from_multiple_users(
         assert post.score == 0
 
 
-def test_trying_to_omit_mandatory_field(
-    user_factory, post_factory, context_factory
-):
+def test_trying_to_omit_mandatory_field(user_factory, post_factory, context_factory):
     post = post_factory()
     db.session.add(post)
     db.session.commit()
@@ -145,9 +135,7 @@ def test_trying_to_update_non_existing(user_factory, context_factory):
         )
 
 
-def test_trying_to_rate_without_privileges(
-    user_factory, post_factory, context_factory
-):
+def test_trying_to_rate_without_privileges(user_factory, post_factory, context_factory):
     post = post_factory()
     db.session.add(post)
     db.session.commit()

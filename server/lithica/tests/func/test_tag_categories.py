@@ -35,39 +35,31 @@ def test_serialize_category(tag_category_factory, tag_factory):
 
 
 def test_create_category_when_first():
-    with patch("lithica.func.tag_categories.update_category_name"), patch(
-        "lithica.func.tag_categories.update_category_color"
-    ), patch("lithica.func.tag_categories.update_category_order"):
+    with (
+        patch("lithica.func.tag_categories.update_category_name"),
+        patch("lithica.func.tag_categories.update_category_color"),
+        patch("lithica.func.tag_categories.update_category_order"),
+    ):
         category = tag_categories.create_category("name", "color", 7)
         assert category.default
-        tag_categories.update_category_name.assert_called_once_with(
-            category, "name"
-        )
-        tag_categories.update_category_color.assert_called_once_with(
-            category, "color"
-        )
-        tag_categories.update_category_order.assert_called_once_with(
-            category, 7
-        )
+        tag_categories.update_category_name.assert_called_once_with(category, "name")
+        tag_categories.update_category_color.assert_called_once_with(category, "color")
+        tag_categories.update_category_order.assert_called_once_with(category, 7)
 
 
 def test_create_category_when_subsequent(tag_category_factory):
     db.session.add(tag_category_factory())
     db.session.flush()
-    with patch("lithica.func.tag_categories.update_category_name"), patch(
-        "lithica.func.tag_categories.update_category_color"
-    ), patch("lithica.func.tag_categories.update_category_order"):
+    with (
+        patch("lithica.func.tag_categories.update_category_name"),
+        patch("lithica.func.tag_categories.update_category_color"),
+        patch("lithica.func.tag_categories.update_category_order"),
+    ):
         category = tag_categories.create_category("name", "color", 7)
         assert not category.default
-        tag_categories.update_category_name.assert_called_once_with(
-            category, "name"
-        )
-        tag_categories.update_category_color.assert_called_once_with(
-            category, "color"
-        )
-        tag_categories.update_category_order.assert_called_once_with(
-            category, 7
-        )
+        tag_categories.update_category_name.assert_called_once_with(category, "name")
+        tag_categories.update_category_color.assert_called_once_with(category, "color")
+        tag_categories.update_category_order.assert_called_once_with(category, 7)
 
 
 def test_update_category_name_with_empty_string(tag_category_factory):
@@ -76,9 +68,7 @@ def test_update_category_name_with_empty_string(tag_category_factory):
         tag_categories.update_category_name(category, None)
 
 
-def test_update_category_name_with_invalid_name(
-    config_injector, tag_category_factory
-):
+def test_update_category_name_with_invalid_name(config_injector, tag_category_factory):
     config_injector({"tag_category_name_regex": "^[a-z]+$"})
     category = tag_category_factory()
     with pytest.raises(tag_categories.InvalidTagCategoryNameError):
@@ -94,9 +84,7 @@ def test_update_category_name_with_too_long_string(
         tag_categories.update_category_name(category, "a" * 3000)
 
 
-def test_update_category_name_reusing_other_name(
-    config_injector, tag_category_factory
-):
+def test_update_category_name_reusing_other_name(config_injector, tag_category_factory):
     config_injector({"tag_category_name_regex": ".*"})
     db.session.add(tag_category_factory(name="name"))
     db.session.flush()

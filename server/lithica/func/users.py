@@ -71,9 +71,7 @@ def get_email(
     return user.email
 
 
-def get_liked_post_count(
-    user: model.User, auth_user: model.User
-) -> Union[bool, int]:
+def get_liked_post_count(user: model.User, auth_user: model.User) -> Union[bool, int]:
     assert user
     assert auth_user
     if auth_user.user_id != user.user_id:
@@ -173,9 +171,7 @@ def serialize_user(
 def serialize_micro_user(
     user: Optional[model.User], auth_user: model.User
 ) -> Optional[rest.Response]:
-    return serialize_user(
-        user, auth_user=auth_user, options=["name", "avatarUrl"]
-    )
+    return serialize_user(user, auth_user=auth_user, options=["name", "avatarUrl"])
 
 
 def get_user_count() -> int:
@@ -255,13 +251,9 @@ def update_user_password(user: model.User, password: str) -> None:
         raise InvalidPasswordError("Password cannot be empty.")
     password_regex = config.config["password_regex"]
     if not re.fullmatch(password_regex, password):
-        raise InvalidPasswordError(
-            "Password must satisfy regex %r." % password_regex
-        )
+        raise InvalidPasswordError("Password must satisfy regex %r." % password_regex)
     user.password_salt = auth.create_password()
-    password_hash, revision = auth.get_password_hash(
-        user.password_salt, password
-    )
+    password_hash, revision = auth.get_password_hash(user.password_salt, password)
     user.password_hash = password_hash
     user.password_revision = revision
 
@@ -276,9 +268,7 @@ def update_user_email(user: model.User, email: str) -> None:
     user.email = email or None
 
 
-def update_user_rank(
-    user: model.User, rank: str, auth_user: model.User
-) -> None:
+def update_user_rank(user: model.User, rank: str, auth_user: model.User) -> None:
     assert user
     if not rank:
         raise InvalidRankError("Rank cannot be empty.")
@@ -288,10 +278,7 @@ def update_user_rank(
         raise InvalidRankError("Rank can be either of %r." % all_ranks)
     if rank in (model.User.RANK_ANONYMOUS, model.User.RANK_NOBODY):
         raise InvalidRankError("Rank %r cannot be used." % auth.RANK_MAP[rank])
-    if (
-        all_ranks.index(auth_user.rank) < all_ranks.index(rank)
-        and get_user_count() > 0
-    ):
+    if all_ranks.index(auth_user.rank) < all_ranks.index(rank) and get_user_count() > 0:
         raise errors.AuthError("Trying to set higher rank than your own.")
     user.rank = rank
 
@@ -331,9 +318,7 @@ def reset_user_password(user: model.User) -> str:
     assert user
     password = auth.create_password()
     user.password_salt = auth.create_password()
-    password_hash, revision = auth.get_password_hash(
-        user.password_salt, password
-    )
+    password_hash, revision = auth.get_password_hash(user.password_salt, password)
     user.password_hash = password_hash
     user.password_revision = revision
     return password

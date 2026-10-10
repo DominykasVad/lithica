@@ -4,7 +4,6 @@ Alembic setup and configuration script
 isort:skip_file
 """
 
-
 import logging.config
 import os
 import sys

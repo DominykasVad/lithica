@@ -26,9 +26,7 @@ def test_deleting(user_factory, tag_factory, context_factory):
         snapshots.delete.assert_called_once_with(tag, auth_user)
 
 
-def test_deleting_used(
-    user_factory, tag_factory, context_factory, post_factory
-):
+def test_deleting_used(user_factory, tag_factory, context_factory, post_factory):
     tag = tag_factory(names=["tag"])
     post = post_factory()
     post.tags.append(tag)

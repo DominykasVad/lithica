@@ -32,9 +32,7 @@ class InvalidPoolCategoryColorError(errors.ValidationError):
 def _verify_name_validity(name: str) -> None:
     name_regex = config.config["pool_category_name_regex"]
     if not re.fullmatch(name_regex, name):
-        raise InvalidPoolCategoryNameError(
-            "Name must satisfy regex %r." % name_regex
-        )
+        raise InvalidPoolCategoryNameError("Name must satisfy regex %r." % name_regex)
 
 
 class PoolCategorySerializer(serialization.BaseSerializer):
@@ -89,12 +87,8 @@ def update_category_name(category: model.PoolCategory, name: str) -> None:
         raise InvalidPoolCategoryNameError("Name cannot be empty.")
     expr = sa.func.lower(model.PoolCategory.name) == name.lower()
     if category.pool_category_id:
-        expr = expr & (
-            model.PoolCategory.pool_category_id != category.pool_category_id
-        )
-    already_exists = (
-        db.session.query(model.PoolCategory).filter(expr).count() > 0
-    )
+        expr = expr & (model.PoolCategory.pool_category_id != category.pool_category_id)
+    already_exists = db.session.query(model.PoolCategory).filter(expr).count() > 0
     if already_exists:
         raise PoolCategoryAlreadyExistsError(
             "A category with this name already exists."
@@ -150,9 +144,7 @@ def get_all_categories() -> List[model.PoolCategory]:
 def try_get_default_category(
     lock: bool = False,
 ) -> Optional[model.PoolCategory]:
-    query = db.session.query(model.PoolCategory).filter(
-        model.PoolCategory.default
-    )
+    query = db.session.query(model.PoolCategory).filter(model.PoolCategory.default)
     if lock:
         query = query.with_for_update()
     category = query.first()

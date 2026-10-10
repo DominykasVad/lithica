@@ -19,14 +19,10 @@ def snake_case_to_lower_camel_case(text: str) -> str:
 
 
 def snake_case_to_upper_train_case(text: str) -> str:
-    return "-".join(
-        word[0].upper() + word[1:].lower() for word in text.split("_")
-    )
+    return "-".join(word[0].upper() + word[1:].lower() for word in text.split("_"))
 
 
-def snake_case_to_lower_camel_case_keys(
-    source: Dict[str, Any]
-) -> Dict[str, Any]:
+def snake_case_to_lower_camel_case_keys(source: Dict[str, Any]) -> Dict[str, Any]:
     target = {}
     for key, value in source.items():
         target[snake_case_to_lower_camel_case(key)] = value

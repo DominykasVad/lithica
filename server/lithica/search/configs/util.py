@@ -27,8 +27,7 @@ def unescape(text: str, make_wildcards_special: bool = False) -> str:
                 )
             if char not in "*\\:-.,":
                 raise errors.SearchError(
-                    "Unknown escape sequence (did you forget to escape "
-                    "the backslash?)"
+                    "Unknown escape sequence (did you forget to escape the backslash?)"
                 )
         elif text[i] == "*" and make_wildcards_special:
             char = WILDCARD
@@ -95,9 +94,7 @@ def apply_num_criterion_to_column(
         else:
             assert False
     except ValueError:
-        raise errors.SearchError(
-            "Criterion value %r must be a number." % (criterion,)
-        )
+        raise errors.SearchError("Criterion value %r must be a number." % (criterion,))
     return expr
 
 

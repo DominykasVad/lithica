@@ -41,12 +41,8 @@ class Executor:
     ) -> Tuple[model.Base, model.Base]:
         search_query = self.parser.parse(query_text)
         self.config.on_search_query_parsed(search_query)
-        filter_query = self.config.create_around_query().options(
-            sa.orm.lazyload("*")
-        )
-        filter_query = self._prepare_db_query(
-            filter_query, search_query, False
-        )
+        filter_query = self.config.create_around_query().options(sa.orm.lazyload("*"))
+        filter_query = self._prepare_db_query(filter_query, search_query, False)
         prev_filter_query = (
             filter_query.filter(self.config.id_column > entity_id)
             .order_by(None)
@@ -181,9 +177,7 @@ class Executor:
                             _format_dict_keys(self.config.sort_columns),
                         )
                     )
-                column, default_order = self.config.sort_columns[
-                    sort_token.name
-                ]
+                column, default_order = self.config.sort_columns[sort_token.name]
                 order = _get_order(sort_token.order, default_order)
                 if order == sort_token.SORT_ASC:
                     db_query = db_query.order_by(column.asc())

@@ -18,9 +18,7 @@ def _get_pool(params: Dict[str, str]) -> model.Pool:
 
 
 @rest.routes.get("/pools/?")
-def get_pools(
-    ctx: rest.Context, _params: Dict[str, str] = {}
-) -> rest.Response:
+def get_pools(ctx: rest.Context, _params: Dict[str, str] = {}) -> rest.Response:
     auth.verify_privilege(ctx.user, "pools:list")
     return _search_executor.execute_and_serialize(
         ctx, lambda pool: _serialize(ctx, pool)
@@ -28,9 +26,7 @@ def get_pools(
 
 
 @rest.routes.post("/pool/?")
-def create_pool(
-    ctx: rest.Context, _params: Dict[str, str] = {}
-) -> rest.Response:
+def create_pool(ctx: rest.Context, _params: Dict[str, str] = {}) -> rest.Response:
     auth.verify_privilege(ctx.user, "pools:create")
 
     names = ctx.get_param_as_string_list("names")
@@ -65,14 +61,10 @@ def update_pool(ctx: rest.Context, params: Dict[str, str]) -> rest.Response:
         pools.update_pool_names(pool, ctx.get_param_as_string_list("names"))
     if ctx.has_param("category"):
         auth.verify_privilege(ctx.user, "pools:edit:category")
-        pools.update_pool_category_name(
-            pool, ctx.get_param_as_string("category")
-        )
+        pools.update_pool_category_name(pool, ctx.get_param_as_string("category"))
     if ctx.has_param("description"):
         auth.verify_privilege(ctx.user, "pools:edit:description")
-        pools.update_pool_description(
-            pool, ctx.get_param_as_string("description")
-        )
+        pools.update_pool_description(pool, ctx.get_param_as_string("description"))
     if ctx.has_param("posts"):
         auth.verify_privilege(ctx.user, "pools:edit:posts")
         posts = ctx.get_param_as_int_list("posts")
@@ -96,9 +88,7 @@ def delete_pool(ctx: rest.Context, params: Dict[str, str]) -> rest.Response:
 
 
 @rest.routes.post("/pool-merge/?")
-def merge_pools(
-    ctx: rest.Context, _params: Dict[str, str] = {}
-) -> rest.Response:
+def merge_pools(ctx: rest.Context, _params: Dict[str, str] = {}) -> rest.Response:
     source_pool_id = ctx.get_param_as_string("remove")
     target_pool_id = ctx.get_param_as_string("mergeTo")
     source_pool = pools.get_pool_by_id(source_pool_id)
