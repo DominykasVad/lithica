@@ -57,7 +57,10 @@ Everything else must stay wire-compatible with `doc/API.md`.
 
 ### Allowed dialect exceptions
 
-None. (The signature `ARRAY` + `unnest()` and `ilike` uses are removed in phase 1.)
+- `sa.ARRAY` in migrations `8f3a1c2d4e5b` and `b7d2e9a4c1f3` only: they read and (on downgrade) restore the old
+  `post_signature.words` array column. No engine code uses it.
+
+(The `ilike` uses are removed in phase 1.)
 
 ### Decision log
 
@@ -99,7 +102,7 @@ correct code.
 - [x] Add `util.utcnow()` returning naive UTC. Replace all 27 `datetime.utcnow()` uses in non-test code. Behaviour must not change (columns stay naive UTC).
 
 ### 1.3 Database portability
-- [ ] Replace `post_signature.words` (`postgresql.ARRAY` + raw-SQL `unnest()` in `func/posts.py`) with a normal child table of (signature id, position, word) and an ORM query. Migration moves existing data. Similar-post results must be identical — add a test that compares old and new query results on the test assets before removing the old path.
+- [x] Replace `post_signature.words` (`postgresql.ARRAY` + raw-SQL `unnest()` in `func/posts.py`) with a normal child table of (signature id, position, word) and an ORM query. Migration moves existing data. Similar-post results must be identical — add a test that compares old and new query results on the test assets before removing the old path.
 - [ ] Replace `ilike` in `search/configs/util.py` with `func.lower(col).like(func.lower(value))`; check index usage on Postgres (expression index on `lower(name)` if needed, created via SQLAlchemy `Index`).
 - [ ] Grep gate: no `sa.text`, `text(`, `sa.dialects`, `ilike` left in `lithica/` (excluding historical migrations). Add this as a CI check.
 

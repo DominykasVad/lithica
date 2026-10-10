@@ -203,13 +203,6 @@ class PostSignature(Base):
         index=True,
     )
     signature = sa.Column("signature", sa.LargeBinary, nullable=False)
-    words = sa.Column(
-        "words",
-        sa.dialects.postgresql.ARRAY(sa.Integer, dimensions=1),
-        nullable=False,
-        index=True,
-    )
-
     word_rows = sa.orm.relationship(
         "PostSignatureWord",
         order_by="PostSignatureWord.position",
@@ -218,6 +211,16 @@ class PostSignature(Base):
     )
 
     post = sa.orm.relationship("Post", back_populates="signature")
+
+    @property
+    def words(self) -> list[int]:
+        return [row.word for row in self.word_rows]
+
+    @words.setter
+    def words(self, words: list[int]) -> None:
+        self.word_rows = [
+            PostSignatureWord(position, word) for position, word in enumerate(words)
+        ]
 
 
 class Post(Base):

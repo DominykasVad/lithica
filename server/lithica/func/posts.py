@@ -548,15 +548,7 @@ def generate_post_signature(post: model.Post, content: bytes) -> None:
         words = image_hash.generate_words(unpacked_signature)
 
         db.session.add(
-            model.PostSignature(
-                post=post,
-                signature=packed_signature,
-                words=words,
-                word_rows=[
-                    model.PostSignatureWord(position, word)
-                    for position, word in enumerate(words)
-                ],
-            )
+            model.PostSignature(post=post, signature=packed_signature, words=words)
         )
     except errors.ProcessingError as ex:
         if not config.config["allow_broken_uploads"]:
@@ -911,32 +903,6 @@ def search_by_image_exact(image_content: bytes) -> model.Post | None:
 
 
 SIMILAR_SIGNATURE_LIMIT = 100
-
-
-def _find_similar_signatures_with_unnest(
-    query_words: list[int],
-) -> list[tuple[int, bytes, int]]:
-    """
-    The Postgres-only query that _find_similar_signatures replaces. It stays
-    until the tests have shown that both return the same rows.
-
-    The unnest function is used here to expand one row containing the 'words'
-    array into multiple rows each containing a singular word.
-
-    Documentation of the unnest function can be found here:
-    https://www.postgresql.org/docs/9.2/functions-array.html
-    """
-    dbquery = """
-    SELECT s.post_id, s.signature, count(a.query) AS score
-    FROM post_signature AS s, unnest(s.words, :q) AS a(word, query)
-    WHERE a.word = a.query
-    GROUP BY s.post_id
-    ORDER BY score DESC LIMIT :limit;
-    """
-    rows = db.session.execute(
-        sa.text(dbquery), {"q": query_words, "limit": SIMILAR_SIGNATURE_LIMIT}
-    )
-    return [(post_id, signature, score) for post_id, signature, score in rows]
 
 
 def _find_similar_signatures(query_words: list[int]) -> list[tuple[int, bytes, int]]:
