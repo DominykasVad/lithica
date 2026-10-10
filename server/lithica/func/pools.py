@@ -198,7 +198,7 @@ def get_pools_by_names(names: list[str]) -> list[model.Pool]:
         .join(model.PoolName)
         .filter(
             sa.sql.or_(
-                sa.func.lower(model.PoolName.name) == name.lower() for name in names
+                *[sa.func.lower(model.PoolName.name) == name.lower() for name in names]
             )
         )
         .all()

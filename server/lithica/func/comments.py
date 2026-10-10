@@ -89,7 +89,9 @@ def get_comment_by_id(comment_id: int) -> model.Comment:
     raise CommentNotFoundError("Comment %r not found." % comment_id)
 
 
-def create_comment(user: model.User, post: model.Post, text: str) -> model.Comment:
+def create_comment(
+    user: model.User | None, post: model.Post, text: str
+) -> model.Comment:
     comment = model.Comment()
     comment.user = user
     comment.post = post

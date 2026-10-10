@@ -54,7 +54,7 @@ def update_user_token(
     user = users.get_user_by_name(params["user_name"])
     infix = "self" if ctx.user.user_id == user.user_id else "any"
     auth.verify_privilege(ctx.user, "user_tokens:edit:%s" % infix)
-    user_token = user_tokens.get_by_user_and_token(user, params["user_token"])
+    user_token = user_tokens.get_existing_by_user_and_token(user, params["user_token"])
     versions.verify_version(user_token, ctx)
     versions.bump_version(user_token)
     if ctx.has_param("enabled"):

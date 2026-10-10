@@ -28,10 +28,12 @@ class TagCategory(Base):
     )
 
     def __init__(self, name: str | None = None) -> None:
-        self.name = name
+        # without a name the attribute stays unset, which reads as None
+        if name is not None:
+            self.name = name
 
     tag_count = sa_orm.column_property(
-        sa.sql.expression.select(sa.sql.expression.func.count("Tag.tag_id"))
+        sa.sql.expression.select(sa.sql.expression.func.count(sa.literal("Tag.tag_id")))
         .where(Tag.category_id == tag_category_id)
         .correlate_except(sa.table("Tag"))
         .scalar_subquery()

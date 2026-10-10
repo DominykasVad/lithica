@@ -1,4 +1,5 @@
 from collections.abc import Callable
+from typing import Any
 
 import sqlalchemy as sa
 import sqlalchemy.orm as sa_orm
@@ -64,7 +65,8 @@ class Executor:
         self,
         ctx: rest.Context,
         entity_id: int,
-        serializer: Callable[[model.Base], rest.Response],
+        # each executor yields entities of its own config's model
+        serializer: Callable[[Any], rest.Response],
     ) -> rest.Response:
         entities = self.get_around(
             ctx.get_param_as_string("query", default=""), entity_id
@@ -107,7 +109,8 @@ class Executor:
     def execute_and_serialize(
         self,
         ctx: rest.Context,
-        serializer: Callable[[model.Base], rest.Response],
+        # each executor yields entities of its own config's model
+        serializer: Callable[[Any], rest.Response],
     ) -> rest.Response:
         query = ctx.get_param_as_string("query", default="")
         offset = ctx.get_param_as_int("offset", default=0, min=0)

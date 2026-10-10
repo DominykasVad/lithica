@@ -77,14 +77,20 @@ def _create_context(env: dict[str, Any]) -> context.Context:
     path = path.encode("latin-1").decode("utf-8")  # PEP-3333
     headers = _get_headers(env)
 
-    files = {}
+    files: dict[str, bytes] = {}
     params = dict(urllib.parse.parse_qsl(env.get("QUERY_STRING", "")))
 
     if "multipart" in env.get("CONTENT_TYPE", ""):
-        files = _parse_multipart(env)
-        if not files:
+        parts = _parse_multipart(env)
+        if not parts:
             raise errors.HttpBadRequest("ValidationError", "No files attached.")
-        body = files.get("metadata")
+        body = parts.get("metadata")
+        # only parts sent as files are files; a plain form field is text
+        files = {
+            name: content
+            for name, content in parts.items()
+            if isinstance(content, bytes)
+        }
     else:
         body = env["wsgi.input"].read()
 
@@ -121,7 +127,7 @@ def _cors_headers(env: dict[str, Any]) -> list[tuple[str, str]]:
     # the response differs by origin, so shared caches must key on it
     headers = [("Vary", "Origin")]
     origin = env.get("HTTP_ORIGIN")
-    if origin in allowed_origins:
+    if origin is not None and origin in allowed_origins:
         headers.append(("Access-Control-Allow-Origin", origin))
     return headers
 

@@ -67,7 +67,8 @@ def get_post_snapshot(post: model.Post) -> dict[str, Any]:
     }
 
 
-_snapshot_factories: dict[model.Base, Callable[[model.Base], dict[str, Any]]] = {
+# keyed by resource type; each factory takes the model of its own type
+_snapshot_factories: dict[str, Callable[[Any], dict[str, Any]]] = {
     # lambdas allow mocking target functions in the tests
     "tag_category": lambda entity: get_tag_category_snapshot(entity),
     "tag": lambda entity: get_tag_snapshot(entity),
@@ -92,8 +93,8 @@ def serialize_snapshot(
 
 
 def _post_to_webhooks(snapshot: model.Snapshot) -> None:
+    # an anonymous user: the name is left unset, which reads as None
     webhook_user = model.User()
-    webhook_user.name = None
     webhook_user.rank = "anonymous"
     net.post_to_webhooks(serialize_snapshot(snapshot, webhook_user))
 

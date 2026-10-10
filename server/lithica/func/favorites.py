@@ -9,9 +9,12 @@ class InvalidFavoriteTargetError(errors.ValidationError):
     pass
 
 
-def _get_table_info(
-    entity: model.Base,
-) -> tuple[model.Base, Callable[[model.Base], Any]]:
+# The auxiliary table and its key column depend on the kind of entity, which
+# is only known at run time, so both are typed loosely.
+AuxTableInfo = tuple[Any, Callable[[Any], Any]]
+
+
+def _get_table_info(entity: model.Base) -> AuxTableInfo:
     assert entity
     resource_type, _, _ = model.util.get_resource_info(entity)
     if resource_type == "post":
@@ -19,7 +22,7 @@ def _get_table_info(
     raise InvalidFavoriteTargetError()
 
 
-def _get_fav_entity(entity: model.Base, user: model.User) -> model.Base:
+def _get_fav_entity(entity: model.Base, user: model.User) -> Any:
     assert entity
     assert user
     return model.util.get_aux_entity(db.session, _get_table_info, entity, user)

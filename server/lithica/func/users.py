@@ -59,7 +59,7 @@ def get_avatar_url(user: model.User) -> str:
 
 def get_email(
     user: model.User, auth_user: model.User, force_show_email: bool
-) -> bool | str:
+) -> bool | str | None:
     assert user
     assert auth_user
     if (
@@ -252,8 +252,9 @@ def update_user_password(user: model.User, password: str) -> None:
     password_regex = config.config["password_regex"]
     if not re.fullmatch(password_regex, password):
         raise InvalidPasswordError("Password must satisfy regex %r." % password_regex)
-    user.password_salt = auth.create_password()
-    password_hash, revision = auth.get_password_hash(user.password_salt, password)
+    salt = auth.create_password()
+    user.password_salt = salt
+    password_hash, revision = auth.get_password_hash(salt, password)
     user.password_hash = password_hash
     user.password_revision = revision
 
@@ -272,15 +273,18 @@ def update_user_rank(user: model.User, rank: str, auth_user: model.User) -> None
     assert user
     if not rank:
         raise InvalidRankError("Rank cannot be empty.")
-    rank = util.flip(auth.RANK_MAP).get(rank.strip(), None)
+    internal_rank = util.flip(auth.RANK_MAP).get(rank.strip(), None)
     all_ranks = list(auth.RANK_MAP.values())
-    if not rank:
+    if not internal_rank:
         raise InvalidRankError("Rank can be either of %r." % all_ranks)
-    if rank in (model.User.RANK_ANONYMOUS, model.User.RANK_NOBODY):
-        raise InvalidRankError("Rank %r cannot be used." % auth.RANK_MAP[rank])
-    if all_ranks.index(auth_user.rank) < all_ranks.index(rank) and get_user_count() > 0:
+    if internal_rank in (model.User.RANK_ANONYMOUS, model.User.RANK_NOBODY):
+        raise InvalidRankError("Rank %r cannot be used." % auth.RANK_MAP[internal_rank])
+    if (
+        all_ranks.index(auth_user.rank) < all_ranks.index(internal_rank)
+        and get_user_count() > 0
+    ):
         raise errors.AuthError("Trying to set higher rank than your own.")
-    user.rank = rank
+    user.rank = internal_rank
 
 
 def update_user_avatar(
@@ -317,8 +321,9 @@ def bump_user_login_time(user: model.User) -> None:
 def reset_user_password(user: model.User) -> str:
     assert user
     password = auth.create_password()
-    user.password_salt = auth.create_password()
-    password_hash, revision = auth.get_password_hash(user.password_salt, password)
+    salt = auth.create_password()
+    user.password_salt = salt
+    password_hash, revision = auth.get_password_hash(salt, password)
     user.password_hash = password_hash
     user.password_revision = revision
     return password

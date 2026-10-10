@@ -45,3 +45,14 @@ def test_edit_user_token(user_token_factory, context_factory, fake_datetime):
         )
         user_tokens.update_user_token_enabled.assert_called_once_with(user_token, False)
         user_tokens.update_user_token_edit_time.assert_called_once_with(user_token)
+
+
+def test_edit_unknown_user_token(user_token_factory, context_factory):
+    user_token = user_token_factory()
+    db.session.add(user_token)
+    db.session.commit()
+    with pytest.raises(user_tokens.UserTokenNotFoundError):
+        api.user_token_api.update_user_token(
+            context_factory(params={"version": 1}, user=user_token.user),
+            {"user_name": user_token.user.name, "user_token": "no-such-token"},
+        )

@@ -4,6 +4,7 @@ from typing import Any
 
 import pytest
 
+from lithica import errors as lithica_errors
 from lithica.rest import app, errors
 
 BOUNDARY = "----lithicatestboundary"
@@ -132,6 +133,22 @@ def test_multipart_without_metadata_keeps_query_params():
     )
     assert ctx.get_param_as_string("fields") == "id"
     assert ctx.get_file("content") == b"content"
+
+
+def test_multipart_plain_field_is_not_a_file():
+    ctx = app._create_context(
+        _multipart_env(
+            [
+                ("metadata", None, None, b'{"safety": "safe"}'),
+                ("content", None, None, b"just text"),
+                ("thumbnail", "thumb.jpg", "image/jpeg", b"thumbnail"),
+            ]
+        )
+    )
+    assert not ctx.has_file("content")
+    assert ctx.get_file("thumbnail") == b"thumbnail"
+    with pytest.raises(lithica_errors.MissingRequiredFileError):
+        ctx.get_file("content")
 
 
 def test_multipart_invalid_metadata():

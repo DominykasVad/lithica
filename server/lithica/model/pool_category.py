@@ -25,10 +25,14 @@ class PoolCategory(Base):
     )
 
     def __init__(self, name: str | None = None) -> None:
-        self.name = name
+        # without a name the attribute stays unset, which reads as None
+        if name is not None:
+            self.name = name
 
     pool_count = sa_orm.column_property(
-        sa.sql.expression.select(sa.sql.expression.func.count("Pool.pool_id"))
+        sa.sql.expression.select(
+            sa.sql.expression.func.count(sa.literal("Pool.pool_id"))
+        )
         .where(Pool.category_id == pool_category_id)
         .correlate_except(sa.table("Pool"))
         .scalar_subquery()

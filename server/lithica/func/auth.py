@@ -10,7 +10,7 @@ from nacl.exceptions import InvalidkeyError
 from lithica import config, db, errors, model
 from lithica.func import util
 
-RANK_MAP = OrderedDict(
+RANK_MAP: OrderedDict[str, str] = OrderedDict(
     [
         (model.User.RANK_ANONYMOUS, "anonymous"),
         (model.User.RANK_RESTRICTED, "restricted"),
@@ -64,6 +64,9 @@ def create_password() -> str:
 def is_valid_password(user: model.User, password: str) -> bool:
     assert user
     salt, valid_hash = user.password_salt, user.password_hash
+    if salt is None:
+        # no salt was ever stored, so no password can match
+        return False
 
     try:
         return pwhash.verify(

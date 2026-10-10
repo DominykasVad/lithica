@@ -9,6 +9,10 @@ from lithica import db, errors, model, rest
 from lithica.func import auth, serialization, users, util
 
 
+class UserTokenNotFoundError(errors.NotFoundError):
+    pass
+
+
 class InvalidExpirationError(errors.ValidationError):
     pass
 
@@ -86,6 +90,13 @@ def get_by_user_and_token(user: model.User, token: str) -> model.UserToken | Non
     return found
 
 
+def get_existing_by_user_and_token(user: model.User, token: str) -> model.UserToken:
+    user_token = get_by_user_and_token(user, token)
+    if user_token is None:
+        raise UserTokenNotFoundError("User token not found.")
+    return user_token
+
+
 def get_user_tokens(user: model.User) -> list[model.UserToken]:
     assert user
     return (
@@ -136,11 +147,11 @@ def update_user_token_expiration_time(
 
 def update_user_token_note(user_token: model.UserToken, note: str) -> None:
     assert user_token
-    note = note.strip() if note is not None else ""
-    note = None if len(note) == 0 else note
-    if util.value_exceeds_column_size(note, model.UserToken.note):
+    stripped_note = note.strip() if note is not None else ""
+    new_note = None if len(stripped_note) == 0 else stripped_note
+    if util.value_exceeds_column_size(new_note, model.UserToken.note):
         raise InvalidNoteError("Note is too long.")
-    user_token.note = note
+    user_token.note = new_note
     update_user_token_edit_time(user_token)
 
 

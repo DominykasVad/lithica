@@ -11,7 +11,7 @@ def _serialize(ctx: rest.Context, pool: model.Pool) -> rest.Response:
 
 
 def _get_pool(params: dict[str, str]) -> model.Pool:
-    return pools.get_pool_by_id(params["pool_id"])
+    return pools.get_pool_by_id(int(params["pool_id"]))
 
 
 @rest.routes.get("/pools/?")
@@ -98,8 +98,8 @@ def merge_pools(
 ) -> rest.Response:
     if _params is None:
         _params = {}
-    source_pool_id = ctx.get_param_as_string("remove")
-    target_pool_id = ctx.get_param_as_string("mergeTo")
+    source_pool_id = ctx.get_param_as_int("remove")
+    target_pool_id = ctx.get_param_as_int("mergeTo")
     source_pool = pools.get_pool_by_id(source_pool_id)
     target_pool = pools.get_pool_by_id(target_pool_id)
     versions.verify_version(source_pool, ctx, "removeVersion")

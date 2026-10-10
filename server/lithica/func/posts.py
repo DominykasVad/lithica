@@ -1,7 +1,7 @@
 import hmac
 import logging
 from collections.abc import Callable
-from typing import Any
+from typing import Any, cast
 
 import sqlalchemy as sa
 import sqlalchemy.event as sa_event
@@ -151,7 +151,7 @@ def get_post_thumbnail_backup_path(post: model.Post) -> str:
     )
 
 
-def serialize_note(note: model.PostNote) -> rest.Response:
+def serialize_note(note: model.PostNote) -> dict[str, Any]:
     assert note
     return {
         "polygon": note.polygon,
@@ -355,9 +355,11 @@ def serialize_post(
 
 
 def serialize_micro_post(
-    post: model.Post, auth_user: model.User
-) -> rest.Response | None:
-    return serialize_post(post, auth_user=auth_user, options=["id", "thumbnailUrl"])
+    post: model.Post, auth_user: model.User | None
+) -> dict[str, Any]:
+    # the two fields of a micro post do not depend on who is asking
+    serializer = PostSerializer(post, cast(model.User, auth_user))
+    return serializer.serialize(["id", "thumbnailUrl"])
 
 
 def get_post_count() -> int:
@@ -382,11 +384,11 @@ def get_posts_by_ids(ids: list[int]) -> list[model.Post]:
         return []
     posts = (
         db.session.query(model.Post)
-        .filter(sa.sql.or_(model.Post.post_id == post_id for post_id in ids))
+        .filter(sa.sql.or_(*[model.Post.post_id == post_id for post_id in ids]))
         .all()
     )
     id_order = {v: k for k, v in enumerate(ids)}
-    return sorted(posts, key=lambda post: id_order.get(post.post_id))
+    return sorted(posts, key=lambda post: id_order[post.post_id])
 
 
 def try_get_current_post_feature() -> model.PostFeature | None:
@@ -424,12 +426,12 @@ def create_post(
 
 def update_post_safety(post: model.Post, safety: str) -> None:
     assert post
-    safety = util.flip(SAFETY_MAP).get(safety, None)
-    if not safety:
+    internal_safety = util.flip(SAFETY_MAP).get(safety, None)
+    if not internal_safety:
         raise InvalidPostSafetyError(
             "Safety can be either of %r." % list(SAFETY_MAP.values())
         )
-    post.safety = safety
+    post.safety = internal_safety
 
 
 def update_post_source(post: model.Post, source: str | None) -> None:
@@ -735,9 +737,8 @@ def update_post_content(post: model.Post, content: bytes | None) -> None:
         else:
             post.canvas_width = None
             post.canvas_height = None
-    if (post.canvas_width is not None and post.canvas_width <= 0) or (
-        post.canvas_height is not None and post.canvas_height <= 0
-    ):
+    width, height = post.canvas_width, post.canvas_height
+    if (width is not None and width <= 0) or (height is not None and height <= 0):
         if not config.config["allow_broken_uploads"]:
             raise InvalidPostContentError(
                 "Invalid image dimensions returned during processing"
@@ -887,8 +888,10 @@ def merge_posts(
         raise InvalidPostRelationError("Cannot merge post with itself.")
 
     def merge_tables(
-        table: model.Base,
-        anti_dup_func: Callable[[model.Base, model.Base], bool] | None,
+        # any mapped class with a post_id column, and a comparison of two
+        # aliases of it; which columns exist depends on the class passed in
+        table: Any,
+        anti_dup_func: Callable[[Any, Any], Any] | None,
         source_post_id: int,
         target_post_id: int,
     ) -> None:
@@ -1055,12 +1058,16 @@ def search_by_image(image_content: bytes) -> list[tuple[float, model.Post]]:
     if data:
         candidate_post_ids, sigarray = data
         distances = image_hash.normalized_distance(sigarray, query_signature)
-        return [
+        candidate_posts = [
             (distance, try_get_post_by_id(candidate_post_id))
             for candidate_post_id, distance in zip(
                 candidate_post_ids, distances, strict=False
             )
             if distance < image_hash.DISTANCE_CUTOFF
+        ]
+        # a post deleted since the candidates were read is left out
+        return [
+            (distance, post) for distance, post in candidate_posts if post is not None
         ]
     else:
         return []

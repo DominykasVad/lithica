@@ -171,7 +171,7 @@ def get_tags_by_names(names: list[str]) -> list[model.Tag]:
         .join(model.TagName)
         .filter(
             sa.sql.or_(
-                sa.func.lower(model.TagName.name) == name.lower() for name in names
+                *[sa.func.lower(model.TagName.name) == name.lower() for name in names]
             )
         )
         .all()
@@ -203,7 +203,7 @@ def get_or_create_tags_by_names(
     return existing_tags, new_tags
 
 
-def get_tag_siblings(tag: model.Tag) -> list[model.Tag]:
+def get_tag_siblings(tag: model.Tag) -> list[tuple[model.Tag, int]]:
     assert tag
     tag_alias = sa_orm.aliased(model.Tag)
     pt_alias1 = sa_orm.aliased(model.PostTag)
@@ -219,7 +219,7 @@ def get_tag_siblings(tag: model.Tag) -> list[model.Tag]:
         .order_by(tag_alias.first_name)
         .limit(50)
     )
-    return result
+    return [(sibling, occurrences) for sibling, occurrences in result]
 
 
 def delete(source_tag: model.Tag) -> None:
@@ -258,7 +258,10 @@ def merge_tags(source_tag: model.Tag, target_tag: model.Tag) -> None:
         db.session.execute(update_stmt)
 
     def merge_relations(
-        table: model.Base, source_tag_id: int, target_tag_id: int
+        # TagSuggestion or TagImplication: both have parent_id and child_id
+        table: Any,
+        source_tag_id: int,
+        target_tag_id: int,
     ) -> None:
         alias1 = table
         alias2 = sa_orm.aliased(table)

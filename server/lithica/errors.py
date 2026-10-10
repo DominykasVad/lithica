@@ -1,8 +1,11 @@
+from typing import Any
+
+
 class BaseError(RuntimeError):
     def __init__(
         self,
         message: str = "Unknown error",
-        extra_fields: dict[str, str] | None = None,
+        extra_fields: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(message)
         self.extra_fields = extra_fields

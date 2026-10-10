@@ -374,22 +374,21 @@ class Post(Base):
     )
 
     @property
-    def is_featured(self) -> bool:
+    def is_featured(self) -> bool | None:
+        session = sa_orm.object_session(self)
+        assert session is not None
         featured_post = (
-            sa_orm.object_session(self)
-            .query(PostFeature)
-            .order_by(PostFeature.time.desc())
-            .first()
+            session.query(PostFeature).order_by(PostFeature.time.desc()).first()
         )
         return featured_post and featured_post.post_id == self.post_id
 
     @hybrid_property
     def flags(self) -> list[str]:
-        return sorted([x for x in self.flags_string.split(",") if x])
+        return sorted([x for x in (self.flags_string or "").split(",") if x])
 
-    @flags.setter
-    def flags(self, data: list[str]) -> None:
-        self.flags_string = ",".join([x for x in data if x])
+    @flags.inplace.setter
+    def _flags_setter(self, value: list[str]) -> None:
+        self.flags_string = ",".join([x for x in value if x])
 
     score = sa_orm.column_property(
         sa.sql.expression.select(

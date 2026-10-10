@@ -124,6 +124,8 @@ def _category_filter(
     query: SaQuery, criterion: criteria.BaseCriterion | None, negated: bool
 ) -> SaQuery:
     assert criterion
+    if not isinstance(criterion, criteria.PlainCriterion):
+        raise errors.SearchError("A category search takes exactly one category name.")
 
     # Step 1. find the id for the category
     q1 = db.session.query(model.TagCategory.tag_category_id).filter(
