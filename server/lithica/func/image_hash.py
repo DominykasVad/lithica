@@ -1,7 +1,7 @@
 import logging
 import math
 from io import BytesIO
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 from PIL import Image, features
@@ -108,7 +108,7 @@ def _normalize_and_threshold(
 
 
 def _compute_grid_points(
-    image: NpMatrix, n: float, window: Window = None
+    image: NpMatrix, n: int, window: Window | None = None
 ) -> tuple[NpMatrix, NpMatrix]:
     if window is None:
         window = ((0, image.shape[0]), (0, image.shape[1]))
@@ -163,17 +163,25 @@ def _compute_differentials(grey_level_matrix: NpMatrix) -> NpMatrix:
     )
     up_neighbors = -np.concatenate((down_neighbors[-1:], down_neighbors[:-1]))
     diagonals = np.arange(-grey_level_matrix.shape[0] + 1, grey_level_matrix.shape[0])
-    upper_left_neighbors = sum(
-        [
-            np.diagflat(np.insert(np.diff(np.diag(grey_level_matrix, i)), 0, 0), i)
-            for i in diagonals
-        ]
+    # sum() starts from the int 0, which the type checker keeps in the type
+    # of the result; with at least one diagonal the result is always an array
+    upper_left_neighbors = cast(
+        NpMatrix,
+        sum(
+            [
+                np.diagflat(np.insert(np.diff(np.diag(grey_level_matrix, i)), 0, 0), i)
+                for i in diagonals
+            ]
+        ),
     )
-    upper_right_neighbors = sum(
-        [
-            np.diagflat(np.insert(np.diff(np.diag(flipped, i)), 0, 0), i)
-            for i in diagonals
-        ]
+    upper_right_neighbors = cast(
+        NpMatrix,
+        sum(
+            [
+                np.diagflat(np.insert(np.diff(np.diag(flipped, i)), 0, 0), i)
+                for i in diagonals
+            ]
+        ),
     )
     lower_right_neighbors = -np.pad(
         upper_left_neighbors[1:, 1:], (0, 1), mode="constant"
@@ -182,17 +190,19 @@ def _compute_differentials(grey_level_matrix: NpMatrix) -> NpMatrix:
         upper_right_neighbors[1:, 1:], (0, 1), mode="constant"
     )
     return np.dstack(
-        np.array(
-            [
-                upper_left_neighbors,
-                up_neighbors,
-                np.fliplr(upper_right_neighbors),
-                left_neighbors,
-                right_neighbors,
-                np.fliplr(lower_left_neighbors),
-                down_neighbors,
-                lower_right_neighbors,
-            ]
+        list(
+            np.array(
+                [
+                    upper_left_neighbors,
+                    up_neighbors,
+                    np.fliplr(upper_right_neighbors),
+                    left_neighbors,
+                    right_neighbors,
+                    np.fliplr(lower_left_neighbors),
+                    down_neighbors,
+                    lower_right_neighbors,
+                ]
+            )
         )
     )
 

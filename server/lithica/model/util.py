@@ -8,7 +8,8 @@ from lithica.model.user import User
 
 
 def get_resource_info(entity: Base) -> tuple[Any, Any, str]:
-    serializers: dict[str, Callable[[Base], Any]] = {
+    # each serializer reads an attribute only its own kind of entity has
+    serializers: dict[str, Callable[[Any], Any]] = {
         "tag": lambda tag: tag.first_name,
         "tag_category": lambda category: category.name,
         "comment": lambda comment: comment.comment_id,
@@ -17,7 +18,7 @@ def get_resource_info(entity: Base) -> tuple[Any, Any, str]:
         "pool_category": lambda category: category.name,
     }
 
-    resource_type = entity.__table__.name
+    resource_type = entity.__tablename__
     assert resource_type in serializers
 
     primary_key: Any = sa.inspection.inspect(entity).identity
@@ -35,10 +36,11 @@ def get_resource_info(entity: Base) -> tuple[Any, Any, str]:
 
 def get_aux_entity(
     session: Any,
-    get_table_info: Callable[[Base], tuple[Base, Callable[[Base], Any]]],
+    # the auxiliary table depends on the kind of entity, see the callers
+    get_table_info: Callable[[Base], tuple[Any, Callable[[Any], Any]]],
     entity: Base,
     user: User,
-) -> Base | None:
+) -> Any:
     table, get_column = get_table_info(entity)
     return (
         session.query(table)

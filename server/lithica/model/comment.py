@@ -1,4 +1,7 @@
+from datetime import datetime
+
 import sqlalchemy as sa
+import sqlalchemy.orm as sa_orm
 
 from lithica.db import get_session
 from lithica.model.base import Base
@@ -7,14 +10,14 @@ from lithica.model.base import Base
 class CommentScore(Base):
     __tablename__ = "comment_score"
 
-    comment_id = sa.Column(
+    comment_id: sa_orm.Mapped[int] = sa_orm.mapped_column(
         "comment_id",
         sa.Integer,
         sa.ForeignKey("comment.id"),
         nullable=False,
         primary_key=True,
     )
-    user_id = sa.Column(
+    user_id: sa_orm.Mapped[int] = sa_orm.mapped_column(
         "user_id",
         sa.Integer,
         sa.ForeignKey("user.id"),
@@ -22,42 +25,56 @@ class CommentScore(Base):
         primary_key=True,
         index=True,
     )
-    time = sa.Column("time", sa.DateTime, nullable=False)
-    score = sa.Column("score", sa.Integer, nullable=False)
+    time: sa_orm.Mapped[datetime] = sa_orm.mapped_column(
+        "time", sa.DateTime, nullable=False
+    )
+    score: sa_orm.Mapped[int] = sa_orm.mapped_column(
+        "score", sa.Integer, nullable=False
+    )
 
-    comment = sa.orm.relationship("Comment", back_populates="scores")
-    user = sa.orm.relationship(
+    comment = sa_orm.relationship("Comment", back_populates="scores")
+    user = sa_orm.relationship(
         "User",
-        backref=sa.orm.backref("comment_scores", cascade="all, delete-orphan"),
+        backref=sa_orm.backref("comment_scores", cascade="all, delete-orphan"),
     )
 
 
 class Comment(Base):
     __tablename__ = "comment"
 
-    comment_id = sa.Column("id", sa.Integer, primary_key=True)
-    post_id = sa.Column(
+    comment_id: sa_orm.Mapped[int] = sa_orm.mapped_column(
+        "id", sa.Integer, primary_key=True
+    )
+    post_id: sa_orm.Mapped[int] = sa_orm.mapped_column(
         "post_id",
         sa.Integer,
         sa.ForeignKey("post.id"),
         nullable=False,
         index=True,
     )
-    user_id = sa.Column(
+    user_id: sa_orm.Mapped[int | None] = sa_orm.mapped_column(
         "user_id",
         sa.Integer,
         sa.ForeignKey("user.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )
-    version = sa.Column("version", sa.Integer, default=1, nullable=False)
-    creation_time = sa.Column("creation_time", sa.DateTime, nullable=False)
-    last_edit_time = sa.Column("last_edit_time", sa.DateTime)
-    text = sa.Column("text", sa.UnicodeText, default=None)
+    version: sa_orm.Mapped[int] = sa_orm.mapped_column(
+        "version", sa.Integer, default=1, nullable=False
+    )
+    creation_time: sa_orm.Mapped[datetime] = sa_orm.mapped_column(
+        "creation_time", sa.DateTime, nullable=False
+    )
+    last_edit_time: sa_orm.Mapped[datetime | None] = sa_orm.mapped_column(
+        "last_edit_time", sa.DateTime
+    )
+    text: sa_orm.Mapped[str | None] = sa_orm.mapped_column(
+        "text", sa.UnicodeText, default=None
+    )
 
-    user = sa.orm.relationship("User", back_populates="comments")
-    post = sa.orm.relationship("Post", back_populates="comments")
-    scores = sa.orm.relationship(
+    user = sa_orm.relationship("User", back_populates="comments")
+    post = sa_orm.relationship("Post", back_populates="comments")
+    scores = sa_orm.relationship(
         "CommentScore",
         cascade="all, delete-orphan",
         lazy="joined",

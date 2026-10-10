@@ -36,6 +36,7 @@ def test_retrieving_multiple(user_factory, context_factory):
             user=user_factory(rank=model.User.RANK_REGULAR),
         )
     )
+    assert result is not None
     assert result["query"] == ""
     assert result["offset"] == 0
     assert result["limit"] == 100

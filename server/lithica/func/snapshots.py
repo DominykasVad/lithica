@@ -1,11 +1,10 @@
 from collections.abc import Callable
-from datetime import datetime
 from typing import Any
 
-import sqlalchemy as sa
+import sqlalchemy.orm as sa_orm
 
 from lithica import db, model
-from lithica.func import diff, net, users
+from lithica.func import diff, net, users, util
 
 
 def get_tag_category_snapshot(category: model.TagCategory) -> dict[str, Any]:
@@ -68,7 +67,8 @@ def get_post_snapshot(post: model.Post) -> dict[str, Any]:
     }
 
 
-_snapshot_factories: dict[model.Base, Callable[[model.Base], dict[str, Any]]] = {
+# keyed by resource type; each factory takes the model of its own type
+_snapshot_factories: dict[str, Callable[[Any], dict[str, Any]]] = {
     # lambdas allow mocking target functions in the tests
     "tag_category": lambda entity: get_tag_category_snapshot(entity),
     "tag": lambda entity: get_tag_snapshot(entity),
@@ -93,8 +93,8 @@ def serialize_snapshot(
 
 
 def _post_to_webhooks(snapshot: model.Snapshot) -> None:
+    # an anonymous user: the name is left unset, which reads as None
     webhook_user = model.User()
-    webhook_user.name = None
     webhook_user.rank = "anonymous"
     net.post_to_webhooks(serialize_snapshot(snapshot, webhook_user))
 
@@ -108,7 +108,7 @@ def _create(
         auth_user = None
 
     snapshot = model.Snapshot()
-    snapshot.creation_time = datetime.utcnow()
+    snapshot.creation_time = util.utcnow()
     snapshot.operation = operation
     snapshot.resource_type = resource_type
     snapshot.resource_pkey = resource_pkey
@@ -132,7 +132,7 @@ def modify(entity: model.Base, auth_user: model.User | None) -> None:
     snapshot = _create(model.Snapshot.OPERATION_MODIFIED, entity, auth_user)
     snapshot_factory = _snapshot_factories[snapshot.resource_type]
 
-    detached_session = sa.orm.sessionmaker(bind=db.session.get_bind())()
+    detached_session = sa_orm.sessionmaker(bind=db.session.get_bind())()
     detached_entity = detached_session.get(type(entity), snapshot.resource_pkey)
     assert detached_entity, "Entity not found in DB, have you committed it?"
     detached_snapshot = snapshot_factory(detached_entity)

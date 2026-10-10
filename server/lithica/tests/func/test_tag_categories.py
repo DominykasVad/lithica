@@ -3,12 +3,7 @@ from unittest.mock import patch
 import pytest
 
 from lithica import db, model
-from lithica.func import cache, tag_categories
-
-
-@pytest.fixture(autouse=True)
-def purge_cache():
-    cache.purge()
+from lithica.func import tag_categories
 
 
 def test_serialize_category_when_empty():
@@ -65,7 +60,7 @@ def test_create_category_when_subsequent(tag_category_factory):
 def test_update_category_name_with_empty_string(tag_category_factory):
     category = tag_category_factory()
     with pytest.raises(tag_categories.InvalidTagCategoryNameError):
-        tag_categories.update_category_name(category, None)
+        tag_categories.update_category_name(category, None)  # pyright: ignore[reportArgumentType] - None on purpose
 
 
 def test_update_category_name_with_invalid_name(config_injector, tag_category_factory):
@@ -110,7 +105,7 @@ def test_update_category_name_reusing_own_name(
 def test_update_category_color_with_empty_string(tag_category_factory):
     category = tag_category_factory()
     with pytest.raises(tag_categories.InvalidTagCategoryColorError):
-        tag_categories.update_category_color(category, None)
+        tag_categories.update_category_color(category, None)  # pyright: ignore[reportArgumentType] - None on purpose
 
 
 def test_update_category_color_with_too_long_string(tag_category_factory):
@@ -195,24 +190,21 @@ def test_get_default_category_name(tag_category_factory):
     assert tag_categories.get_default_category_name() == category2.name
     category2.default = False
     db.session.flush()
-    cache.purge()
     assert tag_categories.get_default_category_name() == category1.name
     db.session.query(model.TagCategory).delete()
-    cache.purge()
     with pytest.raises(tag_categories.TagCategoryNotFoundError):
         tag_categories.get_default_category_name()
 
 
-def test_get_default_category_name_caching(tag_category_factory):
+def test_get_default_category_name_is_not_cached(tag_category_factory):
     category1 = tag_category_factory()
     category2 = tag_category_factory()
     db.session.add_all([category1, category2])
     db.session.flush()
-    tag_categories.get_default_category_name()
+    assert tag_categories.get_default_category_name() == category1.name
     db.session.delete(category1)
     db.session.flush()
-    assert tag_categories.get_default_category_name() == category1.name
-    cache.purge()
+    # the answer follows the database at once, in every server process
     assert tag_categories.get_default_category_name() == category2.name
 
 

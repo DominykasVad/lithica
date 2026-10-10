@@ -9,9 +9,12 @@ def _get_full_path(path: str) -> str:
 
 
 def delete(path: str) -> None:
-    full_path = _get_full_path(path)
-    if os.path.exists(full_path):
-        os.unlink(full_path)
+    # No "does it exist" check first: another thread or server process may
+    # delete the same file between the check and the unlink.
+    try:
+        os.unlink(_get_full_path(path))
+    except FileNotFoundError:
+        pass
 
 
 def has(path: str) -> bool:

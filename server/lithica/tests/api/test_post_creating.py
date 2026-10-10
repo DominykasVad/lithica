@@ -358,6 +358,9 @@ def test_errors_not_spending_ids(
             )
         )
 
+    # serialize_post is mocked to return the post id
+    assert isinstance(post1_id, int)
+    assert isinstance(post2_id, int)
     assert post1_id > 0
     assert post2_id > 0
     assert post2_id == post1_id + 1

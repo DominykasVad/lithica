@@ -5,9 +5,7 @@ from typing import Any
 import sqlalchemy as sa
 
 from lithica import config, db, errors, model, rest
-from lithica.func import cache, serialization, util
-
-DEFAULT_CATEGORY_NAME_CACHE_KEY = "default-pool-category"
+from lithica.func import serialization, util
 
 
 class PoolCategoryNotFoundError(errors.NotFoundError):
@@ -100,7 +98,6 @@ def update_category_name(category: model.PoolCategory, name: str) -> None:
         raise InvalidPoolCategoryNameError("Name is too long.")
     _verify_name_validity(name)
     category.name = name
-    cache.remove(DEFAULT_CATEGORY_NAME_CACHE_KEY)
 
 
 def update_category_color(category: model.PoolCategory, color: str) -> None:
@@ -171,12 +168,7 @@ def get_default_category(lock: bool = False) -> model.PoolCategory:
 
 
 def get_default_category_name() -> str:
-    if cache.has(DEFAULT_CATEGORY_NAME_CACHE_KEY):
-        return cache.get(DEFAULT_CATEGORY_NAME_CACHE_KEY)
-    default_category = get_default_category()
-    default_category_name = default_category.name
-    cache.put(DEFAULT_CATEGORY_NAME_CACHE_KEY, default_category_name)
-    return default_category_name
+    return get_default_category().name
 
 
 def set_default_category(category: model.PoolCategory) -> None:
@@ -187,7 +179,6 @@ def set_default_category(category: model.PoolCategory) -> None:
         old_category.default = False
     db.session.refresh(category)
     category.default = True
-    cache.remove(DEFAULT_CATEGORY_NAME_CACHE_KEY)
 
 
 def delete_category(category: model.PoolCategory) -> None:

@@ -1,4 +1,3 @@
-import lithica.model.util
 from lithica.model.base import Base
 from lithica.model.comment import Comment, CommentScore
 from lithica.model.pool import Pool, PoolName, PoolPost
@@ -11,9 +10,12 @@ from lithica.model.post import (
     PostRelation,
     PostScore,
     PostSignature,
+    PostSignatureWord,
     PostTag,
 )
 from lithica.model.snapshot import Snapshot
 from lithica.model.tag import Tag, TagImplication, TagName, TagSuggestion
 from lithica.model.tag_category import TagCategory
-from lithica.model.user import User, UserToken
+from lithica.model.user import PasswordResetToken, User, UserToken
+
+from lithica.model import util  # isort: skip  (needs the models above)

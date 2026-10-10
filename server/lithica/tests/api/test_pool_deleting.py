@@ -19,7 +19,7 @@ def test_deleting(user_factory, pool_factory, context_factory):
     with patch("lithica.func.snapshots.delete"):
         result = api.pool_api.delete_pool(
             context_factory(params={"version": 1}, user=auth_user),
-            {"pool_id": 1},
+            {"pool_id": "1"},
         )
         assert result == {}
         assert db.session.query(model.Pool).count() == 0
@@ -38,7 +38,7 @@ def test_deleting_used(user_factory, pool_factory, context_factory, post_factory
                 params={"version": 1},
                 user=user_factory(rank=model.User.RANK_REGULAR),
             ),
-            {"pool_id": 1},
+            {"pool_id": "1"},
         )
         db.session.refresh(post)
         assert db.session.query(model.Pool).count() == 0
@@ -50,7 +50,7 @@ def test_trying_to_delete_non_existing(user_factory, context_factory):
     with pytest.raises(pools.PoolNotFoundError):
         api.pool_api.delete_pool(
             context_factory(user=user_factory(rank=model.User.RANK_REGULAR)),
-            {"pool_id": 9999},
+            {"pool_id": "9999"},
         )
 
 
@@ -65,6 +65,6 @@ def test_trying_to_delete_without_privileges(
                 params={"version": 1},
                 user=user_factory(rank=model.User.RANK_ANONYMOUS),
             ),
-            {"pool_id": 1},
+            {"pool_id": "1"},
         )
     assert db.session.query(model.Pool).count() == 1

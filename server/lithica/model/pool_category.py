@@ -1,4 +1,5 @@
 import sqlalchemy as sa
+import sqlalchemy.orm as sa_orm
 
 from lithica.model.base import Base
 from lithica.model.pool import Pool
@@ -7,17 +8,31 @@ from lithica.model.pool import Pool
 class PoolCategory(Base):
     __tablename__ = "pool_category"
 
-    pool_category_id = sa.Column("id", sa.Integer, primary_key=True)
-    version = sa.Column("version", sa.Integer, default=1, nullable=False)
-    name = sa.Column("name", sa.Unicode(32), nullable=False)
-    color = sa.Column("color", sa.Unicode(32), nullable=False, default="#000000")
-    default = sa.Column("default", sa.Boolean, nullable=False, default=False)
+    pool_category_id: sa_orm.Mapped[int] = sa_orm.mapped_column(
+        "id", sa.Integer, primary_key=True
+    )
+    version: sa_orm.Mapped[int] = sa_orm.mapped_column(
+        "version", sa.Integer, default=1, nullable=False
+    )
+    name: sa_orm.Mapped[str] = sa_orm.mapped_column(
+        "name", sa.Unicode(32), nullable=False
+    )
+    color: sa_orm.Mapped[str] = sa_orm.mapped_column(
+        "color", sa.Unicode(32), nullable=False, default="#000000"
+    )
+    default: sa_orm.Mapped[bool] = sa_orm.mapped_column(
+        "default", sa.Boolean, nullable=False, default=False
+    )
 
     def __init__(self, name: str | None = None) -> None:
-        self.name = name
+        # without a name the attribute stays unset, which reads as None
+        if name is not None:
+            self.name = name
 
-    pool_count = sa.orm.column_property(
-        sa.sql.expression.select(sa.sql.expression.func.count("Pool.pool_id"))
+    pool_count = sa_orm.column_property(
+        sa.sql.expression.select(
+            sa.sql.expression.func.count(sa.literal("Pool.pool_id"))
+        )
         .where(Pool.category_id == pool_category_id)
         .correlate_except(sa.table("Pool"))
         .scalar_subquery()

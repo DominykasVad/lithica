@@ -2060,6 +2060,10 @@ data.
     mailbox, which is a strong indication they are the rightful owner of the
     account.
 
+    The token is random, works once and expires after the time set in
+    `password_reset_token_lifetime` (one hour by default). Requesting another
+    email makes the previous token stop working.
+
 ## Password reset - step 2: confirmation
 - **Request**
 
@@ -2084,7 +2088,7 @@ data.
 - **Errors**
 
     - the token is missing
-    - the token is invalid
+    - the token is invalid, expired or already used
     - the user does not exist
 
 - **Description**
@@ -2167,6 +2171,12 @@ data.
     in `config` key are taken directly from the server config, with the
     exception of privilege array keys being converted to lower camel case to
     match the API convention.
+
+    `<disk-usage>` is the size of the data directory. It is measured in the
+    background and can be up to an hour old; it is null until the first
+    measurement after a server start has finished. When several server
+    processes run, each measures for itself, so two requests can briefly
+    report different sizes.
 
 ## Uploading temporary file
 

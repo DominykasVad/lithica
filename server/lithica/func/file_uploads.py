@@ -1,6 +1,10 @@
-from datetime import datetime, timedelta
+import logging
+from datetime import UTC, datetime, timedelta
 
+from lithica import db
 from lithica.func import files, util
+
+logger = logging.getLogger(__name__)
 
 MAX_MINUTES = 60
 
@@ -10,11 +14,34 @@ def _get_path(checksum: str) -> str:
 
 
 def purge_old_uploads() -> None:
-    now = datetime.now()
+    """
+    Delete temporary uploads older than MAX_MINUTES. Several server processes
+    run this at the same time on the same directory, so a file that vanishes
+    half-way is somebody else's finished work, not an error.
+    """
+    now = util.utcnow()
     for file in files.scan("temporary-uploads"):
-        file_time = datetime.fromtimestamp(file.stat().st_ctime)
+        try:
+            changed_at = file.stat().st_ctime
+        except FileNotFoundError:
+            continue
+        file_time = datetime.fromtimestamp(changed_at, UTC).replace(tzinfo=None)
         if now - file_time > timedelta(minutes=MAX_MINUTES):
             files.delete("temporary-uploads/%s" % file.name)
+
+
+def purge_old_uploads_once() -> None:
+    """
+    One purge run for the background thread: never raises, and closes any
+    database session the run opened in this thread before returning, so
+    nothing is shared with the request threads.
+    """
+    try:
+        purge_old_uploads()
+    except Exception as ex:
+        logger.exception(ex)
+    finally:
+        db.session.remove()
 
 
 def get(checksum: str) -> bytes | None:

@@ -49,7 +49,7 @@ def test_simple_updating(user_factory, pool_factory, context_factory):
                 },
                 user=auth_user,
             ),
-            {"pool_id": 1},
+            {"pool_id": "1"},
         )
         assert result == "serialized pool"
         pools.create_pool.assert_not_called()
@@ -91,7 +91,7 @@ def test_omitting_optional_field(user_factory, pool_factory, context_factory, fi
                 params={**params, **{"version": 1}},
                 user=user_factory(rank=model.User.RANK_REGULAR),
             ),
-            {"pool_id": 1},
+            {"pool_id": "1"},
         )
 
 
@@ -102,7 +102,7 @@ def test_trying_to_update_non_existing(user_factory, context_factory):
                 params={"names": ["dummy"]},
                 user=user_factory(rank=model.User.RANK_REGULAR),
             ),
-            {"pool_id": 9999},
+            {"pool_id": "9999"},
         )
 
 
@@ -125,7 +125,7 @@ def test_trying_to_update_without_privileges(
                 params={**params, **{"version": 1}},
                 user=user_factory(rank=model.User.RANK_ANONYMOUS),
             ),
-            {"pool_id": 1},
+            {"pool_id": "1"},
         )
 
 
@@ -152,5 +152,5 @@ def test_trying_to_create_pools_without_privileges(
                     params={"posts": [1, 2], "version": 1},
                     user=user_factory(rank=model.User.RANK_REGULAR),
                 ),
-                {"pool_id": 1},
+                {"pool_id": "1"},
             )

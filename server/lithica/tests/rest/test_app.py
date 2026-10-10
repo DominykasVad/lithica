@@ -4,6 +4,7 @@ from typing import Any
 
 import pytest
 
+from lithica import errors as lithica_errors
 from lithica.rest import app, errors
 
 BOUNDARY = "----lithicatestboundary"
@@ -134,6 +135,22 @@ def test_multipart_without_metadata_keeps_query_params():
     assert ctx.get_file("content") == b"content"
 
 
+def test_multipart_plain_field_is_not_a_file():
+    ctx = app._create_context(
+        _multipart_env(
+            [
+                ("metadata", None, None, b'{"safety": "safe"}'),
+                ("content", None, None, b"just text"),
+                ("thumbnail", "thumb.jpg", "image/jpeg", b"thumbnail"),
+            ]
+        )
+    )
+    assert not ctx.has_file("content")
+    assert ctx.get_file("thumbnail") == b"thumbnail"
+    with pytest.raises(lithica_errors.MissingRequiredFileError):
+        ctx.get_file("content")
+
+
 def test_multipart_invalid_metadata():
     with pytest.raises(errors.HttpBadRequest):
         app._create_context(
@@ -156,3 +173,115 @@ def test_multipart_malformed_body():
     env = _env(b"this is not multipart", "multipart/form-data")
     with pytest.raises(errors.HttpBadRequest):
         app._create_context(env)
+
+
+def _call(env: dict[str, Any]) -> tuple[str, dict[str, str], bytes]:
+    captured: dict[str, Any] = {}
+
+    def start_response(status: str, headers: list[tuple[str, str]]) -> None:
+        captured["status"] = status
+        captured["headers"] = dict(headers)
+
+    body = app.application(env, start_response)
+    return captured["status"], captured["headers"], b"".join(body)
+
+
+def _get_env(origin: str | None = None) -> dict[str, Any]:
+    env: dict[str, Any] = {
+        "REQUEST_METHOD": "GET",
+        "PATH_INFO": "/no-such-path",
+        "QUERY_STRING": "",
+        "HTTP_ACCEPT": "application/json",
+        "wsgi.input": io.BytesIO(b""),
+    }
+    if origin is not None:
+        env["HTTP_ORIGIN"] = origin
+    return env
+
+
+def _preflight_env(origin: str) -> dict[str, Any]:
+    env = _get_env(origin)
+    env["REQUEST_METHOD"] = "OPTIONS"
+    env["HTTP_ACCESS_CONTROL_REQUEST_METHOD"] = "POST"
+    del env["HTTP_ACCEPT"]
+    return env
+
+
+@pytest.mark.parametrize("cors_origins", [[], None])
+def test_no_cors_headers_by_default(config_injector, cors_origins):
+    config_injector({"cors_origins": cors_origins})
+    status, headers, _body = _call(_get_env("https://other.example.com"))
+    assert status.startswith("404")
+    assert "Access-Control-Allow-Origin" not in headers
+    assert "Vary" not in headers
+
+
+def test_no_cors_headers_without_the_setting(config_injector):
+    config_injector({})
+    _status, headers, _body = _call(_get_env("https://other.example.com"))
+    assert "Access-Control-Allow-Origin" not in headers
+
+
+def test_preflight_is_not_answered_by_default(config_injector):
+    config_injector({"cors_origins": []})
+    status, headers, _body = _call(_preflight_env("https://other.example.com"))
+    assert not status.startswith("200")
+    assert "Access-Control-Allow-Origin" not in headers
+    assert "Access-Control-Allow-Methods" not in headers
+
+
+def test_cors_headers_for_listed_origin(config_injector):
+    config_injector(
+        {"cors_origins": ["https://app.example.com", "https://b.example.com"]}
+    )
+    status, headers, _body = _call(_get_env("https://b.example.com"))
+    # the headers are sent on error responses too, or the client could not
+    # read the error
+    assert status.startswith("404")
+    assert headers["Access-Control-Allow-Origin"] == "https://b.example.com"
+    assert headers["Vary"] == "Origin"
+    assert headers["content-type"] == "application/json"
+
+
+@pytest.mark.parametrize(
+    "origin",
+    [
+        "https://evil.example.com",
+        "http://app.example.com",
+        "https://app.example.com.evil.example.com",
+        "https://app.example.com:8443",
+        "null",
+        "*",
+    ],
+)
+def test_no_cors_headers_for_unlisted_origin(config_injector, origin):
+    config_injector({"cors_origins": ["https://app.example.com"]})
+    _status, headers, _body = _call(_get_env(origin))
+    assert "Access-Control-Allow-Origin" not in headers
+    assert headers["Vary"] == "Origin"
+
+
+def test_no_allow_origin_without_origin_header(config_injector):
+    config_injector({"cors_origins": ["https://app.example.com"]})
+    _status, headers, _body = _call(_get_env())
+    assert "Access-Control-Allow-Origin" not in headers
+
+
+def test_preflight_for_listed_origin(config_injector):
+    config_injector({"cors_origins": ["https://app.example.com"]})
+    status, headers, body = _call(_preflight_env("https://app.example.com"))
+    assert status == "200"
+    assert body == b""
+    assert headers["Access-Control-Allow-Origin"] == "https://app.example.com"
+    assert headers["Access-Control-Allow-Methods"] == (
+        "GET, POST, PUT, DELETE, OPTIONS"
+    )
+    assert headers["Access-Control-Allow-Headers"] == "Authorization, Content-Type"
+
+
+def test_preflight_for_unlisted_origin(config_injector):
+    config_injector({"cors_origins": ["https://app.example.com"]})
+    status, headers, _body = _call(_preflight_env("https://evil.example.com"))
+    assert not status.startswith("200")
+    assert "Access-Control-Allow-Origin" not in headers
+    assert "Access-Control-Allow-Methods" not in headers

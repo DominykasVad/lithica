@@ -1,4 +1,5 @@
 import os
+import random
 from datetime import datetime
 from unittest.mock import patch
 
@@ -8,6 +9,7 @@ from lithica import db, model
 from lithica.func import (
     comments,
     files,
+    image_hash,
     images,
     posts,
     tags,
@@ -95,7 +97,7 @@ def test_serialize_note():
 
 
 def test_serialize_post_when_empty():
-    assert posts.serialize_post(None, None) is None
+    assert posts.serialize_post(None, None) is None  # pyright: ignore[reportArgumentType] - no user needed
 
 
 def test_serialize_post(
@@ -209,6 +211,7 @@ def test_serialize_post(
         db.session.flush()
 
         result = posts.serialize_post(post, auth_user)
+        assert result is not None
         result["tags"].sort(key=lambda tag: tag["names"][0])
 
         assert result == {
@@ -322,7 +325,7 @@ def test_create_post(user_factory, fake_datetime):
         fake_datetime("1997-01-01"),
     ):
         auth_user = user_factory()
-        post, _new_tags = posts.create_post("content", ["tag"], auth_user)
+        post, _new_tags = posts.create_post("content", ["tag"], auth_user)  # pyright: ignore[reportArgumentType] - content is mocked
         assert post.creation_time == datetime(1997, 1, 1)
         assert post.last_edit_time is None
         posts.update_post_tags.assert_called_once_with(post, ["tag"])
@@ -1174,3 +1177,320 @@ def test_search_by_image(post_factory, config_injector, read_asset):
 
     result2 = posts.search_by_image(read_asset("png.png"))
     assert not result2
+
+
+SIGNATURE_ASSETS = [
+    "avif-similar.avif",
+    "avif.avif",
+    "bmp.bmp",
+    "gif-animated.gif",
+    "gif.gif",
+    "heic-heix.heic",
+    "heic.heic",
+    "heif-similar.heif",
+    "heif.heif",
+    "jpeg-similar.jpg",
+    "jpeg.jpg",
+    "png.png",
+    "webp.webp",
+]
+
+
+def _expected_similar_signatures(stored_words, query_words):
+    """
+    Reference for the similarity query: the score of a post is the number of
+    positions at which its word equals the query word; posts that share no
+    word are left out; best score first.
+    """
+    scores = {}
+    for post_id, words in stored_words.items():
+        score = sum(
+            word == query_word
+            for word, query_word in zip(words, query_words, strict=True)
+        )
+        if score:
+            scores[post_id] = score
+    return sorted(scores.items(), key=lambda item: (-item[1], item[0]))
+
+
+@pytest.fixture
+def asset_signatures(post_factory, config_injector, read_asset):
+    config_injector({"allow_broken_uploads": False})
+    stored_words = {}
+    for asset in SIGNATURE_ASSETS:
+        content = read_asset(asset)
+        post = post_factory()
+        db.session.add(post)
+        db.session.flush()
+        posts.generate_post_signature(post, content)
+        db.session.flush()
+        stored_words[post.post_id] = image_hash.generate_words(
+            image_hash.generate_signature(content)
+        )
+    return stored_words
+
+
+@pytest.mark.parametrize("query_asset", SIGNATURE_ASSETS)
+def test_similar_signatures_on_assets(asset_signatures, read_asset, query_asset):
+    query_words = image_hash.generate_words(
+        image_hash.generate_signature(read_asset(query_asset))
+    )
+    found = posts._find_similar_signatures(query_words)
+    assert found
+    # best score first, equal scores by post id
+    assert [(row[0], row[2]) for row in found] == _expected_similar_signatures(
+        asset_signatures, query_words
+    )
+
+
+def _random_signatures(post_factory, count, seed):
+    """
+    Store signatures whose words are a base list with a random number of
+    positions changed, so that every score from 0 to the maximum occurs.
+    """
+    rng = random.Random(seed)
+    base_words = [rng.randrange(3**16) for _ in range(image_hash.MAX_WORDS)]
+    stored_words = {}
+    for _ in range(count):
+        words = list(base_words)
+        changed = rng.sample(range(len(words)), rng.randrange(0, len(words) + 1))
+        for position in changed:
+            # sometimes move a word to another position: it must not count
+            words[position] = (
+                base_words[(position + 1) % len(words)]
+                if rng.random() < 0.3
+                else rng.randrange(3**16)
+            )
+        post = post_factory()
+        db.session.add(post)
+        db.session.flush()
+        signature = model.PostSignature(
+            post=post, signature=b"signature-%d" % post.post_id, words=words
+        )
+        db.session.add(signature)
+        stored_words[post.post_id] = words
+    db.session.flush()
+    return base_words, stored_words
+
+
+@pytest.mark.parametrize("seed", [1, 2, 3])
+def test_similar_signatures_on_random_data(post_factory, seed):
+    query_words, stored_words = _random_signatures(post_factory, 60, seed)
+    found = posts._find_similar_signatures(query_words)
+    assert len(found) > 30
+    assert [(row[0], row[2]) for row in found] == _expected_similar_signatures(
+        stored_words, query_words
+    )
+    assert {row[0]: bytes(row[1]) for row in found} == {
+        post_id: b"signature-%d" % post_id for post_id, _signature, _score in found
+    }
+
+
+def test_similar_signatures_limit(post_factory):
+    count = posts.SIMILAR_SIGNATURE_LIMIT + 80
+    query_words, stored_words = _random_signatures(post_factory, count, 4)
+    found = posts._find_similar_signatures(query_words)
+    expected = _expected_similar_signatures(stored_words, query_words)
+    assert len(expected) > posts.SIMILAR_SIGNATURE_LIMIT
+    assert [(row[0], row[2]) for row in found] == expected[
+        : posts.SIMILAR_SIGNATURE_LIMIT
+    ]
+
+
+def test_similar_signatures_ignores_words_at_other_positions(post_factory):
+    words = list(range(1000, 1000 + image_hash.MAX_WORDS))
+    post = post_factory()
+    db.session.add(post)
+    db.session.flush()
+    db.session.add(model.PostSignature(post=post, signature=b"signature", words=words))
+    db.session.flush()
+    shifted = words[1:] + words[:1]
+    assert posts._find_similar_signatures(shifted) == []
+    assert posts._find_similar_signatures(words) == [
+        (post.post_id, b"signature", image_hash.MAX_WORDS)
+    ]
+
+
+# The two GIF assets are a single flat colour: their signature is all zeroes,
+# for which no distance is defined, so the search has never returned them.
+@pytest.mark.parametrize(
+    "query_asset", [asset for asset in SIGNATURE_ASSETS if not asset.endswith(".gif")]
+)
+def test_search_by_image_finds_the_asset_itself(
+    asset_signatures, read_asset, query_asset
+):
+    results = posts.search_by_image(read_asset(query_asset))
+    distances = [distance for distance, _post in results]
+    assert min(distances) < 1e-8
+    assert all(distance < image_hash.DISTANCE_CUTOFF for distance in distances)
+
+
+def test_updating_content_replaces_signature_words(
+    post_factory, config_injector, read_asset
+):
+    config_injector({"allow_broken_uploads": False})
+    post = post_factory()
+    db.session.add(post)
+    db.session.flush()
+    posts.generate_post_signature(post, read_asset("jpeg.jpg"))
+    db.session.flush()
+    posts.purge_post_signature(post)
+    posts.generate_post_signature(post, read_asset("png.png"))
+    db.session.flush()
+    expected = image_hash.generate_words(
+        image_hash.generate_signature(read_asset("png.png"))
+    )
+    rows = (
+        db.session.query(model.PostSignatureWord)
+        .order_by(model.PostSignatureWord.position)
+        .all()
+    )
+    assert [(row.post_id, row.position, row.word) for row in rows] == [
+        (post.post_id, position, word) for position, word in enumerate(expected)
+    ]
+
+
+def test_deleting_post_deletes_signature_words(
+    post_factory, config_injector, read_asset
+):
+    config_injector({"allow_broken_uploads": False, "delete_source_files": False})
+    post = post_factory()
+    db.session.add(post)
+    db.session.flush()
+    posts.generate_post_signature(post, read_asset("jpeg.jpg"))
+    db.session.commit()
+    assert db.session.query(model.PostSignatureWord).count() == image_hash.MAX_WORDS
+    db.session.delete(post)
+    db.session.commit()
+    assert db.session.query(model.PostSignature).count() == 0
+    assert db.session.query(model.PostSignatureWord).count() == 0
+
+
+@pytest.fixture
+def backfill_posts(tmpdir, config_injector, post_factory, read_asset):
+    """
+    Posts as an old installation has them: files on disk, but no signature
+    and no MD5 checksum. One image has lost its file.
+    """
+    config_injector(
+        {
+            "data_dir": str(tmpdir.mkdir("data")),
+            "secret": "test",
+            "allow_broken_uploads": False,
+            "delete_source_files": False,
+        }
+    )
+    specs = [
+        ("png", model.Post.TYPE_IMAGE, "png.png"),
+        ("jpeg", model.Post.TYPE_IMAGE, "jpeg.jpg"),
+        ("gif", model.Post.TYPE_ANIMATION, "gif-animated.gif"),
+        ("video", model.Post.TYPE_VIDEO, "mp4.mp4"),
+        ("lost", model.Post.TYPE_IMAGE, None),
+    ]
+    result = {}
+    for name, post_type, asset in specs:
+        post = post_factory(type=post_type, checksum=name)
+        db.session.add(post)
+        db.session.flush()
+        if asset:
+            files.save(posts.get_post_content_path(post), read_asset(asset))
+        result[name] = post.post_id
+    db.session.commit()
+    return result
+
+
+def test_count_posts_without_signature(backfill_posts):
+    # the video does not get a signature
+    assert posts.count_posts_without_signature() == 4
+    assert posts.count_posts_without_md5_checksum() == 5
+
+
+def test_update_all_post_signatures(backfill_posts, read_asset):
+    assert posts.update_all_post_signatures() == (3, 1)
+    assert posts.count_posts_without_signature() == 1
+    signed = {
+        signature.post_id: signature
+        for signature in db.session.query(model.PostSignature).all()
+    }
+    assert set(signed) == {
+        backfill_posts["png"],
+        backfill_posts["jpeg"],
+        backfill_posts["gif"],
+    }
+    expected = image_hash.generate_signature(read_asset("jpeg.jpg"))
+    jpeg_signature = signed[backfill_posts["jpeg"]]
+    assert jpeg_signature.signature == image_hash.pack_signature(expected)
+    assert jpeg_signature.words == image_hash.generate_words(expected)
+    # the backfilled post is found by the search
+    found = posts.search_by_image(read_asset("jpeg-similar.jpg"))
+    assert [post.post_id for _distance, post in found] == [backfill_posts["jpeg"]]
+
+
+def test_update_all_post_signatures_is_repeatable(backfill_posts):
+    assert posts.update_all_post_signatures() == (3, 1)
+    # nothing is left but the post without a file, which fails again
+    assert posts.update_all_post_signatures() == (0, 1)
+    assert db.session.query(model.PostSignature).count() == 3
+
+
+def test_update_all_md5_checksums(backfill_posts, read_asset):
+    assert posts.update_all_md5_checksums() == (4, 1)
+    assert posts.count_posts_without_md5_checksum() == 1
+    checksums = {
+        post.post_id: post.checksum_md5 for post in db.session.query(model.Post).all()
+    }
+    assert checksums[backfill_posts["png"]] == util.get_md5(read_asset("png.png"))
+    assert checksums[backfill_posts["video"]] == util.get_md5(read_asset("mp4.mp4"))
+    assert checksums[backfill_posts["lost"]] is None
+    assert posts.update_all_md5_checksums() == (0, 1)
+
+
+def test_backfill_goes_through_every_batch(backfill_posts, monkeypatch):
+    monkeypatch.setattr(posts, "BACKFILL_BATCH_SIZE", 2)
+    assert posts.update_all_md5_checksums() == (4, 1)
+    assert posts.update_all_post_signatures() == (3, 1)
+
+
+def test_backfill_does_nothing_when_complete(backfill_posts):
+    posts.update_all_md5_checksums()
+    db.session.delete(posts.get_post_by_id(backfill_posts["lost"]))
+    db.session.commit()
+    with patch("lithica.func.files.get") as get:
+        assert posts.update_all_md5_checksums() == (0, 0)
+        get.assert_not_called()
+
+
+def test_warn_about_pending_backfills(backfill_posts, caplog):
+    with caplog.at_level("WARNING", logger="lithica.func.posts"):
+        posts.warn_about_pending_backfills()
+    messages = [record.getMessage() for record in caplog.records]
+    assert messages == [
+        "4 posts have no image signature, so similar-image search does not "
+        "find them. Run 'lithica-admin backfill signatures'.",
+        "5 posts have no MD5 checksum, so they cannot be found by MD5. "
+        "Run 'lithica-admin backfill md5'.",
+    ]
+
+
+def test_warn_about_pending_backfills_is_silent_when_complete(caplog):
+    with caplog.at_level("WARNING", logger="lithica.func.posts"):
+        posts.warn_about_pending_backfills()
+    assert not caplog.records
+
+
+def test_backfill_continues_after_an_error(backfill_posts):
+    real_get_md5 = util.get_md5
+    calls = []
+
+    def failing_once(content):
+        calls.append(content)
+        if len(calls) == 2:
+            raise RuntimeError("disk error")
+        return real_get_md5(content)
+
+    with patch("lithica.func.util.get_md5", side_effect=failing_once):
+        # second post fails, the two after it are still processed; the post
+        # without a file never reaches the checksum
+        assert posts.update_all_md5_checksums() == (3, 2)
+    assert posts.count_posts_without_md5_checksum() == 2
+    assert posts.update_all_md5_checksums() == (1, 1)

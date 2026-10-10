@@ -1,22 +1,21 @@
 import logging
 import os
+import re
 import threading
 import time
 from collections.abc import Callable
 from typing import Any
 
 import coloredlogs
-import sqlalchemy as sa
-import sqlalchemy.orm.exc
+import sqlalchemy.orm as sa_orm
 
 # api and middleware are imported for their side effects: they register the
 # routes and the request hooks
 from lithica import api, config, db, errors, middleware, rest  # noqa: F401
-from lithica.func.file_uploads import purge_old_uploads
-from lithica.func.posts import (
-    update_all_md5_checksums,
-    update_all_post_signatures,
-)
+from lithica.func.file_uploads import purge_old_uploads_once
+from lithica.func.posts import warn_about_pending_backfills
+
+logger = logging.getLogger(__name__)
 
 
 def _map_error(
@@ -75,6 +74,8 @@ def validate_config() -> None:
     """
     from lithica.func.auth import RANK_MAP
 
+    config.validate_secret()
+
     for privilege, rank in config.config["privileges"].items():
         if rank not in RANK_MAP.values():
             raise errors.ConfigError(
@@ -99,6 +100,28 @@ def validate_config() -> None:
     if config.config["webhooks"] and not isinstance(config.config["webhooks"], list):
         raise errors.ConfigError("Webhooks must be provided as a list of URLs")
 
+    cors_origins = config.config["cors_origins"] or []
+    if not isinstance(cors_origins, list) or not all(
+        isinstance(origin, str) for origin in cors_origins
+    ):
+        raise errors.ConfigError("cors_origins must be a list of origins")
+    for origin in cors_origins:
+        if origin == "*":
+            raise errors.ConfigError(
+                "cors_origins does not accept '*'. List each allowed origin."
+            )
+        if not re.fullmatch(r"https?://[^/\s]+", origin):
+            raise errors.ConfigError(
+                "cors_origins entry %r is not an origin. Use the form "
+                "'https://example.com', with no path or trailing slash." % origin
+            )
+
+    lifetime = config.config["password_reset_token_lifetime"]
+    if isinstance(lifetime, bool) or not isinstance(lifetime, int) or lifetime <= 0:
+        raise errors.ConfigError(
+            "password_reset_token_lifetime must be a positive number of seconds"
+        )
+
     if config.config["smtp"]["host"]:
         if not config.config["smtp"]["port"]:
             raise errors.ConfigError("SMTP host is set but port is not set")
@@ -114,17 +137,8 @@ def validate_config() -> None:
 
 def purge_old_uploads_daemon() -> None:
     while True:
-        try:
-            purge_old_uploads()
-        except Exception as ex:
-            logging.exception(ex)
+        purge_old_uploads_once()
         time.sleep(60 * 5)
-
-
-_live_migrations = (
-    update_all_post_signatures,
-    update_all_md5_checksums,
-)
 
 
 def create_app() -> Callable[[Any, Any], Any]:
@@ -138,10 +152,13 @@ def create_app() -> Callable[[Any, Any], Any]:
 
     threading.Thread(target=purge_old_uploads_daemon, daemon=True).start()
 
-    for migration in _live_migrations:
-        threading.Thread(target=migration, daemon=False).start()
-
-    db.session.commit()
+    try:
+        warn_about_pending_backfills()
+    except Exception as ex:
+        # a missing backfill is no reason to stay down
+        logger.exception(ex)
+    finally:
+        db.session.remove()
 
     rest.errors.handle(errors.AuthError, _on_auth_error)
     rest.errors.handle(errors.ValidationError, _on_validation_error)
@@ -150,7 +167,7 @@ def create_app() -> Callable[[Any, Any], Any]:
     rest.errors.handle(errors.NotFoundError, _on_not_found_error)
     rest.errors.handle(errors.ProcessingError, _on_processing_error)
     rest.errors.handle(errors.ThirdPartyError, _on_third_party_error)
-    rest.errors.handle(sa.orm.exc.StaleDataError, _on_stale_data_error)
+    rest.errors.handle(sa_orm.exc.StaleDataError, _on_stale_data_error)
 
     return rest.application
 

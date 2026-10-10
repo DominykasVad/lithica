@@ -22,8 +22,8 @@ def session(query_logger, _pg_engine):
     finally:
         session.close()
         with _pg_engine.connect() as conn:
-            conn.execute(sa.text("DROP SCHEMA public CASCADE"))
-            conn.execute(sa.text("CREATE SCHEMA public"))
+            conn.execute(sa.schema.DropSchema("public", cascade=True))
+            conn.execute(sa.schema.CreateSchema("public"))
             conn.commit()
 
 

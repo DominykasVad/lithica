@@ -1,5 +1,5 @@
+import hmac
 from collections.abc import Callable
-from datetime import datetime
 from typing import Any
 
 import pytz
@@ -7,6 +7,10 @@ from pyrfc3339 import parser as rfc3339_parser
 
 from lithica import db, errors, model, rest
 from lithica.func import auth, serialization, users, util
+
+
+class UserTokenNotFoundError(errors.NotFoundError):
+    pass
 
 
 class InvalidExpirationError(errors.ValidationError):
@@ -75,13 +79,22 @@ def serialize_user_token(
     return UserTokenSerializer(user_token, auth_user).serialize(options)
 
 
-def get_by_user_and_token(user: model.User, token: str) -> model.UserToken:
-    return (
-        db.session.query(model.UserToken)
-        .filter(model.UserToken.user_id == user.user_id)
-        .filter(model.UserToken.token == token)
-        .one_or_none()
-    )
+def get_by_user_and_token(user: model.User, token: str) -> model.UserToken | None:
+    # The tokens are compared here rather than in the query, so that the
+    # comparison takes the same time wherever the first difference is.
+    candidate = token.encode("utf8")
+    found = None
+    for user_token in get_user_tokens(user):
+        if hmac.compare_digest(user_token.token.encode("utf8"), candidate):
+            found = user_token
+    return found
+
+
+def get_existing_by_user_and_token(user: model.User, token: str) -> model.UserToken:
+    user_token = get_by_user_and_token(user, token)
+    if user_token is None:
+        raise UserTokenNotFoundError("User token not found.")
+    return user_token
 
 
 def get_user_tokens(user: model.User) -> list[model.UserToken]:
@@ -99,8 +112,8 @@ def create_user_token(user: model.User, enabled: bool) -> model.UserToken:
     user_token.user = user
     user_token.token = auth.generate_authorization_token()
     user_token.enabled = enabled
-    user_token.creation_time = datetime.utcnow()
-    user_token.last_usage_time = datetime.utcnow()
+    user_token.creation_time = util.utcnow()
+    user_token.last_usage_time = util.utcnow()
     return user_token
 
 
@@ -112,7 +125,7 @@ def update_user_token_enabled(user_token: model.UserToken, enabled: bool) -> Non
 
 def update_user_token_edit_time(user_token: model.UserToken) -> None:
     assert user_token
-    user_token.last_edit_time = datetime.utcnow()
+    user_token.last_edit_time = util.utcnow()
 
 
 def update_user_token_expiration_time(
@@ -122,7 +135,7 @@ def update_user_token_expiration_time(
     try:
         expiration_time = rfc3339_parser.parse(expiration_time_str, utc=True)
         expiration_time = expiration_time.astimezone(pytz.UTC)
-        if expiration_time < datetime.utcnow().replace(tzinfo=pytz.UTC):
+        if expiration_time < util.utcnow().replace(tzinfo=pytz.UTC):
             raise InvalidExpirationError("Expiration cannot happen in the past")
         user_token.expiration_time = expiration_time
         update_user_token_edit_time(user_token)
@@ -134,14 +147,14 @@ def update_user_token_expiration_time(
 
 def update_user_token_note(user_token: model.UserToken, note: str) -> None:
     assert user_token
-    note = note.strip() if note is not None else ""
-    note = None if len(note) == 0 else note
-    if util.value_exceeds_column_size(note, model.UserToken.note):
+    stripped_note = note.strip() if note is not None else ""
+    new_note = None if len(stripped_note) == 0 else stripped_note
+    if util.value_exceeds_column_size(new_note, model.UserToken.note):
         raise InvalidNoteError("Note is too long.")
-    user_token.note = note
+    user_token.note = new_note
     update_user_token_edit_time(user_token)
 
 
 def bump_usage_time(user_token: model.UserToken) -> None:
     assert user_token
-    user_token.last_usage_time = datetime.utcnow()
+    user_token.last_usage_time = util.utcnow()

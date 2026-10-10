@@ -60,15 +60,13 @@ jobs:
       - name: Check formatting
         run: uv run ruff format --check .
 
-      # Report only until phase 1.5 brings the count to zero.
-      - name: Type check (report only)
-        run: |
-          uv run pyright > pyright.log || true
-          tail -n 1 pyright.log
-          {
-            echo "### pyright (report only)"
-            tail -n 1 pyright.log
-          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Type check
+        run: uv run pyright
+
+      # No raw SQL and nothing PostgreSQL-only in the engine (AGENTS.md,
+      # "Database"). Also part of the suite; run first so it is visible.
+      - name: Database portability gate
+        run: uv run pytest --color=yes lithica/tests/test_portability.py
 
       - name: Test
         run: uv run pytest -n auto --color=yes

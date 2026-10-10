@@ -1,10 +1,11 @@
 import hmac
 import logging
 from collections.abc import Callable
-from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 import sqlalchemy as sa
+import sqlalchemy.event as sa_event
+import sqlalchemy.orm as sa_orm
 
 from lithica import config, db, errors, model, rest
 from lithica.func import (
@@ -150,7 +151,7 @@ def get_post_thumbnail_backup_path(post: model.Post) -> str:
     )
 
 
-def serialize_note(note: model.PostNote) -> rest.Response:
+def serialize_note(note: model.PostNote) -> dict[str, Any]:
     assert note
     return {
         "polygon": note.polygon,
@@ -354,9 +355,11 @@ def serialize_post(
 
 
 def serialize_micro_post(
-    post: model.Post, auth_user: model.User
-) -> rest.Response | None:
-    return serialize_post(post, auth_user=auth_user, options=["id", "thumbnailUrl"])
+    post: model.Post, auth_user: model.User | None
+) -> dict[str, Any]:
+    # the two fields of a micro post do not depend on who is asking
+    serializer = PostSerializer(post, cast(model.User, auth_user))
+    return serializer.serialize(["id", "thumbnailUrl"])
 
 
 def get_post_count() -> int:
@@ -381,11 +384,11 @@ def get_posts_by_ids(ids: list[int]) -> list[model.Post]:
         return []
     posts = (
         db.session.query(model.Post)
-        .filter(sa.sql.or_(model.Post.post_id == post_id for post_id in ids))
+        .filter(sa.sql.or_(*[model.Post.post_id == post_id for post_id in ids]))
         .all()
     )
     id_order = {v: k for k, v in enumerate(ids)}
-    return sorted(posts, key=lambda post: id_order.get(post.post_id))
+    return sorted(posts, key=lambda post: id_order[post.post_id])
 
 
 def try_get_current_post_feature() -> model.PostFeature | None:
@@ -407,7 +410,7 @@ def create_post(
     post = model.Post()
     post.safety = model.Post.SAFETY_SAFE
     post.user = user
-    post.creation_time = datetime.utcnow()
+    post.creation_time = util.utcnow()
     post.flags = []
 
     post.type = ""
@@ -423,12 +426,12 @@ def create_post(
 
 def update_post_safety(post: model.Post, safety: str) -> None:
     assert post
-    safety = util.flip(SAFETY_MAP).get(safety, None)
-    if not safety:
+    internal_safety = util.flip(SAFETY_MAP).get(safety, None)
+    if not internal_safety:
         raise InvalidPostSafetyError(
             "Safety can be either of %r." % list(SAFETY_MAP.values())
         )
-    post.safety = safety
+    post.safety = internal_safety
 
 
 def update_post_source(post: model.Post, source: str | None) -> None:
@@ -438,17 +441,17 @@ def update_post_source(post: model.Post, source: str | None) -> None:
     post.source = source or None
 
 
-@sa.event.listens_for(model.Post, "after_insert")
+@sa_event.listens_for(model.Post, "after_insert")
 def _after_post_insert(_mapper: Any, _connection: Any, post: model.Post) -> None:
     _sync_post_content(post)
 
 
-@sa.event.listens_for(model.Post, "after_update")
+@sa_event.listens_for(model.Post, "after_update")
 def _after_post_update(_mapper: Any, _connection: Any, post: model.Post) -> None:
     _sync_post_content(post)
 
 
-@sa.event.listens_for(model.Post, "before_delete")
+@sa_event.listens_for(model.Post, "before_delete")
 def _before_post_delete(_mapper: Any, _connection: Any, post: model.Post) -> None:
     if post.post_id:
         if config.config["delete_source_files"]:
@@ -529,11 +532,17 @@ def get_default_flags(content: bytes) -> list[str]:
 
 
 def purge_post_signature(post: model.Post) -> None:
-    (
+    # Deleted through the session, not with a bulk delete: the session must
+    # forget the signature's words too, or a new signature for the same post
+    # would be mistaken for an update of the old rows.
+    signatures = (
         db.session.query(model.PostSignature)
         .filter(model.PostSignature.post_id == post.post_id)
-        .delete()
+        .all()
     )
+    for signature in signatures:
+        db.session.delete(signature)
+    db.session.flush()
 
 
 def generate_post_signature(post: model.Post, content: bytes) -> None:
@@ -550,40 +559,135 @@ def generate_post_signature(post: model.Post, content: bytes) -> None:
             raise InvalidPostContentError("Unable to generate image hash data.") from ex
 
 
-def update_all_post_signatures() -> None:
-    posts_to_hash = (
+BACKFILL_BATCH_SIZE = 100
+
+
+def _query_posts_without_signature() -> sa_orm.Query:
+    return (
         db.session.query(model.Post)
         .filter(
             (model.Post.type == model.Post.TYPE_IMAGE)
             | (model.Post.type == model.Post.TYPE_ANIMATION)
         )
         .filter(model.Post.signature == None)  # noqa: E711
-        .order_by(model.Post.post_id.asc())
-        .all()
     )
-    for post in posts_to_hash:
-        try:
-            generate_post_signature(post, files.get(get_post_content_path(post)))
-            db.session.commit()
-            logger.info("Created Signature - Post %d", post.post_id)
-        except Exception as ex:
-            logger.exception(ex)
 
 
-def update_all_md5_checksums() -> None:
-    posts_to_hash = (
-        db.session.query(model.Post)
-        .filter(model.Post.checksum_md5 == None)  # noqa: E711
-        .order_by(model.Post.post_id.asc())
-        .all()
+def _query_posts_without_md5_checksum() -> sa_orm.Query:
+    return db.session.query(model.Post).filter(
+        model.Post.checksum_md5 == None  # noqa: E711
     )
-    for post in posts_to_hash:
-        try:
-            post.checksum_md5 = util.get_md5(files.get(get_post_content_path(post)))
-            db.session.commit()
-            logger.info("Created MD5 - Post %d", post.post_id)
-        except Exception as ex:
-            logger.exception(ex)
+
+
+def count_posts_without_signature() -> int:
+    return _query_posts_without_signature().count()
+
+
+def count_posts_without_md5_checksum() -> int:
+    return _query_posts_without_md5_checksum().count()
+
+
+def _backfill(
+    query_factory: Callable[[], sa_orm.Query],
+    fill: Callable[[model.Post], bool],
+    description: str,
+) -> tuple[int, int]:
+    """
+    Run fill() on every post the query returns, a batch at a time, committing
+    after each post. Returns how many posts were filled and how many were
+    not. Posts that could not be filled are skipped, not retried, so the run
+    always ends; running it again is safe and picks up only what is left.
+    """
+    filled = 0
+    failed = 0
+    last_post_id = 0
+    while True:
+        batch = (
+            query_factory()
+            .filter(model.Post.post_id > last_post_id)
+            .order_by(model.Post.post_id.asc())
+            .limit(BACKFILL_BATCH_SIZE)
+            .all()
+        )
+        if not batch:
+            break
+        post_ids = [post.post_id for post in batch]
+        last_post_id = post_ids[-1]
+        for post_id, post in zip(post_ids, batch, strict=True):
+            try:
+                done = fill(post)
+                db.session.commit()
+            except Exception as ex:
+                db.session.rollback()
+                logger.exception(ex)
+                done = False
+            if done:
+                filled += 1
+                logger.info("Created %s - Post %d", description, post_id)
+            else:
+                failed += 1
+                logger.warning("Could not create %s - Post %d", description, post_id)
+    return filled, failed
+
+
+def update_all_post_signatures() -> tuple[int, int]:
+    """Create the image signature of every post that lacks one."""
+
+    def fill(post: model.Post) -> bool:
+        content = files.get(get_post_content_path(post))
+        if content is None:
+            logger.warning("Post %d has no content file", post.post_id)
+            return False
+        generate_post_signature(post, content)
+        # with allow_broken_uploads an unreadable image is left unsigned
+        return post.signature is not None
+
+    return _backfill(_query_posts_without_signature, fill, "Signature")
+
+
+def update_all_md5_checksums() -> tuple[int, int]:
+    """Compute the MD5 checksum of every post that lacks one."""
+
+    def fill(post: model.Post) -> bool:
+        content = files.get(get_post_content_path(post))
+        if content is None:
+            logger.warning("Post %d has no content file", post.post_id)
+            return False
+        post.checksum_md5 = util.get_md5(content)
+        return True
+
+    return _backfill(_query_posts_without_md5_checksum, fill, "MD5")
+
+
+def warn_about_pending_backfills() -> None:
+    """
+    Tell the administrator, in the log, that posts wait for a backfill. The
+    server does not run backfills itself: with several server processes each
+    would start one.
+    """
+    pending = [
+        (
+            count_posts_without_signature(),
+            "image signature",
+            "signatures",
+            "similar-image search does not find them",
+        ),
+        (
+            count_posts_without_md5_checksum(),
+            "MD5 checksum",
+            "md5",
+            "they cannot be found by MD5",
+        ),
+    ]
+    for count, what, command, consequence in pending:
+        if count:
+            logger.warning(
+                "%d posts have no %s, so %s. Run 'lithica-admin backfill %s'.",
+                count,
+                what,
+                consequence,
+                command,
+            )
 
 
 def update_post_content(post: model.Post, content: bytes | None) -> None:
@@ -633,9 +737,8 @@ def update_post_content(post: model.Post, content: bytes | None) -> None:
         else:
             post.canvas_width = None
             post.canvas_height = None
-    if (post.canvas_width is not None and post.canvas_width <= 0) or (
-        post.canvas_height is not None and post.canvas_height <= 0
-    ):
+    width, height = post.canvas_width, post.canvas_height
+    if (width is not None and width <= 0) or (height is not None and height <= 0):
         if not config.config["allow_broken_uploads"]:
             raise InvalidPostContentError(
                 "Invalid image dimensions returned during processing"
@@ -765,7 +868,7 @@ def feature_post(post: model.Post, user: model.User | None) -> None:
     if user and not user.name:
         user = None
     post_feature = model.PostFeature()
-    post_feature.time = datetime.utcnow()
+    post_feature.time = util.utcnow()
     post_feature.post = post
     post_feature.user = user
     db.session.add(post_feature)
@@ -785,13 +888,15 @@ def merge_posts(
         raise InvalidPostRelationError("Cannot merge post with itself.")
 
     def merge_tables(
-        table: model.Base,
-        anti_dup_func: Callable[[model.Base, model.Base], bool] | None,
+        # any mapped class with a post_id column, and a comparison of two
+        # aliases of it; which columns exist depends on the class passed in
+        table: Any,
+        anti_dup_func: Callable[[Any, Any], Any] | None,
         source_post_id: int,
         target_post_id: int,
     ) -> None:
         alias1 = table
-        alias2 = sa.orm.aliased(table)
+        alias2 = sa_orm.aliased(table)
         update_stmt = sa.sql.expression.update(alias1).where(
             alias1.post_id == source_post_id
         )
@@ -835,7 +940,7 @@ def merge_posts(
 
     def merge_relations(source_post_id: int, target_post_id: int) -> None:
         alias1 = model.PostRelation
-        alias2 = sa.orm.aliased(model.PostRelation)
+        alias2 = sa_orm.aliased(model.PostRelation)
         update_stmt = (
             sa.sql.expression.update(alias1)
             .where(alias1.parent_id == source_post_id)
@@ -897,27 +1002,50 @@ def search_by_image_exact(image_content: bytes) -> model.Post | None:
     )
 
 
+SIMILAR_SIGNATURE_LIMIT = 100
+
+
+def _find_similar_signatures(query_words: list[int]) -> list[tuple[int, bytes, int]]:
+    """
+    Return (post id, packed signature, score) for the signatures that share
+    the most words with the query, best first. The score is the number of
+    positions at which the stored word equals the query word.
+    """
+    word = model.PostSignatureWord
+    score = sa.func.count().label("score")
+    scores = (
+        db.session.query(word.post_id.label("post_id"), score)
+        .filter(
+            sa.or_(
+                *[
+                    sa.and_(word.position == position, word.word == query_word)
+                    for position, query_word in enumerate(query_words)
+                ]
+            )
+        )
+        .group_by(word.post_id)
+        .order_by(score.desc(), word.post_id.asc())
+        .limit(SIMILAR_SIGNATURE_LIMIT)
+        .subquery()
+    )
+    rows = (
+        db.session.query(
+            model.PostSignature.post_id,
+            model.PostSignature.signature,
+            scores.c.score,
+        )
+        .join(scores, scores.c.post_id == model.PostSignature.post_id)
+        .order_by(scores.c.score.desc(), model.PostSignature.post_id.asc())
+        .all()
+    )
+    return [(post_id, signature, score) for post_id, signature, score in rows]
+
+
 def search_by_image(image_content: bytes) -> list[tuple[float, model.Post]]:
     query_signature = image_hash.generate_signature(image_content)
     query_words = image_hash.generate_words(query_signature)
 
-    """
-    The unnest function is used here to expand one row containing the 'words'
-    array into multiple rows each containing a singular word.
-
-    Documentation of the unnest function can be found here:
-    https://www.postgresql.org/docs/9.2/functions-array.html
-    """
-
-    dbquery = """
-    SELECT s.post_id, s.signature, count(a.query) AS score
-    FROM post_signature AS s, unnest(s.words, :q) AS a(word, query)
-    WHERE a.word = a.query
-    GROUP BY s.post_id
-    ORDER BY score DESC LIMIT 100;
-    """
-
-    candidates = db.session.execute(sa.text(dbquery), {"q": query_words})
+    candidates = _find_similar_signatures(query_words)
     data = tuple(
         zip(
             *[
@@ -930,12 +1058,16 @@ def search_by_image(image_content: bytes) -> list[tuple[float, model.Post]]:
     if data:
         candidate_post_ids, sigarray = data
         distances = image_hash.normalized_distance(sigarray, query_signature)
-        return [
+        candidate_posts = [
             (distance, try_get_post_by_id(candidate_post_id))
             for candidate_post_id, distance in zip(
                 candidate_post_ids, distances, strict=False
             )
             if distance < image_hash.DISTANCE_CUTOFF
+        ]
+        # a post deleted since the candidates were read is left out
+        return [
+            (distance, post) for distance, post in candidate_posts if post is not None
         ]
     else:
         return []

@@ -1,9 +1,9 @@
 import re
 from collections.abc import Callable
-from datetime import datetime
 from typing import Any
 
 import sqlalchemy as sa
+import sqlalchemy.orm as sa_orm
 
 from lithica import config, db, errors, model, rest
 from lithica.func import pool_categories, posts, serialization, util
@@ -198,7 +198,7 @@ def get_pools_by_names(names: list[str]) -> list[model.Pool]:
         .join(model.PoolName)
         .filter(
             sa.sql.or_(
-                sa.func.lower(model.PoolName.name) == name.lower() for name in names
+                *[sa.func.lower(model.PoolName.name) == name.lower() for name in names]
             )
         )
         .all()
@@ -240,7 +240,7 @@ def merge_pools(source_pool: model.Pool, target_pool: model.Pool) -> None:
 
     def merge_pool_posts(source_pool_id: int, target_pool_id: int) -> None:
         alias1 = model.PoolPost
-        alias2 = sa.orm.aliased(model.PoolPost)
+        alias2 = sa_orm.aliased(model.PoolPost)
         update_stmt = sa.sql.expression.update(alias1).where(
             alias1.pool_id == source_pool_id
         )
@@ -260,7 +260,7 @@ def create_pool(
     names: list[str], category_name: str, post_ids: list[int]
 ) -> model.Pool:
     pool = model.Pool()
-    pool.creation_time = datetime.utcnow()
+    pool.creation_time = util.utcnow()
     update_pool_names(pool, names)
     update_pool_category_name(pool, category_name)
     update_pool_posts(pool, post_ids)

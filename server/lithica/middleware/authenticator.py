@@ -19,7 +19,7 @@ def _authenticate_token(
     """Try to authenticate user. Throw AuthError for invalid users."""
     user = users.get_user_by_name(username)
     user_token = user_tokens.get_by_user_and_token(user, token)
-    if not auth.is_valid_token(user_token):
+    if user_token is None or not auth.is_valid_token(user_token):
         raise errors.AuthError("Invalid token.")
     return user, user_token
 

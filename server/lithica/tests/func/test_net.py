@@ -1,4 +1,6 @@
 import os
+import subprocess
+from unittest.mock import patch
 
 import pytest
 
@@ -118,7 +120,7 @@ def test_bad_content_downlaod():
 
 def test_no_webhooks(config_injector):
     config_injector({"webhooks": []})
-    res = net.post_to_webhooks(None)
+    res = net.post_to_webhooks(None)  # pyright: ignore[reportArgumentType] - the payload is not used
     assert len(res) == 0
 
 
@@ -156,3 +158,64 @@ def test_multiple_webhooks(config_injector):
 def test_malformed_webhooks(config_injector):
     with pytest.raises(ValueError):
         net._post_to_webhook("malformed_url", {"test_arg": "test_value"})
+
+
+def _yt_dlp_result(stdout):
+    return subprocess.CompletedProcess(args=[], returncode=0, stdout=stdout)
+
+
+def test_video_downloader_command():
+    with patch("subprocess.run") as run:
+        run.return_value = _yt_dlp_result("http://example.com/video.mp4\nmore\n")
+        url = net._get_yt_dlp_content_url("http://example.com/watch?v=1")
+    assert url == "http://example.com/video.mp4"
+    args, kwargs = run.call_args
+    assert args[0] == [
+        "yt-dlp",
+        "--format",
+        "best",
+        "--no-playlist",
+        "--get-url",
+        "--",
+        "http://example.com/watch?v=1",
+    ]
+    assert not kwargs.get("shell")
+    assert kwargs["timeout"] == net.YT_DLP_TIMEOUT
+    assert kwargs["stdin"] == subprocess.DEVNULL
+
+
+def test_video_downloader_passes_user_agent(config_injector):
+    config_injector({"user_agent": "agent with spaces; $(id)"})
+    with patch("subprocess.run") as run:
+        run.return_value = _yt_dlp_result("http://example.com/video.mp4\n")
+        net._get_yt_dlp_content_url("http://example.com/")
+    cmd = run.call_args[0][0]
+    assert cmd[cmd.index("--user-agent") + 1] == "agent with spaces; $(id)"
+
+
+@pytest.mark.parametrize(
+    "url", ["--exec=touch /tmp/x", "-o/tmp/x", "--config-location=/etc/passwd"]
+)
+def test_video_downloader_never_reads_url_as_option(url):
+    with patch("subprocess.run") as run:
+        run.return_value = _yt_dlp_result("")
+        net._get_yt_dlp_content_url(url)
+    cmd = run.call_args[0][0]
+    # the URL is one argument, and it comes after the end-of-options marker
+    assert cmd.count(url) == 1
+    assert cmd.index("--") < cmd.index(url)
+    assert cmd[-1] == url
+
+
+def test_video_downloader_timeout():
+    with patch("subprocess.run") as run:
+        run.side_effect = subprocess.TimeoutExpired(cmd="yt-dlp", timeout=1)
+        with pytest.raises(errors.ThirdPartyError):
+            net._get_yt_dlp_content_url("http://example.com/")
+
+
+def test_video_downloader_failure():
+    with patch("subprocess.run") as run:
+        run.side_effect = subprocess.CalledProcessError(1, "yt-dlp")
+        with pytest.raises(errors.ThirdPartyError):
+            net._get_yt_dlp_content_url("http://example.com/")

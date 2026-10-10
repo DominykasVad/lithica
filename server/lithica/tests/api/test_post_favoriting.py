@@ -124,7 +124,7 @@ def test_favorites_from_multiple_users(
 def test_trying_to_update_non_existing(user_factory, context_factory):
     with pytest.raises(posts.PostNotFoundError):
         api.post_api.add_post_to_favorites(
-            context_factory(user=user_factory()), {"post_id": 5}
+            context_factory(user=user_factory()), {"post_id": "5"}
         )
 
 

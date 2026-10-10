@@ -34,8 +34,9 @@ def test_featuring(user_factory, post_factory, context_factory):
             context_factory(params={"id": 1}, user=auth_user)
         )
         assert result == "serialized post"
-        assert posts.try_get_featured_post() is not None
-        assert posts.try_get_featured_post().post_id == 1
+        featured_post = posts.try_get_featured_post()
+        assert featured_post is not None
+        assert featured_post.post_id == 1
         assert posts.get_post_by_id(1).is_featured
         result = api.post_api.get_featured_post(
             context_factory(user=user_factory(rank=model.User.RANK_REGULAR))
@@ -102,8 +103,9 @@ def test_featuring_one_post_after_another(
                     user=user_factory(rank=model.User.RANK_REGULAR),
                 )
             )
-        assert posts.try_get_featured_post() is not None
-        assert posts.try_get_featured_post().post_id == 2
+        featured_post = posts.try_get_featured_post()
+        assert featured_post is not None
+        assert featured_post.post_id == 2
         assert not posts.get_post_by_id(1).is_featured
         assert posts.get_post_by_id(2).is_featured
 

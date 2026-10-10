@@ -1,8 +1,8 @@
-import datetime
 from collections.abc import Callable
 from typing import Any
 
 from lithica import db, errors, model
+from lithica.func import util
 
 
 class InvalidScoreTargetError(errors.ValidationError):
@@ -13,9 +13,12 @@ class InvalidScoreValueError(errors.ValidationError):
     pass
 
 
-def _get_table_info(
-    entity: model.Base,
-) -> tuple[model.Base, Callable[[model.Base], Any]]:
+# The auxiliary table and its key column depend on the kind of entity, which
+# is only known at run time, so both are typed loosely.
+AuxTableInfo = tuple[Any, Callable[[Any], Any]]
+
+
+def _get_table_info(entity: model.Base) -> AuxTableInfo:
     assert entity
     resource_type, _, _ = model.util.get_resource_info(entity)
     if resource_type == "post":
@@ -25,7 +28,7 @@ def _get_table_info(
     raise InvalidScoreTargetError()
 
 
-def _get_score_entity(entity: model.Base, user: model.User) -> model.Base:
+def _get_score_entity(entity: model.Base, user: model.User) -> Any:
     assert user
     return model.util.get_aux_entity(db.session, _get_table_info, entity, user)
 
@@ -81,5 +84,5 @@ def set_score(entity: model.Base, user: model.User, score: int) -> None:
         setattr(score_entity, get_column(table).name, get_column(entity))
         score_entity.score = score
         score_entity.user = user
-        score_entity.time = datetime.datetime.utcnow()
+        score_entity.time = util.utcnow()
         db.session.add(score_entity)

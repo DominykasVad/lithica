@@ -1,9 +1,9 @@
 import re
 from collections.abc import Callable
-from datetime import datetime
 from typing import Any
 
 import sqlalchemy as sa
+import sqlalchemy.orm as sa_orm
 
 from lithica import config, db, errors, model, rest
 from lithica.func import serialization, tag_categories, util
@@ -171,7 +171,7 @@ def get_tags_by_names(names: list[str]) -> list[model.Tag]:
         .join(model.TagName)
         .filter(
             sa.sql.or_(
-                sa.func.lower(model.TagName.name) == name.lower() for name in names
+                *[sa.func.lower(model.TagName.name) == name.lower() for name in names]
             )
         )
         .all()
@@ -203,11 +203,11 @@ def get_or_create_tags_by_names(
     return existing_tags, new_tags
 
 
-def get_tag_siblings(tag: model.Tag) -> list[model.Tag]:
+def get_tag_siblings(tag: model.Tag) -> list[tuple[model.Tag, int]]:
     assert tag
-    tag_alias = sa.orm.aliased(model.Tag)
-    pt_alias1 = sa.orm.aliased(model.PostTag)
-    pt_alias2 = sa.orm.aliased(model.PostTag)
+    tag_alias = sa_orm.aliased(model.Tag)
+    pt_alias1 = sa_orm.aliased(model.PostTag)
+    pt_alias2 = sa_orm.aliased(model.PostTag)
     result = (
         db.session.query(tag_alias, sa.func.count(pt_alias2.post_id))
         .join(pt_alias1, pt_alias1.tag_id == tag_alias.tag_id)
@@ -219,7 +219,7 @@ def get_tag_siblings(tag: model.Tag) -> list[model.Tag]:
         .order_by(tag_alias.first_name)
         .limit(50)
     )
-    return result
+    return [(sibling, occurrences) for sibling, occurrences in result]
 
 
 def delete(source_tag: model.Tag) -> None:
@@ -245,7 +245,7 @@ def merge_tags(source_tag: model.Tag, target_tag: model.Tag) -> None:
 
     def merge_posts(source_tag_id: int, target_tag_id: int) -> None:
         alias1 = model.PostTag
-        alias2 = sa.orm.aliased(model.PostTag)
+        alias2 = sa_orm.aliased(model.PostTag)
         update_stmt = sa.sql.expression.update(alias1).where(
             alias1.tag_id == source_tag_id
         )
@@ -258,10 +258,13 @@ def merge_tags(source_tag: model.Tag, target_tag: model.Tag) -> None:
         db.session.execute(update_stmt)
 
     def merge_relations(
-        table: model.Base, source_tag_id: int, target_tag_id: int
+        # TagSuggestion or TagImplication: both have parent_id and child_id
+        table: Any,
+        source_tag_id: int,
+        target_tag_id: int,
     ) -> None:
         alias1 = table
-        alias2 = sa.orm.aliased(table)
+        alias2 = sa_orm.aliased(table)
         update_stmt = (
             sa.sql.expression.update(alias1)
             .where(alias1.parent_id == source_tag_id)
@@ -307,7 +310,7 @@ def create_tag(
     implications: list[str],
 ) -> model.Tag:
     tag = model.Tag()
-    tag.creation_time = datetime.utcnow()
+    tag.creation_time = util.utcnow()
     update_tag_names(tag, names)
     update_tag_category_name(tag, category_name)
     update_tag_suggestions(tag, suggestions)

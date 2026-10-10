@@ -1,5 +1,3 @@
-from datetime import datetime
-
 from lithica import db, errors, model, rest, search
 from lithica.func import (
     auth,
@@ -8,6 +6,7 @@ from lithica.func import (
     scores,
     serialization,
     snapshots,
+    util,
     versions,
 )
 
@@ -158,7 +157,7 @@ def update_post(ctx: rest.Context, params: dict[str, str]) -> rest.Response:
     if ctx.has_file("thumbnail"):
         auth.verify_privilege(ctx.user, "posts:edit:thumbnail")
         posts.update_post_thumbnail(post, ctx.get_file("thumbnail"))
-    post.last_edit_time = datetime.utcnow()
+    post.last_edit_time = util.utcnow()
     ctx.session.flush()
     snapshots.modify(post, ctx.user)
     ctx.session.commit()

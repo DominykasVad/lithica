@@ -124,7 +124,7 @@ def test_get_liked_post_count(
 
 
 def test_serialize_user_when_empty():
-    assert users.serialize_user(None, None) is None
+    assert users.serialize_user(None, None) is None  # pyright: ignore[reportArgumentType] - no user needed
 
 
 def test_serialize_user(user_factory):
@@ -261,7 +261,7 @@ def test_create_user_for_subsequent_users(user_factory, config_injector):
 def test_update_user_name_with_empty_string(user_factory):
     user = user_factory()
     with pytest.raises(users.InvalidUserNameError):
-        users.update_user_name(user, None)
+        users.update_user_name(user, None)  # pyright: ignore[reportArgumentType] - None on purpose
 
 
 def test_update_user_name_with_too_long_string(user_factory):
@@ -320,7 +320,7 @@ def test_update_user_name_moves_avatar(user_factory, config_injector):
 def test_update_user_password_with_empty_string(user_factory):
     user = user_factory()
     with pytest.raises(users.InvalidPasswordError):
-        users.update_user_password(user, None)
+        users.update_user_password(user, None)  # pyright: ignore[reportArgumentType] - None on purpose
 
 
 def test_update_user_password_with_invalid_string(user_factory, config_injector):

@@ -1,4 +1,5 @@
 import sqlalchemy as sa
+import sqlalchemy.orm as sa_orm
 
 from lithica import db, model
 from lithica.func import util
@@ -12,15 +13,15 @@ from lithica.search.typing import SaColumn, SaQuery
 
 class TagSearchConfig(BaseSearchConfig):
     def create_filter_query(self, _disable_eager_loads: bool) -> SaQuery:
-        strategy = sa.orm.lazyload if _disable_eager_loads else sa.orm.subqueryload
+        strategy = sa_orm.lazyload if _disable_eager_loads else sa_orm.subqueryload
         return (
             db.session.query(model.Tag)
             .join(model.TagCategory)
             .options(
-                sa.orm.defer(model.Tag.first_name),
-                sa.orm.defer(model.Tag.suggestion_count),
-                sa.orm.defer(model.Tag.implication_count),
-                sa.orm.defer(model.Tag.post_count),
+                sa_orm.defer(model.Tag.first_name),
+                sa_orm.defer(model.Tag.suggestion_count),
+                sa_orm.defer(model.Tag.implication_count),
+                sa_orm.defer(model.Tag.post_count),
                 strategy(model.Tag.names),
                 strategy(model.Tag.suggestions).joinedload(model.Tag.names),
                 strategy(model.Tag.implications).joinedload(model.Tag.names),

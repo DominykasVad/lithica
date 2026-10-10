@@ -11,6 +11,7 @@ from time import sleep
 
 import alembic
 import sqlalchemy as sa
+import sqlalchemy.exc as sa_exc
 
 # fmt: off
 # make lithica module importable
@@ -24,6 +25,7 @@ import lithica.model.base  # noqa: E402
 
 
 alembic_config = alembic.context.config
+assert alembic_config.config_file_name
 logging.config.fileConfig(alembic_config.config_file_name)
 
 lithica_config = lithica.config.config
@@ -64,7 +66,7 @@ def run_migrations_online():
     and associate a connection with the context.
     """
     connectable = sa.engine_from_config(
-        alembic_config.get_section(alembic_config.config_ini_section),
+        alembic_config.get_section(alembic_config.config_ini_section) or {},
         prefix="sqlalchemy.",
         poolclass=sa.pool.NullPool,
     )
@@ -74,7 +76,7 @@ def run_migrations_online():
         for _ in range(int(timeout / dt)):
             try:
                 return connectable.connect()
-            except sa.exc.OperationalError:
+            except sa_exc.OperationalError:
                 sleep(dt)
         return connectable.connect()
 

@@ -4,12 +4,7 @@ from unittest.mock import patch
 import pytest
 
 from lithica import db, model
-from lithica.func import cache, tag_categories, tags
-
-
-@pytest.fixture(autouse=True)
-def purge_cache():
-    cache.purge()
+from lithica.func import tag_categories, tags
 
 
 def _assert_tag_siblings(result, expected_names_and_occurrences):
@@ -59,7 +54,7 @@ def test_sort_tags(input, expected_tag_names, tag_factory, tag_category_factory)
 
 
 def test_serialize_tag_when_empty():
-    assert tags.serialize_tag(None, None) is None
+    assert tags.serialize_tag(None, None) is None  # pyright: ignore[reportArgumentType] - None on purpose
 
 
 def test_serialize_tag(post_factory, tag_factory, tag_category_factory):
@@ -85,6 +80,7 @@ def test_serialize_tag(post_factory, tag_factory, tag_category_factory):
     db.session.flush()
 
     result = tags.serialize_tag(tag)
+    assert result is not None
     result["suggestions"].sort(key=lambda relation: relation["names"][0])
     result["implications"].sort(key=lambda relation: relation["names"][0])
     assert result == {

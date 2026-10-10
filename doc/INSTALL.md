@@ -18,7 +18,10 @@ and the Docker Compose CLI (version 1.27.0 or greater) already installed.
 
     Pay extra attention to these fields:
 
-    - secret
+    - `secret`: the server refuses to start while it has the default value.
+      Set it to your own long random string, for example the output of
+      `openssl rand -hex 32`, and keep it: changing it later invalidates
+      every password.
     - the `smtp` section.
 
     You can omit lines when you want to use the defaults of that field.
@@ -91,6 +94,17 @@ user@host:lithica$ docker compose pull
     ```
 
     will give you a breakdown on all available commands.
+
+    The server never rewrites existing posts on its own. When posts lack
+    data that a newer version computes (image signatures for the
+    similar-image search, MD5 checksums), the server says so in its log at
+    startup, and you create the data with:
+
+    ```console
+    user@host:lithica$ docker compose run server ./lithica-admin backfill all
+    ```
+
+    It can be repeated and can run while the server is up.
 
 2. **Using a seperate domain to host static files (image content)**
 

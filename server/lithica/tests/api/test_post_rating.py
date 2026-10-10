@@ -131,7 +131,7 @@ def test_trying_to_update_non_existing(user_factory, context_factory):
     with pytest.raises(posts.PostNotFoundError):
         api.post_api.set_post_score(
             context_factory(params={"score": 1}, user=user_factory()),
-            {"post_id": 5},
+            {"post_id": "5"},
         )
 
 

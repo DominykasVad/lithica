@@ -1,8 +1,8 @@
 import hashlib
-import random
+import hmac
+import secrets
 import uuid
 from collections import OrderedDict
-from datetime import datetime
 
 from nacl import pwhash
 from nacl.exceptions import InvalidkeyError
@@ -10,7 +10,7 @@ from nacl.exceptions import InvalidkeyError
 from lithica import config, db, errors, model
 from lithica.func import util
 
-RANK_MAP = OrderedDict(
+RANK_MAP: OrderedDict[str, str] = OrderedDict(
     [
         (model.User.RANK_ANONYMOUS, "anonymous"),
         (model.User.RANK_RESTRICTED, "restricted"),
@@ -58,12 +58,15 @@ def create_password() -> str:
         "n": list("0123456789"),
     }
     pattern = "cvcvnncvcv"
-    return "".join(random.choice(alphabet[type]) for type in list(pattern))
+    return "".join(secrets.choice(alphabet[type]) for type in list(pattern))
 
 
 def is_valid_password(user: model.User, password: str) -> bool:
     assert user
     salt, valid_hash = user.password_salt, user.password_hash
+    if salt is None:
+        # no salt was ever stored, so no password can match
+        return False
 
     try:
         return pwhash.verify(
@@ -75,7 +78,12 @@ def is_valid_password(user: model.User, password: str) -> bool:
             get_sha256_legacy_password_hash(salt, password)[0],
             get_sha1_legacy_password_hash(salt, password)[0],
         ]
-        if valid_hash in possible_hashes:
+        # no early exit: every candidate is compared, in constant time
+        matches = [
+            hmac.compare_digest(valid_hash.encode("utf8"), possible_hash.encode("utf8"))
+            for possible_hash in possible_hashes
+        ]
+        if any(matches):
             # Convert the user password hash to the new hash
             new_hash, revision = get_password_hash(salt, password)
             user.password_hash = new_hash
@@ -97,7 +105,7 @@ def is_valid_token(user_token: model.UserToken | None) -> bool:
         return False
     if (
         user_token.expiration_time is not None
-        and user_token.expiration_time < datetime.utcnow()
+        and user_token.expiration_time < util.utcnow()
     ):
         return False
     return True
@@ -117,15 +125,6 @@ def verify_privilege(user: model.User, privilege_name: str) -> None:
     assert user
     if not has_privilege(user, privilege_name):
         raise errors.AuthError("Insufficient privileges to do this.")
-
-
-def generate_authentication_token(user: model.User) -> str:
-    """Generate nonguessable challenge (e.g. links in password reminder)."""
-    assert user
-    digest = hashlib.md5()
-    digest.update(config.config["secret"].encode("utf8"))
-    digest.update(user.password_salt.encode("utf8"))
-    return digest.hexdigest()
 
 
 def generate_authorization_token() -> str:

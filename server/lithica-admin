@@ -4,8 +4,10 @@
 Collection of CLI commands for an administrator to use
 """
 
+import logging
 import os
 import re
+import sys
 from argparse import ArgumentParser
 from getpass import getpass
 from sys import stderr
@@ -95,12 +97,64 @@ def regenerate_thumbnails() -> None:
             pass
 
 
-def main() -> None:
+BACKFILLS = {
+    "signatures": (
+        "image signatures, used by the similar-image search",
+        postfuncs.count_posts_without_signature,
+        postfuncs.update_all_post_signatures,
+    ),
+    "md5": (
+        "MD5 checksums",
+        postfuncs.count_posts_without_md5_checksum,
+        postfuncs.update_all_md5_checksums,
+    ),
+}
+
+
+def backfill(what: str) -> bool:
+    """Run the named backfill, or all of them. Returns False if any post failed."""
+    names = list(BACKFILLS) if what == "all" else [what]
+    success = True
+    for name in names:
+        description, count_pending, run = BACKFILLS[name]
+        pending = count_pending()
+        print("%s: %d posts to process (%s)" % (name, pending, description))
+        if not pending:
+            continue
+        filled, failed = run()
+        print("%s: %d done, %d failed" % (name, filled, failed))
+        if failed:
+            success = False
+            print(
+                "%s: the failed posts are listed in the log above; "
+                "their files are missing or cannot be read" % name,
+                file=sys.stderr,
+            )
+    return success
+
+
+def main(args: list[str] | None = None) -> int:
     parser_top = ArgumentParser(
         description="Collection of CLI commands for an administrator to use",
         epilog="Look at README.md for more info",
     )
-    parser = parser_top.add_mutually_exclusive_group(required=True)
+    subparsers = parser_top.add_subparsers(dest="subcommand", metavar="<command>")
+    parser_backfill = subparsers.add_parser(
+        "backfill",
+        help="compute data that is missing on existing posts",
+        description="Compute data that is missing on existing posts. Safe to "
+        "repeat: only posts that still lack the data are processed.",
+    )
+    parser_backfill.add_argument(
+        "what",
+        choices=[*BACKFILLS, "all"],
+        help="; ".join(
+            "%s: %s" % (name, description)
+            for name, (description, _count, _run) in BACKFILLS.items()
+        )
+        + "; all: every backfill",
+    )
+    parser = parser_top.add_mutually_exclusive_group()
     parser.add_argument(
         "--change-password",
         metavar="<username>",
@@ -123,10 +177,22 @@ def main() -> None:
         action="store_true",
         help="regenerate the thumbnails for posts if the thumbnail files are missing",
     )
-    command = parser_top.parse_args()
+    command = parser_top.parse_args(args)
+    options = [
+        command.change_password,
+        command.check_all_audio,
+        command.reset_filenames,
+        command.regenerate_thumbnails,
+    ]
+    if bool(command.subcommand) == any(options):
+        parser_top.error("give one command or one option")
 
     try:
-        if command.change_password:
+        if command.subcommand == "backfill":
+            logging.basicConfig(level=logging.INFO, format="%(message)s")
+            if not backfill(command.what):
+                return 1
+        elif command.change_password:
             reset_password(command.change_password)
         elif command.check_all_audio:
             check_audio()
@@ -136,7 +202,8 @@ def main() -> None:
             regenerate_thumbnails()
     except errors.BaseError as e:
         print(e, file=stderr)
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

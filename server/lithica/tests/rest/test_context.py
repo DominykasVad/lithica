@@ -7,13 +7,13 @@ from lithica.func import net
 
 
 def test_has_param():
-    ctx = rest.Context(env={}, method=None, url=None, params={"key": "value"})
+    ctx = rest.Context(env={}, method="", url="", params={"key": "value"})
     assert ctx.has_param("key")
     assert not ctx.has_param("non-existing")
 
 
 def test_get_file():
-    ctx = rest.Context(env={}, method=None, url=None, files={"key": b"content"})
+    ctx = rest.Context(env={}, method="", url="", files={"key": b"content"})
     assert ctx.get_file("key") == b"content"
     with pytest.raises(errors.ValidationError):
         ctx.get_file("non-existing")
@@ -22,9 +22,7 @@ def test_get_file():
 def test_get_file_from_url():
     with unittest.mock.patch("lithica.func.net.download"):
         net.download.return_value = b"content"
-        ctx = rest.Context(
-            env={}, method=None, url=None, params={"keyUrl": "example.com"}
-        )
+        ctx = rest.Context(env={}, method="", url="", params={"keyUrl": "example.com"})
         assert ctx.get_file("key") == b"content"
         net.download.assert_called_once_with("example.com", use_video_downloader=False)
         with pytest.raises(errors.ValidationError):
@@ -34,8 +32,8 @@ def test_get_file_from_url():
 def test_getting_list_parameter():
     ctx = rest.Context(
         env={},
-        method=None,
-        url=None,
+        method="",
+        url="",
         params={"key": "value", "list": ["1", "2", "3"]},
     )
     assert ctx.get_param_as_list("key") == ["value"]
@@ -48,8 +46,8 @@ def test_getting_list_parameter():
 def test_getting_string_parameter():
     ctx = rest.Context(
         env={},
-        method=None,
-        url=None,
+        method="",
+        url="",
         params={"key": "value", "list": ["1", "2", "3"]},
     )
     assert ctx.get_param_as_string("key") == "value"
@@ -62,8 +60,8 @@ def test_getting_string_parameter():
 def test_getting_int_parameter():
     ctx = rest.Context(
         env={},
-        method=None,
-        url=None,
+        method="",
+        url="",
         params={"key": "50", "err": "invalid", "list": [1, 2, 3]},
     )
     assert ctx.get_param_as_int("key") == 50
@@ -84,7 +82,7 @@ def test_getting_int_parameter():
 
 def test_getting_bool_parameter():
     def test(value):
-        ctx = rest.Context(env={}, method=None, url=None, params={"key": value})
+        ctx = rest.Context(env={}, method="", url="", params={"key": value})
         return ctx.get_param_as_bool("key")
 
     assert test("1") is True
@@ -112,7 +110,7 @@ def test_getting_bool_parameter():
     with pytest.raises(errors.ValidationError):
         test(["1", "2"])
 
-    ctx = rest.Context(env={}, method=None, url=None)
+    ctx = rest.Context(env={}, method="", url="")
     with pytest.raises(errors.ValidationError):
         ctx.get_param_as_bool("non-existing")
     assert ctx.get_param_as_bool("non-existing", default=True) is True

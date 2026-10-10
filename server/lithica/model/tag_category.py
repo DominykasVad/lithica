@@ -1,4 +1,5 @@
 import sqlalchemy as sa
+import sqlalchemy.orm as sa_orm
 
 from lithica.model.base import Base
 from lithica.model.tag import Tag
@@ -7,18 +8,32 @@ from lithica.model.tag import Tag
 class TagCategory(Base):
     __tablename__ = "tag_category"
 
-    tag_category_id = sa.Column("id", sa.Integer, primary_key=True)
-    version = sa.Column("version", sa.Integer, default=1, nullable=False)
-    name = sa.Column("name", sa.Unicode(32), nullable=False)
-    color = sa.Column("color", sa.Unicode(32), nullable=False, default="#000000")
-    default = sa.Column("default", sa.Boolean, nullable=False, default=False)
-    order = sa.Column("order", sa.Integer, nullable=False, default=1)
+    tag_category_id: sa_orm.Mapped[int] = sa_orm.mapped_column(
+        "id", sa.Integer, primary_key=True
+    )
+    version: sa_orm.Mapped[int] = sa_orm.mapped_column(
+        "version", sa.Integer, default=1, nullable=False
+    )
+    name: sa_orm.Mapped[str] = sa_orm.mapped_column(
+        "name", sa.Unicode(32), nullable=False
+    )
+    color: sa_orm.Mapped[str] = sa_orm.mapped_column(
+        "color", sa.Unicode(32), nullable=False, default="#000000"
+    )
+    default: sa_orm.Mapped[bool] = sa_orm.mapped_column(
+        "default", sa.Boolean, nullable=False, default=False
+    )
+    order: sa_orm.Mapped[int] = sa_orm.mapped_column(
+        "order", sa.Integer, nullable=False, default=1
+    )
 
     def __init__(self, name: str | None = None) -> None:
-        self.name = name
+        # without a name the attribute stays unset, which reads as None
+        if name is not None:
+            self.name = name
 
-    tag_count = sa.orm.column_property(
-        sa.sql.expression.select(sa.sql.expression.func.count("Tag.tag_id"))
+    tag_count = sa_orm.column_property(
+        sa.sql.expression.select(sa.sql.expression.func.count(sa.literal("Tag.tag_id")))
         .where(Tag.category_id == tag_category_id)
         .correlate_except(sa.table("Tag"))
         .scalar_subquery()

@@ -15,7 +15,7 @@ class Context:
         method: str,
         url: str,
         headers: dict[str, str] | None = None,
-        params: Request = None,
+        params: Request | None = None,
         files: dict[str, bytes] | None = None,
     ) -> None:
         self.env = env
@@ -25,8 +25,9 @@ class Context:
         self._params = params or {}
         self._files = files or {}
 
+        # an anonymous user until the authenticator says otherwise; the name
+        # is left unset, which reads as None
         self.user = model.User()
-        self.user.name = None
         self.user.rank = "anonymous"
 
         self.session: Any = None

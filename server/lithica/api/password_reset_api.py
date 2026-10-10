@@ -1,7 +1,5 @@
-from hashlib import md5
-
 from lithica import config, errors, rest
-from lithica.func import auth, mailer, users, versions
+from lithica.func import mailer, password_reset, users, versions
 
 MAIL_SUBJECT = "Password reset for {name}"
 MAIL_BODY = (
@@ -19,7 +17,7 @@ def start_password_reset(ctx: rest.Context, params: dict[str, str]) -> rest.Resp
         raise errors.ValidationError(
             "User %r hasn't supplied email. Cannot reset password." % (user_name)
         )
-    token = auth.generate_authentication_token(user)
+    token = password_reset.create_token(user)
 
     if config.config["domain"]:
         url = config.config["domain"]
@@ -37,22 +35,17 @@ def start_password_reset(ctx: rest.Context, params: dict[str, str]) -> rest.Resp
         MAIL_SUBJECT.format(name=config.config["name"]),
         MAIL_BODY.format(name=config.config["name"], url=url),
     )
+    ctx.session.commit()
 
     return {}
-
-
-def _hash(token: str) -> str:
-    return md5(token.encode("utf-8")).hexdigest()
 
 
 @rest.routes.post("/password-reset/(?P<user_name>[^/]+)/?")
 def finish_password_reset(ctx: rest.Context, params: dict[str, str]) -> rest.Response:
     user_name = params["user_name"]
     user = users.get_user_by_name_or_email(user_name)
-    good_token = auth.generate_authentication_token(user)
     token = ctx.get_param_as_string("token")
-    if _hash(token) != _hash(good_token):
-        raise errors.ValidationError("Invalid password reset token.")
+    password_reset.consume_token(user, token)
     new_password = users.reset_user_password(user)
     versions.bump_version(user)
     ctx.session.commit()

@@ -1,6 +1,8 @@
 class BaseCriterion:
     def __init__(self, original_text: str) -> None:
         self.original_text = original_text
+        # set on criteria the engine adds itself, not typed by the user
+        self.internal = False
 
     def __repr__(self) -> str:
         return self.original_text

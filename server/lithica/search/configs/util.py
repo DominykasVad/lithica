@@ -2,6 +2,7 @@ from collections.abc import Callable
 from typing import Any
 
 import sqlalchemy as sa
+import sqlalchemy.orm as sa_orm
 
 from lithica import db, errors
 from lithica.func import util
@@ -118,17 +119,26 @@ def create_num_filter(
     return wrapper
 
 
+def _like_ignoring_case(column: SaColumn, pattern: str) -> Any:
+    """
+    Case-insensitive LIKE that every database understands, unlike ILIKE.
+    The escape character is named because only some databases default to
+    the backslash that wildcard_transformer escapes with.
+    """
+    return sa.func.lower(column).like(sa.func.lower(pattern), escape="\\")
+
+
 def apply_str_criterion_to_column(
     column: SaColumn,
     criterion: criteria.BaseCriterion,
     transformer: Callable[[str], str] = wildcard_transformer,
 ) -> SaQuery:
     if isinstance(criterion, criteria.PlainCriterion):
-        expr = column.ilike(transformer(criterion.value))
+        expr = _like_ignoring_case(column, transformer(criterion.value))
     elif isinstance(criterion, criteria.ArrayCriterion):
         expr = sa.sql.false()
         for value in criterion.values:
-            expr = expr | column.ilike(transformer(value))
+            expr = expr | _like_ignoring_case(column, transformer(value))
     elif isinstance(criterion, criteria.RangedCriterion):
         raise errors.SearchError(
             "Ranged criterion is invalid in this context. "
@@ -204,7 +214,7 @@ def create_subquery_filter(
     right_id_column: SaColumn,
     filter_column: SaColumn,
     filter_factory: SaColumn,
-    subquery_decorator: Callable[[SaQuery], None] = None,
+    subquery_decorator: Callable[[SaQuery], SaQuery] | None = None,
 ) -> Filter:
     filter_func = filter_factory(filter_column)
 
@@ -217,7 +227,7 @@ def create_subquery_filter(
         subquery = db.session.query(right_id_column.label("foreign_id"))
         if subquery_decorator:
             subquery = subquery_decorator(subquery)
-        subquery = subquery.options(sa.orm.lazyload("*"))
+        subquery = subquery.options(sa_orm.lazyload("*"))
         subquery = filter_func(subquery, criterion, False)
         subquery = subquery.subquery("t")
         expression = left_id_column.in_(sa.select(subquery.c.foreign_id))

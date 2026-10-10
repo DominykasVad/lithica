@@ -57,7 +57,8 @@ Everything else must stay wire-compatible with `doc/API.md`.
 
 ### Allowed dialect exceptions
 
-None. (The signature `ARRAY` + `unnest()` and `ilike` uses are removed in phase 1.)
+- `sa.ARRAY` in migrations `8f3a1c2d4e5b` and `b7d2e9a4c1f3` only: they read and (on downgrade) restore the old
+  `post_signature.words` array column. No engine code uses it.
 
 ### Decision log
 
@@ -65,6 +66,11 @@ Rules: only real decisions (a choice between alternatives that later work must
 respect). One line each, max ~120 characters: `date — task — decision (reason)`.
 No status notes, no "left untouched", no results — those go in commit messages.
 When a phase is merged, its entries are folded into the tables above or deleted.
+
+- 2026-10-10 — 1.1 — reset tokens: SHA-256 of a 256-bit random token, one pending per user, row deleted on use
+- 2026-10-10 — 1.1 — config key `password_reset_token_lifetime`, in seconds (default 3600)
+- 2026-10-10 — 1.1 — the server answers CORS from `cors_origins` already in phase 1 (exact origins; `*` is a config error)
+- 2026-10-10 — 1.1 — external tool limits are constants, not settings: ffmpeg/ffprobe 600 s, yt-dlp 60 s
 
 ---
 
@@ -84,29 +90,29 @@ Goal: fix the known defects on the existing framework, so phase 2 ports
 correct code.
 
 ### 1.1 Security
-- [ ] Password reset: random token (`secrets.token_urlsafe`), stored hashed, single use, expiry (configurable, default 1 h). New table + migration. Remove `md5(secret + salt)` scheme.
-- [ ] Refuse to start if `secret` is the default or empty; clear error message.
-- [ ] CORS: remove the wildcard from `legacy/client/nginx.conf.docker`; add `cors_origins` config (default empty = same origin). The server, not nginx, owns CORS from phase 2 on.
-- [ ] Audit token and password comparisons for constant-time compare.
-- [ ] Audit `subprocess` calls (ffmpeg, ffprobe, yt-dlp) for list arguments and timeouts.
+- [x] Password reset: random token (`secrets.token_urlsafe`), stored hashed, single use, expiry (configurable, default 1 h). New table + migration. Remove `md5(secret + salt)` scheme.
+- [x] Refuse to start if `secret` is the default or empty; clear error message.
+- [x] CORS: remove the wildcard from `legacy/client/nginx.conf.docker`; add `cors_origins` config (default empty = same origin). The server, not nginx, owns CORS from phase 2 on.
+- [x] Audit token and password comparisons for constant-time compare.
+- [x] Audit `subprocess` calls (ffmpeg, ffprobe, yt-dlp) for list arguments and timeouts.
 
 ### 1.2 Time handling
-- [ ] Add `util.utcnow()` returning naive UTC. Replace all 27 `datetime.utcnow()` uses in non-test code. Behaviour must not change (columns stay naive UTC).
+- [x] Add `util.utcnow()` returning naive UTC. Replace all 27 `datetime.utcnow()` uses in non-test code. Behaviour must not change (columns stay naive UTC).
 
 ### 1.3 Database portability
-- [ ] Replace `post_signature.words` (`postgresql.ARRAY` + raw-SQL `unnest()` in `func/posts.py`) with a normal child table of (signature id, position, word) and an ORM query. Migration moves existing data. Similar-post results must be identical — add a test that compares old and new query results on the test assets before removing the old path.
-- [ ] Replace `ilike` in `search/configs/util.py` with `func.lower(col).like(func.lower(value))`; check index usage on Postgres (expression index on `lower(name)` if needed, created via SQLAlchemy `Index`).
-- [ ] Grep gate: no `sa.text`, `text(`, `sa.dialects`, `ilike` left in `lithica/` (excluding historical migrations). Add this as a CI check.
+- [x] Replace `post_signature.words` (`postgresql.ARRAY` + raw-SQL `unnest()` in `func/posts.py`) with a normal child table of (signature id, position, word) and an ORM query. Migration moves existing data. Similar-post results must be identical — add a test that compares old and new query results on the test assets before removing the old path.
+- [x] Replace `ilike` in `search/configs/util.py` with `func.lower(col).like(func.lower(value))`; check index usage on Postgres (expression index on `lower(name)` if needed, created via SQLAlchemy `Index`).
+- [x] Grep gate: no `sa.text`, `text(`, `sa.dialects`, `ilike` left in `lithica/` (excluding historical migrations). Add this as a CI check.
 
 ### 1.4 Startup and background work
-- [ ] Move the two boot-time "live migrations" (post signatures, MD5 checksums) to `lithica-admin backfill` commands. On startup, only log a warning if a backfill is pending.
-- [ ] Upload purge: keep as a background thread for now, but it creates and closes its own session; make it safe to run in several processes (idempotent deletes).
-- [ ] Remove the in-process query cache (`func/cache.py`, the cache purger middleware). If a benchmark shows a real need, propose a replacement instead.
-- [ ] Disk-usage cache in `info_api`: make it per-process-safe (short TTL is fine) and document.
+- [x] Move the two boot-time "live migrations" (post signatures, MD5 checksums) to `lithica-admin backfill` commands. On startup, only log a warning if a backfill is pending.
+- [x] Upload purge: keep as a background thread for now, but it creates and closes its own session; make it safe to run in several processes (idempotent deletes).
+- [x] Remove the in-process query cache (`func/cache.py`, the cache purger middleware). If a benchmark shows a real need, propose a replacement instead.
+- [x] Disk-usage cache in `info_api`: make it per-process-safe (short TTL is fine) and document.
 
 ### 1.5 Housekeeping
-- [ ] pyright `basic` reaches zero errors.
-- [ ] Remove stale config: `youtube_dl` references, `python3.9` pins.
+- [x] pyright `basic` reaches zero errors.
+- [x] Remove stale config: `youtube_dl` references, `python3.9` pins.
 
 **Exit criteria:** suite green; pyright basic clean; grep gate clean; legacy
 client smoke test passes; password reset tested end to end.

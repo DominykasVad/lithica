@@ -27,6 +27,7 @@ def test_retrieving_multiple(user_factory, pool_category_factory, context_factor
     result = api.pool_category_api.get_pool_categories(
         context_factory(user=user_factory(rank=model.User.RANK_REGULAR))
     )
+    assert result is not None
     assert [cat["name"] for cat in result["results"]] == ["c1", "c2"]
 
 

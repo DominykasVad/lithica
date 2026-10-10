@@ -14,6 +14,8 @@ from lithica import errors
 from lithica.func import mime, util
 
 logger = logging.getLogger(__name__)
+# seconds one ffmpeg or ffprobe run may take before it is killed
+FFMPEG_TIMEOUT = 600
 register_heif_opener()
 if not features.check("avif"):
     # AVIF support is built into Pillow for some distros
@@ -286,7 +288,20 @@ class Image:
                 stdin=subprocess.DEVNULL,
                 stderr=subprocess.PIPE,
             )
-            out, err = proc.communicate()
+            try:
+                out, err = proc.communicate(timeout=FFMPEG_TIMEOUT)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.communicate()
+                logger.warning(
+                    "Killed %s after %d seconds (cli=%r)",
+                    program,
+                    FFMPEG_TIMEOUT,
+                    " ".join(shlex.quote(arg) for arg in cli),
+                )
+                raise errors.ProcessingError(
+                    "Error while processing image.\nProcessing took too long."
+                ) from None
             if proc.returncode != 0:
                 logger.warning(
                     "Failed to execute ffmpeg command (cli=%r, err=%r)",

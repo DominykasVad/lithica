@@ -55,6 +55,28 @@ def _running_inside_container() -> bool:
     )
 
 
+def default_secret() -> str:
+    """Return the placeholder secret that ships in config.yaml.dist."""
+    return _file_config("config.yaml.dist")["secret"]
+
+
+def validate_secret() -> None:
+    """
+    Refuse a missing secret and the placeholder one. The secret salts the
+    password hashes and signs the content URLs, and the placeholder is public.
+    """
+    secret = config.get("secret")
+    if not isinstance(secret, str) or not secret.strip():
+        raise errors.ConfigError(
+            "'secret' is not set. Set it to a long random string in config.yaml."
+        )
+    if secret == default_secret():
+        raise errors.ConfigError(
+            "'secret' still has the default value from config.yaml.dist. "
+            "Set it to a long random string in config.yaml."
+        )
+
+
 def _read_config() -> dict:
     ret = _file_config("config.yaml.dist")
     if os.path.isfile("config.yaml"):

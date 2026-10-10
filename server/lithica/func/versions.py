@@ -1,8 +1,18 @@
-from lithica import errors, model, rest
+from typing import Protocol
+
+import sqlalchemy.orm as sa_orm
+
+from lithica import errors, rest
+
+
+class Versioned(Protocol):
+    """Any model with a version column."""
+
+    version: sa_orm.Mapped[int]
 
 
 def verify_version(
-    entity: model.Base, context: rest.Context, field_name: str = "version"
+    entity: Versioned, context: rest.Context, field_name: str = "version"
 ) -> None:
     actual_version = context.get_param_as_int(field_name)
     expected_version = entity.version
@@ -12,5 +22,5 @@ def verify_version(
         )
 
 
-def bump_version(entity: model.Base) -> None:
+def bump_version(entity: Versioned) -> None:
     entity.version = entity.version + 1

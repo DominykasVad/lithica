@@ -4,12 +4,20 @@ import re
 import tempfile
 from collections.abc import Generator
 from contextlib import contextmanager
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any, TypeVar
 
 from lithica import errors
 
 T = TypeVar("T")
+
+
+def utcnow() -> datetime:
+    """
+    Return the current time as naive UTC, the form every timestamp column
+    stores. This is the only place allowed to ask the clock for "now".
+    """
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 def snake_case_to_lower_camel_case(text: str) -> str:
@@ -105,14 +113,14 @@ def parse_time_range(value: str) -> tuple[datetime, datetime]:
         raise errors.ValidationError("Empty date format.")
 
     if value == "today":
-        now = datetime.utcnow()
+        now = utcnow()
         return (
             datetime(now.year, now.month, now.day, 0, 0, 0),
             datetime(now.year, now.month, now.day, 0, 0, 0) + almost_one_day,
         )
 
     if value == "yesterday":
-        now = datetime.utcnow()
+        now = utcnow()
         return (
             datetime(now.year, now.month, now.day, 0, 0, 0) - one_day,
             datetime(now.year, now.month, now.day, 0, 0, 0) - one_second,

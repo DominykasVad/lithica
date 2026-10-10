@@ -1,9 +1,10 @@
 from collections.abc import Callable
+from typing import Any
 
 import sqlalchemy as sa
+import sqlalchemy.orm as sa_orm
 
 from lithica import db, errors, model, rest
-from lithica.func import cache
 from lithica.search import parser, tokens
 from lithica.search.configs.base_search_config import BaseSearchConfig
 from lithica.search.query import SearchQuery
@@ -41,7 +42,7 @@ class Executor:
     ) -> tuple[model.Base, model.Base]:
         search_query = self.parser.parse(query_text)
         self.config.on_search_query_parsed(search_query)
-        filter_query = self.config.create_around_query().options(sa.orm.lazyload("*"))
+        filter_query = self.config.create_around_query().options(sa_orm.lazyload("*"))
         filter_query = self._prepare_db_query(filter_query, search_query, False)
         prev_filter_query = (
             filter_query.filter(self.config.id_column > entity_id)
@@ -64,7 +65,8 @@ class Executor:
         self,
         ctx: rest.Context,
         entity_id: int,
-        serializer: Callable[[model.Base], rest.Response],
+        # each executor yields entities of its own config's model
+        serializer: Callable[[Any], rest.Response],
     ) -> rest.Response:
         entities = self.get_around(
             ctx.get_param_as_string("query", default=""), entity_id
@@ -89,31 +91,26 @@ class Executor:
             if token.name == "random":
                 disable_eager_loads = True
 
-        key = (id(self.config), hash(search_query), offset, limit)
-        if cache.has(key):
-            return cache.get(key)
-
         filter_query = self.config.create_filter_query(disable_eager_loads)
-        filter_query = filter_query.options(sa.orm.lazyload("*"))
+        filter_query = filter_query.options(sa_orm.lazyload("*"))
         filter_query = self._prepare_db_query(filter_query, search_query, True)
         entities = filter_query.offset(offset).limit(limit).all()
 
         count_query = self.config.create_count_query(disable_eager_loads)
-        count_query = count_query.options(sa.orm.lazyload("*"))
+        count_query = count_query.options(sa_orm.lazyload("*"))
         count_query = self._prepare_db_query(count_query, search_query, False)
         count_statement = count_query.statement.with_only_columns(
             sa.func.count(), maintain_column_froms=True
         ).order_by(None)
         count = db.session.execute(count_statement).scalar()
 
-        ret = (count, entities)
-        cache.put(key, ret)
-        return ret
+        return (count, entities)
 
     def execute_and_serialize(
         self,
         ctx: rest.Context,
-        serializer: Callable[[model.Base], rest.Response],
+        # each executor yields entities of its own config's model
+        serializer: Callable[[Any], rest.Response],
     ) -> rest.Response:
         query = ctx.get_param_as_string("query", default="")
         offset = ctx.get_param_as_int("offset", default=0, min=0)

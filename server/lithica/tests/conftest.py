@@ -8,7 +8,6 @@ import freezegun
 import pytest
 import sqlalchemy as sa
 import sqlalchemy.orm as sa_orm
-from sqlalchemy import event
 
 from lithica import config
 
@@ -23,7 +22,6 @@ config.config.setdefault(
 )
 
 from lithica import db, model, rest  # noqa: E402
-from lithica.func import cache  # noqa: E402
 
 
 @pytest.fixture(scope="session")
@@ -100,8 +98,8 @@ class _CommittingTestDB:
     def reset_db(self):
         self.session.close()
         with self._engine.connect() as conn:
-            conn.execute(sa.text("DROP SCHEMA public CASCADE"))
-            conn.execute(sa.text("CREATE SCHEMA public"))
+            conn.execute(sa.schema.DropSchema("public", cascade=True))
+            conn.execute(sa.schema.CreateSchema("public"))
             conn.commit()
 
 
@@ -110,16 +108,10 @@ def transacted_postgresql_db(_pg_engine):
     """Database fixture; the name is kept from pytest_pgsql, which it replaced."""
     conn = _pg_engine.connect()
     trans = conn.begin()
-    # bind= is deprecated in SA 2.0 but still functional; removed in SA 3.0
-    session = sa_orm.Session(bind=conn)
-    # A savepoint makes session.commit() release the savepoint rather than
-    # committing the outer connection-level transaction.
-    session.begin_nested()
-
-    @event.listens_for(session, "after_transaction_end")
-    def _restart_savepoint(session, transaction):
-        if transaction.nested and not transaction._parent.nested:
-            session.begin_nested()
+    # The session works in savepoints of the outer transaction: commit()
+    # releases one and rollback() rolls one back, so neither touches the
+    # tables the test created, and the outer rollback still undoes it all.
+    session = sa_orm.Session(bind=conn, join_transaction_mode="create_savepoint")
 
     try:
         yield _TransactedTestDB(conn, session, trans)
@@ -139,8 +131,8 @@ def postgresql_db(_pg_engine):
     finally:
         session.close()
         with _pg_engine.connect() as conn:
-            conn.execute(sa.text("DROP SCHEMA public CASCADE"))
-            conn.execute(sa.text("CREATE SCHEMA public"))
+            conn.execute(sa.schema.DropSchema("public", cascade=True))
+            conn.execute(sa.schema.CreateSchema("public"))
             conn.commit()
 
 
@@ -200,8 +192,8 @@ def context_factory(session):
     def factory(params=None, files=None, user=None, headers=None):
         ctx = rest.Context(
             env={"HTTP_ORIGIN": "http://example.com"},
-            method=None,
-            url=None,
+            method="",
+            url="",
             headers=headers or {},
             params=params or {},
             files=files or {},
@@ -211,19 +203,6 @@ def context_factory(session):
         return ctx
 
     return factory
-
-
-@pytest.fixture(autouse=True)
-def _empty_query_cache():
-    """Start every test with an empty query cache.
-
-    The search executor caches results in a process-wide cache whose key
-    includes id(search_config). A config object created by a later test can
-    get the id of a dead one, and then receives the other test's results.
-    """
-    cache.purge()
-    yield
-    cache.purge()
 
 
 @pytest.fixture
@@ -321,7 +300,8 @@ def post_factory():
         checksum="...",
     ):
         post = model.Post()
-        post.post_id = id
+        if id is not None:
+            post.post_id = id
         post.safety = safety
         post.type = type
         post.checksum = checksum
@@ -397,7 +377,8 @@ def pool_factory():
             category = model.PoolCategory(get_unique_name())
             db.session.add(category)
         pool = model.Pool()
-        pool.pool_id = id
+        if id is not None:
+            pool.pool_id = id
         pool.names = []
         for i, name in enumerate(names or [get_unique_name()]):
             pool.names.append(model.PoolName(name, i))

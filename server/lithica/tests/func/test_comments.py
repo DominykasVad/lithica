@@ -69,7 +69,7 @@ def test_create_comment(user_factory, post_factory, fake_datetime):
 def test_update_comment_text_with_emptry_string(comment_factory):
     comment = comment_factory()
     with pytest.raises(comments.EmptyCommentTextError):
-        comments.update_comment_text(comment, None)
+        comments.update_comment_text(comment, None)  # pyright: ignore[reportArgumentType] - None on purpose
 
 
 def test_update_comment_text(comment_factory):

@@ -11,6 +11,8 @@ from lithica.func import mime
 
 logger = logging.getLogger(__name__)
 _dl_chunk_size = 2**15
+# seconds yt-dlp may take to resolve a URL before the request fails
+YT_DLP_TIMEOUT = 60
 
 
 class DownloadError(errors.ProcessingError):
@@ -23,12 +25,12 @@ class DownloadTooLargeError(DownloadError):
 
 def download(url: str, use_video_downloader: bool = False) -> bytes:
     assert url
-    youtube_dl_error = None
+    yt_dlp_error = None
     if use_video_downloader:
         try:
-            url = _get_youtube_dl_content_url(url) or url
+            url = _get_yt_dlp_content_url(url) or url
         except errors.ThirdPartyError as ex:
-            youtube_dl_error = ex
+            yt_dlp_error = ex
 
     request = urllib.request.Request(url)
     if config.config["user_agent"]:
@@ -55,26 +57,35 @@ def download(url: str, use_video_downloader: bool = False) -> bytes:
         ) from ex
 
     if (
-        youtube_dl_error
+        yt_dlp_error
         and mime.get_mime_type(content_buffer) == "application/octet-stream"
     ):
-        raise youtube_dl_error
+        raise yt_dlp_error
 
     return content_buffer
 
 
-def _get_youtube_dl_content_url(url: str) -> str:
+def _get_yt_dlp_content_url(url: str) -> str:
     cmd = ["yt-dlp", "--format", "best", "--no-playlist"]
     if config.config["user_agent"]:
         cmd.extend(["--user-agent", config.config["user_agent"]])
-    cmd.extend(["--get-url", url])
+    # "--" ends the options: the URL comes from the user, and without it a
+    # value starting with "-" would be read by yt-dlp as an option.
+    cmd.extend(["--get-url", "--", url])
     try:
         return (
-            subprocess.run(cmd, text=True, capture_output=True, check=True)
+            subprocess.run(
+                cmd,
+                text=True,
+                capture_output=True,
+                check=True,
+                stdin=subprocess.DEVNULL,
+                timeout=YT_DLP_TIMEOUT,
+            )
             .stdout.split("\n")[0]
             .strip()
         )
-    except subprocess.CalledProcessError:
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
         raise errors.ThirdPartyError(
             "Could not extract content location from URL.",
             extra_fields={"URL": url},
