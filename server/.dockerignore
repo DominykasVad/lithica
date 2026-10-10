@@ -1,13 +1,15 @@
 # Docker build files
 Dockerfile
 .dockerignore
+docker-compose.test.yml
 hooks/
 
 # User configured config file
 config.yaml
 
-# Local environment
+# Local environment and caches
 .venv/
-uv.lock
 .python-version
-docker-compose.test.yml
+.ruff_cache/
+.pytest_cache/
+**/__pycache__/

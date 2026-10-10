@@ -71,6 +71,7 @@ When a phase is merged, its entries are folded into the tables above or deleted.
 - 2026-10-10 — 0.3 — `lithica` is an installable package built with `uv_build` (flat layout, no `src/`)
 - 2026-10-10 — 0.5 — ruff skips `lithica/migrations/versions/` (committed migrations are not rewritten)
 - 2026-10-10 — 0.5 — ruff also selects `T20` (print ban, replaces flake8-print); `lithica-admin` exempt
+- 2026-10-10 — 0.6 — images run the source from `/opt/app` via `PYTHONPATH`, venv in `/opt/venv`; package not installed
 
 ---
 
@@ -108,7 +109,7 @@ nothing behaves differently.
 - [x] Update `.pre-commit-config.yaml`: ruff hooks for server; keep prettier/eslint for legacy client only if it still runs, otherwise drop them.
 
 ### 0.6 Docker
-- [ ] Rewrite `server/Dockerfile` on `python:3.13-slim-trixie` with uv (`uv sync --frozen --no-dev` for release). System packages via apt: ffmpeg, libheif, libavif as needed by the wheels. Keep targets `testing`, `development`, `release`. Non-root user, dumb-init (or `tini`) kept.
+- [x] Rewrite `server/Dockerfile` on `python:3.13-slim-trixie` with uv (`uv sync --frozen --no-dev` for release). System packages via apt: ffmpeg, libheif, libavif as needed by the wheels. Keep targets `testing`, `development`, `release`. Non-root user, dumb-init (or `tini`) kept.
 - [ ] PostgreSQL 11 → 17 in both compose files. Write `doc/UPGRADING.md` with the dump/restore procedure for an existing 11 data directory.
 - [ ] `docker-compose.yml` uses `build:` for the server and legacy client by default (published images optional, commented).
 

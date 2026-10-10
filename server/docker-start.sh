@@ -5,4 +5,4 @@ cd /opt/app
 alembic upgrade head
 
 echo "Starting Lithica API on port ${PORT} - Running on ${THREADS} threads"
-exec waitress-serve-3 --listen "*:${PORT}" --threads ${THREADS} lithica.facade:app
+exec waitress-serve --listen "*:${PORT}" --threads ${THREADS} lithica.facade:app

@@ -1,59 +1,60 @@
-ARG ALPINE_VERSION=3.22
+# syntax=docker/dockerfile:1
+
+ARG UV_VERSION=0.13.0
+
+FROM astral/uv:${UV_VERSION} AS uv
 
 
-FROM alpine:$ALPINE_VERSION AS prereqs
-WORKDIR /opt/app
+# Runtime base: Python, system tools, the unprivileged user. No uv in here.
+FROM python:3.13-slim-trixie AS base
 
-RUN apk --no-cache add \
-        python3 \
-        python3-dev \
-        py3-pip \
-        build-base \
-        libheif \
-        libheif-dev \
-        libavif \
-        libavif-dev \
+# ffmpeg and ffprobe are called for video posts. libheif and libavif are not
+# installed: the pillow-heif and pillow-avif-plugin wheels bundle them.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+        dumb-init \
         ffmpeg \
-        # also declared in pyproject.toml: \
-        py3-yaml \
-        py3-psycopg2 \
-        py3-sqlalchemy \
-        py3-certifi \
-        py3-numpy \
-        py3-pillow \
-        py3-pynacl \
-        py3-tz \
-        py3-pyrfc3339
-RUN pip3 install --no-cache-dir --disable-pip-version-check --break-system-packages \
-        "alembic>=0.8.5" \
-        "coloredlogs==5.0" \
-        "python-multipart>=0.0.20" \
-        yt-dlp \
-        # pillow-heif v1.5.0 breaks linux/arm/v7 support
-        "pillow-heif>=1.0.0,<1.5.0" \
-        "pillow-avif-plugin>=1.4.6"
-RUN apk --no-cache del py3-pip
+ && rm -rf /var/lib/apt/lists/*
 
-COPY ./ /opt/app/
-RUN rm -rf /opt/app/lithica/tests
+ARG PUID=1000
+ARG PGID=1000
+RUN groupadd --gid ${PGID} app \
+ && useradd --uid ${PUID} --gid app --home-dir /opt/app --no-create-home app \
+ && mkdir -p /opt/app /data \
+ && chown app:app /opt/app /data
 
-
-FROM --platform=$BUILDPLATFORM prereqs AS testing
+# The virtual environment lives outside /opt/app so that mounting the source
+# over /opt/app in development does not hide it.
+ENV PATH="/opt/venv/bin:${PATH}" \
+    PYTHONPATH=/opt/app \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
 WORKDIR /opt/app
 
-RUN apk --no-cache add \
-        py3-pip \
-        py3-pytest \
-        py3-pytest-cov \
- && pip3 install --no-cache-dir --disable-pip-version-check --break-system-packages \
-        pytest-xdist \
-        freezegun \
- && apk --no-cache del py3-pip \
- && addgroup app \
- && adduser -SDH -h /opt/app -g '' -G app app \
- && chown app:app /opt/app
 
-COPY --chown=app:app ./lithica/tests /opt/app/lithica/tests/
+# Build stages: resolve nothing, install exactly what uv.lock says.
+FROM base AS deps
+COPY --from=uv /uv /usr/local/bin/uv
+ENV UV_PROJECT_ENVIRONMENT=/opt/venv \
+    UV_PYTHON_DOWNLOADS=never \
+    UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy
+COPY pyproject.toml uv.lock ./
+
+
+FROM deps AS deps-release
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev --no-install-project
+
+
+FROM deps AS deps-dev
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-install-project
+
+
+FROM base AS testing
+COPY --from=deps-dev /opt/venv /opt/venv
+COPY --chown=app:app ./ /opt/app/
 
 ENV TEST_ENVIRONMENT="true"
 USER app
@@ -61,23 +62,9 @@ ENTRYPOINT ["pytest", "--tb=short"]
 CMD ["lithica/"]
 
 
-FROM prereqs AS development
-WORKDIR /opt/app
-
-ARG PUID=1000
-ARG PGID=1000
-
-RUN apk --no-cache add \
-    dumb-init \
-    py3-pip \
-    py3-setuptools \
-    py3-waitress \
-    && pip3 install --no-cache-dir --disable-pip-version-check --break-system-packages \
-    hupper \
-    && mkdir -p /opt/app /data \
-    && addgroup -g ${PGID} app \
-    && adduser -SDH -h /opt/app -g '' -G app -u ${PUID} app \
-    && chown -R app:app /opt/app /data
+FROM base AS development
+COPY --from=deps-dev /opt/venv /opt/venv
+COPY --chown=app:app ./ /opt/app/
 
 USER app
 CMD ["/opt/app/docker-start-dev.sh"]
@@ -92,24 +79,10 @@ ENV THREADS=${THREADS}
 VOLUME ["/data/"]
 
 
-FROM prereqs AS release
-
-COPY ./ /opt/app/
+FROM base AS release
+COPY --from=deps-release /opt/venv /opt/venv
+COPY --chown=app:app ./ /opt/app/
 RUN rm -rf /opt/app/lithica/tests
-
-WORKDIR /opt/app
-
-ARG PUID=1000
-ARG PGID=1000
-
-RUN apk --no-cache add \
-        dumb-init \
-        py3-setuptools \
-        py3-waitress \
- && mkdir -p /opt/app /data \
- && addgroup -g ${PGID} app \
- && adduser -SDH -h /opt/app -g '' -G app -u ${PUID} app \
- && chown -R app:app /opt/app /data
 
 USER app
 CMD ["/opt/app/docker-start.sh"]
