@@ -29,9 +29,6 @@ in order, unless the owner says otherwise. Anything not listed in PLAN.md is
 
 ## Layout
 
-Target layout (phase 0 performs the renames; until then the old paths apply —
-`server/szurubooru/`, `client/`, `szuru-admin`):
-
 ```
 server/
   pyproject.toml, uv.lock, .python-version
@@ -55,27 +52,26 @@ contain no HTTP or request logic.
 
 ## Toolchain and commands
 
-Python **3.13**, managed by **uv** only. Run everything from `server/`.
+Python **3.13**, managed by **uv** only. Each command is written for the
+directory in the "Run from" column.
 
-| Task | Command |
-|---|---|
-| Install / sync env | `uv sync` |
-| Add dependency | `uv add <pkg>` (dev: `uv add --dev <pkg>`) |
-| Lint | `uv run ruff check .` |
-| Format | `uv run ruff format .` |
-| Type check | `uv run pyright` |
-| Test database | `docker compose -f docker-compose.test.yml up -d` (PostgreSQL 17 on `localhost:5433`) |
-| Tests (local) | `uv run pytest -n auto` — uses `LITHICA_TEST_DATABASE_URL`, default `postgresql://postgres:postgres@localhost:5433/postgres` |
-| Tests (container) | `scripts/run-server-tests.sh [path]` |
-| New migration | `uv run alembic revision --autogenerate -m "<what>"`, then review by hand |
-| Dev stack | `docker compose -f docker-compose.dev.yml up` |
+| Task | Run from | Command |
+|---|---|---|
+| Install / sync env | `server/` | `uv sync` |
+| Add dependency | `server/` | `uv add <pkg>` (dev: `uv add --dev <pkg>`) |
+| Lint | `server/` | `uv run ruff check .` |
+| Format | `server/` | `uv run ruff format .` |
+| Type check | `server/` | `uv run pyright` |
+| Test database | `server/` | `docker compose -f docker-compose.test.yml up -d` (PostgreSQL 17 on `localhost:5433`) |
+| Tests (local) | `server/` | `uv run pytest -n auto` — uses `LITHICA_TEST_DATABASE_URL`, default `postgresql://postgres:postgres@localhost:5433/postgres` |
+| New migration | `server/` | `uv run alembic revision --autogenerate -m "<what>"`, then review by hand — needs `database:` set in a local `server/config.yaml` (git-ignored) |
+| Tests (container) | repo root | `scripts/run-server-tests.sh [path]` |
+| Dev stack | repo root | `docker compose -f docker-compose.dev.yml up` — needs a `.env` (copy `doc/example.env`) |
 
 Never use `pip`, `pip install`, `requirements.txt`, `poetry` or `conda`.
 `uv.lock` is committed; change it only through `uv add` / `uv remove` /
 `uv lock`.
 
-Before phase 0 finishes, some of these commands do not exist yet; use the
-old equivalents (`scripts/run-server-tests.sh`) and note it in your report.
 No local PostgreSQL install is needed or wanted — the database always runs in
 a container. Everything must work on any host with Docker-compatible tooling
 and uv; do not assume a specific OS, CPU architecture or machine.

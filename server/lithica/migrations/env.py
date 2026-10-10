@@ -26,8 +26,8 @@ import lithica.model.base  # noqa: E402
 alembic_config = alembic.context.config
 logging.config.fileConfig(alembic_config.config_file_name)
 
-szuru_config = lithica.config.config
-alembic_config.set_main_option("sqlalchemy.url", szuru_config["database"])
+lithica_config = lithica.config.config
+alembic_config.set_main_option("sqlalchemy.url", lithica_config["database"])
 
 target_metadata = lithica.model.Base.metadata
 
