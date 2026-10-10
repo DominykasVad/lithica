@@ -3,6 +3,7 @@ from collections.abc import Callable
 from typing import Any
 
 import sqlalchemy as sa
+import sqlalchemy.orm as sa_orm
 
 from lithica import config, db, errors, model, rest
 from lithica.func import serialization, tag_categories, util
@@ -204,9 +205,9 @@ def get_or_create_tags_by_names(
 
 def get_tag_siblings(tag: model.Tag) -> list[model.Tag]:
     assert tag
-    tag_alias = sa.orm.aliased(model.Tag)
-    pt_alias1 = sa.orm.aliased(model.PostTag)
-    pt_alias2 = sa.orm.aliased(model.PostTag)
+    tag_alias = sa_orm.aliased(model.Tag)
+    pt_alias1 = sa_orm.aliased(model.PostTag)
+    pt_alias2 = sa_orm.aliased(model.PostTag)
     result = (
         db.session.query(tag_alias, sa.func.count(pt_alias2.post_id))
         .join(pt_alias1, pt_alias1.tag_id == tag_alias.tag_id)
@@ -244,7 +245,7 @@ def merge_tags(source_tag: model.Tag, target_tag: model.Tag) -> None:
 
     def merge_posts(source_tag_id: int, target_tag_id: int) -> None:
         alias1 = model.PostTag
-        alias2 = sa.orm.aliased(model.PostTag)
+        alias2 = sa_orm.aliased(model.PostTag)
         update_stmt = sa.sql.expression.update(alias1).where(
             alias1.tag_id == source_tag_id
         )
@@ -260,7 +261,7 @@ def merge_tags(source_tag: model.Tag, target_tag: model.Tag) -> None:
         table: model.Base, source_tag_id: int, target_tag_id: int
     ) -> None:
         alias1 = table
-        alias2 = sa.orm.aliased(table)
+        alias2 = sa_orm.aliased(table)
         update_stmt = (
             sa.sql.expression.update(alias1)
             .where(alias1.parent_id == source_tag_id)

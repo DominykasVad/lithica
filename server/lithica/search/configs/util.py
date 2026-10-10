@@ -2,6 +2,7 @@ from collections.abc import Callable
 from typing import Any
 
 import sqlalchemy as sa
+import sqlalchemy.orm as sa_orm
 
 from lithica import db, errors
 from lithica.func import util
@@ -226,7 +227,7 @@ def create_subquery_filter(
         subquery = db.session.query(right_id_column.label("foreign_id"))
         if subquery_decorator:
             subquery = subquery_decorator(subquery)
-        subquery = subquery.options(sa.orm.lazyload("*"))
+        subquery = subquery.options(sa_orm.lazyload("*"))
         subquery = filter_func(subquery, criterion, False)
         subquery = subquery.subquery("t")
         expression = left_id_column.in_(sa.select(subquery.c.foreign_id))

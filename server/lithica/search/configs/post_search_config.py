@@ -1,4 +1,5 @@
 import sqlalchemy as sa
+import sqlalchemy.orm as sa_orm
 
 from lithica import db, errors, model
 from lithica.func import util
@@ -60,8 +61,8 @@ def _create_score_filter(score: int) -> Filter:
             raise errors.SearchError(
                 "Votes cannot be seen publicly. Did you mean %r?" % "special:liked"
             )
-        user_alias = sa.orm.aliased(model.User)
-        score_alias = sa.orm.aliased(model.PostScore)
+        user_alias = sa_orm.aliased(model.User)
+        score_alias = sa_orm.aliased(model.PostScore)
         expr = score_alias.score == score
         expr = expr & search_util.apply_str_criterion_to_column(
             user_alias.name, criterion
@@ -170,23 +171,23 @@ class PostSearchConfig(BaseSearchConfig):
         search_query.special_tokens = new_special_tokens
 
     def create_around_query(self) -> SaQuery:
-        return db.session.query(model.Post).options(sa.orm.lazyload("*"))
+        return db.session.query(model.Post).options(sa_orm.lazyload("*"))
 
     def create_filter_query(self, disable_eager_loads: bool) -> SaQuery:
-        strategy = sa.orm.lazyload if disable_eager_loads else sa.orm.subqueryload
+        strategy = sa_orm.lazyload if disable_eager_loads else sa_orm.subqueryload
         return db.session.query(model.Post).options(
-            sa.orm.lazyload("*"),
+            sa_orm.lazyload("*"),
             # use config optimized for official client
-            # sa.orm.defer(model.Post.score),
-            # sa.orm.defer(model.Post.favorite_count),
-            # sa.orm.defer(model.Post.comment_count),
-            sa.orm.defer(model.Post.last_favorite_time),
-            sa.orm.defer(model.Post.feature_count),
-            sa.orm.defer(model.Post.last_feature_time),
-            sa.orm.defer(model.Post.last_comment_creation_time),
-            sa.orm.defer(model.Post.last_comment_edit_time),
-            sa.orm.defer(model.Post.note_count),
-            sa.orm.defer(model.Post.tag_count),
+            # sa_orm.defer(model.Post.score),
+            # sa_orm.defer(model.Post.favorite_count),
+            # sa_orm.defer(model.Post.comment_count),
+            sa_orm.defer(model.Post.last_favorite_time),
+            sa_orm.defer(model.Post.feature_count),
+            sa_orm.defer(model.Post.last_feature_time),
+            sa_orm.defer(model.Post.last_comment_creation_time),
+            sa_orm.defer(model.Post.last_comment_edit_time),
+            sa_orm.defer(model.Post.note_count),
+            sa_orm.defer(model.Post.tag_count),
             strategy(model.Post.tags).subqueryload(model.Tag.names),
             strategy(model.Post.tags).defer(model.Tag.post_count),
             strategy(model.Post.tags).lazyload(model.Tag.implications),

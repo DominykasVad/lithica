@@ -1,4 +1,5 @@
 import sqlalchemy as sa
+import sqlalchemy.orm as sa_orm
 
 from lithica.model.base import Base
 from lithica.model.tag import Tag
@@ -17,7 +18,7 @@ class TagCategory(Base):
     def __init__(self, name: str | None = None) -> None:
         self.name = name
 
-    tag_count = sa.orm.column_property(
+    tag_count = sa_orm.column_property(
         sa.sql.expression.select(sa.sql.expression.func.count("Tag.tag_id"))
         .where(Tag.category_id == tag_category_id)
         .correlate_except(sa.table("Tag"))

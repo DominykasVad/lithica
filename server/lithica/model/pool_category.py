@@ -1,4 +1,5 @@
 import sqlalchemy as sa
+import sqlalchemy.orm as sa_orm
 
 from lithica.model.base import Base
 from lithica.model.pool import Pool
@@ -16,7 +17,7 @@ class PoolCategory(Base):
     def __init__(self, name: str | None = None) -> None:
         self.name = name
 
-    pool_count = sa.orm.column_property(
+    pool_count = sa_orm.column_property(
         sa.sql.expression.select(sa.sql.expression.func.count("Pool.pool_id"))
         .where(Pool.category_id == pool_category_id)
         .correlate_except(sa.table("Pool"))

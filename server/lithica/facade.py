@@ -7,8 +7,7 @@ from collections.abc import Callable
 from typing import Any
 
 import coloredlogs
-import sqlalchemy as sa
-import sqlalchemy.orm.exc
+import sqlalchemy.orm as sa_orm
 
 # api and middleware are imported for their side effects: they register the
 # routes and the request hooks
@@ -168,7 +167,7 @@ def create_app() -> Callable[[Any, Any], Any]:
     rest.errors.handle(errors.NotFoundError, _on_not_found_error)
     rest.errors.handle(errors.ProcessingError, _on_processing_error)
     rest.errors.handle(errors.ThirdPartyError, _on_third_party_error)
-    rest.errors.handle(sa.orm.exc.StaleDataError, _on_stale_data_error)
+    rest.errors.handle(sa_orm.exc.StaleDataError, _on_stale_data_error)
 
     return rest.application
 

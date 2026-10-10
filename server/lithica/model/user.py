@@ -1,4 +1,5 @@
 import sqlalchemy as sa
+import sqlalchemy.orm as sa_orm
 
 from lithica.model.base import Base
 from lithica.model.comment import Comment
@@ -35,7 +36,7 @@ class User(Base):
         "avatar_style", sa.Unicode(32), nullable=False, default=AVATAR_GRAVATAR
     )
 
-    comments = sa.orm.relationship("Comment", back_populates="user")
+    comments = sa_orm.relationship("Comment", back_populates="user")
 
     @property
     def post_count(self) -> int:
@@ -124,7 +125,7 @@ class UserToken(Base):
     last_usage_time = sa.Column("last_usage_time", sa.DateTime)
     version = sa.Column("version", sa.Integer, default=1, nullable=False)
 
-    user = sa.orm.relationship("User")
+    user = sa_orm.relationship("User")
 
 
 class PasswordResetToken(Base):
@@ -147,4 +148,4 @@ class PasswordResetToken(Base):
     creation_time = sa.Column("creation_time", sa.DateTime, nullable=False)
     expiration_time = sa.Column("expiration_time", sa.DateTime, nullable=False)
 
-    user = sa.orm.relationship("User")
+    user = sa_orm.relationship("User")

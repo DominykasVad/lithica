@@ -1,4 +1,5 @@
 import sqlalchemy as sa
+import sqlalchemy.orm as sa_orm
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.orderinglist import ordering_list
 
@@ -49,8 +50,8 @@ class PoolPost(Base):
     )
     order = sa.Column("ord", sa.Integer, nullable=False, index=True)
 
-    pool = sa.orm.relationship("Pool", back_populates="_posts")
-    post = sa.orm.relationship("Post", back_populates="_pools")
+    pool = sa_orm.relationship("Pool", back_populates="_posts")
+    post = sa_orm.relationship("Post", back_populates="_pools")
 
     def __init__(self, post) -> None:
         self.post_id = post.post_id
@@ -72,14 +73,14 @@ class Pool(Base):
     last_edit_time = sa.Column("last_edit_time", sa.DateTime)
     description = sa.Column("description", sa.UnicodeText, default=None)
 
-    category = sa.orm.relationship("PoolCategory", lazy="joined")
-    names = sa.orm.relationship(
+    category = sa_orm.relationship("PoolCategory", lazy="joined")
+    names = sa_orm.relationship(
         "PoolName",
         cascade="all,delete-orphan",
         lazy="joined",
         order_by="PoolName.order",
     )
-    _posts = sa.orm.relationship(
+    _posts = sa_orm.relationship(
         "PoolPost",
         cascade="all,delete-orphan",
         lazy="joined",
@@ -89,7 +90,7 @@ class Pool(Base):
     )
     posts = association_proxy("_posts", "post")
 
-    post_count = sa.orm.column_property(
+    post_count = sa_orm.column_property(
         (
             sa.sql.expression.select(sa.sql.expression.func.count(PoolPost.post_id))
             .where(PoolPost.pool_id == pool_id)
@@ -98,7 +99,7 @@ class Pool(Base):
         deferred=True,
     )
 
-    first_name = sa.orm.column_property(
+    first_name = sa_orm.column_property(
         (
             sa.sql.expression.select(PoolName.name)
             .where(PoolName.pool_id == pool_id)

@@ -1,4 +1,5 @@
 import sqlalchemy as sa
+import sqlalchemy.orm as sa_orm
 
 from lithica.model.base import Base
 from lithica.model.post import PostTag
@@ -93,21 +94,21 @@ class Tag(Base):
     last_edit_time = sa.Column("last_edit_time", sa.DateTime)
     description = sa.Column("description", sa.UnicodeText, default=None)
 
-    category = sa.orm.relationship("TagCategory", lazy="joined")
-    names = sa.orm.relationship(
+    category = sa_orm.relationship("TagCategory", lazy="joined")
+    names = sa_orm.relationship(
         "TagName",
         cascade="all,delete-orphan",
         lazy="joined",
         order_by="TagName.order",
     )
-    suggestions = sa.orm.relationship(
+    suggestions = sa_orm.relationship(
         "Tag",
         secondary="tag_suggestion",
         primaryjoin=tag_id == TagSuggestion.parent_id,
         secondaryjoin=tag_id == TagSuggestion.child_id,
         lazy="joined",
     )
-    implications = sa.orm.relationship(
+    implications = sa_orm.relationship(
         "Tag",
         secondary="tag_implication",
         primaryjoin=tag_id == TagImplication.parent_id,
@@ -115,14 +116,14 @@ class Tag(Base):
         lazy="joined",
     )
 
-    post_count = sa.orm.column_property(
+    post_count = sa_orm.column_property(
         sa.sql.expression.select(sa.sql.expression.func.count(PostTag.post_id))
         .where(PostTag.tag_id == tag_id)
         .correlate_except(PostTag)
         .scalar_subquery()
     )
 
-    first_name = sa.orm.column_property(
+    first_name = sa_orm.column_property(
         (
             sa.sql.expression.select(TagName.name)
             .where(TagName.tag_id == tag_id)
@@ -133,7 +134,7 @@ class Tag(Base):
         deferred=True,
     )
 
-    suggestion_count = sa.orm.column_property(
+    suggestion_count = sa_orm.column_property(
         (
             sa.sql.expression.select(
                 sa.sql.expression.func.count(TagSuggestion.child_id)
@@ -144,7 +145,7 @@ class Tag(Base):
         deferred=True,
     )
 
-    implication_count = sa.orm.column_property(
+    implication_count = sa_orm.column_property(
         (
             sa.sql.expression.select(
                 sa.sql.expression.func.count(TagImplication.child_id)

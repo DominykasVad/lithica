@@ -2,14 +2,15 @@ import threading
 from typing import Any
 
 import sqlalchemy as sa
-import sqlalchemy.orm
+import sqlalchemy.event as sa_event
+import sqlalchemy.orm as sa_orm
 
 from lithica import config
 
 _data = threading.local()
 _engine: Any = sa.create_engine(config.config["database"])
-_sessionmaker: Any = sa.orm.sessionmaker(_engine, autoflush=False)
-session: Any = sa.orm.scoped_session(_sessionmaker)
+_sessionmaker: Any = sa_orm.sessionmaker(_engine, autoflush=False)
+session: Any = sa_orm.scoped_session(_sessionmaker)
 
 
 def get_session() -> Any:
@@ -34,4 +35,4 @@ def _bump_query_count() -> None:
     _data.query_count = getattr(_data, "query_count", 0) + 1
 
 
-sa.event.listen(_engine, "after_execute", lambda *args: _bump_query_count())
+sa_event.listen(_engine, "after_execute", lambda *args: _bump_query_count())

@@ -3,7 +3,7 @@ import hmac
 import secrets
 from datetime import timedelta
 
-import sqlalchemy as sa
+import sqlalchemy.orm as sa_orm
 
 from lithica import config, db, errors, model
 from lithica.func import util
@@ -19,7 +19,7 @@ def _hash_token(token: str) -> str:
     return hashlib.sha256(token.encode("utf8")).hexdigest()
 
 
-def _tokens_of(user: model.User) -> sa.orm.Query:
+def _tokens_of(user: model.User) -> sa_orm.Query:
     return db.session.query(model.PasswordResetToken).filter(
         model.PasswordResetToken.user_id == user.user_id
     )

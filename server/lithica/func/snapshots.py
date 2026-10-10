@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from typing import Any
 
-import sqlalchemy as sa
+import sqlalchemy.orm as sa_orm
 
 from lithica import db, model
 from lithica.func import diff, net, users, util
@@ -131,7 +131,7 @@ def modify(entity: model.Base, auth_user: model.User | None) -> None:
     snapshot = _create(model.Snapshot.OPERATION_MODIFIED, entity, auth_user)
     snapshot_factory = _snapshot_factories[snapshot.resource_type]
 
-    detached_session = sa.orm.sessionmaker(bind=db.session.get_bind())()
+    detached_session = sa_orm.sessionmaker(bind=db.session.get_bind())()
     detached_entity = detached_session.get(type(entity), snapshot.resource_pkey)
     assert detached_entity, "Entity not found in DB, have you committed it?"
     detached_snapshot = snapshot_factory(detached_entity)

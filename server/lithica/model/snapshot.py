@@ -1,4 +1,5 @@
 import sqlalchemy as sa
+import sqlalchemy.orm as sa_orm
 
 from lithica.model.base import Base
 
@@ -27,4 +28,4 @@ class Snapshot(Base):
     )
     data = sa.Column("data", sa.PickleType)
 
-    user = sa.orm.relationship("User")
+    user = sa_orm.relationship("User")

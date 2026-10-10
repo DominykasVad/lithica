@@ -1,6 +1,7 @@
 from collections.abc import Callable
 
 import sqlalchemy as sa
+import sqlalchemy.orm as sa_orm
 
 from lithica import db, errors, model, rest
 from lithica.search import parser, tokens
@@ -40,7 +41,7 @@ class Executor:
     ) -> tuple[model.Base, model.Base]:
         search_query = self.parser.parse(query_text)
         self.config.on_search_query_parsed(search_query)
-        filter_query = self.config.create_around_query().options(sa.orm.lazyload("*"))
+        filter_query = self.config.create_around_query().options(sa_orm.lazyload("*"))
         filter_query = self._prepare_db_query(filter_query, search_query, False)
         prev_filter_query = (
             filter_query.filter(self.config.id_column > entity_id)
@@ -89,12 +90,12 @@ class Executor:
                 disable_eager_loads = True
 
         filter_query = self.config.create_filter_query(disable_eager_loads)
-        filter_query = filter_query.options(sa.orm.lazyload("*"))
+        filter_query = filter_query.options(sa_orm.lazyload("*"))
         filter_query = self._prepare_db_query(filter_query, search_query, True)
         entities = filter_query.offset(offset).limit(limit).all()
 
         count_query = self.config.create_count_query(disable_eager_loads)
-        count_query = count_query.options(sa.orm.lazyload("*"))
+        count_query = count_query.options(sa_orm.lazyload("*"))
         count_query = self._prepare_db_query(count_query, search_query, False)
         count_statement = count_query.statement.with_only_columns(
             sa.func.count(), maintain_column_froms=True

@@ -1,4 +1,5 @@
 import sqlalchemy as sa
+import sqlalchemy.orm as sa_orm
 
 from lithica.db import get_session
 from lithica.model.base import Base
@@ -25,10 +26,10 @@ class CommentScore(Base):
     time = sa.Column("time", sa.DateTime, nullable=False)
     score = sa.Column("score", sa.Integer, nullable=False)
 
-    comment = sa.orm.relationship("Comment", back_populates="scores")
-    user = sa.orm.relationship(
+    comment = sa_orm.relationship("Comment", back_populates="scores")
+    user = sa_orm.relationship(
         "User",
-        backref=sa.orm.backref("comment_scores", cascade="all, delete-orphan"),
+        backref=sa_orm.backref("comment_scores", cascade="all, delete-orphan"),
     )
 
 
@@ -55,9 +56,9 @@ class Comment(Base):
     last_edit_time = sa.Column("last_edit_time", sa.DateTime)
     text = sa.Column("text", sa.UnicodeText, default=None)
 
-    user = sa.orm.relationship("User", back_populates="comments")
-    post = sa.orm.relationship("Post", back_populates="comments")
-    scores = sa.orm.relationship(
+    user = sa_orm.relationship("User", back_populates="comments")
+    post = sa_orm.relationship("Post", back_populates="comments")
+    scores = sa_orm.relationship(
         "CommentScore",
         cascade="all, delete-orphan",
         lazy="joined",

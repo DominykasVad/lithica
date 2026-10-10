@@ -3,6 +3,7 @@ from collections.abc import Callable
 from typing import Any
 
 import sqlalchemy as sa
+import sqlalchemy.orm as sa_orm
 
 from lithica import config, db, errors, model, rest
 from lithica.func import pool_categories, posts, serialization, util
@@ -239,7 +240,7 @@ def merge_pools(source_pool: model.Pool, target_pool: model.Pool) -> None:
 
     def merge_pool_posts(source_pool_id: int, target_pool_id: int) -> None:
         alias1 = model.PoolPost
-        alias2 = sa.orm.aliased(model.PoolPost)
+        alias2 = sa_orm.aliased(model.PoolPost)
         update_stmt = sa.sql.expression.update(alias1).where(
             alias1.pool_id == source_pool_id
         )

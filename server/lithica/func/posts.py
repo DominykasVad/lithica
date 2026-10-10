@@ -4,6 +4,8 @@ from collections.abc import Callable
 from typing import Any
 
 import sqlalchemy as sa
+import sqlalchemy.event as sa_event
+import sqlalchemy.orm as sa_orm
 
 from lithica import config, db, errors, model, rest
 from lithica.func import (
@@ -437,17 +439,17 @@ def update_post_source(post: model.Post, source: str | None) -> None:
     post.source = source or None
 
 
-@sa.event.listens_for(model.Post, "after_insert")
+@sa_event.listens_for(model.Post, "after_insert")
 def _after_post_insert(_mapper: Any, _connection: Any, post: model.Post) -> None:
     _sync_post_content(post)
 
 
-@sa.event.listens_for(model.Post, "after_update")
+@sa_event.listens_for(model.Post, "after_update")
 def _after_post_update(_mapper: Any, _connection: Any, post: model.Post) -> None:
     _sync_post_content(post)
 
 
-@sa.event.listens_for(model.Post, "before_delete")
+@sa_event.listens_for(model.Post, "before_delete")
 def _before_post_delete(_mapper: Any, _connection: Any, post: model.Post) -> None:
     if post.post_id:
         if config.config["delete_source_files"]:
@@ -558,7 +560,7 @@ def generate_post_signature(post: model.Post, content: bytes) -> None:
 BACKFILL_BATCH_SIZE = 100
 
 
-def _query_posts_without_signature() -> sa.orm.Query:
+def _query_posts_without_signature() -> sa_orm.Query:
     return (
         db.session.query(model.Post)
         .filter(
@@ -569,7 +571,7 @@ def _query_posts_without_signature() -> sa.orm.Query:
     )
 
 
-def _query_posts_without_md5_checksum() -> sa.orm.Query:
+def _query_posts_without_md5_checksum() -> sa_orm.Query:
     return db.session.query(model.Post).filter(
         model.Post.checksum_md5 == None  # noqa: E711
     )
@@ -584,7 +586,7 @@ def count_posts_without_md5_checksum() -> int:
 
 
 def _backfill(
-    query_factory: Callable[[], sa.orm.Query],
+    query_factory: Callable[[], sa_orm.Query],
     fill: Callable[[model.Post], bool],
     description: str,
 ) -> tuple[int, int]:
@@ -891,7 +893,7 @@ def merge_posts(
         target_post_id: int,
     ) -> None:
         alias1 = table
-        alias2 = sa.orm.aliased(table)
+        alias2 = sa_orm.aliased(table)
         update_stmt = sa.sql.expression.update(alias1).where(
             alias1.post_id == source_post_id
         )
@@ -935,7 +937,7 @@ def merge_posts(
 
     def merge_relations(source_post_id: int, target_post_id: int) -> None:
         alias1 = model.PostRelation
-        alias2 = sa.orm.aliased(model.PostRelation)
+        alias2 = sa_orm.aliased(model.PostRelation)
         update_stmt = (
             sa.sql.expression.update(alias1)
             .where(alias1.parent_id == source_post_id)

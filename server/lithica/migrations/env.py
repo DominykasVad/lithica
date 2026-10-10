@@ -11,6 +11,7 @@ from time import sleep
 
 import alembic
 import sqlalchemy as sa
+import sqlalchemy.exc as sa_exc
 
 # fmt: off
 # make lithica module importable
@@ -74,7 +75,7 @@ def run_migrations_online():
         for _ in range(int(timeout / dt)):
             try:
                 return connectable.connect()
-            except sa.exc.OperationalError:
+            except sa_exc.OperationalError:
                 sleep(dt)
         return connectable.connect()
 

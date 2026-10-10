@@ -1,4 +1,5 @@
 import sqlalchemy as sa
+import sqlalchemy.orm as sa_orm
 
 from lithica import db, model
 from lithica.func import util
@@ -12,7 +13,7 @@ from lithica.search.typing import SaColumn, SaQuery
 
 class PoolSearchConfig(BaseSearchConfig):
     def create_filter_query(self, _disable_eager_loads: bool) -> SaQuery:
-        strategy = sa.orm.lazyload if _disable_eager_loads else sa.orm.subqueryload
+        strategy = sa_orm.lazyload if _disable_eager_loads else sa_orm.subqueryload
         return (
             db.session.query(model.Pool)
             .join(model.PoolCategory)
