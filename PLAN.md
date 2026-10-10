@@ -93,7 +93,7 @@ nothing behaves differently.
 - [ ] Commit `uv.lock`. Delete `requirements.txt` and `dev-requirements.txt`.
 
 ### 0.4 Python 3.13 blockers
-- [ ] Replace `cgi.FieldStorage` in `rest/app.py` with a maintained multipart parser (`python-multipart`, which FastAPI uses later anyway). Tests for multipart uploads must pass unchanged. This must land **before** the interpreter switch.
+- [x] Replace `cgi.FieldStorage` in `rest/app.py` with a maintained multipart parser (`python-multipart`, which FastAPI uses later anyway). Tests for multipart uploads must pass unchanged. This must land **before** the interpreter switch.
 - [ ] Run the suite on 3.13; fix anything else removed or changed in 3.12/3.13.
 
 ### 0.5 Lint, format, types

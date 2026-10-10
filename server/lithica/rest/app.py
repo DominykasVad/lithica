@@ -1,9 +1,12 @@
-import cgi
 import json
 import re
 import urllib.parse
 from datetime import datetime
-from typing import Any, Callable, Dict, Tuple
+from typing import Any, Callable, Dict, List, Tuple, Union
+
+import python_multipart
+from python_multipart.exceptions import FormParserError
+from python_multipart.multipart import Field, File
 
 from lithica import db
 from lithica.func import util
@@ -31,6 +34,44 @@ def _get_headers(env: Dict[str, Any]) -> Dict[str, str]:
     return headers
 
 
+def _parse_multipart(env: Dict[str, Any]) -> Dict[str, Union[bytes, str]]:
+    """
+    Read a multipart/form-data body. Parts that carry a file name are
+    returned as bytes, plain form fields as str.
+    """
+    parts = {}  # type: Dict[str, Union[bytes, str]]
+    opened = []  # type: List[File]
+
+    def on_field(field: Field) -> None:
+        if field.field_name is not None:
+            value = field.value or b""
+            parts[field.field_name.decode("utf-8")] = value.decode("utf-8")
+
+    def on_file(file: File) -> None:
+        # the parser still flushes the last file when it finishes, so the
+        # files are closed only after parsing is over
+        opened.append(file)
+        if file.field_name is not None:
+            file.file_object.seek(0)
+            parts[file.field_name.decode("utf-8")] = file.file_object.read()
+
+    headers = {"Content-Type": env["CONTENT_TYPE"].encode("latin-1")}
+    if env.get("CONTENT_LENGTH"):
+        headers["Content-Length"] = env["CONTENT_LENGTH"].encode("latin-1")
+    try:
+        python_multipart.parse_form(
+            headers, env["wsgi.input"], on_field, on_file
+        )
+    except (FormParserError, UnicodeDecodeError):
+        raise errors.HttpBadRequest(
+            "ValidationError", "Could not decode the multipart request body."
+        )
+    finally:
+        for file in opened:
+            file.close()
+    return parts
+
+
 def _create_context(env: Dict[str, Any]) -> context.Context:
     method = env["REQUEST_METHOD"]
     path = "/" + env["PATH_INFO"].lstrip("/")
@@ -41,14 +82,12 @@ def _create_context(env: Dict[str, Any]) -> context.Context:
     params = dict(urllib.parse.parse_qsl(env.get("QUERY_STRING", "")))
 
     if "multipart" in env.get("CONTENT_TYPE", ""):
-        form = cgi.FieldStorage(fp=env["wsgi.input"], environ=env)
-        if not form.list:
+        files = _parse_multipart(env)
+        if not files:
             raise errors.HttpBadRequest(
                 "ValidationError", "No files attached."
             )
-        body = form.getvalue("metadata")
-        for key in form:
-            files[key] = form.getvalue(key)
+        body = files.get("metadata")
     else:
         body = env["wsgi.input"].read()
 
