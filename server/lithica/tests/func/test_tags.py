@@ -4,12 +4,7 @@ from unittest.mock import patch
 import pytest
 
 from lithica import db, model
-from lithica.func import cache, tag_categories, tags
-
-
-@pytest.fixture(autouse=True)
-def purge_cache():
-    cache.purge()
+from lithica.func import tag_categories, tags
 
 
 def _assert_tag_siblings(result, expected_names_and_occurrences):

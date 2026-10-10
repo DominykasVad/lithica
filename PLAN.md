@@ -107,7 +107,7 @@ correct code.
 ### 1.4 Startup and background work
 - [x] Move the two boot-time "live migrations" (post signatures, MD5 checksums) to `lithica-admin backfill` commands. On startup, only log a warning if a backfill is pending.
 - [x] Upload purge: keep as a background thread for now, but it creates and closes its own session; make it safe to run in several processes (idempotent deletes).
-- [ ] Remove the in-process query cache (`func/cache.py`, the cache purger middleware). If a benchmark shows a real need, propose a replacement instead.
+- [x] Remove the in-process query cache (`func/cache.py`, the cache purger middleware). If a benchmark shows a real need, propose a replacement instead.
 - [ ] Disk-usage cache in `info_api`: make it per-process-safe (short TTL is fine) and document.
 
 ### 1.5 Housekeeping

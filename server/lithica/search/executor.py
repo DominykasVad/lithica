@@ -3,7 +3,6 @@ from collections.abc import Callable
 import sqlalchemy as sa
 
 from lithica import db, errors, model, rest
-from lithica.func import cache
 from lithica.search import parser, tokens
 from lithica.search.configs.base_search_config import BaseSearchConfig
 from lithica.search.query import SearchQuery
@@ -89,10 +88,6 @@ class Executor:
             if token.name == "random":
                 disable_eager_loads = True
 
-        key = (id(self.config), hash(search_query), offset, limit)
-        if cache.has(key):
-            return cache.get(key)
-
         filter_query = self.config.create_filter_query(disable_eager_loads)
         filter_query = filter_query.options(sa.orm.lazyload("*"))
         filter_query = self._prepare_db_query(filter_query, search_query, True)
@@ -106,9 +101,7 @@ class Executor:
         ).order_by(None)
         count = db.session.execute(count_statement).scalar()
 
-        ret = (count, entities)
-        cache.put(key, ret)
-        return ret
+        return (count, entities)
 
     def execute_and_serialize(
         self,
