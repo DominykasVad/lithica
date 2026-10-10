@@ -114,7 +114,7 @@ nothing behaves differently.
 - [x] `docker-compose.yml` uses `build:` for the server and legacy client by default (published images optional, commented).
 
 ### 0.7 CI
-- [ ] Delete `build-containers.yml` (Docker Hub).
+- [x] Delete `build-containers.yml` (Docker Hub).
 - [ ] `ci.yml` on push and PR: `uv sync --frozen`, ruff check, ruff format --check, pyright (report only in phase 0), pytest against a `postgres:17` service container via `LITHICA_TEST_DATABASE_URL`.
 - [ ] `release.yml` on `release: published`: build multi-arch images, push to GHCR with the release tag and `latest`, using `GITHUB_TOKEN` only.
 
