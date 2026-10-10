@@ -69,6 +69,7 @@ When a phase is merged, its entries are folded into the tables above or deleted.
 - 2026-10-10 — 1.1 — reset tokens: SHA-256 of a 256-bit random token, one pending per user, row deleted on use
 - 2026-10-10 — 1.1 — config key `password_reset_token_lifetime`, in seconds (default 3600)
 - 2026-10-10 — 1.1 — the server answers CORS from `cors_origins` already in phase 1 (exact origins; `*` is a config error)
+- 2026-10-10 — 1.1 — external tool limits are constants, not settings: ffmpeg/ffprobe 600 s, yt-dlp 60 s
 
 ---
 
@@ -92,7 +93,7 @@ correct code.
 - [x] Refuse to start if `secret` is the default or empty; clear error message.
 - [x] CORS: remove the wildcard from `legacy/client/nginx.conf.docker`; add `cors_origins` config (default empty = same origin). The server, not nginx, owns CORS from phase 2 on.
 - [x] Audit token and password comparisons for constant-time compare.
-- [ ] Audit `subprocess` calls (ffmpeg, ffprobe, yt-dlp) for list arguments and timeouts.
+- [x] Audit `subprocess` calls (ffmpeg, ffprobe, yt-dlp) for list arguments and timeouts.
 
 ### 1.2 Time handling
 - [x] Add `util.utcnow()` returning naive UTC. Replace all 27 `datetime.utcnow()` uses in non-test code. Behaviour must not change (columns stay naive UTC).

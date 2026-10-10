@@ -11,6 +11,8 @@ from lithica.func import mime
 
 logger = logging.getLogger(__name__)
 _dl_chunk_size = 2**15
+# seconds yt-dlp may take to resolve a URL before the request fails
+YT_DLP_TIMEOUT = 60
 
 
 class DownloadError(errors.ProcessingError):
@@ -67,14 +69,23 @@ def _get_youtube_dl_content_url(url: str) -> str:
     cmd = ["yt-dlp", "--format", "best", "--no-playlist"]
     if config.config["user_agent"]:
         cmd.extend(["--user-agent", config.config["user_agent"]])
-    cmd.extend(["--get-url", url])
+    # "--" ends the options: the URL comes from the user, and without it a
+    # value starting with "-" would be read by yt-dlp as an option.
+    cmd.extend(["--get-url", "--", url])
     try:
         return (
-            subprocess.run(cmd, text=True, capture_output=True, check=True)
+            subprocess.run(
+                cmd,
+                text=True,
+                capture_output=True,
+                check=True,
+                stdin=subprocess.DEVNULL,
+                timeout=YT_DLP_TIMEOUT,
+            )
             .stdout.split("\n")[0]
             .strip()
         )
-    except subprocess.CalledProcessError:
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
         raise errors.ThirdPartyError(
             "Could not extract content location from URL.",
             extra_fields={"URL": url},
