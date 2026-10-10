@@ -64,7 +64,7 @@ directory in the "Run from" column.
 | Type check | `server/` | `uv run pyright` |
 | Test database | `server/` | `docker compose -f docker-compose.test.yml up -d` (PostgreSQL 17 on `localhost:5433`) |
 | Tests (local) | `server/` | `uv run pytest -n auto` — uses `LITHICA_TEST_DATABASE_URL`, default `postgresql://postgres:postgres@localhost:5433/postgres` |
-| New migration | `server/` | `uv run alembic revision --autogenerate -m "<what>"`, then review by hand — needs `database:` set in a local `server/config.yaml` (git-ignored) |
+| New migration | `server/` | `uv run alembic revision --autogenerate -m "<what>"`, then review by hand — needs `database:` and `data_dir:` set in a local `server/config.yaml` (git-ignored) |
 | Tests (container) | repo root | `scripts/run-server-tests.sh [path]` |
 | Dev stack | repo root | `docker compose -f docker-compose.dev.yml up` — needs a `.env` (copy `doc/example.env`) and a `server/config.yaml` that sets `secret` |
 
