@@ -77,6 +77,20 @@ def validate_secret() -> None:
         )
 
 
+def validate_mail_domain() -> None:
+    """
+    Refuse to send mail without knowing our own address. Password reset
+    mails carry a link to this site, and "domain" is the only trustworthy
+    source for it.
+    """
+    if config["smtp"]["host"] and not config.get("domain"):
+        raise errors.ConfigError(
+            "'domain' is not set, but SMTP is configured. Set 'domain' to the "
+            "public address of this site (for example https://booru.example.com); "
+            "password reset mails link to it."
+        )
+
+
 def _read_config() -> dict:
     ret = _file_config("config.yaml.dist")
     if os.path.isfile("config.yaml"):

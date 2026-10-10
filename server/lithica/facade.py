@@ -122,6 +122,8 @@ def validate_config() -> None:
             "password_reset_token_lifetime must be a positive number of seconds"
         )
 
+    config.validate_mail_domain()
+
     if config.config["smtp"]["host"]:
         if not config.config["smtp"]["port"]:
             raise errors.ConfigError("SMTP host is set but port is not set")

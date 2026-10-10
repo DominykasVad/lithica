@@ -29,3 +29,34 @@ def test_refuses_default_secret(config_injector):
     config_injector({"secret": config.default_secret()})
     with pytest.raises(errors.ConfigError, match="default value"):
         config.validate_secret()
+
+
+@pytest.mark.parametrize("domain", ["", None])
+def test_refuses_smtp_without_domain(config_injector, domain):
+    config_injector({"domain": domain, "smtp": {"host": "mail.example.com"}})
+    with pytest.raises(errors.ConfigError, match="'domain' is not set"):
+        config.validate_mail_domain()
+
+
+def test_refuses_smtp_without_domain_key(config_injector):
+    config_injector({"smtp": {"host": "mail.example.com"}})
+    with pytest.raises(errors.ConfigError, match="'domain' is not set"):
+        config.validate_mail_domain()
+
+
+def test_accepts_smtp_with_domain(config_injector):
+    config_injector(
+        {"domain": "https://booru.example.com", "smtp": {"host": "mail.example.com"}}
+    )
+    config.validate_mail_domain()
+
+
+@pytest.mark.parametrize("domain", ["", None, "https://booru.example.com"])
+def test_domain_is_optional_without_smtp(config_injector, domain):
+    config_injector({"domain": domain, "smtp": {"host": None}})
+    config.validate_mail_domain()
+
+
+def test_shipped_config_passes_the_mail_domain_check(config_injector):
+    config_injector(config._file_config("config.yaml.dist"))
+    config.validate_mail_domain()

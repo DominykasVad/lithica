@@ -3,7 +3,8 @@
 
 # shown in the website title and on the front page
 name: lithica
-# full url to the homepage of this Lithica site, with no trailing slash
+# full url to the homepage of this Lithica site, with no trailing slash.
+# required when smtp is configured below: password reset mails link to it
 domain: # example: http://example.com
 # used to salt the users' password hashes and generate filenames for static content.
 # the server refuses to start until this is changed to your own long random
@@ -24,6 +25,11 @@ thumbnails:
 # settings used to download files from the web on behalf of the api users
 user_agent:
 max_dl_filesize: 25.0E+6 # maximum filesize limit in bytes
+# the server refuses to download from addresses that are not public
+# (loopback, private networks, link-local, and the like), so that a user
+# cannot make it fetch from inside your network. set to true only if you
+# download from your own LAN on purpose. only http and https are ever allowed
+allow_private_downloads: false
 
 # automatically convert animated GIF uploads to video formats
 convert:
