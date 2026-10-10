@@ -169,6 +169,13 @@ also be configured to employ [yt-dlp](https://github.com/yt-dlp/yt-dlp) to
 download content from popular sites such as youtube, gfycat, etc. Access to
 yt-dlp can be configured with the `'uploads:use_downloader'` permission
 
+Only `http` and `https` URLs are downloaded; anything else is a validation
+error. The server also refuses to download from addresses that are not public
+(loopback, private networks, link-local and the like), at the first request
+and at every redirect, unless `allow_private_downloads` is set in the server
+config. A refused address, a failed connection and a timeout all give the
+same error, so that the answer does not describe the server's network.
+
 Finally, in some cases the user might want to reuse one file between the
 requests to save the bandwidth (for example, reverse search + consecutive
 upload). In this case one should use [temporary file
