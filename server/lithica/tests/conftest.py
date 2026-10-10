@@ -23,6 +23,7 @@ config.config.setdefault(
 )
 
 from lithica import db, model, rest  # noqa: E402
+from lithica.func import cache  # noqa: E402
 
 
 @pytest.fixture(scope="session")
@@ -210,6 +211,19 @@ def context_factory(session):
         return ctx
 
     return factory
+
+
+@pytest.fixture(autouse=True)
+def _empty_query_cache():
+    """Start every test with an empty query cache.
+
+    The search executor caches results in a process-wide cache whose key
+    includes id(search_config). A config object created by a later test can
+    get the id of a dead one, and then receives the other test's results.
+    """
+    cache.purge()
+    yield
+    cache.purge()
 
 
 @pytest.fixture
