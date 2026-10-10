@@ -45,6 +45,11 @@ smtp:
     # in which case it is recommended to fill contactEmail so that users
     # know who to contact when they want to reset their password
 
+# other websites whose pages may call this API from the browser (CORS).
+# leave empty when the client is served from the same address as the API,
+# which is the case for the bundled client. '*' is not accepted.
+cors_origins: [] # example: [https://booru-client.example.com]
+
 # how long a password reset link stays valid, in seconds
 password_reset_token_lifetime: 3600
 

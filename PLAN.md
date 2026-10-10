@@ -68,6 +68,7 @@ When a phase is merged, its entries are folded into the tables above or deleted.
 
 - 2026-10-10 — 1.1 — reset tokens: SHA-256 of a 256-bit random token, one pending per user, row deleted on use
 - 2026-10-10 — 1.1 — config key `password_reset_token_lifetime`, in seconds (default 3600)
+- 2026-10-10 — 1.1 — the server answers CORS from `cors_origins` already in phase 1 (exact origins; `*` is a config error)
 
 ---
 
@@ -89,7 +90,7 @@ correct code.
 ### 1.1 Security
 - [x] Password reset: random token (`secrets.token_urlsafe`), stored hashed, single use, expiry (configurable, default 1 h). New table + migration. Remove `md5(secret + salt)` scheme.
 - [x] Refuse to start if `secret` is the default or empty; clear error message.
-- [ ] CORS: remove the wildcard from `legacy/client/nginx.conf.docker`; add `cors_origins` config (default empty = same origin). The server, not nginx, owns CORS from phase 2 on.
+- [x] CORS: remove the wildcard from `legacy/client/nginx.conf.docker`; add `cors_origins` config (default empty = same origin). The server, not nginx, owns CORS from phase 2 on.
 - [ ] Audit token and password comparisons for constant-time compare.
 - [ ] Audit `subprocess` calls (ffmpeg, ffprobe, yt-dlp) for list arguments and timeouts.
 

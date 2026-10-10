@@ -9,7 +9,7 @@ import python_multipart
 from python_multipart.exceptions import FormParserError
 from python_multipart.multipart import Field, File
 
-from lithica import db
+from lithica import config, db
 from lithica.func import util
 from lithica.rest import context, errors, middleware, routes
 
@@ -105,7 +105,56 @@ def _create_context(env: dict[str, Any]) -> context.Context:
     return context.Context(env, method, path, headers, params, files)
 
 
+CORS_ALLOWED_METHODS = "GET, POST, PUT, DELETE, OPTIONS"
+CORS_ALLOWED_HEADERS = "Authorization, Content-Type"
+
+
+def _cors_headers(env: dict[str, Any]) -> list[tuple[str, str]]:
+    """
+    Return the CORS response headers for this request. Only origins listed in
+    the cors_origins setting are answered; with the default empty list no
+    header is sent and browsers allow same-origin requests only.
+    """
+    allowed_origins = config.config.get("cors_origins") or []
+    if not allowed_origins:
+        return []
+    # the response differs by origin, so shared caches must key on it
+    headers = [("Vary", "Origin")]
+    origin = env.get("HTTP_ORIGIN")
+    if origin in allowed_origins:
+        headers.append(("Access-Control-Allow-Origin", origin))
+    return headers
+
+
+def _is_allowed_preflight(env: dict[str, Any]) -> bool:
+    return (
+        env.get("REQUEST_METHOD") == "OPTIONS"
+        and "HTTP_ACCESS_CONTROL_REQUEST_METHOD" in env
+        and env.get("HTTP_ORIGIN") in (config.config.get("cors_origins") or [])
+    )
+
+
 def application(
+    env: dict[str, Any], start_response: Callable[[str, Any], Any]
+) -> tuple[bytes]:
+    cors_headers = _cors_headers(env)
+
+    def start_response_with_cors(status: str, headers: Any) -> Any:
+        return start_response(status, list(headers) + cors_headers)
+
+    if _is_allowed_preflight(env):
+        start_response_with_cors(
+            "200",
+            [
+                ("Access-Control-Allow-Methods", CORS_ALLOWED_METHODS),
+                ("Access-Control-Allow-Headers", CORS_ALLOWED_HEADERS),
+            ],
+        )
+        return (b"",)
+    return _handle_request(env, start_response_with_cors)
+
+
+def _handle_request(
     env: dict[str, Any], start_response: Callable[[str, Any], Any]
 ) -> tuple[bytes]:
     try:

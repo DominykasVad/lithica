@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 import threading
 import time
 from collections.abc import Callable
@@ -100,6 +101,22 @@ def validate_config() -> None:
 
     if config.config["webhooks"] and not isinstance(config.config["webhooks"], list):
         raise errors.ConfigError("Webhooks must be provided as a list of URLs")
+
+    cors_origins = config.config["cors_origins"] or []
+    if not isinstance(cors_origins, list) or not all(
+        isinstance(origin, str) for origin in cors_origins
+    ):
+        raise errors.ConfigError("cors_origins must be a list of origins")
+    for origin in cors_origins:
+        if origin == "*":
+            raise errors.ConfigError(
+                "cors_origins does not accept '*'. List each allowed origin."
+            )
+        if not re.fullmatch(r"https?://[^/\s]+", origin):
+            raise errors.ConfigError(
+                "cors_origins entry %r is not an origin. Use the form "
+                "'https://example.com', with no path or trailing slash." % origin
+            )
 
     lifetime = config.config["password_reset_token_lifetime"]
     if isinstance(lifetime, bool) or not isinstance(lifetime, int) or lifetime <= 0:
