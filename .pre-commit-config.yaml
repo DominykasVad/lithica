@@ -14,49 +14,15 @@ repos:
     hooks:
     -   id: remove-tabs
 
--   repo: https://github.com/psf/black
-    rev: '23.1.0'
+-   repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.17.0
     hooks:
-      - id: black
-        files: 'server/'
-        types: [python]
-        language_version: python3.9
-
--   repo: https://github.com/PyCQA/isort
-    rev: '5.12.0'
-    hooks:
-    -   id: isort
-        files: 'server/'
-        types: [python]
-        exclude: server/lithica/migrations/env.py
-        additional_dependencies:
-        -   toml
-
--   repo: https://github.com/pre-commit/mirrors-prettier
-    rev: v2.7.1
-    hooks:
-    -   id: prettier
-        files: legacy/client/js/
-        exclude: legacy/client/js/.gitignore
-        args: ['--config', 'legacy/client/.prettierrc.yml']
-
--   repo: https://github.com/pre-commit/mirrors-eslint
-    rev: v8.33.0
-    hooks:
-    -   id: eslint
-        files: legacy/client/js/
+    -   id: ruff-check
+        files: server/
         args: ['--fix']
-        additional_dependencies:
-        -   eslint-config-prettier
-
--   repo: https://github.com/PyCQA/flake8
-    rev: '6.0.0'
-    hooks:
-    -   id: flake8
-        files: server/lithica/
-        additional_dependencies:
-        -   flake8-print
-        args: ['--config=server/.flake8']
+    -   id: ruff-format
+        files: server/
 
 fail_fast: true
-exclude: LICENSE.md
+# legacy/ is frozen: hooks must not rewrite it
+exclude: ^(LICENSE\.md|legacy/)
