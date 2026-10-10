@@ -75,7 +75,7 @@ and the Docker Compose CLI (version 1.27.0 or greater) already installed.
     ...
     client:
     - image: szurubooru/client:latest
-    + build: client
+    + build: legacy/client
     ...
     ```
 

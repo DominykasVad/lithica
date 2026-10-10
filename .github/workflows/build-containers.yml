@@ -5,7 +5,7 @@ on:
       - master
 jobs:
   build-client:
-    name: Build and push client/ Docker container
+    name: Build and push legacy/client/ Docker container
     runs-on: ubuntu-latest
     steps:
       - name: Login to Docker Hub
@@ -54,7 +54,7 @@ jobs:
           -t "szurubooru/client:latest"
           -t "szurubooru/client:${{ env.major_tag }}"
           -t "szurubooru/client:${{ env.minor_tag }}"
-          ./client
+          ./legacy/client
 
   build-server:
     name: Build and push server/ Docker container

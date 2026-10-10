@@ -28,13 +28,13 @@ services:
 
   client:
     build:
-      context: ./client
+      context: ./legacy/client
       target: development
     depends_on:
       - server
     volumes:
       - "data:/data:ro"
-      - "./client/:/opt/app/"
+      - "./legacy/client/:/opt/app/"
       - "/opt/app/public/"
     ports:
       - "${PORT}:80"

@@ -36,15 +36,15 @@ repos:
     rev: v2.7.1
     hooks:
     -   id: prettier
-        files: client/js/
-        exclude: client/js/.gitignore
-        args: ['--config', 'client/.prettierrc.yml']
+        files: legacy/client/js/
+        exclude: legacy/client/js/.gitignore
+        args: ['--config', 'legacy/client/.prettierrc.yml']
 
 -   repo: https://github.com/pre-commit/mirrors-eslint
     rev: v8.33.0
     hooks:
     -   id: eslint
-        files: client/js/
+        files: legacy/client/js/
         args: ['--fix']
         additional_dependencies:
         -   eslint-config-prettier
