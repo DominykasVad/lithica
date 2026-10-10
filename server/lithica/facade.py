@@ -13,7 +13,7 @@ import sqlalchemy.orm.exc
 # api and middleware are imported for their side effects: they register the
 # routes and the request hooks
 from lithica import api, config, db, errors, middleware, rest  # noqa: F401
-from lithica.func.file_uploads import purge_old_uploads
+from lithica.func.file_uploads import purge_old_uploads_once
 from lithica.func.posts import warn_about_pending_backfills
 
 logger = logging.getLogger(__name__)
@@ -138,10 +138,7 @@ def validate_config() -> None:
 
 def purge_old_uploads_daemon() -> None:
     while True:
-        try:
-            purge_old_uploads()
-        except Exception as ex:
-            logging.exception(ex)
+        purge_old_uploads_once()
         time.sleep(60 * 5)
 
 
