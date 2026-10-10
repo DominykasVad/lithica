@@ -5,7 +5,7 @@
 set -euo pipefail
 
 # Build the testing image (with xdist)
-docker buildx build --load --target testing -t szuru-server-tests ./server
+docker buildx build --load --target testing -t lithica-server-tests ./server
 
 # Optional path filter (dir/file/node), default to full suite.
 TARGET="${1:-lithica/}"
@@ -13,7 +13,7 @@ TARGET="${1:-lithica/}"
 run_tests() {
   local output_file
   output_file=$(mktemp)
-  if docker run --rm -t szuru-server-tests "$@" 2>&1 | tee "$output_file"; then
+  if docker run --rm -t lithica-server-tests "$@" 2>&1 | tee "$output_file"; then
     rm -f "$output_file"
     return 0
   fi

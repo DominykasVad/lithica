@@ -3,17 +3,17 @@ and the Docker Compose CLI (version 1.27.0 or greater) already installed.
 
 ### Prepare things
 
-1. Download the `szurubooru` source:
+1. Download the Lithica source:
 
     ```console
-    user@host:~$ git clone https://github.com/rr-/szurubooru.git szuru
-    user@host:~$ cd szuru
+    user@host:~$ git clone https://github.com/DominykasVad/lithica.git lithica
+    user@host:~$ cd lithica
     ```
 2. Configure the application:
 
     ```console
-    user@host:szuru$ cp server/config.yaml.dist server/config.yaml
-    user@host:szuru$ edit server/config.yaml
+    user@host:lithica$ cp server/config.yaml.dist server/config.yaml
+    user@host:lithica$ edit server/config.yaml
     ```
 
     Pay extra attention to these fields:
@@ -26,8 +26,8 @@ and the Docker Compose CLI (version 1.27.0 or greater) already installed.
 3. Configure Docker Compose:
 
     ```console
-    user@host:szuru$ cp doc/example.env .env
-    user@host:szuru$ edit .env
+    user@host:lithica$ cp doc/example.env .env
+    user@host:lithica$ edit .env
     ```
 
     Change the values of the variables in `.env` as needed.
@@ -38,7 +38,7 @@ and the Docker Compose CLI (version 1.27.0 or greater) already installed.
 
     This pulls the latest containers from docker.io:
     ```console
-    user@host:szuru$ docker compose pull
+    user@host:lithica$ docker compose pull
     ```
 
     If you have modified the application's source and would like to manually
@@ -49,17 +49,17 @@ and the Docker Compose CLI (version 1.27.0 or greater) already installed.
 
     For first run, it is recommended to start the database separately:
     ```console
-    user@host:szuru$ docker compose up -d sql
+    user@host:lithica$ docker compose up -d sql
     ```
 
     To start all containers:
     ```console
-    user@host:szuru$ docker compose up -d
+    user@host:lithica$ docker compose up -d
     ```
 
     To view/monitor the application logs:
     ```console
-    user@host:szuru$ docker compose logs -f
+    user@host:lithica$ docker compose logs -f
     # (CTRL+C to exit)
     ```
 
@@ -84,7 +84,7 @@ and the Docker Compose CLI (version 1.27.0 or greater) already installed.
 2. Build the containers:
 
     ```console
-    user@host:szuru$ docker compose build
+    user@host:lithica$ docker compose build
     ```
 
     That will attempt to build both containers, but you can specify `client`
@@ -99,7 +99,7 @@ and the Docker Compose CLI (version 1.27.0 or greater) already installed.
     ...you will need to export Docker BuildKit flags:
 
     ```console
-    user@host:szuru$ export DOCKER_BUILDKIT=1; export COMPOSE_DOCKER_CLI_BUILD=1
+    user@host:lithica$ export DOCKER_BUILDKIT=1; export COMPOSE_DOCKER_CLI_BUILD=1
     ```
 
     ...and run `docker compose build` again.
@@ -117,7 +117,7 @@ with `--no-cache`.*
     run from docker:
 
     ```console
-    user@host:szuru$ docker compose run server ./lithica-admin --help
+    user@host:lithica$ docker compose run server ./lithica-admin --help
     ```
 
     will give you a breakdown on all available commands.
@@ -134,17 +134,17 @@ with `--no-cache`.*
 3. **Setting a specific base URI for proxying**
 
     Some users may wish to access the service at a different base URI, such
-    as `http://example.com/szuru/`, commonly when sharing multiple HTTP
+    as `http://example.com/lithica/`, commonly when sharing multiple HTTP
     services on one domain using a reverse proxy. In this case, simply set
-    `BASE_URL="/szuru/"` in your `.env` file.
+    `BASE_URL="/lithica/"` in your `.env` file.
 
     Note that this will require a reverse proxy to function. You should set
-    your reverse proxy to proxy `http(s)://example.com/szuru` to
+    your reverse proxy to proxy `http(s)://example.com/lithica` to
     `http://<internal IP or hostname of frontend container>/`. For an NGINX
     reverse proxy, that will appear as:
 
     ```nginx
-    location /szuru {
+    location /lithica {
         proxy_http_version 1.1;
         proxy_pass http://<internal IP or hostname of frontend container>/;
 
@@ -155,13 +155,13 @@ with `--no-cache`.*
         proxy_set_header X-Scheme          $scheme;
         proxy_set_header X-Real-IP         $remote_addr;
         proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header X-Script-Name     /szuru;
+        proxy_set_header X-Script-Name     /lithica;
     }
     ```
 
 4. **Preparing for production**
 
-    If you plan on using szurubooru in a production setting, you may opt to
+    If you plan on using Lithica in a production setting, you may opt to
     use a reverse proxy for added security and caching capabilities. Start
     by having the client docker listen only on localhost by changing `PORT`
     in your `.env` file to `127.0.0.1:8080` instead of simply `:8080`. Then
@@ -201,7 +201,7 @@ with `--no-cache`.*
         proxy_set_header X-Scheme $scheme;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header X-Script-Name /szuru;
+        proxy_set_header X-Script-Name /lithica;
         error_page 500 501 502 504 505 506 507 508 509 510 511 @err;
         error_page 503 @throttle;
       }

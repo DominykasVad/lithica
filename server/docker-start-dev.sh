@@ -4,5 +4,5 @@ cd /opt/app
 
 alembic upgrade head
 
-echo "Starting szurubooru API on port ${PORT} - Running on ${THREADS} threads"
+echo "Starting Lithica API on port ${PORT} - Running on ${THREADS} threads"
 exec hupper -m waitress --listen "*:${PORT}" --threads ${THREADS} lithica.facade:app
