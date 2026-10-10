@@ -104,7 +104,7 @@ nothing behaves differently.
 - [x] Configure ruff in `pyproject.toml` (line length 88, isort rules, pyflakes, pycodestyle, bugbear, pyupgrade). Remove black/isort/flake8 config (`.flake8`, `[tool.black]`, `[tool.isort]`).
 - [x] One commit: `ruff format` over the whole server. Nothing else in it.
 - [x] One or more commits: fix `ruff check` findings (or add justified per-file ignores).
-- [ ] Configure pyright `basic`. Write the initial error count into this task line; it does not need to be zero in this phase, but CI reports it.
+- [x] Configure pyright `basic`. Write the initial error count into this task line; it does not need to be zero in this phase, but CI reports it. **Initial count: 878 errors (475 in engine code, 403 in tests), pyright 1.1.414.**
 - [ ] Update `.pre-commit-config.yaml`: ruff hooks for server; keep prettier/eslint for legacy client only if it still runs, otherwise drop them.
 
 ### 0.6 Docker

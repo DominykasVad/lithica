@@ -67,6 +67,12 @@ known-first-party = ["lithica"]
 # package __init__ files import names to re-export them or for side effects
 "__init__.py" = ["F401"]
 
+[tool.pyright]
+include = ["lithica"]
+exclude = ["lithica/migrations/versions"]
+pythonVersion = "3.13"
+typeCheckingMode = "basic"
+
 [dependency-groups]
 dev = [
     "freezegun>=1.5.5",
