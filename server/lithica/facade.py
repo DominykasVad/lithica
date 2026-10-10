@@ -2,13 +2,16 @@ import logging
 import os
 import threading
 import time
-from typing import Any, Callable, Type
+from collections.abc import Callable
+from typing import Any
 
 import coloredlogs
 import sqlalchemy as sa
 import sqlalchemy.orm.exc
 
-from lithica import api, config, db, errors, middleware, rest
+# api and middleware are imported for their side effects: they register the
+# routes and the request hooks
+from lithica import api, config, db, errors, middleware, rest  # noqa: F401
 from lithica.func.file_uploads import purge_old_uploads
 from lithica.func.posts import (
     update_all_md5_checksums,
@@ -17,7 +20,7 @@ from lithica.func.posts import (
 
 
 def _map_error(
-    ex: Exception, target_class: Type[rest.errors.BaseHttpError], title: str
+    ex: Exception, target_class: type[rest.errors.BaseHttpError], title: str
 ) -> rest.errors.BaseHttpError:
     return target_class(
         name=type(ex).__name__,

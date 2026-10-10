@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Dict
 
 from lithica import model, rest, search
 from lithica.func import (
@@ -14,13 +13,13 @@ from lithica.func import (
 _search_executor = search.Executor(search.configs.CommentSearchConfig())
 
 
-def _get_comment(params: Dict[str, str]) -> model.Comment:
+def _get_comment(params: dict[str, str]) -> model.Comment:
     try:
         comment_id = int(params["comment_id"])
-    except TypeError:
+    except TypeError as ex:
         raise comments.InvalidCommentIdError(
             "Invalid comment ID: %r." % params["comment_id"]
-        )
+        ) from ex
     return comments.get_comment_by_id(comment_id)
 
 
@@ -31,7 +30,11 @@ def _serialize(ctx: rest.Context, comment: model.Comment) -> rest.Response:
 
 
 @rest.routes.get("/comments/?")
-def get_comments(ctx: rest.Context, _params: Dict[str, str] = {}) -> rest.Response:
+def get_comments(
+    ctx: rest.Context, _params: dict[str, str] | None = None
+) -> rest.Response:
+    if _params is None:
+        _params = {}
     auth.verify_privilege(ctx.user, "comments:list")
     return _search_executor.execute_and_serialize(
         ctx, lambda comment: _serialize(ctx, comment)
@@ -39,7 +42,11 @@ def get_comments(ctx: rest.Context, _params: Dict[str, str] = {}) -> rest.Respon
 
 
 @rest.routes.post("/comments/?")
-def create_comment(ctx: rest.Context, _params: Dict[str, str] = {}) -> rest.Response:
+def create_comment(
+    ctx: rest.Context, _params: dict[str, str] | None = None
+) -> rest.Response:
+    if _params is None:
+        _params = {}
     auth.verify_privilege(ctx.user, "comments:create")
     text = ctx.get_param_as_string("text")
     post_id = ctx.get_param_as_int("postId")
@@ -51,14 +58,14 @@ def create_comment(ctx: rest.Context, _params: Dict[str, str] = {}) -> rest.Resp
 
 
 @rest.routes.get("/comment/(?P<comment_id>[^/]+)/?")
-def get_comment(ctx: rest.Context, params: Dict[str, str]) -> rest.Response:
+def get_comment(ctx: rest.Context, params: dict[str, str]) -> rest.Response:
     auth.verify_privilege(ctx.user, "comments:view")
     comment = _get_comment(params)
     return _serialize(ctx, comment)
 
 
 @rest.routes.put("/comment/(?P<comment_id>[^/]+)/?")
-def update_comment(ctx: rest.Context, params: Dict[str, str]) -> rest.Response:
+def update_comment(ctx: rest.Context, params: dict[str, str]) -> rest.Response:
     comment = _get_comment(params)
     versions.verify_version(comment, ctx)
     versions.bump_version(comment)
@@ -72,7 +79,7 @@ def update_comment(ctx: rest.Context, params: Dict[str, str]) -> rest.Response:
 
 
 @rest.routes.delete("/comment/(?P<comment_id>[^/]+)/?")
-def delete_comment(ctx: rest.Context, params: Dict[str, str]) -> rest.Response:
+def delete_comment(ctx: rest.Context, params: dict[str, str]) -> rest.Response:
     comment = _get_comment(params)
     versions.verify_version(comment, ctx)
     infix = "own" if ctx.user.user_id == comment.user_id else "any"
@@ -83,7 +90,7 @@ def delete_comment(ctx: rest.Context, params: Dict[str, str]) -> rest.Response:
 
 
 @rest.routes.put("/comment/(?P<comment_id>[^/]+)/score/?")
-def set_comment_score(ctx: rest.Context, params: Dict[str, str]) -> rest.Response:
+def set_comment_score(ctx: rest.Context, params: dict[str, str]) -> rest.Response:
     auth.verify_privilege(ctx.user, "comments:score")
     score = ctx.get_param_as_int("score")
     comment = _get_comment(params)
@@ -93,7 +100,7 @@ def set_comment_score(ctx: rest.Context, params: Dict[str, str]) -> rest.Respons
 
 
 @rest.routes.delete("/comment/(?P<comment_id>[^/]+)/score/?")
-def delete_comment_score(ctx: rest.Context, params: Dict[str, str]) -> rest.Response:
+def delete_comment_score(ctx: rest.Context, params: dict[str, str]) -> rest.Response:
     auth.verify_privilege(ctx.user, "comments:score")
     comment = _get_comment(params)
     scores.delete_score(comment, ctx.user)

@@ -5,11 +5,10 @@ import re
 import shlex
 import subprocess
 from io import BytesIO
-from typing import List
 
-from pillow_heif import register_heif_opener
 from PIL import Image as PILImage
 from PIL import features
+from pillow_heif import register_heif_opener
 
 from lithica import errors
 from lithica.func import mime, util
@@ -56,7 +55,7 @@ class Image:
             "-f",
             "image2",
             "-filter:v",
-            "scale='{width}:{height}'".format(width=width, height=height),
+            f"scale='{width}:{height}'",
             "-map",
             "0:v:0",
             "-vframes",
@@ -264,7 +263,7 @@ class Image:
 
     def _execute(
         self,
-        cli: List[str],
+        cli: list[str],
         program: str = "ffmpeg",
         ignore_error_if_data: bool = False,
         get_logs: bool = False,

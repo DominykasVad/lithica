@@ -1,4 +1,3 @@
-import pytest
 from numpy import array_equal
 
 from lithica.func import image_hash
@@ -21,7 +20,9 @@ def test_signature_functions(read_asset, config_injector):
 
     words1 = image_hash.generate_words(sig1)
     words2 = image_hash.generate_words(sig2)
-    words_match = sum(word1 == word2 for word1, word2 in zip(words1, words2))
+    words_match = sum(
+        word1 == word2 for word1, word2 in zip(words1, words2, strict=True)
+    )
     assert words_match == 18
 
 
@@ -42,7 +43,9 @@ def test_signature_heif(read_asset, config_injector):
 
     words1 = image_hash.generate_words(sig1)
     words2 = image_hash.generate_words(sig2)
-    words_match = sum(word1 == word2 for word1, word2 in zip(words1, words2))
+    words_match = sum(
+        word1 == word2 for word1, word2 in zip(words1, words2, strict=True)
+    )
     assert words_match == 43
 
 
@@ -63,5 +66,7 @@ def test_signature_avif(read_asset, config_injector):
 
     words1 = image_hash.generate_words(sig1)
     words2 = image_hash.generate_words(sig2)
-    words_match = sum(word1 == word2 for word1, word2 in zip(words1, words2))
+    words_match = sum(
+        word1 == word2 for word1, word2 in zip(words1, words2, strict=True)
+    )
     assert words_match == 12

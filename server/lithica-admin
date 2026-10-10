@@ -4,10 +4,8 @@
 Collection of CLI commands for an administrator to use
 """
 
-import logging
 import os
 import re
-import time
 from argparse import ArgumentParser
 from getpass import getpass
 from sys import stderr

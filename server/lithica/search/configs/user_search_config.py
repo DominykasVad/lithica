@@ -1,5 +1,3 @@
-from typing import Dict, Tuple
-
 import sqlalchemy as sa
 
 from lithica import db, model
@@ -29,7 +27,7 @@ class UserSearchConfig(BaseSearchConfig):
         return search_util.create_str_filter(model.User.name)
 
     @property
-    def named_filters(self) -> Dict[str, Filter]:
+    def named_filters(self) -> dict[str, Filter]:
         return {
             "name": search_util.create_str_filter(model.User.name),
             "creation-date": search_util.create_date_filter(model.User.creation_time),
@@ -45,7 +43,7 @@ class UserSearchConfig(BaseSearchConfig):
         }
 
     @property
-    def sort_columns(self) -> Dict[str, Tuple[SaColumn, str]]:
+    def sort_columns(self) -> dict[str, tuple[SaColumn, str]]:
         return {
             "random": (sa.sql.expression.func.random(), self.SORT_NONE),
             "name": (model.User.name, self.SORT_ASC),

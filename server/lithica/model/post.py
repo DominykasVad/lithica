@@ -1,13 +1,9 @@
-from typing import List
-
 import sqlalchemy as sa
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.ext.orderinglist import ordering_list
 
 from lithica.model.base import Base
 from lithica.model.comment import Comment
-from lithica.model.pool import PoolPost
 
 
 class PostFeature(Base):
@@ -296,11 +292,11 @@ class Post(Base):
         return featured_post and featured_post.post_id == self.post_id
 
     @hybrid_property
-    def flags(self) -> List[str]:
+    def flags(self) -> list[str]:
         return sorted([x for x in self.flags_string.split(",") if x])
 
     @flags.setter
-    def flags(self, data: List[str]) -> None:
+    def flags(self, data: list[str]) -> None:
         self.flags_string = ",".join([x for x in data if x])
 
     score = sa.orm.column_property(

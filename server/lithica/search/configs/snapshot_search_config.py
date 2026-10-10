@@ -1,5 +1,3 @@
-from typing import Dict
-
 from lithica import db, model
 from lithica.search.configs import util as search_util
 from lithica.search.configs.base_search_config import (
@@ -23,7 +21,7 @@ class SnapshotSearchConfig(BaseSearchConfig):
         return query.order_by(model.Snapshot.creation_time.desc())
 
     @property
-    def named_filters(self) -> Dict[str, Filter]:
+    def named_filters(self) -> dict[str, Filter]:
         return {
             "type": search_util.create_str_filter(model.Snapshot.resource_type),
             "id": search_util.create_str_filter(model.Snapshot.resource_name),

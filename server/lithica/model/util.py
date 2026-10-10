@@ -1,4 +1,5 @@
-from typing import Any, Callable, Dict, Optional, Tuple
+from collections.abc import Callable
+from typing import Any
 
 import sqlalchemy as sa
 
@@ -6,27 +7,27 @@ from lithica.model.base import Base
 from lithica.model.user import User
 
 
-def get_resource_info(entity: Base) -> Tuple[Any, Any, str]:
-    serializers = {
+def get_resource_info(entity: Base) -> tuple[Any, Any, str]:
+    serializers: dict[str, Callable[[Base], Any]] = {
         "tag": lambda tag: tag.first_name,
         "tag_category": lambda category: category.name,
         "comment": lambda comment: comment.comment_id,
         "post": lambda post: post.post_id,
         "pool": lambda pool: pool.pool_id,
         "pool_category": lambda category: category.name,
-    }  # type: Dict[str, Callable[[Base], Any]]
+    }
 
     resource_type = entity.__table__.name
     assert resource_type in serializers
 
-    primary_key = sa.inspection.inspect(entity).identity  # type: Any
+    primary_key: Any = sa.inspection.inspect(entity).identity
     assert primary_key is not None
     assert len(primary_key) == 1
 
-    resource_name = str(serializers[resource_type](entity))  # type: str
+    resource_name: str = str(serializers[resource_type](entity))
     assert resource_name
 
-    resource_pkey = primary_key[0]  # type: Any
+    resource_pkey: Any = primary_key[0]
     assert resource_pkey
 
     return (resource_type, resource_pkey, resource_name)
@@ -34,10 +35,10 @@ def get_resource_info(entity: Base) -> Tuple[Any, Any, str]:
 
 def get_aux_entity(
     session: Any,
-    get_table_info: Callable[[Base], Tuple[Base, Callable[[Base], Any]]],
+    get_table_info: Callable[[Base], tuple[Base, Callable[[Base], Any]]],
     entity: Base,
     user: User,
-) -> Optional[Base]:
+) -> Base | None:
     table, get_column = get_table_info(entity)
     return (
         session.query(table)

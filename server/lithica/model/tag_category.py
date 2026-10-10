@@ -1,5 +1,3 @@
-from typing import Optional
-
 import sqlalchemy as sa
 
 from lithica.model.base import Base
@@ -16,7 +14,7 @@ class TagCategory(Base):
     default = sa.Column("default", sa.Boolean, nullable=False, default=False)
     order = sa.Column("order", sa.Integer, nullable=False, default=1)
 
-    def __init__(self, name: Optional[str] = None) -> None:
+    def __init__(self, name: str | None = None) -> None:
         self.name = name
 
     tag_count = sa.orm.column_property(

@@ -1,13 +1,13 @@
-from typing import Dict
-
 from lithica import rest
 from lithica.func import auth, file_uploads
 
 
 @rest.routes.post("/uploads/?")
 def create_temporary_file(
-    ctx: rest.Context, _params: Dict[str, str] = {}
+    ctx: rest.Context, _params: dict[str, str] | None = None
 ) -> rest.Response:
+    if _params is None:
+        _params = {}
     auth.verify_privilege(ctx.user, "uploads:create")
     content = ctx.get_file(
         "content",

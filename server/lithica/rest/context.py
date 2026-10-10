@@ -1,22 +1,22 @@
-from typing import Any, Dict, List, Optional, Union, cast
+from typing import Any, cast
 
 from lithica import errors, model
 from lithica.func import file_uploads, net
 
 MISSING = object()
-Request = Dict[str, Any]
-Response = Optional[Dict[str, Any]]
+Request = dict[str, Any]
+Response = dict[str, Any] | None
 
 
 class Context:
     def __init__(
         self,
-        env: Dict[str, Any],
+        env: dict[str, Any],
         method: str,
         url: str,
-        headers: Dict[str, str] = None,
+        headers: dict[str, str] | None = None,
         params: Request = None,
-        files: Dict[str, bytes] = None,
+        files: dict[str, bytes] | None = None,
     ) -> None:
         self.env = env
         self.method = method
@@ -29,7 +29,7 @@ class Context:
         self.user.name = None
         self.user.rank = "anonymous"
 
-        self.session = None  # type: Any
+        self.session: Any = None
 
     def has_header(self, name: str) -> bool:
         return name in self._headers
@@ -47,7 +47,7 @@ class Context:
     def get_file(
         self,
         name: str,
-        default: Union[object, bytes] = MISSING,
+        default: object | bytes = MISSING,
         use_video_downloader: bool = False,
         allow_tokens: bool = True,
     ) -> bytes:
@@ -77,11 +77,11 @@ class Context:
         return name in self._params
 
     def get_param_as_list(
-        self, name: str, default: Union[object, List[Any]] = MISSING
-    ) -> List[Any]:
+        self, name: str, default: object | list[Any] = MISSING
+    ) -> list[Any]:
         if name not in self._params:
             if default is not MISSING:
-                return cast(List[Any], default)
+                return cast(list[Any], default)
             raise errors.MissingRequiredParameterError(
                 "Required parameter %r is missing." % name
             )
@@ -95,8 +95,8 @@ class Context:
         raise errors.InvalidParameterError("Parameter %r must be a list." % name)
 
     def get_param_as_int_list(
-        self, name: str, default: Union[object, List[int]] = MISSING
-    ) -> List[int]:
+        self, name: str, default: object | list[int] = MISSING
+    ) -> list[int]:
         ret = self.get_param_as_list(name, default)
         for item in ret:
             if type(item) is not int:
@@ -106,8 +106,8 @@ class Context:
         return ret
 
     def get_param_as_string_list(
-        self, name: str, default: Union[object, List[str]] = MISSING
-    ) -> List[str]:
+        self, name: str, default: object | list[str] = MISSING
+    ) -> list[str]:
         ret = self.get_param_as_list(name, default)
         for item in ret:
             if type(item) is not str:
@@ -116,9 +116,7 @@ class Context:
                 )
         return ret
 
-    def get_param_as_string(
-        self, name: str, default: Union[object, str] = MISSING
-    ) -> str:
+    def get_param_as_string(self, name: str, default: object | str = MISSING) -> str:
         if name not in self._params:
             if default is not MISSING:
                 return cast(str, default)
@@ -144,9 +142,9 @@ class Context:
     def get_param_as_int(
         self,
         name: str,
-        default: Union[object, int] = MISSING,
-        min: Optional[int] = None,
-        max: Optional[int] = None,
+        default: object | int = MISSING,
+        min: int | None = None,
+        max: int | None = None,
     ) -> int:
         if name not in self._params:
             if default is not MISSING:
@@ -172,9 +170,7 @@ class Context:
             "Parameter %r must be an integer value." % name
         )
 
-    def get_param_as_bool(
-        self, name: str, default: Union[object, bool] = MISSING
-    ) -> bool:
+    def get_param_as_bool(self, name: str, default: object | bool = MISSING) -> bool:
         if name not in self._params:
             if default is not MISSING:
                 return cast(bool, default)

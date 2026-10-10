@@ -1,4 +1,4 @@
-from typing import Callable, Dict, List, Tuple, Union
+from collections.abc import Callable
 
 import sqlalchemy as sa
 
@@ -10,11 +10,11 @@ from lithica.search.query import SearchQuery
 from lithica.search.typing import SaQuery
 
 
-def _format_dict_keys(source: Dict) -> List[str]:
+def _format_dict_keys(source: dict) -> list[str]:
     return list(sorted(source.keys()))
 
 
-def _get_order(order: str, default_order: str) -> Union[bool, str]:
+def _get_order(order: str, default_order: str) -> bool | str:
     if order == tokens.SortToken.SORT_DEFAULT:
         return default_order or tokens.SortToken.SORT_ASC
     if order == tokens.SortToken.SORT_NEGATED_DEFAULT:
@@ -22,7 +22,7 @@ def _get_order(order: str, default_order: str) -> Union[bool, str]:
             return tokens.SortToken.SORT_DESC
         elif default_order == tokens.SortToken.SORT_DESC:
             return tokens.SortToken.SORT_ASC
-        assert False
+        raise AssertionError()
     return order
 
 
@@ -38,7 +38,7 @@ class Executor:
 
     def get_around(
         self, query_text: str, entity_id: int
-    ) -> Tuple[model.Base, model.Base]:
+    ) -> tuple[model.Base, model.Base]:
         search_query = self.parser.parse(query_text)
         self.config.on_search_query_parsed(search_query)
         filter_query = self.config.create_around_query().options(sa.orm.lazyload("*"))
@@ -76,7 +76,7 @@ class Executor:
 
     def execute(
         self, query_text: str, offset: int, limit: int
-    ) -> Tuple[int, List[model.Base]]:
+    ) -> tuple[int, list[model.Base]]:
         search_query = self.parser.parse(query_text)
         self.config.on_search_query_parsed(search_query)
 

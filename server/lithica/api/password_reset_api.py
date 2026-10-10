@@ -1,5 +1,4 @@
 from hashlib import md5
-from typing import Dict
 
 from lithica import config, errors, rest
 from lithica.func import auth, mailer, users, versions
@@ -13,7 +12,7 @@ MAIL_BODY = (
 
 
 @rest.routes.get("/password-reset/(?P<user_name>[^/]+)/?")
-def start_password_reset(ctx: rest.Context, params: Dict[str, str]) -> rest.Response:
+def start_password_reset(ctx: rest.Context, params: dict[str, str]) -> rest.Response:
     user_name = params["user_name"]
     user = users.get_user_by_name_or_email(user_name)
     if not user.email:
@@ -47,7 +46,7 @@ def _hash(token: str) -> str:
 
 
 @rest.routes.post("/password-reset/(?P<user_name>[^/]+)/?")
-def finish_password_reset(ctx: rest.Context, params: Dict[str, str]) -> rest.Response:
+def finish_password_reset(ctx: rest.Context, params: dict[str, str]) -> rest.Response:
     user_name = params["user_name"]
     user = users.get_user_by_name_or_email(user_name)
     good_token = auth.generate_authentication_token(user)

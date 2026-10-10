@@ -1,5 +1,3 @@
-from typing import Dict, Tuple
-
 import sqlalchemy as sa
 
 from lithica import db, model
@@ -29,7 +27,7 @@ class CommentSearchConfig(BaseSearchConfig):
         return search_util.create_str_filter(model.Comment.text)
 
     @property
-    def named_filters(self) -> Dict[str, Filter]:
+    def named_filters(self) -> dict[str, Filter]:
         return {
             "id": search_util.create_num_filter(model.Comment.comment_id),
             "post": search_util.create_num_filter(model.Comment.post_id),
@@ -53,7 +51,7 @@ class CommentSearchConfig(BaseSearchConfig):
         }
 
     @property
-    def sort_columns(self) -> Dict[str, Tuple[SaColumn, str]]:
+    def sort_columns(self) -> dict[str, tuple[SaColumn, str]]:
         return {
             "random": (sa.sql.expression.func.random(), self.SORT_NONE),
             "user": (model.User.name, self.SORT_ASC),

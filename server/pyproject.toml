@@ -52,6 +52,11 @@ select = [
     "UP",  # pyupgrade
     "T20", # no print() in server code
 ]
+ignore = [
+    # printf-style formatting is used in over a hundred places; rewriting them
+    # all is churn with no behaviour benefit. New code should use f-strings.
+    "UP031",
+]
 
 [tool.ruff.lint.isort]
 known-first-party = ["lithica"]
@@ -59,6 +64,8 @@ known-first-party = ["lithica"]
 [tool.ruff.lint.per-file-ignores]
 # the admin CLI talks to a terminal
 "lithica-admin" = ["T20"]
+# package __init__ files import names to re-export them or for side effects
+"__init__.py" = ["F401"]
 
 [dependency-groups]
 dev = [

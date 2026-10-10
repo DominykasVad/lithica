@@ -1,13 +1,12 @@
 import os
 import threading
 from datetime import datetime, timedelta
-from typing import Dict, Optional
 
 from lithica import config, rest
 from lithica.func import auth, posts, users, util
 
-_cache_time = None  # type: Optional[datetime]
-_cache_result = None  # type: Optional[int]
+_cache_time: datetime | None = None
+_cache_result: int | None = None
 _cache_computing: bool = False
 
 
@@ -37,7 +36,9 @@ def _compute_disk_usage() -> None:
 
 
 @rest.routes.get("/info/?")
-def get_info(ctx: rest.Context, _params: Dict[str, str] = {}) -> rest.Response:
+def get_info(ctx: rest.Context, _params: dict[str, str] | None = None) -> rest.Response:
+    if _params is None:
+        _params = {}
     post_feature = posts.try_get_current_post_feature()
     ret = {
         "postCount": posts.get_post_count(),

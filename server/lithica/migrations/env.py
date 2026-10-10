@@ -12,7 +12,6 @@ from time import sleep
 import alembic
 import sqlalchemy as sa
 
-
 # fmt: off
 # make lithica module importable
 dir_to_self = os.path.dirname(os.path.realpath(__file__))
@@ -20,6 +19,7 @@ sys.path.append(os.path.join(dir_to_self, *[os.pardir] * 2))
 
 import lithica.config  # noqa: E402
 import lithica.model.base  # noqa: E402
+
 # fmt: on
 
 

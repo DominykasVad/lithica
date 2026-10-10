@@ -1,5 +1,6 @@
+from collections.abc import Callable
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 from lithica import db, errors, model, rest
 from lithica.func import scores, serialization, users
@@ -22,7 +23,7 @@ class CommentSerializer(serialization.BaseSerializer):
         self.comment = comment
         self.auth_user = auth_user
 
-    def _serializers(self) -> Dict[str, Callable[[], Any]]:
+    def _serializers(self) -> dict[str, Callable[[], Any]]:
         return {
             "id": self.serialize_id,
             "user": self.serialize_user,
@@ -64,14 +65,16 @@ class CommentSerializer(serialization.BaseSerializer):
 
 
 def serialize_comment(
-    comment: model.Comment, auth_user: model.User, options: List[str] = []
+    comment: model.Comment, auth_user: model.User, options: list[str] | None = None
 ) -> rest.Response:
+    if options is None:
+        options = []
     if comment is None:
         return None
     return CommentSerializer(comment, auth_user).serialize(options)
 
 
-def try_get_comment_by_id(comment_id: int) -> Optional[model.Comment]:
+def try_get_comment_by_id(comment_id: int) -> model.Comment | None:
     comment_id = int(comment_id)
     return (
         db.session.query(model.Comment)

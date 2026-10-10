@@ -1,16 +1,17 @@
-from typing import Any, Callable, Dict, List
+from collections.abc import Callable
+from typing import Any
 
 from lithica import errors, model, rest
 
 
-def get_serialization_options(ctx: rest.Context) -> List[str]:
+def get_serialization_options(ctx: rest.Context) -> list[str]:
     return ctx.get_param_as_list("fields", default=[])
 
 
 class BaseSerializer:
-    _fields = {}  # type: Dict[str, Callable[[model.Base], Any]]
+    _fields: dict[str, Callable[[model.Base], Any]] = {}
 
-    def serialize(self, options: List[str]) -> Any:
+    def serialize(self, options: list[str]) -> Any:
         field_factories = self._serializers()
         if not options:
             options = list(field_factories.keys())
@@ -25,5 +26,5 @@ class BaseSerializer:
             ret[key] = factory()
         return ret
 
-    def _serializers(self) -> Dict[str, Callable[[], Any]]:
+    def _serializers(self) -> dict[str, Callable[[], Any]]:
         raise NotImplementedError()

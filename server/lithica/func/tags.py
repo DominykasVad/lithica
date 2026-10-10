@@ -1,6 +1,7 @@
 import re
+from collections.abc import Callable
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any
 
 import sqlalchemy as sa
 
@@ -46,17 +47,17 @@ def _verify_name_validity(name: str) -> None:
         raise InvalidTagNameError(f"Tag `{name}` is not allowed.")
 
 
-def _get_names(tag: model.Tag) -> List[str]:
+def _get_names(tag: model.Tag) -> list[str]:
     assert tag
     return [tag_name.name for tag_name in tag.names]
 
 
-def _lower_list(names: List[str]) -> List[str]:
+def _lower_list(names: list[str]) -> list[str]:
     return [name.lower() for name in names]
 
 
 def _check_name_intersection(
-    names1: List[str], names2: List[str], case_sensitive: bool
+    names1: list[str], names2: list[str], case_sensitive: bool
 ) -> bool:
     if not case_sensitive:
         names1 = _lower_list(names1)
@@ -64,7 +65,7 @@ def _check_name_intersection(
     return len(set(names1).intersection(names2)) > 0
 
 
-def sort_tags(tags: List[model.Tag]) -> List[model.Tag]:
+def sort_tags(tags: list[model.Tag]) -> list[model.Tag]:
     default_category_name = tag_categories.get_default_category_name()
     return sorted(
         tags,
@@ -89,7 +90,7 @@ class TagSerializer(serialization.BaseSerializer):
     def __init__(self, tag: model.Tag) -> None:
         self.tag = tag
 
-    def _serializers(self) -> Dict[str, Callable[[], Any]]:
+    def _serializers(self) -> dict[str, Callable[[], Any]]:
         return {
             "names": self.serialize_names,
             "category": self.serialize_category,
@@ -135,13 +136,17 @@ class TagSerializer(serialization.BaseSerializer):
         ]
 
 
-def serialize_tag(tag: model.Tag, options: List[str] = []) -> Optional[rest.Response]:
+def serialize_tag(
+    tag: model.Tag, options: list[str] | None = None
+) -> rest.Response | None:
+    if options is None:
+        options = []
     if not tag:
         return None
     return TagSerializer(tag).serialize(options)
 
 
-def try_get_tag_by_name(name: str) -> Optional[model.Tag]:
+def try_get_tag_by_name(name: str) -> model.Tag | None:
     return (
         db.session.query(model.Tag)
         .join(model.TagName)
@@ -157,7 +162,7 @@ def get_tag_by_name(name: str) -> model.Tag:
     return tag
 
 
-def get_tags_by_names(names: List[str]) -> List[model.Tag]:
+def get_tags_by_names(names: list[str]) -> list[model.Tag]:
     names = util.icase_unique(names)
     if len(names) == 0:
         return []
@@ -174,8 +179,8 @@ def get_tags_by_names(names: List[str]) -> List[model.Tag]:
 
 
 def get_or_create_tags_by_names(
-    names: List[str],
-) -> Tuple[List[model.Tag], List[model.Tag]]:
+    names: list[str],
+) -> tuple[list[model.Tag], list[model.Tag]]:
     names = util.icase_unique(names)
     existing_tags = get_tags_by_names(names)
     new_tags = []
@@ -198,7 +203,7 @@ def get_or_create_tags_by_names(
     return existing_tags, new_tags
 
 
-def get_tag_siblings(tag: model.Tag) -> List[model.Tag]:
+def get_tag_siblings(tag: model.Tag) -> list[model.Tag]:
     assert tag
     tag_alias = sa.orm.aliased(model.Tag)
     pt_alias1 = sa.orm.aliased(model.PostTag)
@@ -296,10 +301,10 @@ def merge_tags(source_tag: model.Tag, target_tag: model.Tag) -> None:
 
 
 def create_tag(
-    names: List[str],
+    names: list[str],
     category_name: str,
-    suggestions: List[str],
-    implications: List[str],
+    suggestions: list[str],
+    implications: list[str],
 ) -> model.Tag:
     tag = model.Tag()
     tag.creation_time = datetime.utcnow()
@@ -315,7 +320,7 @@ def update_tag_category_name(tag: model.Tag, category_name: str) -> None:
     tag.category = tag_categories.get_category_by_name(category_name)
 
 
-def update_tag_names(tag: model.Tag, names: List[str]) -> None:
+def update_tag_names(tag: model.Tag, names: list[str]) -> None:
     # sanitize
     assert tag
     names = util.icase_unique([name for name in names if name])
@@ -351,7 +356,7 @@ def update_tag_names(tag: model.Tag, names: List[str]) -> None:
 
 
 # TODO: what to do with relations that do not yet exist?
-def update_tag_implications(tag: model.Tag, relations: List[str]) -> None:
+def update_tag_implications(tag: model.Tag, relations: list[str]) -> None:
     assert tag
     if _check_name_intersection(_get_names(tag), relations, False):
         raise InvalidTagRelationError("Tag cannot imply itself.")
@@ -359,7 +364,7 @@ def update_tag_implications(tag: model.Tag, relations: List[str]) -> None:
 
 
 # TODO: what to do with relations that do not yet exist?
-def update_tag_suggestions(tag: model.Tag, relations: List[str]) -> None:
+def update_tag_suggestions(tag: model.Tag, relations: list[str]) -> None:
     assert tag
     if _check_name_intersection(_get_names(tag), relations, False):
         raise InvalidTagRelationError("Tag cannot suggest itself.")

@@ -1,5 +1,6 @@
 import re
-from typing import Any, Callable, Dict, List, Optional
+from collections.abc import Callable
+from typing import Any
 
 import sqlalchemy as sa
 
@@ -39,7 +40,7 @@ class TagCategorySerializer(serialization.BaseSerializer):
     def __init__(self, category: model.TagCategory) -> None:
         self.category = category
 
-    def _serializers(self) -> Dict[str, Callable[[], Any]]:
+    def _serializers(self) -> dict[str, Callable[[], Any]]:
         return {
             "name": self.serialize_name,
             "version": self.serialize_version,
@@ -69,8 +70,10 @@ class TagCategorySerializer(serialization.BaseSerializer):
 
 
 def serialize_category(
-    category: Optional[model.TagCategory], options: List[str] = []
-) -> Optional[rest.Response]:
+    category: model.TagCategory | None, options: list[str] | None = None
+) -> rest.Response | None:
+    if options is None:
+        options = []
     if not category:
         return None
     return TagCategorySerializer(category).serialize(options)
@@ -119,9 +122,7 @@ def update_category_order(category: model.TagCategory, order: int) -> None:
     category.order = order
 
 
-def try_get_category_by_name(
-    name: str, lock: bool = False
-) -> Optional[model.TagCategory]:
+def try_get_category_by_name(name: str, lock: bool = False) -> model.TagCategory | None:
     query = db.session.query(model.TagCategory).filter(
         sa.func.lower(model.TagCategory.name) == name.lower()
     )
@@ -137,11 +138,11 @@ def get_category_by_name(name: str, lock: bool = False) -> model.TagCategory:
     return category
 
 
-def get_all_category_names() -> List[str]:
+def get_all_category_names() -> list[str]:
     return [cat.name for cat in get_all_categories()]
 
 
-def get_all_categories() -> List[model.TagCategory]:
+def get_all_categories() -> list[model.TagCategory]:
     return (
         db.session.query(model.TagCategory)
         .order_by(model.TagCategory.order.asc(), model.TagCategory.name.asc())
@@ -151,7 +152,7 @@ def get_all_categories() -> List[model.TagCategory]:
 
 def try_get_default_category(
     lock: bool = False,
-) -> Optional[model.TagCategory]:
+) -> model.TagCategory | None:
     query = db.session.query(model.TagCategory).filter(model.TagCategory.default)
     if lock:
         query = query.with_for_update()

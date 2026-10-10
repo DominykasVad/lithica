@@ -1,5 +1,6 @@
+from collections.abc import Callable
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 import pytz
 from pyrfc3339 import parser as rfc3339_parser
@@ -21,7 +22,7 @@ class UserTokenSerializer(serialization.BaseSerializer):
         self.user_token = user_token
         self.auth_user = auth_user
 
-    def _serializers(self) -> Dict[str, Callable[[], Any]]:
+    def _serializers(self) -> dict[str, Callable[[], Any]]:
         return {
             "user": self.serialize_user,
             "token": self.serialize_token,
@@ -63,10 +64,12 @@ class UserTokenSerializer(serialization.BaseSerializer):
 
 
 def serialize_user_token(
-    user_token: Optional[model.UserToken],
+    user_token: model.UserToken | None,
     auth_user: model.User,
-    options: List[str] = [],
-) -> Optional[rest.Response]:
+    options: list[str] | None = None,
+) -> rest.Response | None:
+    if options is None:
+        options = []
     if not user_token:
         return None
     return UserTokenSerializer(user_token, auth_user).serialize(options)
@@ -81,7 +84,7 @@ def get_by_user_and_token(user: model.User, token: str) -> model.UserToken:
     )
 
 
-def get_user_tokens(user: model.User) -> List[model.UserToken]:
+def get_user_tokens(user: model.User) -> list[model.UserToken]:
     assert user
     return (
         db.session.query(model.UserToken)
@@ -123,10 +126,10 @@ def update_user_token_expiration_time(
             raise InvalidExpirationError("Expiration cannot happen in the past")
         user_token.expiration_time = expiration_time
         update_user_token_edit_time(user_token)
-    except ValueError:
+    except ValueError as ex:
         raise InvalidExpirationError(
-            "Expiration is in an invalid format {}".format(expiration_time_str)
-        )
+            f"Expiration is in an invalid format {expiration_time_str}"
+        ) from ex
 
 
 def update_user_token_note(user_token: model.UserToken, note: str) -> None:

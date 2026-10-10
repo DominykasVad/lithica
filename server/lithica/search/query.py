@@ -1,14 +1,12 @@
-from typing import List
-
 from lithica.search import tokens
 
 
 class SearchQuery:
     def __init__(self) -> None:
-        self.anonymous_tokens = []  # type: List[tokens.AnonymousToken]
-        self.named_tokens = []  # type: List[tokens.NamedToken]
-        self.special_tokens = []  # type: List[tokens.SpecialToken]
-        self.sort_tokens = []  # type: List[tokens.SortToken]
+        self.anonymous_tokens: list[tokens.AnonymousToken] = []
+        self.named_tokens: list[tokens.NamedToken] = []
+        self.special_tokens: list[tokens.SpecialToken] = []
+        self.sort_tokens: list[tokens.SortToken] = []
 
     def __hash__(self) -> int:
         return hash(

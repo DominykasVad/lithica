@@ -1,6 +1,5 @@
 import logging
 import os
-from typing import Dict
 
 import yaml
 
@@ -9,7 +8,7 @@ from lithica import errors
 logger = logging.getLogger(__name__)
 
 
-def _merge(left: Dict, right: Dict) -> Dict:
+def _merge(left: dict, right: dict) -> dict:
     for key in right:
         if key in left:
             if isinstance(left[key], dict) and isinstance(right[key], dict):
@@ -21,7 +20,7 @@ def _merge(left: Dict, right: Dict) -> Dict:
     return left
 
 
-def _container_config() -> Dict:
+def _container_config() -> dict:
     if "TEST_ENVIRONMENT" not in os.environ:
         for key in ["POSTGRES_USER", "POSTGRES_PASSWORD", "POSTGRES_HOST"]:
             if key not in os.environ:
@@ -42,7 +41,7 @@ def _container_config() -> Dict:
     }
 
 
-def _file_config(filename: str) -> Dict:
+def _file_config(filename: str) -> dict:
     with open(filename) as handle:
         return yaml.load(handle.read(), Loader=yaml.SafeLoader) or {}
 
@@ -56,7 +55,7 @@ def _running_inside_container() -> bool:
     )
 
 
-def _read_config() -> Dict:
+def _read_config() -> dict:
     ret = _file_config("config.yaml.dist")
     if os.path.isfile("config.yaml"):
         ret = _merge(ret, _file_config("config.yaml"))

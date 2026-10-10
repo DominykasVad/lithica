@@ -1,5 +1,6 @@
+from collections.abc import Callable
 from datetime import datetime
-from typing import Any, Callable, Dict, Optional
+from typing import Any
 
 import sqlalchemy as sa
 
@@ -7,7 +8,7 @@ from lithica import db, model
 from lithica.func import diff, net, users
 
 
-def get_tag_category_snapshot(category: model.TagCategory) -> Dict[str, Any]:
+def get_tag_category_snapshot(category: model.TagCategory) -> dict[str, Any]:
     assert category
     return {
         "name": category.name,
@@ -16,7 +17,7 @@ def get_tag_category_snapshot(category: model.TagCategory) -> Dict[str, Any]:
     }
 
 
-def get_tag_snapshot(tag: model.Tag) -> Dict[str, Any]:
+def get_tag_snapshot(tag: model.Tag) -> dict[str, Any]:
     assert tag
     return {
         "names": [tag_name.name for tag_name in tag.names],
@@ -26,7 +27,7 @@ def get_tag_snapshot(tag: model.Tag) -> Dict[str, Any]:
     }
 
 
-def get_pool_category_snapshot(category: model.PoolCategory) -> Dict[str, Any]:
+def get_pool_category_snapshot(category: model.PoolCategory) -> dict[str, Any]:
     assert category
     return {
         "name": category.name,
@@ -35,7 +36,7 @@ def get_pool_category_snapshot(category: model.PoolCategory) -> Dict[str, Any]:
     }
 
 
-def get_pool_snapshot(pool: model.Pool) -> Dict[str, Any]:
+def get_pool_snapshot(pool: model.Pool) -> dict[str, Any]:
     assert pool
     return {
         "names": [pool_name.name for pool_name in pool.names],
@@ -44,7 +45,7 @@ def get_pool_snapshot(pool: model.Pool) -> Dict[str, Any]:
     }
 
 
-def get_post_snapshot(post: model.Post) -> Dict[str, Any]:
+def get_post_snapshot(post: model.Post) -> dict[str, Any]:
     assert post
     return {
         "source": post.source,
@@ -67,19 +68,19 @@ def get_post_snapshot(post: model.Post) -> Dict[str, Any]:
     }
 
 
-_snapshot_factories = {
+_snapshot_factories: dict[model.Base, Callable[[model.Base], dict[str, Any]]] = {
     # lambdas allow mocking target functions in the tests
     "tag_category": lambda entity: get_tag_category_snapshot(entity),
     "tag": lambda entity: get_tag_snapshot(entity),
     "post": lambda entity: get_post_snapshot(entity),
     "pool_category": lambda entity: get_pool_category_snapshot(entity),
     "pool": lambda entity: get_pool_snapshot(entity),
-}  # type: Dict[model.Base, Callable[[model.Base], Dict[str ,Any]]]
+}
 
 
 def serialize_snapshot(
     snapshot: model.Snapshot, auth_user: model.User
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     assert snapshot
     return {
         "operation": snapshot.operation,
@@ -99,7 +100,7 @@ def _post_to_webhooks(snapshot: model.Snapshot) -> None:
 
 
 def _create(
-    operation: str, entity: model.Base, auth_user: Optional[model.User]
+    operation: str, entity: model.Base, auth_user: model.User | None
 ) -> model.Snapshot:
     resource_type, resource_pkey, resource_name = model.util.get_resource_info(entity)
 
@@ -116,7 +117,7 @@ def _create(
     return snapshot
 
 
-def create(entity: model.Base, auth_user: Optional[model.User]) -> None:
+def create(entity: model.Base, auth_user: model.User | None) -> None:
     assert entity
     snapshot = _create(model.Snapshot.OPERATION_CREATED, entity, auth_user)
     snapshot_factory = _snapshot_factories[snapshot.resource_type]
@@ -125,7 +126,7 @@ def create(entity: model.Base, auth_user: Optional[model.User]) -> None:
     _post_to_webhooks(snapshot)
 
 
-def modify(entity: model.Base, auth_user: Optional[model.User]) -> None:
+def modify(entity: model.Base, auth_user: model.User | None) -> None:
     assert entity
 
     snapshot = _create(model.Snapshot.OPERATION_MODIFIED, entity, auth_user)
@@ -146,7 +147,7 @@ def modify(entity: model.Base, auth_user: Optional[model.User]) -> None:
     _post_to_webhooks(snapshot)
 
 
-def delete(entity: model.Base, auth_user: Optional[model.User]) -> None:
+def delete(entity: model.Base, auth_user: model.User | None) -> None:
     assert entity
     snapshot = _create(model.Snapshot.OPERATION_DELETED, entity, auth_user)
     snapshot_factory = _snapshot_factories[snapshot.resource_type]
@@ -158,7 +159,7 @@ def delete(entity: model.Base, auth_user: Optional[model.User]) -> None:
 def merge(
     source_entity: model.Base,
     target_entity: model.Base,
-    auth_user: Optional[model.User],
+    auth_user: model.User | None,
 ) -> None:
     assert source_entity
     assert target_entity

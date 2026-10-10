@@ -1,4 +1,5 @@
-from typing import Any, Callable, Dict, Optional, Union
+from collections.abc import Callable
+from typing import Any
 
 import sqlalchemy as sa
 
@@ -8,7 +9,7 @@ from lithica.search import criteria
 from lithica.search.configs.base_search_config import Filter
 from lithica.search.typing import SaColumn, SaQuery
 
-Number = Union[int, float]
+Number = int | float
 WILDCARD = "(--wildcard--)"  # something unlikely to be used by the users
 
 
@@ -20,11 +21,11 @@ def unescape(text: str, make_wildcards_special: bool = False) -> str:
             try:
                 char = text[i + 1]
                 i += 1
-            except IndexError:
+            except IndexError as ex:
                 raise errors.SearchError(
                     "Unterminated escape sequence (did you forget to escape "
                     "the ending backslash?)"
-                )
+                ) from ex
             if char not in "*\\:-.,":
                 raise errors.SearchError(
                     "Unknown escape sequence (did you forget to escape the backslash?)"
@@ -48,14 +49,14 @@ def wildcard_transformer(value: str) -> str:
     )
 
 
-def enum_transformer(available_values: Dict[str, Any], value: str) -> str:
+def enum_transformer(available_values: dict[str, Any], value: str) -> str:
     try:
         return available_values[unescape(value.lower())]
-    except KeyError:
+    except KeyError as ex:
         raise errors.SearchError(
             "Invalid value: %r. Possible values: %r."
             % (value, list(sorted(available_values.keys())))
-        )
+        ) from ex
 
 
 def integer_transformer(value: str) -> int:
@@ -92,9 +93,11 @@ def apply_num_criterion_to_column(
             elif criterion.max_value:
                 expr = column <= transformer(criterion.max_value)
         else:
-            assert False
-    except ValueError:
-        raise errors.SearchError("Criterion value %r must be a number." % (criterion,))
+            raise AssertionError()
+    except ValueError as ex:
+        raise errors.SearchError(
+            "Criterion value %r must be a number." % (criterion,)
+        ) from ex
     return expr
 
 
@@ -103,7 +106,7 @@ def create_num_filter(
 ) -> SaQuery:
     def wrapper(
         query: SaQuery,
-        criterion: Optional[criteria.BaseCriterion],
+        criterion: criteria.BaseCriterion | None,
         negated: bool,
     ) -> SaQuery:
         assert criterion
@@ -132,7 +135,7 @@ def apply_str_criterion_to_column(
             "Did you forget to escape the dots?"
         )
     else:
-        assert False
+        raise AssertionError()
     return expr
 
 
@@ -141,7 +144,7 @@ def create_str_filter(
 ) -> Filter:
     def wrapper(
         query: SaQuery,
-        criterion: Optional[criteria.BaseCriterion],
+        criterion: criteria.BaseCriterion | None,
         negated: bool,
     ) -> SaQuery:
         assert criterion
@@ -177,14 +180,14 @@ def apply_date_criterion_to_column(
             max_date = util.parse_time_range(criterion.max_value)[1]
             expr = column <= max_date
     else:
-        assert False
+        raise AssertionError()
     return expr
 
 
 def create_date_filter(column: SaColumn) -> Filter:
     def wrapper(
         query: SaQuery,
-        criterion: Optional[criteria.BaseCriterion],
+        criterion: criteria.BaseCriterion | None,
         negated: bool,
     ) -> SaQuery:
         assert criterion
@@ -207,7 +210,7 @@ def create_subquery_filter(
 
     def wrapper(
         query: SaQuery,
-        criterion: Optional[criteria.BaseCriterion],
+        criterion: criteria.BaseCriterion | None,
         negated: bool,
     ) -> SaQuery:
         assert criterion

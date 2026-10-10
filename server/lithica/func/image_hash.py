@@ -1,14 +1,13 @@
 import logging
 import math
-from datetime import datetime
 from io import BytesIO
-from typing import Any, Callable, List, Optional, Set, Tuple
+from typing import Any
 
-from pillow_heif import register_heif_opener
 import numpy as np
 from PIL import Image, features
+from pillow_heif import register_heif_opener
 
-from lithica import config, errors
+from lithica import errors
 
 register_heif_opener()
 if not features.check("avif"):
@@ -38,7 +37,7 @@ SIG_CHUNK_WIDTH = int(SIG_CHUNK_BITS / math.log2(SIG_BASE))
 SIG_CHUNK_NUMS = SIG_NUMS / SIG_CHUNK_WIDTH
 assert SIG_NUMS % SIG_CHUNK_WIDTH == 0
 
-Window = Tuple[Tuple[float, float], Tuple[float, float]]
+Window = tuple[tuple[float, float], tuple[float, float]]
 NpMatrix = np.ndarray
 
 
@@ -46,10 +45,10 @@ def _preprocess_image(content: bytes) -> NpMatrix:
     try:
         img = Image.open(BytesIO(content))
         return np.asarray(img.convert("L"), dtype=np.uint8)
-    except (IOError, ValueError):
+    except (OSError, ValueError) as ex:
         raise errors.ProcessingError(
             "Unable to generate a signature hash for this image."
-        )
+        ) from ex
 
 
 def _crop_image(
@@ -110,7 +109,7 @@ def _normalize_and_threshold(
 
 def _compute_grid_points(
     image: NpMatrix, n: float, window: Window = None
-) -> Tuple[NpMatrix, NpMatrix]:
+) -> tuple[NpMatrix, NpMatrix]:
     if window is None:
         window = ((0, image.shape[0]), (0, image.shape[1]))
     x_coords = np.linspace(window[0][0], window[0][1], n + 2, dtype=int)[1:-1]
@@ -119,7 +118,7 @@ def _compute_grid_points(
 
 
 def _compute_mean_level(
-    image: NpMatrix, x_coords: NpMatrix, y_coords: NpMatrix, p: Optional[float]
+    image: NpMatrix, x_coords: NpMatrix, y_coords: NpMatrix, p: float | None
 ) -> NpMatrix:
     if p is None:
         p = max([2.0, int(0.5 + min(image.shape) / 20.0)])
@@ -198,7 +197,7 @@ def _compute_differentials(grey_level_matrix: NpMatrix) -> NpMatrix:
     )
 
 
-def _words_to_int(word_array: NpMatrix) -> List[int]:
+def _words_to_int(word_array: NpMatrix) -> list[int]:
     width = word_array.shape[1]
     coding_vector = 3 ** np.arange(width)
     return np.dot(word_array + 1, coding_vector).astype(int).tolist()
@@ -237,13 +236,13 @@ def generate_signature(content: bytes) -> NpMatrix:
     return np.ravel(diff_matrix).astype("int8")
 
 
-def generate_words(signature: NpMatrix) -> List[int]:
+def generate_words(signature: NpMatrix) -> list[int]:
     return _words_to_int(_get_words(signature, k=SAMPLE_WORDS, n=MAX_WORDS))
 
 
 def normalized_distance(
     target_array: Any, vec: NpMatrix, nan_value: float = 1.0
-) -> List[float]:
+) -> list[float]:
     target_array = np.array(target_array).astype(int)
     vec = vec.astype(int)
     topvec = np.linalg.norm(vec - target_array, axis=1)

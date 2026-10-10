@@ -1,5 +1,4 @@
 import re
-from typing import Optional
 
 
 def get_mime_type(content: bytes) -> str:
@@ -51,7 +50,7 @@ def get_mime_type(content: bytes) -> str:
     return "application/octet-stream"
 
 
-def get_extension(mime_type: str) -> Optional[str]:
+def get_extension(mime_type: str) -> str | None:
     extension_map = {
         "application/x-shockwave-flash": "swf",
         "image/gif": "gif",

@@ -1,12 +1,9 @@
-from typing import Dict
-
 from lithica import model, rest
 from lithica.func import (
     auth,
     serialization,
     snapshots,
     tag_categories,
-    tags,
     versions,
 )
 
@@ -19,8 +16,10 @@ def _serialize(ctx: rest.Context, category: model.TagCategory) -> rest.Response:
 
 @rest.routes.get("/tag-categories/?")
 def get_tag_categories(
-    ctx: rest.Context, _params: Dict[str, str] = {}
+    ctx: rest.Context, _params: dict[str, str] | None = None
 ) -> rest.Response:
+    if _params is None:
+        _params = {}
     auth.verify_privilege(ctx.user, "tag_categories:list")
     categories = tag_categories.get_all_categories()
     return {
@@ -30,8 +29,10 @@ def get_tag_categories(
 
 @rest.routes.post("/tag-categories/?")
 def create_tag_category(
-    ctx: rest.Context, _params: Dict[str, str] = {}
+    ctx: rest.Context, _params: dict[str, str] | None = None
 ) -> rest.Response:
+    if _params is None:
+        _params = {}
     auth.verify_privilege(ctx.user, "tag_categories:create")
     name = ctx.get_param_as_string("name")
     color = ctx.get_param_as_string("color")
@@ -45,14 +46,14 @@ def create_tag_category(
 
 
 @rest.routes.get("/tag-category/(?P<category_name>[^/]+)/?")
-def get_tag_category(ctx: rest.Context, params: Dict[str, str]) -> rest.Response:
+def get_tag_category(ctx: rest.Context, params: dict[str, str]) -> rest.Response:
     auth.verify_privilege(ctx.user, "tag_categories:view")
     category = tag_categories.get_category_by_name(params["category_name"])
     return _serialize(ctx, category)
 
 
 @rest.routes.put("/tag-category/(?P<category_name>[^/]+)/?")
-def update_tag_category(ctx: rest.Context, params: Dict[str, str]) -> rest.Response:
+def update_tag_category(ctx: rest.Context, params: dict[str, str]) -> rest.Response:
     category = tag_categories.get_category_by_name(params["category_name"], lock=True)
     versions.verify_version(category, ctx)
     versions.bump_version(category)
@@ -72,7 +73,7 @@ def update_tag_category(ctx: rest.Context, params: Dict[str, str]) -> rest.Respo
 
 
 @rest.routes.delete("/tag-category/(?P<category_name>[^/]+)/?")
-def delete_tag_category(ctx: rest.Context, params: Dict[str, str]) -> rest.Response:
+def delete_tag_category(ctx: rest.Context, params: dict[str, str]) -> rest.Response:
     category = tag_categories.get_category_by_name(params["category_name"], lock=True)
     versions.verify_version(category, ctx)
     auth.verify_privilege(ctx.user, "tag_categories:delete")
@@ -84,7 +85,7 @@ def delete_tag_category(ctx: rest.Context, params: Dict[str, str]) -> rest.Respo
 
 @rest.routes.put("/tag-category/(?P<category_name>[^/]+)/default/?")
 def set_tag_category_as_default(
-    ctx: rest.Context, params: Dict[str, str]
+    ctx: rest.Context, params: dict[str, str]
 ) -> rest.Response:
     auth.verify_privilege(ctx.user, "tag_categories:set_default")
     category = tag_categories.get_category_by_name(params["category_name"], lock=True)

@@ -1,5 +1,6 @@
+from collections.abc import Callable
 from datetime import datetime
-from typing import Any, Callable, Optional, Tuple
+from typing import Any
 
 from lithica import db, errors, model
 
@@ -10,7 +11,7 @@ class InvalidFavoriteTargetError(errors.ValidationError):
 
 def _get_table_info(
     entity: model.Base,
-) -> Tuple[model.Base, Callable[[model.Base], Any]]:
+) -> tuple[model.Base, Callable[[model.Base], Any]]:
     assert entity
     resource_type, _, _ = model.util.get_resource_info(entity)
     if resource_type == "post":
@@ -30,7 +31,7 @@ def has_favorited(entity: model.Base, user: model.User) -> bool:
     return _get_fav_entity(entity, user) is not None
 
 
-def unset_favorite(entity: model.Base, user: Optional[model.User]) -> None:
+def unset_favorite(entity: model.Base, user: model.User | None) -> None:
     assert entity
     assert user
     fav_entity = _get_fav_entity(entity, user)
@@ -38,7 +39,7 @@ def unset_favorite(entity: model.Base, user: Optional[model.User]) -> None:
         db.session.delete(fav_entity)
 
 
-def set_favorite(entity: model.Base, user: Optional[model.User]) -> None:
+def set_favorite(entity: model.Base, user: model.User | None) -> None:
     from lithica.func import scores
 
     assert entity

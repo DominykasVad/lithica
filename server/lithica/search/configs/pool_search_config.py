@@ -1,5 +1,3 @@
-from typing import Dict, Tuple
-
 import sqlalchemy as sa
 
 from lithica import db, model
@@ -40,7 +38,7 @@ class PoolSearchConfig(BaseSearchConfig):
         )
 
     @property
-    def named_filters(self) -> Dict[str, Filter]:
+    def named_filters(self) -> dict[str, Filter]:
         return util.unalias_dict(
             [
                 (
@@ -82,7 +80,7 @@ class PoolSearchConfig(BaseSearchConfig):
         )
 
     @property
-    def sort_columns(self) -> Dict[str, Tuple[SaColumn, str]]:
+    def sort_columns(self) -> dict[str, tuple[SaColumn, str]]:
         return util.unalias_dict(
             [
                 (

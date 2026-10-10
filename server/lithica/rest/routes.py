@@ -1,10 +1,10 @@
 from collections import defaultdict
-from typing import Callable, Dict
+from collections.abc import Callable
 
 from lithica.rest.context import Context, Response
 
-RouteHandler = Callable[[Context, Dict[str, str]], Response]
-routes = defaultdict(dict)  # type: Dict[str, Dict[str, RouteHandler]]
+RouteHandler = Callable[[Context, dict[str, str]], Response]
+routes: dict[str, dict[str, RouteHandler]] = defaultdict(dict)
 
 
 def get(url: str) -> Callable[[RouteHandler], RouteHandler]:

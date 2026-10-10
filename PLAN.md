@@ -103,7 +103,7 @@ nothing behaves differently.
 ### 0.5 Lint, format, types
 - [x] Configure ruff in `pyproject.toml` (line length 88, isort rules, pyflakes, pycodestyle, bugbear, pyupgrade). Remove black/isort/flake8 config (`.flake8`, `[tool.black]`, `[tool.isort]`).
 - [x] One commit: `ruff format` over the whole server. Nothing else in it.
-- [ ] One or more commits: fix `ruff check` findings (or add justified per-file ignores).
+- [x] One or more commits: fix `ruff check` findings (or add justified per-file ignores).
 - [ ] Configure pyright `basic`. Write the initial error count into this task line; it does not need to be zero in this phase, but CI reports it.
 - [ ] Update `.pre-commit-config.yaml`: ruff hooks for server; keep prettier/eslint for legacy client only if it still runs, otherwise drop them.
 

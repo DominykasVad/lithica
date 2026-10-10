@@ -1,10 +1,10 @@
-from typing import Any, Dict, List
+from typing import Any
 
 
-def get_list_diff(old: List[Any], new: List[Any]) -> Any:
+def get_list_diff(old: list[Any], new: list[Any]) -> Any:
     equal = True
-    removed = []  # type: List[Any]
-    added = []  # type: List[Any]
+    removed: list[Any] = []
+    added: list[Any] = []
 
     for item in old:
         if item not in new:
@@ -21,7 +21,7 @@ def get_list_diff(old: List[Any], new: List[Any]) -> Any:
     )
 
 
-def get_dict_diff(old: Dict[str, Any], new: Dict[str, Any]) -> Any:
+def get_dict_diff(old: dict[str, Any], new: dict[str, Any]) -> Any:
     value = {}
     equal = True
 

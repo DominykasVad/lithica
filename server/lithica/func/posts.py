@@ -1,7 +1,8 @@
 import hmac
 import logging
+from collections.abc import Callable
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any
 
 import sqlalchemy as sa
 
@@ -15,7 +16,6 @@ from lithica.func import (
     pools,
     scores,
     serialization,
-    snapshots,
     tags,
     users,
     util,
@@ -163,7 +163,7 @@ class PostSerializer(serialization.BaseSerializer):
         self.post = post
         self.auth_user = auth_user
 
-    def _serializers(self) -> Dict[str, Callable[[], Any]]:
+    def _serializers(self) -> dict[str, Callable[[], Any]]:
         return {
             "id": self.serialize_id,
             "version": self.serialize_version,
@@ -336,7 +336,7 @@ class PostSerializer(serialization.BaseSerializer):
             )
         ]
 
-    def serialize_pools(self) -> List[Any]:
+    def serialize_pools(self) -> list[Any]:
         return [
             pools.serialize_micro_pool(pool)
             for pool in sorted(self.post.pools, key=lambda pool: pool.creation_time)
@@ -344,8 +344,10 @@ class PostSerializer(serialization.BaseSerializer):
 
 
 def serialize_post(
-    post: Optional[model.Post], auth_user: model.User, options: List[str] = []
-) -> Optional[rest.Response]:
+    post: model.Post | None, auth_user: model.User, options: list[str] | None = None
+) -> rest.Response | None:
+    if options is None:
+        options = []
     if not post:
         return None
     return PostSerializer(post, auth_user).serialize(options)
@@ -353,7 +355,7 @@ def serialize_post(
 
 def serialize_micro_post(
     post: model.Post, auth_user: model.User
-) -> Optional[rest.Response]:
+) -> rest.Response | None:
     return serialize_post(post, auth_user=auth_user, options=["id", "thumbnailUrl"])
 
 
@@ -361,7 +363,7 @@ def get_post_count() -> int:
     return db.session.query(sa.func.count(model.Post.post_id)).one()[0]
 
 
-def try_get_post_by_id(post_id: int) -> Optional[model.Post]:
+def try_get_post_by_id(post_id: int) -> model.Post | None:
     return (
         db.session.query(model.Post).filter(model.Post.post_id == post_id).one_or_none()
     )
@@ -374,7 +376,7 @@ def get_post_by_id(post_id: int) -> model.Post:
     return post
 
 
-def get_posts_by_ids(ids: List[int]) -> List[model.Post]:
+def get_posts_by_ids(ids: list[int]) -> list[model.Post]:
     if len(ids) == 0:
         return []
     posts = (
@@ -386,7 +388,7 @@ def get_posts_by_ids(ids: List[int]) -> List[model.Post]:
     return sorted(posts, key=lambda post: id_order.get(post.post_id))
 
 
-def try_get_current_post_feature() -> Optional[model.PostFeature]:
+def try_get_current_post_feature() -> model.PostFeature | None:
     return (
         db.session.query(model.PostFeature)
         .order_by(model.PostFeature.time.desc())
@@ -394,14 +396,14 @@ def try_get_current_post_feature() -> Optional[model.PostFeature]:
     )
 
 
-def try_get_featured_post() -> Optional[model.Post]:
+def try_get_featured_post() -> model.Post | None:
     post_feature = try_get_current_post_feature()
     return post_feature.post if post_feature else None
 
 
 def create_post(
-    content: bytes, tag_names: List[str], user: Optional[model.User]
-) -> Tuple[model.Post, List[model.Tag]]:
+    content: bytes, tag_names: list[str], user: model.User | None
+) -> tuple[model.Post, list[model.Tag]]:
     post = model.Post()
     post.safety = model.Post.SAFETY_SAFE
     post.user = user
@@ -429,7 +431,7 @@ def update_post_safety(post: model.Post, safety: str) -> None:
     post.safety = safety
 
 
-def update_post_source(post: model.Post, source: Optional[str]) -> None:
+def update_post_source(post: model.Post, source: str | None) -> None:
     assert post
     if util.value_exceeds_column_size(source, model.Post.source):
         raise InvalidPostSourceError("Source is too long.")
@@ -480,7 +482,7 @@ def _sync_post_content(post: model.Post) -> None:
 
 def generate_alternate_formats(
     post: model.Post, content: bytes
-) -> List[Tuple[model.Post, List[model.Tag]]]:
+) -> list[tuple[model.Post, list[model.Tag]]]:
     assert post
     assert content
     new_posts = []
@@ -516,7 +518,7 @@ def generate_alternate_formats(
     return new_posts
 
 
-def get_default_flags(content: bytes) -> List[str]:
+def get_default_flags(content: bytes) -> list[str]:
     assert content
     ret = []
     if mime.is_video(mime.get_mime_type(content)):
@@ -543,9 +545,9 @@ def generate_post_signature(post: model.Post, content: bytes) -> None:
         db.session.add(
             model.PostSignature(post=post, signature=packed_signature, words=words)
         )
-    except errors.ProcessingError:
+    except errors.ProcessingError as ex:
         if not config.config["allow_broken_uploads"]:
-            raise InvalidPostContentError("Unable to generate image hash data.")
+            raise InvalidPostContentError("Unable to generate image hash data.") from ex
 
 
 def update_all_post_signatures() -> None:
@@ -584,7 +586,7 @@ def update_all_md5_checksums() -> None:
             logger.exception(ex)
 
 
-def update_post_content(post: model.Post, content: Optional[bytes]) -> None:
+def update_post_content(post: model.Post, content: bytes | None) -> None:
     assert post
     if not content:
         raise InvalidPostContentError("Post content missing.")
@@ -627,7 +629,7 @@ def update_post_content(post: model.Post, content: Optional[bytes]) -> None:
     except errors.ProcessingError as ex:
         logger.exception(ex)
         if not config.config["allow_broken_uploads"]:
-            raise InvalidPostContentError("Unable to process image metadata")
+            raise InvalidPostContentError("Unable to process image metadata") from ex
         else:
             post.canvas_width = None
             post.canvas_height = None
@@ -644,7 +646,7 @@ def update_post_content(post: model.Post, content: Optional[bytes]) -> None:
     setattr(post, "__content", content)
 
 
-def update_post_thumbnail(post: model.Post, content: Optional[bytes] = None) -> None:
+def update_post_thumbnail(post: model.Post, content: bytes | None = None) -> None:
     assert post
     setattr(post, "__thumbnail", content)
 
@@ -667,19 +669,19 @@ def generate_post_thumbnail(post: model.Post) -> None:
         files.save(get_post_thumbnail_path(post), EMPTY_PIXEL)
 
 
-def update_post_tags(post: model.Post, tag_names: List[str]) -> List[model.Tag]:
+def update_post_tags(post: model.Post, tag_names: list[str]) -> list[model.Tag]:
     assert post
     existing_tags, new_tags = tags.get_or_create_tags_by_names(tag_names)
     post.tags = existing_tags + new_tags
     return new_tags
 
 
-def update_post_relations(post: model.Post, new_post_ids: List[int]) -> None:
+def update_post_relations(post: model.Post, new_post_ids: list[int]) -> None:
     assert post
     try:
         new_post_ids = [int(id) for id in new_post_ids]
-    except ValueError:
-        raise InvalidPostRelationError("A relation must be numeric post ID.")
+    except ValueError as ex:
+        raise InvalidPostRelationError("A relation must be numeric post ID.") from ex
     old_posts = post.relations
     old_post_ids = [int(p.post_id) for p in old_posts]
     if new_post_ids:
@@ -734,8 +736,10 @@ def update_post_notes(post: model.Post, notes: Any) -> None:
                     raise InvalidPostNoteError(
                         "All points must fit in the image (0..1 range)."
                     )
-            except ValueError:
-                raise InvalidPostNoteError("A point in note's polygon must be numeric.")
+            except ValueError as ex:
+                raise InvalidPostNoteError(
+                    "A point in note's polygon must be numeric."
+                ) from ex
         if util.value_exceeds_column_size(note["text"], model.PostNote.text):
             raise InvalidPostNoteError("Note text is too long.")
         post.notes.append(
@@ -743,7 +747,7 @@ def update_post_notes(post: model.Post, notes: Any) -> None:
         )
 
 
-def update_post_flags(post: model.Post, flags: List[str]) -> None:
+def update_post_flags(post: model.Post, flags: list[str]) -> None:
     assert post
     target_flags = []
     for flag in flags:
@@ -756,7 +760,7 @@ def update_post_flags(post: model.Post, flags: List[str]) -> None:
     post.flags = target_flags
 
 
-def feature_post(post: model.Post, user: Optional[model.User]) -> None:
+def feature_post(post: model.Post, user: model.User | None) -> None:
     assert post
     if user and not user.name:
         user = None
@@ -782,7 +786,7 @@ def merge_posts(
 
     def merge_tables(
         table: model.Base,
-        anti_dup_func: Optional[Callable[[model.Base, model.Base], bool]],
+        anti_dup_func: Callable[[model.Base, model.Base], bool] | None,
         source_post_id: int,
         target_post_id: int,
     ) -> None:
@@ -884,7 +888,7 @@ def merge_posts(
         update_post_content(target_post, content)
 
 
-def search_by_image_exact(image_content: bytes) -> Optional[model.Post]:
+def search_by_image_exact(image_content: bytes) -> model.Post | None:
     checksum = util.get_sha1(image_content)
     return (
         db.session.query(model.Post)
@@ -893,7 +897,7 @@ def search_by_image_exact(image_content: bytes) -> Optional[model.Post]:
     )
 
 
-def search_by_image(image_content: bytes) -> List[Tuple[float, model.Post]]:
+def search_by_image(image_content: bytes) -> list[tuple[float, model.Post]]:
     query_signature = image_hash.generate_signature(image_content)
     query_words = image_hash.generate_words(query_signature)
 
@@ -919,7 +923,8 @@ def search_by_image(image_content: bytes) -> List[Tuple[float, model.Post]]:
             *[
                 (post_id, image_hash.unpack_signature(packedsig))
                 for post_id, packedsig, score in candidates
-            ]
+            ],
+            strict=False,
         )
     )
     if data:
@@ -927,7 +932,9 @@ def search_by_image(image_content: bytes) -> List[Tuple[float, model.Post]]:
         distances = image_hash.normalized_distance(sigarray, query_signature)
         return [
             (distance, try_get_post_by_id(candidate_post_id))
-            for candidate_post_id, distance in zip(candidate_post_ids, distances)
+            for candidate_post_id, distance in zip(
+                candidate_post_ids, distances, strict=False
+            )
             if distance < image_hash.DISTANCE_CUTOFF
         ]
     else:

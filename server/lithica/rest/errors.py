@@ -1,4 +1,4 @@
-from typing import Callable, Dict, Optional, Type
+from collections.abc import Callable
 
 error_handlers = {}
 
@@ -11,8 +11,8 @@ class BaseHttpError(RuntimeError):
         self,
         name: str,
         description: str,
-        title: Optional[str] = None,
-        extra_fields: Optional[Dict[str, str]] = None,
+        title: str | None = None,
+        extra_fields: dict[str, str] | None = None,
     ) -> None:
         super().__init__()
         # error name for programmers
@@ -61,6 +61,6 @@ class HttpInternalServerError(BaseHttpError):
 
 
 def handle(
-    exception_type: Type[Exception], handler: Callable[[Exception], None]
+    exception_type: type[Exception], handler: Callable[[Exception], None]
 ) -> None:
     error_handlers[exception_type] = handler

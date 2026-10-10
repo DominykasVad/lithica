@@ -3,7 +3,6 @@ import os
 import random
 import string
 from datetime import datetime
-from unittest.mock import patch
 
 import freezegun
 import pytest
@@ -111,7 +110,7 @@ def transacted_postgresql_db(_pg_engine):
     conn = _pg_engine.connect()
     trans = conn.begin()
     # bind= is deprecated in SA 2.0 but still functional; removed in SA 3.0
-    session = sa_orm.Session(bind=conn)  # noqa: SA-legacy
+    session = sa_orm.Session(bind=conn)
     # A savepoint makes session.commit() release the savepoint rather than
     # committing the outer connection-level transaction.
     session.begin_nested()

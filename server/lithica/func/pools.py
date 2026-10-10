@@ -1,6 +1,7 @@
 import re
+from collections.abc import Callable
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any
 
 import sqlalchemy as sa
 
@@ -52,17 +53,17 @@ def _verify_name_validity(name: str) -> None:
         raise InvalidPoolNameError("Name must satisfy regex %r." % name_regex)
 
 
-def _get_names(pool: model.Pool) -> List[str]:
+def _get_names(pool: model.Pool) -> list[str]:
     assert pool
     return [pool_name.name for pool_name in pool.names]
 
 
-def _lower_list(names: List[str]) -> List[str]:
+def _lower_list(names: list[str]) -> list[str]:
     return [name.lower() for name in names]
 
 
 def _check_name_intersection(
-    names1: List[str], names2: List[str], case_sensitive: bool
+    names1: list[str], names2: list[str], case_sensitive: bool
 ) -> bool:
     if not case_sensitive:
         names1 = _lower_list(names1)
@@ -70,7 +71,7 @@ def _check_name_intersection(
     return len(set(names1).intersection(names2)) > 0
 
 
-def _duplicates(a: List[int]) -> List[int]:
+def _duplicates(a: list[int]) -> list[int]:
     seen = set()
     dupes = []
     for x in a:
@@ -81,7 +82,7 @@ def _duplicates(a: List[int]) -> List[int]:
     return dupes
 
 
-def sort_pools(pools: List[model.Pool]) -> List[model.Pool]:
+def sort_pools(pools: list[model.Pool]) -> list[model.Pool]:
     default_category_name = pool_categories.get_default_category_name()
     return sorted(
         pools,
@@ -97,7 +98,7 @@ class PoolSerializer(serialization.BaseSerializer):
     def __init__(self, pool: model.Pool) -> None:
         self.pool = pool
 
-    def _serializers(self) -> Dict[str, Callable[[], Any]]:
+    def _serializers(self) -> dict[str, Callable[[], Any]]:
         return {
             "id": self.serialize_id,
             "names": self.serialize_names,
@@ -144,20 +145,22 @@ class PoolSerializer(serialization.BaseSerializer):
 
 
 def serialize_pool(
-    pool: model.Pool, options: List[str] = []
-) -> Optional[rest.Response]:
+    pool: model.Pool, options: list[str] | None = None
+) -> rest.Response | None:
+    if options is None:
+        options = []
     if not pool:
         return None
     return PoolSerializer(pool).serialize(options)
 
 
-def serialize_micro_pool(pool: model.Pool) -> Optional[rest.Response]:
+def serialize_micro_pool(pool: model.Pool) -> rest.Response | None:
     return serialize_pool(
         pool, options=["id", "names", "category", "description", "postCount"]
     )
 
 
-def try_get_pool_by_id(pool_id: int) -> Optional[model.Pool]:
+def try_get_pool_by_id(pool_id: int) -> model.Pool | None:
     return (
         db.session.query(model.Pool).filter(model.Pool.pool_id == pool_id).one_or_none()
     )
@@ -170,7 +173,7 @@ def get_pool_by_id(pool_id: int) -> model.Pool:
     return pool
 
 
-def try_get_pool_by_name(name: str) -> Optional[model.Pool]:
+def try_get_pool_by_name(name: str) -> model.Pool | None:
     return (
         db.session.query(model.Pool)
         .join(model.PoolName)
@@ -186,7 +189,7 @@ def get_pool_by_name(name: str) -> model.Pool:
     return pool
 
 
-def get_pools_by_names(names: List[str]) -> List[model.Pool]:
+def get_pools_by_names(names: list[str]) -> list[model.Pool]:
     names = util.icase_unique(names)
     if len(names) == 0:
         return []
@@ -203,8 +206,8 @@ def get_pools_by_names(names: List[str]) -> List[model.Pool]:
 
 
 def get_or_create_pools_by_names(
-    names: List[str],
-) -> Tuple[List[model.Pool], List[model.Pool]]:
+    names: list[str],
+) -> tuple[list[model.Pool], list[model.Pool]]:
     names = util.icase_unique(names)
     existing_pools = get_pools_by_names(names)
     new_pools = []
@@ -254,7 +257,7 @@ def merge_pools(source_pool: model.Pool, target_pool: model.Pool) -> None:
 
 
 def create_pool(
-    names: List[str], category_name: str, post_ids: List[int]
+    names: list[str], category_name: str, post_ids: list[int]
 ) -> model.Pool:
     pool = model.Pool()
     pool.creation_time = datetime.utcnow()
@@ -269,7 +272,7 @@ def update_pool_category_name(pool: model.Pool, category_name: str) -> None:
     pool.category = pool_categories.get_category_by_name(category_name)
 
 
-def update_pool_names(pool: model.Pool, names: List[str]) -> None:
+def update_pool_names(pool: model.Pool, names: list[str]) -> None:
     # sanitize
     assert pool
     names = util.icase_unique([name for name in names if name])
@@ -311,7 +314,7 @@ def update_pool_description(pool: model.Pool, description: str) -> None:
     pool.description = description or None
 
 
-def update_pool_posts(pool: model.Pool, post_ids: List[int]) -> None:
+def update_pool_posts(pool: model.Pool, post_ids: list[int]) -> None:
     assert pool
     dupes = _duplicates(post_ids)
     if len(dupes) > 0:

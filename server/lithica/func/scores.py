@@ -1,5 +1,6 @@
 import datetime
-from typing import Any, Callable, Tuple
+from collections.abc import Callable
+from typing import Any
 
 from lithica import db, errors, model
 
@@ -14,7 +15,7 @@ class InvalidScoreValueError(errors.ValidationError):
 
 def _get_table_info(
     entity: model.Base,
-) -> Tuple[model.Base, Callable[[model.Base], Any]]:
+) -> tuple[model.Base, Callable[[model.Base], Any]]:
     assert entity
     resource_type, _, _ = model.util.get_resource_info(entity)
     if resource_type == "post":

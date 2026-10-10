@@ -1,10 +1,7 @@
-from typing import Dict
-
 from lithica import model, rest
 from lithica.func import (
     auth,
     pool_categories,
-    pools,
     serialization,
     snapshots,
     versions,
@@ -19,8 +16,10 @@ def _serialize(ctx: rest.Context, category: model.PoolCategory) -> rest.Response
 
 @rest.routes.get("/pool-categories/?")
 def get_pool_categories(
-    ctx: rest.Context, _params: Dict[str, str] = {}
+    ctx: rest.Context, _params: dict[str, str] | None = None
 ) -> rest.Response:
+    if _params is None:
+        _params = {}
     auth.verify_privilege(ctx.user, "pool_categories:list")
     categories = pool_categories.get_all_categories()
     return {
@@ -30,8 +29,10 @@ def get_pool_categories(
 
 @rest.routes.post("/pool-categories/?")
 def create_pool_category(
-    ctx: rest.Context, _params: Dict[str, str] = {}
+    ctx: rest.Context, _params: dict[str, str] | None = None
 ) -> rest.Response:
+    if _params is None:
+        _params = {}
     auth.verify_privilege(ctx.user, "pool_categories:create")
     name = ctx.get_param_as_string("name")
     color = ctx.get_param_as_string("color")
@@ -44,14 +45,14 @@ def create_pool_category(
 
 
 @rest.routes.get("/pool-category/(?P<category_name>[^/]+)/?")
-def get_pool_category(ctx: rest.Context, params: Dict[str, str]) -> rest.Response:
+def get_pool_category(ctx: rest.Context, params: dict[str, str]) -> rest.Response:
     auth.verify_privilege(ctx.user, "pool_categories:view")
     category = pool_categories.get_category_by_name(params["category_name"])
     return _serialize(ctx, category)
 
 
 @rest.routes.put("/pool-category/(?P<category_name>[^/]+)/?")
-def update_pool_category(ctx: rest.Context, params: Dict[str, str]) -> rest.Response:
+def update_pool_category(ctx: rest.Context, params: dict[str, str]) -> rest.Response:
     category = pool_categories.get_category_by_name(params["category_name"], lock=True)
     versions.verify_version(category, ctx)
     versions.bump_version(category)
@@ -70,7 +71,7 @@ def update_pool_category(ctx: rest.Context, params: Dict[str, str]) -> rest.Resp
 
 
 @rest.routes.delete("/pool-category/(?P<category_name>[^/]+)/?")
-def delete_pool_category(ctx: rest.Context, params: Dict[str, str]) -> rest.Response:
+def delete_pool_category(ctx: rest.Context, params: dict[str, str]) -> rest.Response:
     category = pool_categories.get_category_by_name(params["category_name"], lock=True)
     versions.verify_version(category, ctx)
     auth.verify_privilege(ctx.user, "pool_categories:delete")
@@ -82,7 +83,7 @@ def delete_pool_category(ctx: rest.Context, params: Dict[str, str]) -> rest.Resp
 
 @rest.routes.put("/pool-category/(?P<category_name>[^/]+)/default/?")
 def set_pool_category_as_default(
-    ctx: rest.Context, params: Dict[str, str]
+    ctx: rest.Context, params: dict[str, str]
 ) -> rest.Response:
     auth.verify_privilege(ctx.user, "pool_categories:set_default")
     category = pool_categories.get_category_by_name(params["category_name"], lock=True)

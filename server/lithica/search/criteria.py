@@ -1,8 +1,3 @@
-from typing import List, Optional
-
-from lithica.search.typing import SaQuery
-
-
 class BaseCriterion:
     def __init__(self, original_text: str) -> None:
         self.original_text = original_text
@@ -15,8 +10,8 @@ class RangedCriterion(BaseCriterion):
     def __init__(
         self,
         original_text: str,
-        min_value: Optional[str],
-        max_value: Optional[str],
+        min_value: str | None,
+        max_value: str | None,
     ) -> None:
         super().__init__(original_text)
         self.min_value = min_value
@@ -36,7 +31,7 @@ class PlainCriterion(BaseCriterion):
 
 
 class ArrayCriterion(BaseCriterion):
-    def __init__(self, original_text: str, values: List[str]) -> None:
+    def __init__(self, original_text: str, values: list[str]) -> None:
         super().__init__(original_text)
         self.values = values
 

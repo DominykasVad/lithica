@@ -1,5 +1,6 @@
 import re
-from typing import Any, Callable, Dict, List, Optional
+from collections.abc import Callable
+from typing import Any
 
 import sqlalchemy as sa
 
@@ -39,7 +40,7 @@ class PoolCategorySerializer(serialization.BaseSerializer):
     def __init__(self, category: model.PoolCategory) -> None:
         self.category = category
 
-    def _serializers(self) -> Dict[str, Callable[[], Any]]:
+    def _serializers(self) -> dict[str, Callable[[], Any]]:
         return {
             "name": self.serialize_name,
             "version": self.serialize_version,
@@ -65,8 +66,10 @@ class PoolCategorySerializer(serialization.BaseSerializer):
 
 
 def serialize_category(
-    category: Optional[model.PoolCategory], options: List[str] = []
-) -> Optional[rest.Response]:
+    category: model.PoolCategory | None, options: list[str] | None = None
+) -> rest.Response | None:
+    if options is None:
+        options = []
     if not category:
         return None
     return PoolCategorySerializer(category).serialize(options)
@@ -113,7 +116,7 @@ def update_category_color(category: model.PoolCategory, color: str) -> None:
 
 def try_get_category_by_name(
     name: str, lock: bool = False
-) -> Optional[model.PoolCategory]:
+) -> model.PoolCategory | None:
     query = db.session.query(model.PoolCategory).filter(
         sa.func.lower(model.PoolCategory.name) == name.lower()
     )
@@ -129,11 +132,11 @@ def get_category_by_name(name: str, lock: bool = False) -> model.PoolCategory:
     return category
 
 
-def get_all_category_names() -> List[str]:
+def get_all_category_names() -> list[str]:
     return [cat.name for cat in get_all_categories()]
 
 
-def get_all_categories() -> List[model.PoolCategory]:
+def get_all_categories() -> list[model.PoolCategory]:
     return (
         db.session.query(model.PoolCategory)
         .order_by(model.PoolCategory.name.asc())
@@ -143,7 +146,7 @@ def get_all_categories() -> List[model.PoolCategory]:
 
 def try_get_default_category(
     lock: bool = False,
-) -> Optional[model.PoolCategory]:
+) -> model.PoolCategory | None:
     query = db.session.query(model.PoolCategory).filter(model.PoolCategory.default)
     if lock:
         query = query.with_for_update()

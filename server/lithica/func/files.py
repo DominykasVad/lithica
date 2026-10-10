@@ -1,5 +1,5 @@
 import os
-from typing import Any, List, Optional
+from typing import Any
 
 from lithica import config
 
@@ -18,7 +18,7 @@ def has(path: str) -> bool:
     return os.path.exists(_get_full_path(path))
 
 
-def scan(path: str) -> List[Any]:
+def scan(path: str) -> list[Any]:
     if has(path):
         return list(os.scandir(_get_full_path(path)))
     return []
@@ -28,7 +28,7 @@ def move(source_path: str, target_path: str) -> None:
     os.rename(_get_full_path(source_path), _get_full_path(target_path))
 
 
-def get(path: str) -> Optional[bytes]:
+def get(path: str) -> bytes | None:
     full_path = _get_full_path(path)
     if not os.path.exists(full_path):
         return None

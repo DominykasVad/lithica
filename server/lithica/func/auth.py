@@ -3,7 +3,6 @@ import random
 import uuid
 from collections import OrderedDict
 from datetime import datetime
-from typing import Optional, Tuple
 
 from nacl import pwhash
 from nacl.exceptions import InvalidkeyError
@@ -24,7 +23,7 @@ RANK_MAP = OrderedDict(
 )
 
 
-def get_password_hash(salt: str, password: str) -> Tuple[str, int]:
+def get_password_hash(salt: str, password: str) -> tuple[str, int]:
     """Retrieve argon2id password hash."""
     return (
         pwhash.argon2id.str(
@@ -34,7 +33,7 @@ def get_password_hash(salt: str, password: str) -> Tuple[str, int]:
     )
 
 
-def get_sha256_legacy_password_hash(salt: str, password: str) -> Tuple[str, int]:
+def get_sha256_legacy_password_hash(salt: str, password: str) -> tuple[str, int]:
     """Retrieve old-style sha256 password hash."""
     digest = hashlib.sha256()
     digest.update(config.config["secret"].encode("utf8"))
@@ -43,7 +42,7 @@ def get_sha256_legacy_password_hash(salt: str, password: str) -> Tuple[str, int]
     return digest.hexdigest(), 2
 
 
-def get_sha1_legacy_password_hash(salt: str, password: str) -> Tuple[str, int]:
+def get_sha1_legacy_password_hash(salt: str, password: str) -> tuple[str, int]:
     """Retrieve old-style sha1 password hash."""
     digest = hashlib.sha1()
     digest.update(b"1A2/$_4xVa")
@@ -87,7 +86,7 @@ def is_valid_password(user: model.User, password: str) -> bool:
     return False
 
 
-def is_valid_token(user_token: Optional[model.UserToken]) -> bool:
+def is_valid_token(user_token: model.UserToken | None) -> bool:
     """
     Token must be enabled and if it has an expiration, it must be
     greater than now.

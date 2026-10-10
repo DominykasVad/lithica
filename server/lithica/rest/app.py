@@ -1,8 +1,9 @@
 import json
 import re
 import urllib.parse
+from collections.abc import Callable
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Tuple, Union
+from typing import Any
 
 import python_multipart
 from python_multipart.exceptions import FormParserError
@@ -25,8 +26,8 @@ def _dump_json(obj: Any) -> str:
     return json.dumps(obj, default=_json_serializer, indent=2)
 
 
-def _get_headers(env: Dict[str, Any]) -> Dict[str, str]:
-    headers = {}  # type: Dict[str, str]
+def _get_headers(env: dict[str, Any]) -> dict[str, str]:
+    headers: dict[str, str] = {}
     for key, value in env.items():
         if key.startswith("HTTP_"):
             key = util.snake_case_to_upper_train_case(key[5:])
@@ -34,13 +35,13 @@ def _get_headers(env: Dict[str, Any]) -> Dict[str, str]:
     return headers
 
 
-def _parse_multipart(env: Dict[str, Any]) -> Dict[str, Union[bytes, str]]:
+def _parse_multipart(env: dict[str, Any]) -> dict[str, bytes | str]:
     """
     Read a multipart/form-data body. Parts that carry a file name are
     returned as bytes, plain form fields as str.
     """
-    parts = {}  # type: Dict[str, Union[bytes, str]]
-    opened = []  # type: List[File]
+    parts: dict[str, bytes | str] = {}
+    opened: list[File] = []
 
     def on_field(field: Field) -> None:
         if field.field_name is not None:
@@ -60,17 +61,17 @@ def _parse_multipart(env: Dict[str, Any]) -> Dict[str, Union[bytes, str]]:
         headers["Content-Length"] = env["CONTENT_LENGTH"].encode("latin-1")
     try:
         python_multipart.parse_form(headers, env["wsgi.input"], on_field, on_file)
-    except (FormParserError, UnicodeDecodeError):
+    except (FormParserError, UnicodeDecodeError) as ex:
         raise errors.HttpBadRequest(
             "ValidationError", "Could not decode the multipart request body."
-        )
+        ) from ex
     finally:
         for file in opened:
             file.close()
     return parts
 
 
-def _create_context(env: Dict[str, Any]) -> context.Context:
+def _create_context(env: dict[str, Any]) -> context.Context:
     method = env["REQUEST_METHOD"]
     path = "/" + env["PATH_INFO"].lstrip("/")
     path = path.encode("latin-1").decode("utf-8")  # PEP-3333
@@ -94,19 +95,19 @@ def _create_context(env: Dict[str, Any]) -> context.Context:
 
             for key, value in json.loads(body).items():
                 params[key] = value
-        except (ValueError, UnicodeDecodeError):
+        except (ValueError, UnicodeDecodeError) as ex:
             raise errors.HttpBadRequest(
                 "ValidationError",
                 "Could not decode the request body. The JSON "
                 "was incorrect or was not encoded as UTF-8.",
-            )
+            ) from ex
 
     return context.Context(env, method, path, headers, params, files)
 
 
 def application(
-    env: Dict[str, Any], start_response: Callable[[str, Any], Any]
-) -> Tuple[bytes]:
+    env: dict[str, Any], start_response: Callable[[str, Any], Any]
+) -> tuple[bytes]:
     try:
         ctx = _create_context(env)
         if "application/json" not in ctx.get_header("Accept"):

@@ -1,10 +1,10 @@
-from typing import Callable, Dict, Optional, Tuple
+from collections.abc import Callable
 
 from lithica.search import criteria, tokens
 from lithica.search.query import SearchQuery
 from lithica.search.typing import SaColumn, SaQuery
 
-Filter = Callable[[SaQuery, Optional[criteria.BaseCriterion], bool], SaQuery]
+Filter = Callable[[SaQuery, criteria.BaseCriterion | None, bool], SaQuery]
 
 
 class BaseSearchConfig:
@@ -32,17 +32,17 @@ class BaseSearchConfig:
         return None
 
     @property
-    def anonymous_filter(self) -> Optional[Filter]:
+    def anonymous_filter(self) -> Filter | None:
         return None
 
     @property
-    def special_filters(self) -> Dict[str, Filter]:
+    def special_filters(self) -> dict[str, Filter]:
         return {}
 
     @property
-    def named_filters(self) -> Dict[str, Filter]:
+    def named_filters(self) -> dict[str, Filter]:
         return {}
 
     @property
-    def sort_columns(self) -> Dict[str, Tuple[SaColumn, str]]:
+    def sort_columns(self) -> dict[str, tuple[SaColumn, str]]:
         return {}

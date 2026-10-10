@@ -2,9 +2,10 @@ import hashlib
 import os
 import re
 import tempfile
+from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import datetime, timedelta
-from typing import Any, Dict, Generator, List, Optional, Tuple, TypeVar, Union
+from typing import Any, TypeVar
 
 from lithica import errors
 
@@ -22,7 +23,7 @@ def snake_case_to_upper_train_case(text: str) -> str:
     return "-".join(word[0].upper() + word[1:].lower() for word in text.split("_"))
 
 
-def snake_case_to_lower_camel_case_keys(source: Dict[str, Any]) -> Dict[str, Any]:
+def snake_case_to_lower_camel_case_keys(source: dict[str, Any]) -> dict[str, Any]:
     target = {}
     for key, value in source.items():
         target[snake_case_to_lower_camel_case(key)] = value
@@ -50,15 +51,15 @@ def create_temp_file_path(**kwargs: Any) -> Generator:
         os.remove(path)
 
 
-def unalias_dict(source: List[Tuple[List[str], T]]) -> Dict[str, T]:
-    output_dict = {}  # type: Dict[str, T]
+def unalias_dict[T](source: list[tuple[list[str], T]]) -> dict[str, T]:
+    output_dict: dict[str, T] = {}
     for aliases, value in source:
         for alias in aliases:
             output_dict[alias] = value
     return output_dict
 
 
-def get_md5(source: Union[str, bytes]) -> str:
+def get_md5(source: str | bytes) -> str:
     if not isinstance(source, bytes):
         source = source.encode("utf-8")
     md5 = hashlib.md5()
@@ -66,7 +67,7 @@ def get_md5(source: Union[str, bytes]) -> str:
     return md5.hexdigest()
 
 
-def get_sha1(source: Union[str, bytes]) -> str:
+def get_sha1(source: str | bytes) -> str:
     if not isinstance(source, bytes):
         source = source.encode("utf-8")
     sha1 = hashlib.sha1()
@@ -74,11 +75,11 @@ def get_sha1(source: Union[str, bytes]) -> str:
     return sha1.hexdigest()
 
 
-def flip(source: Dict[Any, Any]) -> Dict[Any, Any]:
+def flip(source: dict[Any, Any]) -> dict[Any, Any]:
     return {v: k for k, v in source.items()}
 
 
-def is_valid_email(email: Optional[str]) -> bool:
+def is_valid_email(email: str | None) -> bool:
     """Return whether given email address is valid or empty."""
     return not email or re.fullmatch(r"^[^@]*@[^@]*\.[^@]*$", email) is not None
 
@@ -93,7 +94,7 @@ class dotdict(dict):
     __delattr__ = dict.__delitem__
 
 
-def parse_time_range(value: str) -> Tuple[datetime, datetime]:
+def parse_time_range(value: str) -> tuple[datetime, datetime]:
     """Return tuple containing min/max time for given text representation."""
     one_day = timedelta(days=1)
     one_second = timedelta(seconds=1)
@@ -144,9 +145,9 @@ def parse_time_range(value: str) -> Tuple[datetime, datetime]:
     raise errors.ValidationError("Invalid date format: %r." % value)
 
 
-def icase_unique(source: List[str]) -> List[str]:
-    target = []  # type: List[str]
-    target_low = []  # type: List[str]
+def icase_unique(source: list[str]) -> list[str]:
+    target: list[str] = []
+    target_low: list[str] = []
     for source_item in source:
         if source_item.lower() not in target_low:
             target.append(source_item)
@@ -154,7 +155,7 @@ def icase_unique(source: List[str]) -> List[str]:
     return target
 
 
-def value_exceeds_column_size(value: Optional[str], column: Any) -> bool:
+def value_exceeds_column_size(value: str | None, column: Any) -> bool:
     if not value:
         return False
     max_length = column.property.columns[0].type.length
@@ -163,12 +164,12 @@ def value_exceeds_column_size(value: Optional[str], column: Any) -> bool:
     return len(value) > max_length
 
 
-def get_column_size(column: Any) -> Optional[int]:
+def get_column_size(column: Any) -> int | None:
     if not column:
         return None
     return column.property.columns[0].type.length
 
 
-def chunks(source_list: List[Any], part_size: int) -> Generator:
+def chunks(source_list: list[Any], part_size: int) -> Generator:
     for i in range(0, len(source_list), part_size):
         yield source_list[i : i + part_size]

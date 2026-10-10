@@ -1,5 +1,3 @@
-from typing import Any, Dict, Optional, Tuple
-
 import sqlalchemy as sa
 
 from lithica import db, errors, model
@@ -54,7 +52,7 @@ def _source_transformer(value: str) -> str:
 def _create_score_filter(score: int) -> Filter:
     def wrapper(
         query: SaQuery,
-        criterion: Optional[criteria.BaseCriterion],
+        criterion: criteria.BaseCriterion | None,
         negated: bool,
     ) -> SaQuery:
         assert criterion
@@ -81,7 +79,7 @@ def _create_score_filter(score: int) -> Filter:
 
 
 def _user_filter(
-    query: SaQuery, criterion: Optional[criteria.BaseCriterion], negated: bool
+    query: SaQuery, criterion: criteria.BaseCriterion | None, negated: bool
 ) -> SaQuery:
     assert criterion
     if isinstance(criterion, criteria.PlainCriterion) and not criterion.value:
@@ -98,7 +96,7 @@ def _user_filter(
 
 
 def _note_filter(
-    query: SaQuery, criterion: Optional[criteria.BaseCriterion], negated: bool
+    query: SaQuery, criterion: criteria.BaseCriterion | None, negated: bool
 ) -> SaQuery:
     assert criterion
     return search_util.create_subquery_filter(
@@ -110,7 +108,7 @@ def _note_filter(
 
 
 def _pool_filter(
-    query: SaQuery, criterion: Optional[criteria.BaseCriterion], negated: bool
+    query: SaQuery, criterion: criteria.BaseCriterion | None, negated: bool
 ) -> SaQuery:
     assert criterion
     return search_util.create_subquery_filter(
@@ -122,7 +120,7 @@ def _pool_filter(
 
 
 def _category_filter(
-    query: SaQuery, criterion: Optional[criteria.BaseCriterion], negated: bool
+    query: SaQuery, criterion: criteria.BaseCriterion | None, negated: bool
 ) -> SaQuery:
     assert criterion
 
@@ -147,7 +145,7 @@ def _category_filter(
 
 class PostSearchConfig(BaseSearchConfig):
     def __init__(self) -> None:
-        self.user = None  # type: Optional[model.User]
+        self.user: model.User | None = None
 
     def on_search_query_parsed(self, search_query: SearchQuery) -> SaQuery:
         new_special_tokens = []
@@ -159,7 +157,7 @@ class PostSearchConfig(BaseSearchConfig):
                 criterion = criteria.PlainCriterion(
                     original_text=self.user.name, value=self.user.name
                 )
-                setattr(criterion, "internal", True)
+                criterion.internal = True
                 search_query.named_tokens.append(
                     tokens.NamedToken(
                         name=token.value,
@@ -206,7 +204,7 @@ class PostSearchConfig(BaseSearchConfig):
         return model.Post.post_id
 
     @property
-    def anonymous_filter(self) -> Optional[Filter]:
+    def anonymous_filter(self) -> Filter | None:
         return search_util.create_subquery_filter(
             model.Post.post_id,
             model.PostTag.post_id,
@@ -216,7 +214,7 @@ class PostSearchConfig(BaseSearchConfig):
         )
 
     @property
-    def named_filters(self) -> Dict[str, Filter]:
+    def named_filters(self) -> dict[str, Filter]:
         return util.unalias_dict(
             [
                 (["id"], search_util.create_num_filter(model.Post.post_id)),
@@ -365,7 +363,7 @@ class PostSearchConfig(BaseSearchConfig):
         )
 
     @property
-    def sort_columns(self) -> Dict[str, Tuple[SaColumn, str]]:
+    def sort_columns(self) -> dict[str, tuple[SaColumn, str]]:
         return util.unalias_dict(
             [
                 (
@@ -431,7 +429,7 @@ class PostSearchConfig(BaseSearchConfig):
         )
 
     @property
-    def special_filters(self) -> Dict[str, Filter]:
+    def special_filters(self) -> dict[str, Filter]:
         return {
             # handled by parser
             "fav": self.noop_filter,
@@ -443,7 +441,7 @@ class PostSearchConfig(BaseSearchConfig):
     def noop_filter(
         self,
         query: SaQuery,
-        _criterion: Optional[criteria.BaseCriterion],
+        _criterion: criteria.BaseCriterion | None,
         _negated: bool,
     ) -> SaQuery:
         return query
@@ -451,7 +449,7 @@ class PostSearchConfig(BaseSearchConfig):
     def tumbleweed_filter(
         self,
         query: SaQuery,
-        _criterion: Optional[criteria.BaseCriterion],
+        _criterion: criteria.BaseCriterion | None,
         negated: bool,
     ) -> SaQuery:
         expr = (

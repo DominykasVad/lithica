@@ -1,5 +1,4 @@
 from datetime import datetime, timedelta
-from typing import Optional
 
 from lithica.func import files, util
 
@@ -18,7 +17,7 @@ def purge_old_uploads() -> None:
             files.delete("temporary-uploads/%s" % file.name)
 
 
-def get(checksum: str) -> Optional[bytes]:
+def get(checksum: str) -> bytes | None:
     return files.get("temporary-uploads/%s.dat" % checksum)
 
 

@@ -1,6 +1,7 @@
 import re
+from collections.abc import Callable
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any
 
 import sqlalchemy as sa
 
@@ -59,7 +60,7 @@ def get_avatar_url(user: model.User) -> str:
 
 def get_email(
     user: model.User, auth_user: model.User, force_show_email: bool
-) -> Union[bool, str]:
+) -> bool | str:
     assert user
     assert auth_user
     if (
@@ -71,7 +72,7 @@ def get_email(
     return user.email
 
 
-def get_liked_post_count(user: model.User, auth_user: model.User) -> Union[bool, int]:
+def get_liked_post_count(user: model.User, auth_user: model.User) -> bool | int:
     assert user
     assert auth_user
     if auth_user.user_id != user.user_id:
@@ -79,9 +80,7 @@ def get_liked_post_count(user: model.User, auth_user: model.User) -> Union[bool,
     return user.liked_post_count
 
 
-def get_disliked_post_count(
-    user: model.User, auth_user: model.User
-) -> Union[bool, int]:
+def get_disliked_post_count(user: model.User, auth_user: model.User) -> bool | int:
     assert user
     assert auth_user
     if auth_user.user_id != user.user_id:
@@ -100,7 +99,7 @@ class UserSerializer(serialization.BaseSerializer):
         self.auth_user = auth_user
         self.force_show_email = force_show_email
 
-    def _serializers(self) -> Dict[str, Callable[[], Any]]:
+    def _serializers(self) -> dict[str, Callable[[], Any]]:
         return {
             "name": self.serialize_name,
             "creationTime": self.serialize_creation_time,
@@ -158,19 +157,21 @@ class UserSerializer(serialization.BaseSerializer):
 
 
 def serialize_user(
-    user: Optional[model.User],
+    user: model.User | None,
     auth_user: model.User,
-    options: List[str] = [],
+    options: list[str] | None = None,
     force_show_email: bool = False,
-) -> Optional[rest.Response]:
+) -> rest.Response | None:
+    if options is None:
+        options = []
     if not user:
         return None
     return UserSerializer(user, auth_user, force_show_email).serialize(options)
 
 
 def serialize_micro_user(
-    user: Optional[model.User], auth_user: model.User
-) -> Optional[rest.Response]:
+    user: model.User | None, auth_user: model.User
+) -> rest.Response | None:
     return serialize_user(user, auth_user=auth_user, options=["name", "avatarUrl"])
 
 
@@ -178,7 +179,7 @@ def get_user_count() -> int:
     return db.session.query(model.User).count()
 
 
-def try_get_user_by_name(name: str) -> Optional[model.User]:
+def try_get_user_by_name(name: str) -> model.User | None:
     return (
         db.session.query(model.User)
         .filter(sa.func.lower(model.User.name) == sa.func.lower(name))
@@ -193,7 +194,7 @@ def get_user_by_name(name: str) -> model.User:
     return user
 
 
-def try_get_user_by_name_or_email(name_or_email: str) -> Optional[model.User]:
+def try_get_user_by_name_or_email(name_or_email: str) -> model.User | None:
     return (
         db.session.query(model.User)
         .filter(
@@ -284,7 +285,7 @@ def update_user_rank(user: model.User, rank: str, auth_user: model.User) -> None
 
 
 def update_user_avatar(
-    user: model.User, avatar_style: str, avatar_content: Optional[bytes] = None
+    user: model.User, avatar_style: str, avatar_content: bytes | None = None
 ) -> None:
     assert user
     if avatar_style == "gravatar":

@@ -3,7 +3,7 @@ from unittest.mock import patch
 import pytest
 
 from lithica import api, db, errors, model
-from lithica.func import net, posts, snapshots, tags
+from lithica.func import net, posts, snapshots
 
 
 @pytest.fixture(autouse=True)

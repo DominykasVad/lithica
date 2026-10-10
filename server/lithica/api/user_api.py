@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any
 
 from lithica import model, rest, search
 from lithica.func import auth, serialization, users, versions
@@ -13,7 +13,11 @@ def _serialize(ctx: rest.Context, user: model.User, **kwargs: Any) -> rest.Respo
 
 
 @rest.routes.get("/users/?")
-def get_users(ctx: rest.Context, _params: Dict[str, str] = {}) -> rest.Response:
+def get_users(
+    ctx: rest.Context, _params: dict[str, str] | None = None
+) -> rest.Response:
+    if _params is None:
+        _params = {}
     auth.verify_privilege(ctx.user, "users:list")
     return _search_executor.execute_and_serialize(
         ctx, lambda user: _serialize(ctx, user)
@@ -21,7 +25,11 @@ def get_users(ctx: rest.Context, _params: Dict[str, str] = {}) -> rest.Response:
 
 
 @rest.routes.post("/users/?")
-def create_user(ctx: rest.Context, _params: Dict[str, str] = {}) -> rest.Response:
+def create_user(
+    ctx: rest.Context, _params: dict[str, str] | None = None
+) -> rest.Response:
+    if _params is None:
+        _params = {}
     if ctx.user.user_id is None:
         auth.verify_privilege(ctx.user, "users:create:self")
     else:
@@ -46,7 +54,7 @@ def create_user(ctx: rest.Context, _params: Dict[str, str] = {}) -> rest.Respons
 
 
 @rest.routes.get("/user/(?P<user_name>[^/]+)/?")
-def get_user(ctx: rest.Context, params: Dict[str, str]) -> rest.Response:
+def get_user(ctx: rest.Context, params: dict[str, str]) -> rest.Response:
     user = users.get_user_by_name(params["user_name"])
     if ctx.user.user_id != user.user_id:
         auth.verify_privilege(ctx.user, "users:view")
@@ -54,7 +62,7 @@ def get_user(ctx: rest.Context, params: Dict[str, str]) -> rest.Response:
 
 
 @rest.routes.put("/user/(?P<user_name>[^/]+)/?")
-def update_user(ctx: rest.Context, params: Dict[str, str]) -> rest.Response:
+def update_user(ctx: rest.Context, params: dict[str, str]) -> rest.Response:
     user = users.get_user_by_name(params["user_name"])
     versions.verify_version(user, ctx)
     versions.bump_version(user)
@@ -83,7 +91,7 @@ def update_user(ctx: rest.Context, params: Dict[str, str]) -> rest.Response:
 
 
 @rest.routes.delete("/user/(?P<user_name>[^/]+)/?")
-def delete_user(ctx: rest.Context, params: Dict[str, str]) -> rest.Response:
+def delete_user(ctx: rest.Context, params: dict[str, str]) -> rest.Response:
     user = users.get_user_by_name(params["user_name"])
     versions.verify_version(user, ctx)
     infix = "self" if ctx.user.user_id == user.user_id else "any"

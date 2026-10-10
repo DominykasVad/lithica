@@ -1,5 +1,4 @@
 import base64
-from typing import Optional, Tuple
 
 from lithica import errors, model, rest
 from lithica.func import auth, user_tokens, users
@@ -16,7 +15,7 @@ def _authenticate_basic_auth(username: str, password: str) -> model.User:
 
 def _authenticate_token(
     username: str, token: str
-) -> Tuple[model.User, model.UserToken]:
+) -> tuple[model.User, model.UserToken]:
     """Try to authenticate user. Throw AuthError for invalid users."""
     user = users.get_user_by_name(username)
     user_token = user_tokens.get_by_user_and_token(user, token)
@@ -25,7 +24,7 @@ def _authenticate_token(
     return user, user_token
 
 
-def _get_user(ctx: rest.Context, bump_login: bool) -> Optional[model.User]:
+def _get_user(ctx: rest.Context, bump_login: bool) -> model.User | None:
     if not ctx.has_header("Authorization"):
         return None
 
@@ -60,7 +59,7 @@ def _get_user(ctx: rest.Context, bump_login: bool) -> Optional[model.User]:
         raise HttpBadRequest(
             "ValidationError",
             msg.format(ctx.get_header("Authorization"), str(err)),
-        )
+        ) from err
 
     if bump_login and auth_user.user_id:
         users.bump_user_login_time(auth_user)

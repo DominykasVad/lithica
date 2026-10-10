@@ -1,5 +1,3 @@
-from typing import Dict
-
 from lithica import model, rest
 from lithica.func import auth, serialization, user_tokens, users, versions
 
@@ -13,7 +11,11 @@ def _serialize(ctx: rest.Context, user_token: model.UserToken) -> rest.Response:
 
 
 @rest.routes.get("/user-tokens/(?P<user_name>[^/]+)/?")
-def get_user_tokens(ctx: rest.Context, params: Dict[str, str] = {}) -> rest.Response:
+def get_user_tokens(
+    ctx: rest.Context, params: dict[str, str] | None = None
+) -> rest.Response:
+    if params is None:
+        params = {}
     user = users.get_user_by_name(params["user_name"])
     infix = "self" if ctx.user.user_id == user.user_id else "any"
     auth.verify_privilege(ctx.user, "user_tokens:list:%s" % infix)
@@ -22,7 +24,11 @@ def get_user_tokens(ctx: rest.Context, params: Dict[str, str] = {}) -> rest.Resp
 
 
 @rest.routes.post("/user-token/(?P<user_name>[^/]+)/?")
-def create_user_token(ctx: rest.Context, params: Dict[str, str] = {}) -> rest.Response:
+def create_user_token(
+    ctx: rest.Context, params: dict[str, str] | None = None
+) -> rest.Response:
+    if params is None:
+        params = {}
     user = users.get_user_by_name(params["user_name"])
     infix = "self" if ctx.user.user_id == user.user_id else "any"
     auth.verify_privilege(ctx.user, "user_tokens:create:%s" % infix)
@@ -40,7 +46,11 @@ def create_user_token(ctx: rest.Context, params: Dict[str, str] = {}) -> rest.Re
 
 
 @rest.routes.put("/user-token/(?P<user_name>[^/]+)/(?P<user_token>[^/]+)/?")
-def update_user_token(ctx: rest.Context, params: Dict[str, str] = {}) -> rest.Response:
+def update_user_token(
+    ctx: rest.Context, params: dict[str, str] | None = None
+) -> rest.Response:
+    if params is None:
+        params = {}
     user = users.get_user_by_name(params["user_name"])
     infix = "self" if ctx.user.user_id == user.user_id else "any"
     auth.verify_privilege(ctx.user, "user_tokens:edit:%s" % infix)
@@ -66,7 +76,7 @@ def update_user_token(ctx: rest.Context, params: Dict[str, str] = {}) -> rest.Re
 
 
 @rest.routes.delete("/user-token/(?P<user_name>[^/]+)/(?P<user_token>[^/]+)/?")
-def delete_user_token(ctx: rest.Context, params: Dict[str, str]) -> rest.Response:
+def delete_user_token(ctx: rest.Context, params: dict[str, str]) -> rest.Response:
     user = users.get_user_by_name(params["user_name"])
     infix = "self" if ctx.user.user_id == user.user_id else "any"
     auth.verify_privilege(ctx.user, "user_tokens:delete:%s" % infix)

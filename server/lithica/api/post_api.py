@@ -1,16 +1,13 @@
 from datetime import datetime
-from typing import Dict, List, Optional
 
 from lithica import db, errors, model, rest, search
 from lithica.func import (
     auth,
     favorites,
-    mime,
     posts,
     scores,
     serialization,
     snapshots,
-    tags,
     versions,
 )
 
@@ -18,25 +15,31 @@ _search_executor_config = search.configs.PostSearchConfig()
 _search_executor = search.Executor(_search_executor_config)
 
 
-def _get_post_id(params: Dict[str, str]) -> int:
+def _get_post_id(params: dict[str, str]) -> int:
     try:
         return int(params["post_id"])
-    except TypeError:
-        raise posts.InvalidPostIdError("Invalid post ID: %r." % params["post_id"])
+    except TypeError as ex:
+        raise posts.InvalidPostIdError(
+            "Invalid post ID: %r." % params["post_id"]
+        ) from ex
 
 
-def _get_post(params: Dict[str, str]) -> model.Post:
+def _get_post(params: dict[str, str]) -> model.Post:
     return posts.get_post_by_id(_get_post_id(params))
 
 
-def _serialize_post(ctx: rest.Context, post: Optional[model.Post]) -> rest.Response:
+def _serialize_post(ctx: rest.Context, post: model.Post | None) -> rest.Response:
     return posts.serialize_post(
         post, ctx.user, options=serialization.get_serialization_options(ctx)
     )
 
 
 @rest.routes.get("/posts/?")
-def get_posts(ctx: rest.Context, _params: Dict[str, str] = {}) -> rest.Response:
+def get_posts(
+    ctx: rest.Context, _params: dict[str, str] | None = None
+) -> rest.Response:
+    if _params is None:
+        _params = {}
     auth.verify_privilege(ctx.user, "posts:list")
     _search_executor_config.user = ctx.user
     return _search_executor.execute_and_serialize(
@@ -45,7 +48,11 @@ def get_posts(ctx: rest.Context, _params: Dict[str, str] = {}) -> rest.Response:
 
 
 @rest.routes.post("/posts/?")
-def create_post(ctx: rest.Context, _params: Dict[str, str] = {}) -> rest.Response:
+def create_post(
+    ctx: rest.Context, _params: dict[str, str] | None = None
+) -> rest.Response:
+    if _params is None:
+        _params = {}
     anonymous = ctx.get_param_as_bool("anonymous", default=False)
     if anonymous:
         auth.verify_privilege(ctx.user, "posts:create:anonymous")
@@ -93,7 +100,7 @@ def create_post(ctx: rest.Context, _params: Dict[str, str] = {}) -> rest.Respons
 
 
 def create_snapshots_for_post(
-    post: model.Post, new_tags: List[model.Tag], user: Optional[model.User]
+    post: model.Post, new_tags: list[model.Tag], user: model.User | None
 ):
     snapshots.create(post, user)
     for tag in new_tags:
@@ -101,14 +108,14 @@ def create_snapshots_for_post(
 
 
 @rest.routes.get("/post/(?P<post_id>[^/]+)/?")
-def get_post(ctx: rest.Context, params: Dict[str, str]) -> rest.Response:
+def get_post(ctx: rest.Context, params: dict[str, str]) -> rest.Response:
     auth.verify_privilege(ctx.user, "posts:view")
     post = _get_post(params)
     return _serialize_post(ctx, post)
 
 
 @rest.routes.put("/post/(?P<post_id>[^/]+)/?")
-def update_post(ctx: rest.Context, params: Dict[str, str]) -> rest.Response:
+def update_post(ctx: rest.Context, params: dict[str, str]) -> rest.Response:
     post = _get_post(params)
     versions.verify_version(post, ctx)
     versions.bump_version(post)
@@ -159,7 +166,7 @@ def update_post(ctx: rest.Context, params: Dict[str, str]) -> rest.Response:
 
 
 @rest.routes.delete("/post/(?P<post_id>[^/]+)/?")
-def delete_post(ctx: rest.Context, params: Dict[str, str]) -> rest.Response:
+def delete_post(ctx: rest.Context, params: dict[str, str]) -> rest.Response:
     auth.verify_privilege(ctx.user, "posts:delete")
     post = _get_post(params)
     versions.verify_version(post, ctx)
@@ -170,7 +177,11 @@ def delete_post(ctx: rest.Context, params: Dict[str, str]) -> rest.Response:
 
 
 @rest.routes.post("/post-merge/?")
-def merge_posts(ctx: rest.Context, _params: Dict[str, str] = {}) -> rest.Response:
+def merge_posts(
+    ctx: rest.Context, _params: dict[str, str] | None = None
+) -> rest.Response:
+    if _params is None:
+        _params = {}
     source_post_id = ctx.get_param_as_int("remove")
     target_post_id = ctx.get_param_as_int("mergeTo")
     source_post = posts.get_post_by_id(source_post_id)
@@ -187,14 +198,22 @@ def merge_posts(ctx: rest.Context, _params: Dict[str, str] = {}) -> rest.Respons
 
 
 @rest.routes.get("/featured-post/?")
-def get_featured_post(ctx: rest.Context, _params: Dict[str, str] = {}) -> rest.Response:
+def get_featured_post(
+    ctx: rest.Context, _params: dict[str, str] | None = None
+) -> rest.Response:
+    if _params is None:
+        _params = {}
     auth.verify_privilege(ctx.user, "posts:view:featured")
     post = posts.try_get_featured_post()
     return _serialize_post(ctx, post)
 
 
 @rest.routes.post("/featured-post/?")
-def set_featured_post(ctx: rest.Context, _params: Dict[str, str] = {}) -> rest.Response:
+def set_featured_post(
+    ctx: rest.Context, _params: dict[str, str] | None = None
+) -> rest.Response:
+    if _params is None:
+        _params = {}
     auth.verify_privilege(ctx.user, "posts:feature")
     post_id = ctx.get_param_as_int("id")
     post = posts.get_post_by_id(post_id)
@@ -208,7 +227,7 @@ def set_featured_post(ctx: rest.Context, _params: Dict[str, str] = {}) -> rest.R
 
 
 @rest.routes.put("/post/(?P<post_id>[^/]+)/score/?")
-def set_post_score(ctx: rest.Context, params: Dict[str, str]) -> rest.Response:
+def set_post_score(ctx: rest.Context, params: dict[str, str]) -> rest.Response:
     auth.verify_privilege(ctx.user, "posts:score")
     post = _get_post(params)
     score = ctx.get_param_as_int("score")
@@ -218,7 +237,7 @@ def set_post_score(ctx: rest.Context, params: Dict[str, str]) -> rest.Response:
 
 
 @rest.routes.delete("/post/(?P<post_id>[^/]+)/score/?")
-def delete_post_score(ctx: rest.Context, params: Dict[str, str]) -> rest.Response:
+def delete_post_score(ctx: rest.Context, params: dict[str, str]) -> rest.Response:
     auth.verify_privilege(ctx.user, "posts:score")
     post = _get_post(params)
     scores.delete_score(post, ctx.user)
@@ -227,7 +246,7 @@ def delete_post_score(ctx: rest.Context, params: Dict[str, str]) -> rest.Respons
 
 
 @rest.routes.post("/post/(?P<post_id>[^/]+)/favorite/?")
-def add_post_to_favorites(ctx: rest.Context, params: Dict[str, str]) -> rest.Response:
+def add_post_to_favorites(ctx: rest.Context, params: dict[str, str]) -> rest.Response:
     auth.verify_privilege(ctx.user, "posts:favorite")
     post = _get_post(params)
     favorites.set_favorite(post, ctx.user)
@@ -237,7 +256,7 @@ def add_post_to_favorites(ctx: rest.Context, params: Dict[str, str]) -> rest.Res
 
 @rest.routes.delete("/post/(?P<post_id>[^/]+)/favorite/?")
 def delete_post_from_favorites(
-    ctx: rest.Context, params: Dict[str, str]
+    ctx: rest.Context, params: dict[str, str]
 ) -> rest.Response:
     auth.verify_privilege(ctx.user, "posts:favorite")
     post = _get_post(params)
@@ -247,7 +266,7 @@ def delete_post_from_favorites(
 
 
 @rest.routes.get("/post/(?P<post_id>[^/]+)/around/?")
-def get_posts_around(ctx: rest.Context, params: Dict[str, str]) -> rest.Response:
+def get_posts_around(ctx: rest.Context, params: dict[str, str]) -> rest.Response:
     auth.verify_privilege(ctx.user, "posts:list")
     _search_executor_config.user = ctx.user
     post_id = _get_post_id(params)
@@ -258,8 +277,10 @@ def get_posts_around(ctx: rest.Context, params: Dict[str, str]) -> rest.Response
 
 @rest.routes.post("/posts/reverse-search/?")
 def get_posts_by_image(
-    ctx: rest.Context, _params: Dict[str, str] = {}
+    ctx: rest.Context, _params: dict[str, str] | None = None
 ) -> rest.Response:
+    if _params is None:
+        _params = {}
     auth.verify_privilege(ctx.user, "posts:reverse_search")
     content = ctx.get_file("content")
 

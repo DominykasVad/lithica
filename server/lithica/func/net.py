@@ -4,7 +4,7 @@ import subprocess
 import urllib.error
 import urllib.request
 from threading import Thread
-from typing import Any, Dict, List
+from typing import Any
 
 from lithica import config, errors
 from lithica.func import mime
@@ -81,7 +81,7 @@ def _get_youtube_dl_content_url(url: str) -> str:
         ) from None
 
 
-def post_to_webhooks(payload: Dict[str, Any]) -> List[Thread]:
+def post_to_webhooks(payload: dict[str, Any]) -> list[Thread]:
     threads = [
         Thread(target=_post_to_webhook, args=(webhook, payload), daemon=False)
         for webhook in (config.config["webhooks"] or [])
@@ -91,7 +91,7 @@ def post_to_webhooks(payload: Dict[str, Any]) -> List[Thread]:
     return threads
 
 
-def _post_to_webhook(webhook: str, payload: Dict[str, Any]) -> int:
+def _post_to_webhook(webhook: str, payload: dict[str, Any]) -> int:
     req = urllib.request.Request(webhook)
     req.data = json.dumps(
         payload,

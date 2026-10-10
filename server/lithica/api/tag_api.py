@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Dict, List, Optional
 
 from lithica import db, model, rest, search
 from lithica.func import auth, serialization, snapshots, tags, versions
@@ -11,11 +10,11 @@ def _serialize(ctx: rest.Context, tag: model.Tag) -> rest.Response:
     return tags.serialize_tag(tag, options=serialization.get_serialization_options(ctx))
 
 
-def _get_tag(params: Dict[str, str]) -> model.Tag:
+def _get_tag(params: dict[str, str]) -> model.Tag:
     return tags.get_tag_by_name(params["tag_name"])
 
 
-def _create_if_needed(tag_names: List[str], user: model.User) -> None:
+def _create_if_needed(tag_names: list[str], user: model.User) -> None:
     if not tag_names:
         return
     _existing_tags, new_tags = tags.get_or_create_tags_by_names(tag_names)
@@ -27,13 +26,19 @@ def _create_if_needed(tag_names: List[str], user: model.User) -> None:
 
 
 @rest.routes.get("/tags/?")
-def get_tags(ctx: rest.Context, _params: Dict[str, str] = {}) -> rest.Response:
+def get_tags(ctx: rest.Context, _params: dict[str, str] | None = None) -> rest.Response:
+    if _params is None:
+        _params = {}
     auth.verify_privilege(ctx.user, "tags:list")
     return _search_executor.execute_and_serialize(ctx, lambda tag: _serialize(ctx, tag))
 
 
 @rest.routes.post("/tags/?")
-def create_tag(ctx: rest.Context, _params: Dict[str, str] = {}) -> rest.Response:
+def create_tag(
+    ctx: rest.Context, _params: dict[str, str] | None = None
+) -> rest.Response:
+    if _params is None:
+        _params = {}
     auth.verify_privilege(ctx.user, "tags:create")
 
     names = ctx.get_param_as_string_list("names")
@@ -55,14 +60,14 @@ def create_tag(ctx: rest.Context, _params: Dict[str, str] = {}) -> rest.Response
 
 
 @rest.routes.get("/tag/(?P<tag_name>.+)")
-def get_tag(ctx: rest.Context, params: Dict[str, str]) -> rest.Response:
+def get_tag(ctx: rest.Context, params: dict[str, str]) -> rest.Response:
     auth.verify_privilege(ctx.user, "tags:view")
     tag = _get_tag(params)
     return _serialize(ctx, tag)
 
 
 @rest.routes.put("/tag/(?P<tag_name>.+)")
-def update_tag(ctx: rest.Context, params: Dict[str, str]) -> rest.Response:
+def update_tag(ctx: rest.Context, params: dict[str, str]) -> rest.Response:
     tag = _get_tag(params)
     versions.verify_version(tag, ctx)
     versions.bump_version(tag)
@@ -93,7 +98,7 @@ def update_tag(ctx: rest.Context, params: Dict[str, str]) -> rest.Response:
 
 
 @rest.routes.delete("/tag/(?P<tag_name>.+)")
-def delete_tag(ctx: rest.Context, params: Dict[str, str]) -> rest.Response:
+def delete_tag(ctx: rest.Context, params: dict[str, str]) -> rest.Response:
     tag = _get_tag(params)
     versions.verify_version(tag, ctx)
     auth.verify_privilege(ctx.user, "tags:delete")
@@ -104,7 +109,11 @@ def delete_tag(ctx: rest.Context, params: Dict[str, str]) -> rest.Response:
 
 
 @rest.routes.post("/tag-merge/?")
-def merge_tags(ctx: rest.Context, _params: Dict[str, str] = {}) -> rest.Response:
+def merge_tags(
+    ctx: rest.Context, _params: dict[str, str] | None = None
+) -> rest.Response:
+    if _params is None:
+        _params = {}
     source_tag_name = ctx.get_param_as_string("remove")
     target_tag_name = ctx.get_param_as_string("mergeTo")
     source_tag = tags.get_tag_by_name(source_tag_name)
@@ -120,7 +129,7 @@ def merge_tags(ctx: rest.Context, _params: Dict[str, str] = {}) -> rest.Response
 
 
 @rest.routes.get("/tag-siblings/(?P<tag_name>.+)")
-def get_tag_siblings(ctx: rest.Context, params: Dict[str, str]) -> rest.Response:
+def get_tag_siblings(ctx: rest.Context, params: dict[str, str]) -> rest.Response:
     auth.verify_privilege(ctx.user, "tags:view")
     tag = _get_tag(params)
     result = tags.get_tag_siblings(tag)

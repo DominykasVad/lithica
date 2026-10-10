@@ -8,7 +8,6 @@ from lithica import db, model
 from lithica.func import (
     comments,
     files,
-    image_hash,
     images,
     posts,
     tags,
@@ -493,7 +492,7 @@ def test_update_post_content_for_new_post(
                 "allow_broken_uploads": False,
             }
         )
-        output_file_path = "{}/data/posts/{}".format(tmpdir, output_file_name)
+        output_file_path = f"{tmpdir}/data/posts/{output_file_name}"
         post = post_factory(id=1)
         db.session.add(post)
         if is_existing:
@@ -603,12 +602,8 @@ def test_update_post_thumbnail_to_new_one(
     if is_existing:
         db.session.flush()
     assert post.post_id
-    generated_path = (
-        "{}/data/generated-thumbnails/".format(tmpdir) + "1_244c8840887984c4.jpg"
-    )
-    source_path = (
-        "{}/data/posts/custom-thumbnails/".format(tmpdir) + "1_244c8840887984c4.dat"
-    )
+    generated_path = f"{tmpdir}/data/generated-thumbnails/" + "1_244c8840887984c4.jpg"
+    source_path = f"{tmpdir}/data/posts/custom-thumbnails/" + "1_244c8840887984c4.dat"
     assert not os.path.exists(generated_path)
     assert not os.path.exists(source_path)
     posts.update_post_content(post, read_asset("png.png"))
@@ -642,12 +637,8 @@ def test_update_post_thumbnail_to_default(
     if is_existing:
         db.session.flush()
     assert post.post_id
-    generated_path = (
-        "{}/data/generated-thumbnails/".format(tmpdir) + "1_244c8840887984c4.jpg"
-    )
-    source_path = (
-        "{}/data/posts/custom-thumbnails/".format(tmpdir) + "1_244c8840887984c4.dat"
-    )
+    generated_path = f"{tmpdir}/data/generated-thumbnails/" + "1_244c8840887984c4.jpg"
+    source_path = f"{tmpdir}/data/posts/custom-thumbnails/" + "1_244c8840887984c4.dat"
     assert not os.path.exists(generated_path)
     assert not os.path.exists(source_path)
     posts.update_post_content(post, read_asset("png.png"))
@@ -680,12 +671,8 @@ def test_update_post_thumbnail_with_broken_thumbnail(
     if is_existing:
         db.session.flush()
     assert post.post_id
-    generated_path = (
-        "{}/data/generated-thumbnails/".format(tmpdir) + "1_244c8840887984c4.jpg"
-    )
-    source_path = (
-        "{}/data/posts/custom-thumbnails/".format(tmpdir) + "1_244c8840887984c4.dat"
-    )
+    generated_path = f"{tmpdir}/data/generated-thumbnails/" + "1_244c8840887984c4.jpg"
+    source_path = f"{tmpdir}/data/posts/custom-thumbnails/" + "1_244c8840887984c4.dat"
     assert not os.path.exists(generated_path)
     assert not os.path.exists(source_path)
     posts.update_post_content(post, read_asset("png.png"))
@@ -723,12 +710,8 @@ def test_update_post_content_leaving_custom_thumbnail(
     posts.update_post_thumbnail(post, read_asset("jpeg.jpg"))
     posts.update_post_content(post, read_asset("png.png"))
     db.session.flush()
-    generated_path = (
-        "{}/data/generated-thumbnails/".format(tmpdir) + "1_244c8840887984c4.jpg"
-    )
-    source_path = (
-        "{}/data/posts/custom-thumbnails/".format(tmpdir) + "1_244c8840887984c4.dat"
-    )
+    generated_path = f"{tmpdir}/data/generated-thumbnails/" + "1_244c8840887984c4.jpg"
+    source_path = f"{tmpdir}/data/posts/custom-thumbnails/" + "1_244c8840887984c4.dat"
     assert os.path.exists(source_path)
     assert os.path.exists(generated_path)
 
@@ -753,12 +736,8 @@ def test_update_post_content_convert_heif_to_png_when_processing(
     posts.update_post_content(post, read_asset(filename))
     posts.update_post_thumbnail(post, read_asset(filename))
     db.session.flush()
-    generated_path = (
-        "{}/data/generated-thumbnails/".format(tmpdir) + "1_244c8840887984c4.jpg"
-    )
-    source_path = (
-        "{}/data/posts/custom-thumbnails/".format(tmpdir) + "1_244c8840887984c4.dat"
-    )
+    generated_path = f"{tmpdir}/data/generated-thumbnails/" + "1_244c8840887984c4.jpg"
+    source_path = f"{tmpdir}/data/posts/custom-thumbnails/" + "1_244c8840887984c4.dat"
     assert os.path.exists(source_path)
     assert os.path.exists(generated_path)
 
@@ -1165,9 +1144,9 @@ def test_merge_posts_replaces_content(
     db.session.commit()
     posts.update_post_content(source_post, content)
     db.session.flush()
-    source_path = os.path.join("{}/data/posts/1_244c8840887984c4.png".format(tmpdir))
-    target_path1 = os.path.join("{}/data/posts/2_49caeb3ec1643406.png".format(tmpdir))
-    target_path2 = os.path.join("{}/data/posts/2_49caeb3ec1643406.dat".format(tmpdir))
+    source_path = os.path.join(f"{tmpdir}/data/posts/1_244c8840887984c4.png")
+    target_path1 = os.path.join(f"{tmpdir}/data/posts/2_49caeb3ec1643406.png")
+    target_path2 = os.path.join(f"{tmpdir}/data/posts/2_49caeb3ec1643406.dat")
     assert os.path.exists(source_path)
     assert not os.path.exists(target_path1)
     assert not os.path.exists(target_path2)

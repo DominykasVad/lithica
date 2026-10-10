@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any
 
 
 class LruCacheItem:
@@ -12,8 +12,8 @@ class LruCacheItem:
 class LruCache:
     def __init__(self, length: int) -> None:
         self.length = length
-        self.hash = {}  # type: Dict[object, LruCacheItem]
-        self.item_list = []  # type: List[LruCacheItem]
+        self.hash: dict[object, LruCacheItem] = {}
+        self.item_list: list[LruCacheItem] = []
 
     def insert_item(self, item: LruCacheItem) -> None:
         if item.key in self.hash:

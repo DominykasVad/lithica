@@ -1,6 +1,6 @@
 import io
 import json
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import pytest
 
@@ -9,10 +9,10 @@ from lithica.rest import app, errors
 BOUNDARY = "----lithicatestboundary"
 
 # (field name, file name or None, content type or None, payload)
-Part = Tuple[str, Optional[str], Optional[str], bytes]
+Part = tuple[str, str | None, str | None, bytes]
 
 
-def _multipart_body(parts: List[Part]) -> bytes:
+def _multipart_body(parts: list[Part]) -> bytes:
     body = b""
     for name, file_name, content_type, payload in parts:
         disposition = 'form-data; name="%s"' % name
@@ -28,22 +28,22 @@ def _multipart_body(parts: List[Part]) -> bytes:
 
 
 def _env(
-    body: bytes, content_type: Optional[str], query_string: str = ""
-) -> Dict[str, Any]:
-    env = {
+    body: bytes, content_type: str | None, query_string: str = ""
+) -> dict[str, Any]:
+    env: dict[str, Any] = {
         "REQUEST_METHOD": "POST",
         "PATH_INFO": "/posts",
         "QUERY_STRING": query_string,
         "CONTENT_LENGTH": str(len(body)),
         "HTTP_ACCEPT": "application/json",
         "wsgi.input": io.BytesIO(body),
-    }  # type: Dict[str, Any]
+    }
     if content_type is not None:
         env["CONTENT_TYPE"] = content_type
     return env
 
 
-def _multipart_env(parts: List[Part], query_string: str = "") -> Dict[str, Any]:
+def _multipart_env(parts: list[Part], query_string: str = "") -> dict[str, Any]:
     return _env(
         _multipart_body(parts),
         "multipart/form-data; boundary=%s" % BOUNDARY,

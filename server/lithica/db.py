@@ -7,9 +7,9 @@ import sqlalchemy.orm
 from lithica import config
 
 _data = threading.local()
-_engine = sa.create_engine(config.config["database"])  # type: Any
-_sessionmaker = sa.orm.sessionmaker(_engine, autoflush=False)  # type: Any
-session = sa.orm.scoped_session(_sessionmaker)  # type: Any
+_engine: Any = sa.create_engine(config.config["database"])
+_sessionmaker: Any = sa.orm.sessionmaker(_engine, autoflush=False)
+session: Any = sa.orm.scoped_session(_sessionmaker)
 
 
 def get_session() -> Any:

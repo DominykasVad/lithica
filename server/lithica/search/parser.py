@@ -55,8 +55,8 @@ def _parse_sort(value: str, negated: bool) -> tokens.SortToken:
             "": tokens.SortToken.SORT_DEFAULT,
             None: tokens.SortToken.SORT_DEFAULT,
         }[order_str]
-    except KeyError:
-        raise errors.SearchError("Unknown search direction: %r." % order_str)
+    except KeyError as ex:
+        raise errors.SearchError("Unknown search direction: %r." % order_str) from ex
     if negated:
         order = {
             tokens.SortToken.SORT_ASC: tokens.SortToken.SORT_DESC,
