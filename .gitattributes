@@ -1,5 +1,103 @@
-# Auto detect text files and perform LF normalization
-*       text=auto
+# ---------------------------------------------------------------------------
+# Line endings: normalise to LF in the repo and in every working tree,
+# on every OS. (All tracked files were already LF when this was added.)
+# ---------------------------------------------------------------------------
+*               text=auto eol=lf
 
-# Shell scripts require LF
-*.sh    text eol=lf
+# Must stay LF (executed inside Linux containers / by shells)
+*.sh            text eol=lf
+Dockerfile      text eol=lf
+*.dockerfile    text eol=lf
+szuru-admin     text eol=lf
+lithica-admin   text eol=lf
+docker-start*   text eol=lf
+
+# Windows-only scripts keep CRLF if ever added
+*.bat           text eol=crlf
+*.cmd           text eol=crlf
+*.ps1           text eol=crlf
+
+# ---------------------------------------------------------------------------
+# Source and text (explicit, so detection never guesses wrong)
+# ---------------------------------------------------------------------------
+*.py            text diff=python
+*.pyi           text diff=python
+*.js            text
+*.mjs           text
+*.cjs           text
+*.ts            text
+*.tsx           text
+*.jsx           text
+*.json          text
+*.yml           text
+*.yaml          text
+*.toml          text
+*.ini           text
+*.cfg           text
+*.md            text diff=markdown
+*.txt           text
+*.html          text diff=html
+*.htm           text diff=html
+*.tpl           text
+*.css           text diff=css
+*.styl          text
+*.svg           text
+*.mako          text
+*.sql           text
+*.env           text
+.gitignore      text
+.gitattributes  text
+.dockerignore   text
+
+# ---------------------------------------------------------------------------
+# Binary (no EOL conversion, no textual diff/merge)
+# ---------------------------------------------------------------------------
+# Images
+*.png           binary
+*.jpg           binary
+*.jpeg          binary
+*.gif           binary
+*.webp          binary
+*.bmp           binary
+*.ico           binary
+*.avif          binary
+*.heif          binary
+*.heic          binary
+*.tif           binary
+*.tiff          binary
+# Video / audio / flash
+*.mp4           binary
+*.mov           binary
+*.webm          binary
+*.mkv           binary
+*.mp3           binary
+*.ogg           binary
+*.swf           binary
+# Fonts
+*.woff          binary
+*.woff2         binary
+*.ttf           binary
+*.otf           binary
+*.eot           binary
+# Archives / misc
+*.zip           binary
+*.gz            binary
+*.tar           binary
+*.7z            binary
+*.pdf           binary
+*.charx         binary
+
+# Test fixtures are byte-exact inputs (hashes, signatures): never touch them
+server/**/tests/assets/**   -text -diff
+
+# ---------------------------------------------------------------------------
+# Generated files: collapse in diffs / GitHub stats, still diffable locally
+# ---------------------------------------------------------------------------
+uv.lock                 linguist-generated=true
+pnpm-lock.yaml          linguist-generated=true
+package-lock.json       linguist-generated=true
+doc/openapi.json        linguist-generated=true
+*.autogen.*             linguist-generated=true
+
+# Archived code: exclude from GitHub language stats
+legacy/**               linguist-vendored=true
