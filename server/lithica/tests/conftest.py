@@ -192,8 +192,8 @@ def context_factory(session):
     def factory(params=None, files=None, user=None, headers=None):
         ctx = rest.Context(
             env={"HTTP_ORIGIN": "http://example.com"},
-            method=None,
-            url=None,
+            method="",
+            url="",
             headers=headers or {},
             params=params or {},
             files=files or {},
@@ -300,7 +300,8 @@ def post_factory():
         checksum="...",
     ):
         post = model.Post()
-        post.post_id = id
+        if id is not None:
+            post.post_id = id
         post.safety = safety
         post.type = type
         post.checksum = checksum
@@ -376,7 +377,8 @@ def pool_factory():
             category = model.PoolCategory(get_unique_name())
             db.session.add(category)
         pool = model.Pool()
-        pool.pool_id = id
+        if id is not None:
+            pool.pool_id = id
         pool.names = []
         for i, name in enumerate(names or [get_unique_name()]):
             pool.names.append(model.PoolName(name, i))

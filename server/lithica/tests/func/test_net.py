@@ -120,7 +120,7 @@ def test_bad_content_downlaod():
 
 def test_no_webhooks(config_injector):
     config_injector({"webhooks": []})
-    res = net.post_to_webhooks(None)
+    res = net.post_to_webhooks(None)  # pyright: ignore[reportArgumentType] - the payload is not used
     assert len(res) == 0
 
 

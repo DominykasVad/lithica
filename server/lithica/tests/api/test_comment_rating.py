@@ -135,7 +135,7 @@ def test_trying_to_update_non_existing(user_factory, context_factory):
                 params={"score": 1},
                 user=user_factory(rank=model.User.RANK_REGULAR),
             ),
-            {"comment_id": 5},
+            {"comment_id": "5"},
         )
 
 

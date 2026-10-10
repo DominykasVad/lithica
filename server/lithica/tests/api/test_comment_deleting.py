@@ -65,5 +65,5 @@ def test_trying_to_delete_non_existing(user_factory, context_factory):
                 params={"version": 1},
                 user=user_factory(rank=model.User.RANK_REGULAR),
             ),
-            {"comment_id": 1},
+            {"comment_id": "1"},
         )

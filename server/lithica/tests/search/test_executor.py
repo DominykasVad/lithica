@@ -104,11 +104,11 @@ def test_auth_dependent_queries_differ_by_user(user_factory, input):
     executor = search.Executor(config)
     hashes = []
 
-    executor.config.user = user_factory()
+    config.user = user_factory()
     hashes.append(_query_key(executor, input, 1, 1))
     assert len(set(hashes)) == 1
 
-    executor.config.user = user_factory()
+    config.user = user_factory()
     hashes.append(_query_key(executor, input, 1, 1))
     assert len(set(hashes)) == 2
 

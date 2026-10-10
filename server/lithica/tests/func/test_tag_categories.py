@@ -60,7 +60,7 @@ def test_create_category_when_subsequent(tag_category_factory):
 def test_update_category_name_with_empty_string(tag_category_factory):
     category = tag_category_factory()
     with pytest.raises(tag_categories.InvalidTagCategoryNameError):
-        tag_categories.update_category_name(category, None)
+        tag_categories.update_category_name(category, None)  # pyright: ignore[reportArgumentType] - None on purpose
 
 
 def test_update_category_name_with_invalid_name(config_injector, tag_category_factory):
@@ -105,7 +105,7 @@ def test_update_category_name_reusing_own_name(
 def test_update_category_color_with_empty_string(tag_category_factory):
     category = tag_category_factory()
     with pytest.raises(tag_categories.InvalidTagCategoryColorError):
-        tag_categories.update_category_color(category, None)
+        tag_categories.update_category_color(category, None)  # pyright: ignore[reportArgumentType] - None on purpose
 
 
 def test_update_category_color_with_too_long_string(tag_category_factory):

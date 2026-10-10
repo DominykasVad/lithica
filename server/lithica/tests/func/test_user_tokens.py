@@ -34,7 +34,7 @@ def test_serialize_user_token(user_token_factory):
 
 
 def test_serialize_user_token_none():
-    result = user_tokens.serialize_user_token(None, None)
+    result = user_tokens.serialize_user_token(None, None)  # pyright: ignore[reportArgumentType] - no user needed
     assert result is None
 
 
@@ -95,7 +95,9 @@ def test_update_user_token_note(user_token_factory):
 def test_update_user_token_note_input_too_long(user_token_factory):
     user_token = user_token_factory()
     assert user_token.note is None
-    note_max_length = util.get_column_size(model.UserToken.note) + 1
+    column_size = util.get_column_size(model.UserToken.note)
+    assert column_size is not None
+    note_max_length = column_size + 1
     note = "".join(random.choice(string.ascii_letters) for _ in range(note_max_length))
     with pytest.raises(user_tokens.InvalidNoteError):
         user_tokens.update_user_token_note(user_token, note)
@@ -108,6 +110,7 @@ def test_update_user_token_expiration_time(user_token_factory):
         (datetime.utcnow() + timedelta(days=1)).replace(tzinfo=pytz.utc)
     ).isoformat()
     user_tokens.update_user_token_expiration_time(user_token, expiration_time_str)
+    assert user_token.expiration_time is not None
     assert user_token.expiration_time.isoformat() == expiration_time_str
     assert user_token.last_edit_time is not None
 

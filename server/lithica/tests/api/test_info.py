@@ -15,6 +15,7 @@ class _ImmediateThread:
         self._kwargs = kwargs or {}
 
     def start(self):
+        assert self._target is not None
         self._target(*self._args, **self._kwargs)
 
 

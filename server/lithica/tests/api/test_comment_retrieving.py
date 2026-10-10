@@ -67,7 +67,7 @@ def test_trying_to_retrieve_single_non_existing(user_factory, context_factory):
     with pytest.raises(comments.CommentNotFoundError):
         api.comment_api.get_comment(
             context_factory(user=user_factory(rank=model.User.RANK_REGULAR)),
-            {"comment_id": 5},
+            {"comment_id": "5"},
         )
 
 
@@ -75,5 +75,5 @@ def test_trying_to_retrieve_single_without_privileges(user_factory, context_fact
     with pytest.raises(errors.AuthError):
         api.comment_api.get_comment(
             context_factory(user=user_factory(rank=model.User.RANK_ANONYMOUS)),
-            {"comment_id": 5},
+            {"comment_id": "5"},
         )

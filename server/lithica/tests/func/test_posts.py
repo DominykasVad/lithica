@@ -97,7 +97,7 @@ def test_serialize_note():
 
 
 def test_serialize_post_when_empty():
-    assert posts.serialize_post(None, None) is None
+    assert posts.serialize_post(None, None) is None  # pyright: ignore[reportArgumentType] - no user needed
 
 
 def test_serialize_post(
@@ -211,6 +211,7 @@ def test_serialize_post(
         db.session.flush()
 
         result = posts.serialize_post(post, auth_user)
+        assert result is not None
         result["tags"].sort(key=lambda tag: tag["names"][0])
 
         assert result == {
@@ -324,7 +325,7 @@ def test_create_post(user_factory, fake_datetime):
         fake_datetime("1997-01-01"),
     ):
         auth_user = user_factory()
-        post, _new_tags = posts.create_post("content", ["tag"], auth_user)
+        post, _new_tags = posts.create_post("content", ["tag"], auth_user)  # pyright: ignore[reportArgumentType] - content is mocked
         assert post.creation_time == datetime(1997, 1, 1)
         assert post.last_edit_time is None
         posts.update_post_tags.assert_called_once_with(post, ["tag"])

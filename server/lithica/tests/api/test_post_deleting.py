@@ -26,7 +26,7 @@ def test_deleting(user_factory, post_factory, context_factory):
     with patch("lithica.func.snapshots.delete"):
         result = api.post_api.delete_post(
             context_factory(params={"version": 1}, user=auth_user),
-            {"post_id": 1},
+            {"post_id": "1"},
         )
         assert result == {}
         assert db.session.query(model.Post).count() == 0
@@ -37,7 +37,7 @@ def test_trying_to_delete_non_existing(user_factory, context_factory):
     with pytest.raises(posts.PostNotFoundError):
         api.post_api.delete_post(
             context_factory(user=user_factory(rank=model.User.RANK_REGULAR)),
-            {"post_id": 999},
+            {"post_id": "999"},
         )
 
 
@@ -49,6 +49,6 @@ def test_trying_to_delete_without_privileges(
     with pytest.raises(errors.AuthError):
         api.post_api.delete_post(
             context_factory(user=user_factory(rank=model.User.RANK_ANONYMOUS)),
-            {"post_id": 1},
+            {"post_id": "1"},
         )
     assert db.session.query(model.Post).count() == 1

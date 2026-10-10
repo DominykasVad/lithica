@@ -100,7 +100,7 @@ def test_retrieving_single(user_factory, post_factory, context_factory):
         posts.serialize_post.return_value = "serialized post"
         result = api.post_api.get_post(
             context_factory(user=user_factory(rank=model.User.RANK_REGULAR)),
-            {"post_id": 1},
+            {"post_id": "1"},
         )
         assert result == "serialized post"
 
@@ -109,7 +109,7 @@ def test_trying_to_retrieve_single_non_existing(user_factory, context_factory):
     with pytest.raises(posts.PostNotFoundError):
         api.post_api.get_post(
             context_factory(user=user_factory(rank=model.User.RANK_REGULAR)),
-            {"post_id": 999},
+            {"post_id": "999"},
         )
 
 
@@ -117,5 +117,5 @@ def test_trying_to_retrieve_single_without_privileges(user_factory, context_fact
     with pytest.raises(errors.AuthError):
         api.post_api.get_post(
             context_factory(user=user_factory(rank=model.User.RANK_ANONYMOUS)),
-            {"post_id": 999},
+            {"post_id": "999"},
         )

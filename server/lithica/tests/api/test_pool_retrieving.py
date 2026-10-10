@@ -57,7 +57,7 @@ def test_retrieving_single(user_factory, pool_factory, context_factory):
         pools.serialize_pool.return_value = "serialized pool"
         result = api.pool_api.get_pool(
             context_factory(user=user_factory(rank=model.User.RANK_REGULAR)),
-            {"pool_id": 1},
+            {"pool_id": "1"},
         )
         assert result == "serialized pool"
 
@@ -66,7 +66,7 @@ def test_trying_to_retrieve_single_non_existing(user_factory, context_factory):
     with pytest.raises(pools.PoolNotFoundError):
         api.pool_api.get_pool(
             context_factory(user=user_factory(rank=model.User.RANK_REGULAR)),
-            {"pool_id": 1},
+            {"pool_id": "1"},
         )
 
 
@@ -74,5 +74,5 @@ def test_trying_to_retrieve_single_without_privileges(user_factory, context_fact
     with pytest.raises(errors.AuthError):
         api.pool_api.get_pool(
             context_factory(user=user_factory(rank=model.User.RANK_ANONYMOUS)),
-            {"pool_id": 1},
+            {"pool_id": "1"},
         )

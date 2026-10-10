@@ -127,6 +127,7 @@ def test_trying_to_reset_without_email(context_factory, user_factory):
 def test_confirming_with_good_token(context_factory, user, request_token):
     old_hash = user.password_hash
     result = _confirm(context_factory, request_token())
+    assert result is not None
     assert user.password_hash != old_hash
     assert auth.is_valid_password(user, result["password"]) is True
     assert db.session.query(model.PasswordResetToken).count() == 0
@@ -134,12 +135,14 @@ def test_confirming_with_good_token(context_factory, user, request_token):
 
 def test_confirming_by_email(context_factory, user, request_token):
     result = _confirm(context_factory, request_token(), "user@example.com")
+    assert result is not None
     assert auth.is_valid_password(user, result["password"]) is True
 
 
 def test_token_works_only_once(context_factory, user, request_token):
     token = request_token()
     result = _confirm(context_factory, token)
+    assert result is not None
     with pytest.raises(errors.ValidationError):
         _confirm(context_factory, token)
     assert auth.is_valid_password(user, result["password"]) is True

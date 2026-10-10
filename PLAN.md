@@ -111,7 +111,7 @@ correct code.
 - [x] Disk-usage cache in `info_api`: make it per-process-safe (short TTL is fine) and document.
 
 ### 1.5 Housekeeping
-- [ ] pyright `basic` reaches zero errors.
+- [x] pyright `basic` reaches zero errors.
 - [ ] Remove stale config: `youtube_dl` references, `python3.9` pins.
 
 **Exit criteria:** suite green; pyright basic clean; grep gate clean; legacy
