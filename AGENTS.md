@@ -15,8 +15,8 @@ remote, do not cherry-pick, do not open PRs against `rr-/szurubooru`.
   search, snapshots. Must stay usable as a plain image booru.
 - **Modules**: optional features layered on the engine, switched on in config.
   No real module exists yet; phase 3 builds the module system itself.
-- The repository folder and GitHub repo still say `szurubooru`; the owner will
-  rename them later. Use the new names everywhere in code and docs.
+- The GitHub repo is `DominykasVad/lithica`. Use the new names everywhere in
+  code and docs.
 
 Licence is **GPLv3**. Keep `LICENSE.md` and the original copyright/attribution.
 Never relicense, never strip headers or credits.
