@@ -1,8 +1,8 @@
 from collections.abc import Callable
-from datetime import datetime
 from typing import Any
 
 from lithica import db, errors, model
+from lithica.func import util
 
 
 class InvalidFavoriteTargetError(errors.ValidationError):
@@ -54,5 +54,5 @@ def set_favorite(entity: model.Base, user: model.User | None) -> None:
         fav_entity = table()
         setattr(fav_entity, get_column(table).name, get_column(entity))
         fav_entity.user = user
-        fav_entity.time = datetime.utcnow()
+        fav_entity.time = util.utcnow()
         db.session.add(fav_entity)

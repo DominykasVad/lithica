@@ -1,5 +1,3 @@
-from datetime import datetime
-
 from lithica import model, rest, search
 from lithica.func import (
     auth,
@@ -7,6 +5,7 @@ from lithica.func import (
     posts,
     scores,
     serialization,
+    util,
     versions,
 )
 
@@ -73,7 +72,7 @@ def update_comment(ctx: rest.Context, params: dict[str, str]) -> rest.Response:
     text = ctx.get_param_as_string("text")
     auth.verify_privilege(ctx.user, "comments:edit:%s" % infix)
     comments.update_comment_text(comment, text)
-    comment.last_edit_time = datetime.utcnow()
+    comment.last_edit_time = util.utcnow()
     ctx.session.commit()
     return _serialize(ctx, comment)
 

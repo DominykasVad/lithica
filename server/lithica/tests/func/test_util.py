@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -6,6 +6,17 @@ from lithica import errors
 from lithica.func import util
 
 dt = datetime
+
+
+def test_utcnow_is_naive_utc(fake_datetime):
+    with fake_datetime("1997-01-02 03:04:05"):
+        assert util.utcnow() == datetime(1997, 1, 2, 3, 4, 5)
+        assert util.utcnow().tzinfo is None
+
+
+def test_utcnow_matches_the_utc_clock():
+    aware = datetime.now(UTC).replace(tzinfo=None)
+    assert abs(util.utcnow() - aware) < timedelta(seconds=5)
 
 
 def test_parsing_empty_date_time():

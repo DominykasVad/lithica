@@ -1,9 +1,8 @@
 from collections.abc import Callable
-from datetime import datetime
 from typing import Any
 
 from lithica import db, errors, model, rest
-from lithica.func import scores, serialization, users
+from lithica.func import scores, serialization, users, util
 
 
 class InvalidCommentIdError(errors.ValidationError):
@@ -95,7 +94,7 @@ def create_comment(user: model.User, post: model.Post, text: str) -> model.Comme
     comment.user = user
     comment.post = post
     update_comment_text(comment, text)
-    comment.creation_time = datetime.utcnow()
+    comment.creation_time = util.utcnow()
     return comment
 
 

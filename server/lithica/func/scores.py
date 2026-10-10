@@ -1,8 +1,8 @@
-import datetime
 from collections.abc import Callable
 from typing import Any
 
 from lithica import db, errors, model
+from lithica.func import util
 
 
 class InvalidScoreTargetError(errors.ValidationError):
@@ -81,5 +81,5 @@ def set_score(entity: model.Base, user: model.User, score: int) -> None:
         setattr(score_entity, get_column(table).name, get_column(entity))
         score_entity.score = score
         score_entity.user = user
-        score_entity.time = datetime.datetime.utcnow()
+        score_entity.time = util.utcnow()
         db.session.add(score_entity)

@@ -2,7 +2,6 @@ import hashlib
 import random
 import uuid
 from collections import OrderedDict
-from datetime import datetime
 
 from nacl import pwhash
 from nacl.exceptions import InvalidkeyError
@@ -97,7 +96,7 @@ def is_valid_token(user_token: model.UserToken | None) -> bool:
         return False
     if (
         user_token.expiration_time is not None
-        and user_token.expiration_time < datetime.utcnow()
+        and user_token.expiration_time < util.utcnow()
     ):
         return False
     return True

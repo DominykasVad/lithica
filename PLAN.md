@@ -91,7 +91,7 @@ correct code.
 - [ ] Audit `subprocess` calls (ffmpeg, ffprobe, yt-dlp) for list arguments and timeouts.
 
 ### 1.2 Time handling
-- [ ] Add `util.utcnow()` returning naive UTC. Replace all 27 `datetime.utcnow()` uses in non-test code. Behaviour must not change (columns stay naive UTC).
+- [x] Add `util.utcnow()` returning naive UTC. Replace all 27 `datetime.utcnow()` uses in non-test code. Behaviour must not change (columns stay naive UTC).
 
 ### 1.3 Database portability
 - [ ] Replace `post_signature.words` (`postgresql.ARRAY` + raw-SQL `unnest()` in `func/posts.py`) with a normal child table of (signature id, position, word) and an ORM query. Migration moves existing data. Similar-post results must be identical — add a test that compares old and new query results on the test assets before removing the old path.

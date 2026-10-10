@@ -1,11 +1,10 @@
 from collections.abc import Callable
-from datetime import datetime
 from typing import Any
 
 import sqlalchemy as sa
 
 from lithica import db, model
-from lithica.func import diff, net, users
+from lithica.func import diff, net, users, util
 
 
 def get_tag_category_snapshot(category: model.TagCategory) -> dict[str, Any]:
@@ -108,7 +107,7 @@ def _create(
         auth_user = None
 
     snapshot = model.Snapshot()
-    snapshot.creation_time = datetime.utcnow()
+    snapshot.creation_time = util.utcnow()
     snapshot.operation = operation
     snapshot.resource_type = resource_type
     snapshot.resource_pkey = resource_pkey

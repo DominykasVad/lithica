@@ -1,6 +1,5 @@
 import re
 from collections.abc import Callable
-from datetime import datetime
 from typing import Any
 
 import sqlalchemy as sa
@@ -260,7 +259,7 @@ def create_pool(
     names: list[str], category_name: str, post_ids: list[int]
 ) -> model.Pool:
     pool = model.Pool()
-    pool.creation_time = datetime.utcnow()
+    pool.creation_time = util.utcnow()
     update_pool_names(pool, names)
     update_pool_category_name(pool, category_name)
     update_pool_posts(pool, post_ids)

@@ -1,12 +1,13 @@
-from datetime import datetime
 from typing import Any
+
+from lithica.func import util
 
 
 class LruCacheItem:
     def __init__(self, key: object, value: Any) -> None:
         self.key = key
         self.value = value
-        self.timestamp = datetime.utcnow()
+        self.timestamp = util.utcnow()
 
 
 class LruCache:

@@ -1,7 +1,5 @@
-from datetime import datetime
-
 from lithica import db, model, rest, search
-from lithica.func import auth, serialization, snapshots, tags, versions
+from lithica.func import auth, serialization, snapshots, tags, util, versions
 
 _search_executor = search.Executor(search.configs.TagSearchConfig())
 
@@ -90,7 +88,7 @@ def update_tag(ctx: rest.Context, params: dict[str, str]) -> rest.Response:
         implications = ctx.get_param_as_string_list("implications")
         _create_if_needed(implications, ctx.user)
         tags.update_tag_implications(tag, implications)
-    tag.last_edit_time = datetime.utcnow()
+    tag.last_edit_time = util.utcnow()
     ctx.session.flush()
     snapshots.modify(tag, ctx.user)
     ctx.session.commit()

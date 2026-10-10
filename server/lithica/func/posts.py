@@ -1,7 +1,6 @@
 import hmac
 import logging
 from collections.abc import Callable
-from datetime import datetime
 from typing import Any
 
 import sqlalchemy as sa
@@ -407,7 +406,7 @@ def create_post(
     post = model.Post()
     post.safety = model.Post.SAFETY_SAFE
     post.user = user
-    post.creation_time = datetime.utcnow()
+    post.creation_time = util.utcnow()
     post.flags = []
 
     post.type = ""
@@ -765,7 +764,7 @@ def feature_post(post: model.Post, user: model.User | None) -> None:
     if user and not user.name:
         user = None
     post_feature = model.PostFeature()
-    post_feature.time = datetime.utcnow()
+    post_feature.time = util.utcnow()
     post_feature.post = post
     post_feature.user = user
     db.session.add(post_feature)

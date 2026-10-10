@@ -1,7 +1,5 @@
-from datetime import datetime
-
 from lithica import model, rest, search
-from lithica.func import auth, pools, serialization, snapshots, versions
+from lithica.func import auth, pools, serialization, snapshots, util, versions
 
 _search_executor = search.Executor(search.configs.PoolSearchConfig())
 
@@ -42,7 +40,7 @@ def create_pool(
     posts = ctx.get_param_as_int_list("posts", default=[])
 
     pool = pools.create_pool(names, category, posts)
-    pool.last_edit_time = datetime.utcnow()
+    pool.last_edit_time = util.utcnow()
     pools.update_pool_description(pool, description)
     ctx.session.add(pool)
     ctx.session.flush()
@@ -76,7 +74,7 @@ def update_pool(ctx: rest.Context, params: dict[str, str]) -> rest.Response:
         auth.verify_privilege(ctx.user, "pools:edit:posts")
         posts = ctx.get_param_as_int_list("posts")
         pools.update_pool_posts(pool, posts)
-    pool.last_edit_time = datetime.utcnow()
+    pool.last_edit_time = util.utcnow()
     ctx.session.flush()
     snapshots.modify(pool, ctx.user)
     ctx.session.commit()

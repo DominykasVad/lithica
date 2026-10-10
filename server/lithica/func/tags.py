@@ -1,6 +1,5 @@
 import re
 from collections.abc import Callable
-from datetime import datetime
 from typing import Any
 
 import sqlalchemy as sa
@@ -307,7 +306,7 @@ def create_tag(
     implications: list[str],
 ) -> model.Tag:
     tag = model.Tag()
-    tag.creation_time = datetime.utcnow()
+    tag.creation_time = util.utcnow()
     update_tag_names(tag, names)
     update_tag_category_name(tag, category_name)
     update_tag_suggestions(tag, suggestions)
