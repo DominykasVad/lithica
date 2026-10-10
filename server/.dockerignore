@@ -1,15 +1,15 @@
-# Linter configs
-pyproject.toml
-.flake8
-
-# Python requirements files
-requirements.txt
-dev-requirements.txt
-
 # Docker build files
 Dockerfile
 .dockerignore
+docker-compose.test.yml
 hooks/
 
 # User configured config file
 config.yaml
+
+# Local environment and caches
+.venv/
+.python-version
+.ruff_cache/
+.pytest_cache/
+**/__pycache__/

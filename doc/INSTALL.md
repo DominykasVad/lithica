@@ -3,17 +3,17 @@ and the Docker Compose CLI (version 1.27.0 or greater) already installed.
 
 ### Prepare things
 
-1. Download the `szurubooru` source:
+1. Download the Lithica source:
 
     ```console
-    user@host:~$ git clone https://github.com/rr-/szurubooru.git szuru
-    user@host:~$ cd szuru
+    user@host:~$ git clone https://github.com/DominykasVad/lithica.git lithica
+    user@host:~$ cd lithica
     ```
 2. Configure the application:
 
     ```console
-    user@host:szuru$ cp server/config.yaml.dist server/config.yaml
-    user@host:szuru$ edit server/config.yaml
+    user@host:lithica$ cp server/config.yaml.dist server/config.yaml
+    user@host:lithica$ edit server/config.yaml
     ```
 
     Pay extra attention to these fields:
@@ -26,98 +26,68 @@ and the Docker Compose CLI (version 1.27.0 or greater) already installed.
 3. Configure Docker Compose:
 
     ```console
-    user@host:szuru$ cp doc/example.env .env
-    user@host:szuru$ edit .env
+    user@host:lithica$ cp doc/example.env .env
+    user@host:lithica$ edit .env
     ```
 
     Change the values of the variables in `.env` as needed.
     Read the comments to guide you. Note that `.env` should be in the root
     directory of this repository.
 
-4. Pull the containers:
+4. Build the containers:
 
-    This pulls the latest containers from docker.io:
     ```console
-    user@host:szuru$ docker compose pull
+    user@host:lithica$ docker compose build
     ```
 
-    If you have modified the application's source and would like to manually
-    build it, follow the instructions in [**Building**](#Building) instead,
-    then read here once you're done.
+    This builds the server and the client from the source you downloaded.
+    You can name `server` or `client` to build only one. If your changes are
+    not taking effect in your builds, consider building with `--no-cache`.
+
+    To run published release images instead of building, see
+    [**Using published images**](#using-published-images).
 
 5. Run it!
 
     For first run, it is recommended to start the database separately:
     ```console
-    user@host:szuru$ docker compose up -d sql
+    user@host:lithica$ docker compose up -d sql
     ```
 
     To start all containers:
     ```console
-    user@host:szuru$ docker compose up -d
+    user@host:lithica$ docker compose up -d
     ```
 
     To view/monitor the application logs:
     ```console
-    user@host:szuru$ docker compose logs -f
+    user@host:lithica$ docker compose logs -f
     # (CTRL+C to exit)
     ```
 
-### Building
+### Using published images
 
-1. Edit `docker-compose.yml` to tell Docker to build instead of pull containers:
+Release images are published to the GitHub Container Registry when a release
+is made, tagged with the release version. To use them, edit
+`docker-compose.yml`: comment out the `build` section of the `server` and
+`client` services and uncomment the `image` line below it, setting the
+release tag you want. Then pull instead of building:
 
-    ```diff yaml
-    ...
-    server:
-    - image: szurubooru/server:latest
-    + build: server
-    ...
-    client:
-    - image: szurubooru/client:latest
-    + build: client
-    ...
-    ```
-
-    You can choose to build either one from source.
-
-2. Build the containers:
-
-    ```console
-    user@host:szuru$ docker compose build
-    ```
-
-    That will attempt to build both containers, but you can specify `client`
-    or `server` to make it build only one.
-
-    If `docker compose build` spits out:
-
-    ```
-    ERROR: Service 'server' failed to build: failed to parse platform : "" is an invalid component of "": platform specifier component must match "^[A-Za-z0-9_-]+$": invalid argument
-    ```
-
-    ...you will need to export Docker BuildKit flags:
-
-    ```console
-    user@host:szuru$ export DOCKER_BUILDKIT=1; export COMPOSE_DOCKER_CLI_BUILD=1
-    ```
-
-    ...and run `docker compose build` again.
-
-*Note: If your changes are not taking effect in your builds, consider building
-with `--no-cache`.*
+```console
+user@host:lithica$ docker compose pull
+```
 
 
 ### Additional Features
 
 1. **CLI-level administrative tools**
 
-    You can use the included `szuru-admin` script to perform various
+    You can use the included `lithica-admin` script to perform various
     administrative tasks such as changing or resetting a user password. To
     run from docker:
 
     ```console
-    user@host:szuru$ docker compose run server ./szuru-admin --help
+    user@host:lithica$ docker compose run server ./lithica-admin --help
     ```
 
     will give you a breakdown on all available commands.
@@ -134,17 +104,17 @@ with `--no-cache`.*
 3. **Setting a specific base URI for proxying**
 
     Some users may wish to access the service at a different base URI, such
-    as `http://example.com/szuru/`, commonly when sharing multiple HTTP
+    as `http://example.com/lithica/`, commonly when sharing multiple HTTP
     services on one domain using a reverse proxy. In this case, simply set
-    `BASE_URL="/szuru/"` in your `.env` file.
+    `BASE_URL="/lithica/"` in your `.env` file.
 
     Note that this will require a reverse proxy to function. You should set
-    your reverse proxy to proxy `http(s)://example.com/szuru` to
+    your reverse proxy to proxy `http(s)://example.com/lithica` to
     `http://<internal IP or hostname of frontend container>/`. For an NGINX
     reverse proxy, that will appear as:
 
     ```nginx
-    location /szuru {
+    location /lithica {
         proxy_http_version 1.1;
         proxy_pass http://<internal IP or hostname of frontend container>/;
 
@@ -155,13 +125,13 @@ with `--no-cache`.*
         proxy_set_header X-Scheme          $scheme;
         proxy_set_header X-Real-IP         $remote_addr;
         proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header X-Script-Name     /szuru;
+        proxy_set_header X-Script-Name     /lithica;
     }
     ```
 
 4. **Preparing for production**
 
-    If you plan on using szurubooru in a production setting, you may opt to
+    If you plan on using Lithica in a production setting, you may opt to
     use a reverse proxy for added security and caching capabilities. Start
     by having the client docker listen only on localhost by changing `PORT`
     in your `.env` file to `127.0.0.1:8080` instead of simply `:8080`. Then
@@ -201,7 +171,7 @@ with `--no-cache`.*
         proxy_set_header X-Scheme $scheme;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header X-Script-Name /szuru;
+        proxy_set_header X-Script-Name /lithica;
         error_page 500 501 502 504 505 506 507 508 509 510 511 @err;
         error_page 503 @throttle;
       }

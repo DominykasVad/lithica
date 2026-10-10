@@ -1,10 +1,86 @@
-[tool.black]
-line-length = 79
+[project]
+name = "lithica"
+version = "0.1.0.dev0"
+description = "Self-hosted image board (booru) engine; a fork of szurubooru"
+readme = "../README.md"
+license = "GPL-3.0-only"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "alembic>=1.20.0",
+    "certifi>=2026.7.22",
+    "coloredlogs>=15.0.1",
+    "numpy>=2.5.3",
+    "pillow>=12.3.0",
+    "pillow-avif-plugin>=1.6.0",
+    "pillow-heif>=1.8.0",
+    "psycopg2-binary>=2.9.13",
+    "pynacl>=1.6.2",
+    "pyrfc3339>=2.1.0",
+    "python-multipart>=0.0.32",
+    "pytz>=2026.5",
+    "pyyaml>=6.0.3",
+    "sqlalchemy>=2.0.40,<2.1",
+    "waitress>=3.0.2",
+    "yt-dlp>=2026.8.19",
+]
 
-[tool.isort]
-known_first_party = ["szurubooru"]
-known_third_party = ["PIL", "alembic", "coloredlogs", "freezegun", "nacl", "numpy", "pyrfc3339", "pytest", "pytz", "sqlalchemy", "yaml", "youtube_dl"]
-multi_line_output = 3
-include_trailing_comma = true
-force_grid_wrap = 0
-use_parentheses = true
+[build-system]
+requires = ["uv_build>=0.13.0,<0.14"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "lithica"
+module-root = ""
+
+[tool.pytest.ini_options]
+testpaths = ["lithica"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py313"
+extend-include = ["lithica-admin"]
+# Committed migrations are history and are not rewritten (see AGENTS.md).
+extend-exclude = ["lithica/migrations/versions"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+    "T20", # no print() in server code
+]
+ignore = [
+    # printf-style formatting is used in over a hundred places; rewriting them
+    # all is churn with no behaviour benefit. New code should use f-strings.
+    "UP031",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["lithica"]
+
+[tool.ruff.lint.per-file-ignores]
+# the admin CLI talks to a terminal
+"lithica-admin" = ["T20"]
+# package __init__ files import names to re-export them or for side effects
+"__init__.py" = ["F401"]
+
+[tool.pyright]
+include = ["lithica"]
+exclude = ["lithica/migrations/versions"]
+pythonVersion = "3.13"
+typeCheckingMode = "basic"
+
+[dependency-groups]
+dev = [
+    "freezegun>=1.5.5",
+    "hupper>=1.12.1",
+    "import-linter>=2.15",
+    "pyright>=1.1.414",
+    "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
+    "pytest-xdist>=3.8.0",
+    "ruff>=0.17.0",
+]

@@ -1,9 +1,17 @@
-# szurubooru
+# Lithica
 
-Szurubooru is an image board engine inspired by services such as Danbooru,
-Gelbooru and Moebooru dedicated for small and medium communities. Its name [has
-its roots in Polish language and has onomatopeic meaning of scraping or
-scrubbing](https://sjp.pwn.pl/sjp/;2527372). It is pronounced as *shoorubooru*.
+Lithica is a self-hosted image board ("booru") engine for small and medium
+communities, in the style of Danbooru, Gelbooru and Moebooru. Optional
+features are planned as modules layered on top of the generic engine.
+
+> **This is a modified fork of [szurubooru](https://github.com/rr-/szurubooru).**
+> Lithica was forked from szurubooru at upstream commit `10ac850` (tagged
+> `fork-point`) and has been modified since 2026-10-10. It is developed
+> independently and does not track upstream. The original work is copyright
+> its authors and, like this fork, is licensed under the GPLv3.
+
+Lithica is under active restructuring (see [PLAN.md](PLAN.md)); there is no
+stable release yet.
 
 ## Features
 
@@ -32,10 +40,13 @@ scrubbing](https://sjp.pwn.pl/sjp/;2527372). It is pronounced as *shoorubooru*.
 It is recommended that you use Docker for deployment.
 [See installation instructions.](doc/INSTALL.md)
 
-More installation resources, as well as related projects can be found on the
-[GitHub project Wiki](https://github.com/rr-/szurubooru/wiki)
+The [upstream szurubooru wiki](https://github.com/rr-/szurubooru/wiki) has
+more installation resources and related projects; they were written for
+szurubooru and may not match Lithica.
 
 ## Screenshots
+
+Screenshots of the legacy client inherited from szurubooru.
 
 Post list:
 
@@ -47,4 +58,6 @@ Post view:
 
 ## License
 
-[GPLv3](LICENSE.md).
+[GPLv3](LICENSE.md). Lithica is a modified version of szurubooru; the changes
+made since the fork are in this repository's history after the `fork-point`
+tag. Original copyright and attribution are retained.

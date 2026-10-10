@@ -86,8 +86,11 @@ and uv; do not assume a specific OS, CPU architecture or machine.
 2. New or changed behaviour has tests. Do not delete, skip or weaken an
    existing test to make the suite pass; if a test is genuinely wrong, say so
    in the report and explain.
-3. The matching checkbox in `PLAN.md` is ticked, and any decision you had to
-   make is added to the **Decision log** there.
+3. The matching checkbox in `PLAN.md` is ticked **in the same commit** as the
+   change (never a separate "tick" commit). If you made a real decision —
+   a choice between alternatives that later work must respect — add one line
+   to the **Decision log** (see the rules there). Everything else (what you
+   did, what you left alone, observations) goes in the commit message body.
 4. Report: what changed, what you verified and how, what you did not verify.
 
 ## Hard rules

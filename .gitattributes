@@ -8,7 +8,6 @@
 *.sh            text eol=lf
 Dockerfile      text eol=lf
 *.dockerfile    text eol=lf
-szuru-admin     text eol=lf
 lithica-admin   text eol=lf
 docker-start*   text eol=lf
 

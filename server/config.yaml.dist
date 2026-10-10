@@ -2,8 +2,8 @@
 # and override only what you need.
 
 # shown in the website title and on the front page
-name: szurubooru
-# full url to the homepage of this szurubooru site, with no trailing slash
+name: lithica
+# full url to the homepage of this Lithica site, with no trailing slash
 domain: # example: http://example.com
 # used to salt the users' password hashes and generate filenames for static content
 secret: change
@@ -175,5 +175,5 @@ privileges:
 #data_url: /data/
 #data_dir: /var/www/data
 ## usage: schema://user:password@host:port/database_name
-## example: postgres://szuru:dog@localhost:5432/szuru_test
+## example: postgres://lithica:dog@localhost:5432/lithica_test
 #database:

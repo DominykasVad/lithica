@@ -59,9 +59,19 @@ None. (The signature `ARRAY` + `unnest()` and `ilike` uses are removed in phase 
 
 ### Decision log
 
-Agents append decisions made during tasks here: date, task, decision, reason.
+Rules: only real decisions (a choice between alternatives that later work must
+respect). One line each, max ~120 characters: `date — task — decision (reason)`.
+No status notes, no "left untouched", no results — those go in commit messages.
+When a phase is merged, its entries are folded into the tables above or deleted.
 
-- 2026-10-10 — planning — initial decisions above.
+- 2026-10-10 — 0.1 — default branch is `main`, not `master` (owner's choice)
+- 2026-10-10 — 0.2 — repo URLs use `DominykasVad/lithica` ahead of the GitHub rename
+- 2026-10-10 — 0.2 — example env defaults renamed to `lithica` (user, paths)
+- 2026-10-10 — 0.3 — SQLAlchemy held at `<2.1`: 2.1 defaults to psycopg 3, a driver change outside phase 0
+- 2026-10-10 — 0.3 — `lithica` is an installable package built with `uv_build` (flat layout, no `src/`)
+- 2026-10-10 — 0.5 — ruff skips `lithica/migrations/versions/` (committed migrations are not rewritten)
+- 2026-10-10 — 0.5 — ruff also selects `T20` (print ban, replaces flake8-print); `lithica-admin` exempt
+- 2026-10-10 — 0.6 — images run the source from `/opt/app` via `PYTHONPATH`, venv in `/opt/venv`; package not installed
 
 ---
 
@@ -71,46 +81,46 @@ Goal: the repo is ours, builds with uv on Python 3.13 in Debian, CI runs, and
 nothing behaves differently.
 
 ### 0.1 Baseline
-- [ ] Tag `10ac850` as `fork-point`.
-- [ ] Confirm the current suite passes on the existing Alpine test image; record the result (pass/fail counts) in the decision log. This is the reference for "nothing changed".
+- [x] Tag `10ac850` as `fork-point`.
+- [x] Confirm the current suite passes on the existing Alpine test image. **Reference for "nothing changed": 1257 passed, 10 skipped, 1 xfailed (1268 collected), on Python 3.12.**
 
 ### 0.2 Rename and rebrand (mechanical, separate commits)
-- [ ] Rename package `server/szurubooru/` → `server/lithica/`; update all imports, `alembic.ini`, `migrations/env.py`, entry points, test paths, scripts. No other changes in this commit.
-- [ ] Rename `szuru-admin` → `lithica-admin`.
-- [ ] Move `client/` → `legacy/client/`; fix compose files and scripts so it still builds and serves.
-- [ ] Rebrand docs and metadata: `README.md` (state clearly: fork of szurubooru at `10ac850`, GPLv3, modified — GPLv3 §5a notice), `doc/INSTALL.md`, `doc/install.sh`, OCI labels in both Dockerfiles, `config.yaml.dist` default `name`, legacy client footer "Build" link and `package.json` script.
-- [ ] Image names: `ghcr.io/dominykasvad/lithica-server`, `ghcr.io/dominykasvad/lithica-client-legacy`.
+- [x] Rename package `server/szurubooru/` → `server/lithica/`; update all imports, `alembic.ini`, `migrations/env.py`, entry points, test paths, scripts. No other changes in this commit.
+- [x] Rename `szuru-admin` → `lithica-admin`.
+- [x] Move `client/` → `legacy/client/`; fix compose files and scripts so it still builds and serves.
+- [x] Rebrand docs and metadata: `README.md` (state clearly: fork of szurubooru at `10ac850`, GPLv3, modified — GPLv3 §5a notice), `doc/INSTALL.md`, `doc/install.sh`, OCI labels in both Dockerfiles, `config.yaml.dist` default `name`, legacy client footer "Build" link and `package.json` script.
+- [x] Image names: `ghcr.io/dominykasvad/lithica-server`, `ghcr.io/dominykasvad/lithica-client-legacy`.
 
 ### 0.3 uv project
-- [ ] `server/pyproject.toml` as a uv project: `requires-python = ">=3.13,<3.14"`, `.python-version` = `3.13`. Dependencies taken from what the **Dockerfile actually installs today** (it is the source of truth, not `requirements.txt`), at current compatible versions.
-- [ ] Dev dependency group: pytest, pytest-xdist, pytest-cov, freezegun, ruff, pyright, import-linter.
-- [ ] Test database from Docker instead of local binaries: add `docker-compose.test.yml` (`postgres:17`, port 5433, tmpfs data, fsync off). `conftest.py` reads `LITHICA_TEST_DATABASE_URL` and creates one database per xdist worker (`test_<worker_id>`), dropped at session end. Remove `testing.postgresql` and `pytest-pgsql`.
-- [ ] Commit `uv.lock`. Delete `requirements.txt` and `dev-requirements.txt`.
+- [x] `server/pyproject.toml` as a uv project: `requires-python = ">=3.13,<3.14"`, `.python-version` = `3.13`. Dependencies taken from what the **Dockerfile actually installs today** (it is the source of truth, not `requirements.txt`), at current compatible versions.
+- [x] Dev dependency group: pytest, pytest-xdist, pytest-cov, freezegun, ruff, pyright, import-linter.
+- [x] Test database from Docker instead of local binaries: add `docker-compose.test.yml` (`postgres:17`, port 5433, tmpfs data, fsync off). `conftest.py` reads `LITHICA_TEST_DATABASE_URL` and creates one database per xdist worker (`test_<worker_id>`), dropped at session end. Remove `testing.postgresql` and `pytest-pgsql`.
+- [x] Commit `uv.lock`. Delete `requirements.txt` and `dev-requirements.txt`.
 
 ### 0.4 Python 3.13 blockers
-- [ ] Replace `cgi.FieldStorage` in `rest/app.py` with a maintained multipart parser (`python-multipart`, which FastAPI uses later anyway). Tests for multipart uploads must pass unchanged. This must land **before** the interpreter switch.
-- [ ] Run the suite on 3.13; fix anything else removed or changed in 3.12/3.13.
+- [x] Replace `cgi.FieldStorage` in `rest/app.py` with a maintained multipart parser (`python-multipart`, which FastAPI uses later anyway). Tests for multipart uploads must pass unchanged. This must land **before** the interpreter switch.
+- [x] Run the suite on 3.13; fix anything else removed or changed in 3.12/3.13.
 
 ### 0.5 Lint, format, types
-- [ ] Configure ruff in `pyproject.toml` (line length 88, isort rules, pyflakes, pycodestyle, bugbear, pyupgrade). Remove black/isort/flake8 config (`.flake8`, `[tool.black]`, `[tool.isort]`).
-- [ ] One commit: `ruff format` over the whole server. Nothing else in it.
-- [ ] One or more commits: fix `ruff check` findings (or add justified per-file ignores).
-- [ ] Configure pyright `basic`. Record the initial error count in the decision log; it does not need to be zero in this phase, but CI reports it.
-- [ ] Update `.pre-commit-config.yaml`: ruff hooks for server; keep prettier/eslint for legacy client only if it still runs, otherwise drop them.
+- [x] Configure ruff in `pyproject.toml` (line length 88, isort rules, pyflakes, pycodestyle, bugbear, pyupgrade). Remove black/isort/flake8 config (`.flake8`, `[tool.black]`, `[tool.isort]`).
+- [x] One commit: `ruff format` over the whole server. Nothing else in it.
+- [x] One or more commits: fix `ruff check` findings (or add justified per-file ignores).
+- [x] Configure pyright `basic`. Write the initial error count into this task line; it does not need to be zero in this phase, but CI reports it. **Initial count: 878 errors (475 in engine code, 403 in tests), pyright 1.1.414.**
+- [x] Update `.pre-commit-config.yaml`: ruff hooks for server; keep prettier/eslint for legacy client only if it still runs, otherwise drop them.
 
 ### 0.6 Docker
-- [ ] Rewrite `server/Dockerfile` on `python:3.13-slim-trixie` with uv (`uv sync --frozen --no-dev` for release). System packages via apt: ffmpeg, libheif, libavif as needed by the wheels. Keep targets `testing`, `development`, `release`. Non-root user, dumb-init (or `tini`) kept.
-- [ ] PostgreSQL 11 → 17 in both compose files. Write `doc/UPGRADING.md` with the dump/restore procedure for an existing 11 data directory.
-- [ ] `docker-compose.yml` uses `build:` for the server and legacy client by default (published images optional, commented).
+- [x] Rewrite `server/Dockerfile` on `python:3.13-slim-trixie` with uv (`uv sync --frozen --no-dev` for release). System packages via apt: ffmpeg, libheif, libavif as needed by the wheels. Keep targets `testing`, `development`, `release`. Non-root user, dumb-init (or `tini`) kept.
+- [x] PostgreSQL 11 → 17 in both compose files. Write `doc/UPGRADING.md` with the dump/restore procedure for an existing 11 data directory.
+- [x] `docker-compose.yml` uses `build:` for the server and legacy client by default (published images optional, commented).
 
 ### 0.7 CI
-- [ ] Delete `build-containers.yml` (Docker Hub).
-- [ ] `ci.yml` on push and PR: `uv sync --frozen`, ruff check, ruff format --check, pyright (report only in phase 0), pytest against a `postgres:17` service container via `LITHICA_TEST_DATABASE_URL`.
-- [ ] `release.yml` on `release: published`: build multi-arch images, push to GHCR with the release tag and `latest`, using `GITHUB_TOKEN` only.
+- [x] Delete `build-containers.yml` (Docker Hub).
+- [x] `ci.yml` on push and PR: `uv sync --frozen`, ruff check, ruff format --check, pyright (report only in phase 0), pytest against a `postgres:17` service container via `LITHICA_TEST_DATABASE_URL`.
+- [x] `release.yml` on `release: published`: build multi-arch images, push to GHCR with the release tag and `latest`, using `GITHUB_TOKEN` only.
 
 **Exit criteria:** suite green on 3.13/Debian/uv; same pass count as 0.1;
 `docker compose up` works and the legacy client can log in, upload, tag,
-search and view a post (record the manual smoke test in the decision log).
+search and view a post (state the smoke test result in the phase PR description).
 
 ---
 

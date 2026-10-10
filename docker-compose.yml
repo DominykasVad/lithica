@@ -5,7 +5,11 @@
 services:
 
   server:
-    image: szurubooru/server:latest
+    build:
+      context: ./server
+    ## To use a published release image instead of building, comment out
+    ## "build" above and set a release tag here:
+    #image: ghcr.io/dominykasvad/lithica-server:v0.1.0
     depends_on:
       - sql
     environment:
@@ -25,7 +29,12 @@ services:
       - "./server/config.yaml:/opt/app/config.yaml"
 
   client:
-    image: szurubooru/client:latest
+    build:
+      context: ./legacy/client
+      args:
+        BUILD_INFO: ${BUILD_INFO:-latest}
+    ## Published release image, as for the server:
+    #image: ghcr.io/dominykasvad/lithica-client-legacy:v0.1.0
     depends_on:
       - server
     environment:
@@ -37,7 +46,7 @@ services:
       - "${PORT}:80"
 
   sql:
-    image: postgres:11-alpine
+    image: postgres:17
     restart: unless-stopped
     environment:
       POSTGRES_USER:

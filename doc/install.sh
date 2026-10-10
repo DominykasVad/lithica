@@ -2,8 +2,8 @@
 
 # NOTE: This script is still a work in progress
 
-# This script is meant to automate the deployment of Szurubooru via Docker/Docker-Compose,
-# and to automatically take the necessary steps to allow Szurubooru to run on ARM devices
+# This script is meant to automate the deployment of Lithica via Docker/Docker-Compose,
+# and to automatically take the necessary steps to allow Lithica to run on ARM devices
 # such as the Raspberry Pi.
 
 ###########################################[Notes]###########################################
@@ -19,8 +19,8 @@ ERROR="[\e[31mERROR\e[0m]"
 OK="[\e[32mOK\e[0m]"
 NOTICE="[\e[33mNOTICE\e[0m]"
 
-echo 'Welcome to Szurubooru.  This install script will ask you to set a few basic'\
-     'config values, then get szurubooru up and running.'
+echo 'Welcome to Lithica.  This install script will ask you to set a few basic'\
+     'config values, then get Lithica up and running.'
 
 echo "Checking a few things to ensure successful deployment..."
 
@@ -45,24 +45,10 @@ else echo "${OK} Docker Daemon accessible."
 fi
 
 
-########################################################################################
-# Check CPU architectue and, if ARM (such as Raspberry Pi), modify docker-compose.yml
-# https://github.com/rr-/szurubooru/wiki/ARM-and-Raspberry-Pi-Support-for-Docker-builds
-# https://github.com/rr-/szurubooru/blob/master/docker-compose.yml
-########################################################################################
-
-if [[ "$(uname -m)" == 'a'* ]]; then
-    echo -e "${NOTICE} ARM architecture detected.  Modfying docker-compose.yml for local build."
-    # Modify docker-compose file to build locally instead of pulling from dockerhub
-    sed -zi "s|image: szurubooru/server:latest|build:\n      context: ./server|; \
-             s|image: szurubooru/client:latest|build:\n      context: ./client|" ./docker-compose.yml
-fi
-
-
 function server_config () {
     ################################################################################################################
     # Copy ./server/config.yaml.dist to ./server/config.yaml, then prompt the user to set the basic config settings
-    # https://github.com/rr-/szurubooru/blob/master/doc/INSTALL.md
+    # https://github.com/DominykasVad/lithica/blob/main/doc/INSTALL.md
     ################################################################################################################
 
     cp server/config.yaml.dist server/config.yaml
@@ -76,10 +62,10 @@ function server_config () {
 
     # Other useful (but less important) settings
     echo "Enter the desired name for your server. (Shown in the website title and on the front page)"
-    read -e -p "> " -i "szurubooru" SERVERNAME
-    echo "Enter the full url to the homepage of this szurubooru site, with no trailing slash."
+    read -e -p "> " -i "lithica" SERVERNAME
+    echo "Enter the full url to the homepage of this Lithica site, with no trailing slash."
     read -e -p "> " URL
-    sed -i "s|name: szurubooru|name: $SERVERNAME|;s|domain: |domain: $URL|" ./server/config.yaml
+    sed -i "s|name: lithica|name: $SERVERNAME|;s|domain: |domain: $URL|" ./server/config.yaml
 
     # SMTP (email) settings
     echo -e "\n===[SMTP (Email) Settings]==="
@@ -110,11 +96,11 @@ function server_config () {
 function set_env () {
     ############################################################################################################
     # Copy ./doc/example.env to ./.env, then prompt the user to set the basic config settings
-    # https://github.com/rr-/szurubooru/blob/master/doc/INSTALL.md
+    # https://github.com/DominykasVad/lithica/blob/main/doc/INSTALL.md
     ############################################################################################################
     cp doc/example.env .env
     echo -e "\n===[Environmental Variables]==="
-    echo "Enter your desired database username."; read -e -p "> " -i "szuru" DB_USER
+    echo "Enter your desired database username."; read -e -p "> " -i "lithica" DB_USER
     while true; do # Ensures the user sets a database password for security reasons.
     echo "Enter your desired database password. (Will not print to console)"; read -s -p "> " DB_PASS
         if [ -z $DB_PASS ]; then echo -e "\nERROR: You must set a password!"; else break; fi
@@ -123,16 +109,16 @@ function set_env () {
     echo "Enter the build info you'd like to display on the home screen."; read -e -p "> " -i "latest" BUILD_INFO
     echo "Enter the port # to expose the HTTP service to."
     echo "Set to 127.0.0.1:8080 if you wish to reverse proxy the docker's port."; read -e -p "> " -i "8080" PORT
-    echo "Enter the URL base to run szurubooru under"; read -e -p "> " -i "/" BASE_URL
-    echo "Enter the directory in which you wish to store image data."; read -e -p "> " -i "/var/local/szurubooru/data" MOUNT_DATA
-    echo "Enter the directory in which you wish to store database files."; read -e -p "> " -i "/var/local/szurubooru/sql" MOUNT_SQL
-    sed -i "s|POSTGRES_USER=szuru|POSTGRES_USER=$DB_USER|; \
+    echo "Enter the URL base to run Lithica under"; read -e -p "> " -i "/" BASE_URL
+    echo "Enter the directory in which you wish to store image data."; read -e -p "> " -i "/var/local/lithica/data" MOUNT_DATA
+    echo "Enter the directory in which you wish to store database files."; read -e -p "> " -i "/var/local/lithica/sql" MOUNT_SQL
+    sed -i "s|POSTGRES_USER=lithica|POSTGRES_USER=$DB_USER|; \
             s|POSTGRES_PASSWORD=changeme|POSTGRES_PASSWORD=$DB_PASS|; \
             s|BUILD_INFO=latest|BUILD_INFO=$BUILD_INFO|; \
             s|PORT=8080|PORT=$PORT|; \
             s|BASE_URL=/|BASE_URL=$URL|; \
-            s|MOUNT_DATA=/var/local/szurubooru/data|MOUNT_DATA=$MOUNT_DATA|; \
-            s|MOUNT_SQL=/var/local/szurubooru/sql|MOUNT_SQL=$MOUNT_SQL|" .env
+            s|MOUNT_DATA=/var/local/lithica/data|MOUNT_DATA=$MOUNT_DATA|; \
+            s|MOUNT_SQL=/var/local/lithica/sql|MOUNT_SQL=$MOUNT_SQL|" .env
 }
 
 echo "Creating and setting up server configuration (server/config.yaml)..."
@@ -142,7 +128,7 @@ echo -e "\nCreating and setting up environmental variables (.env)..."
 set_env # Configuration via ./.env
 
 echo -e "\nConfig is all done!  Now pulling Docker containers..."
-docker-compose pull # Download containers
+docker-compose build # Build containers
 
 echo "Starting SQL container..."
 docker-compose up -d sql # Start SQL first
@@ -160,5 +146,5 @@ mount=$(grep "MOUNT_DATA" .env | sed 's/MOUNT_DATA=//')
 echo "Performing a quick ownership change of $mount to make sure images can be submitted..."
 chown -R $puid:$guid "$mount"
 
-echo "All done!  You should now be able to access Szurubooru using the port number you set."
+echo "All done!  You should now be able to access Lithica using the port number you set."
 exit 0
