@@ -102,7 +102,7 @@ correct code.
 ### 1.3 Database portability
 - [x] Replace `post_signature.words` (`postgresql.ARRAY` + raw-SQL `unnest()` in `func/posts.py`) with a normal child table of (signature id, position, word) and an ORM query. Migration moves existing data. Similar-post results must be identical — add a test that compares old and new query results on the test assets before removing the old path.
 - [x] Replace `ilike` in `search/configs/util.py` with `func.lower(col).like(func.lower(value))`; check index usage on Postgres (expression index on `lower(name)` if needed, created via SQLAlchemy `Index`).
-- [ ] Grep gate: no `sa.text`, `text(`, `sa.dialects`, `ilike` left in `lithica/` (excluding historical migrations). Add this as a CI check.
+- [x] Grep gate: no `sa.text`, `text(`, `sa.dialects`, `ilike` left in `lithica/` (excluding historical migrations). Add this as a CI check.
 
 ### 1.4 Startup and background work
 - [ ] Move the two boot-time "live migrations" (post signatures, MD5 checksums) to `lithica-admin backfill` commands. On startup, only log a warning if a backfill is pending.

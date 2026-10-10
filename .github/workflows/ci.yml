@@ -70,5 +70,10 @@ jobs:
             tail -n 1 pyright.log
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # No raw SQL and nothing PostgreSQL-only in the engine (AGENTS.md,
+      # "Database"). Also part of the suite; run first so it is visible.
+      - name: Database portability gate
+        run: uv run pytest --color=yes lithica/tests/test_portability.py
+
       - name: Test
         run: uv run pytest -n auto --color=yes
