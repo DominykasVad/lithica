@@ -99,6 +99,12 @@ def validate_config() -> None:
     if config.config["webhooks"] and not isinstance(config.config["webhooks"], list):
         raise errors.ConfigError("Webhooks must be provided as a list of URLs")
 
+    lifetime = config.config["password_reset_token_lifetime"]
+    if isinstance(lifetime, bool) or not isinstance(lifetime, int) or lifetime <= 0:
+        raise errors.ConfigError(
+            "password_reset_token_lifetime must be a positive number of seconds"
+        )
+
     if config.config["smtp"]["host"]:
         if not config.config["smtp"]["port"]:
             raise errors.ConfigError("SMTP host is set but port is not set")

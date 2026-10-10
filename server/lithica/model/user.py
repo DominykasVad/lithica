@@ -121,3 +121,26 @@ class UserToken(Base):
     version = sa.Column("version", sa.Integer, default=1, nullable=False)
 
     user = sa.orm.relationship("User")
+
+
+class PasswordResetToken(Base):
+    """
+    A pending password reset. Only a hash of the token is stored; the token
+    itself exists in the e-mail sent to the user and nowhere else.
+    """
+
+    __tablename__ = "password_reset_token"
+
+    password_reset_token_id = sa.Column("id", sa.Integer, primary_key=True)
+    user_id = sa.Column(
+        "user_id",
+        sa.Integer,
+        sa.ForeignKey("user.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    token_hash = sa.Column("token_hash", sa.Unicode(64), nullable=False)
+    creation_time = sa.Column("creation_time", sa.DateTime, nullable=False)
+    expiration_time = sa.Column("expiration_time", sa.DateTime, nullable=False)
+
+    user = sa.orm.relationship("User")

@@ -43,6 +43,9 @@ smtp:
     # in which case it is recommended to fill contactEmail so that users
     # know who to contact when they want to reset their password
 
+# how long a password reset link stays valid, in seconds
+password_reset_token_lifetime: 3600
+
 contact_email: # example: bob@example.com. Meant for manual password reset procedures
 
 enable_safety: yes

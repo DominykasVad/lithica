@@ -16,4 +16,4 @@ from lithica.model.post import (
 from lithica.model.snapshot import Snapshot
 from lithica.model.tag import Tag, TagImplication, TagName, TagSuggestion
 from lithica.model.tag_category import TagCategory
-from lithica.model.user import User, UserToken
+from lithica.model.user import PasswordResetToken, User, UserToken

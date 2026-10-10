@@ -66,6 +66,9 @@ respect). One line each, max ~120 characters: `date — task — decision (reaso
 No status notes, no "left untouched", no results — those go in commit messages.
 When a phase is merged, its entries are folded into the tables above or deleted.
 
+- 2026-10-10 — 1.1 — reset tokens: SHA-256 of a 256-bit random token, one pending per user, row deleted on use
+- 2026-10-10 — 1.1 — config key `password_reset_token_lifetime`, in seconds (default 3600)
+
 ---
 
 ## Phase 0 — done (merged in PR #1)
@@ -84,7 +87,7 @@ Goal: fix the known defects on the existing framework, so phase 2 ports
 correct code.
 
 ### 1.1 Security
-- [ ] Password reset: random token (`secrets.token_urlsafe`), stored hashed, single use, expiry (configurable, default 1 h). New table + migration. Remove `md5(secret + salt)` scheme.
+- [x] Password reset: random token (`secrets.token_urlsafe`), stored hashed, single use, expiry (configurable, default 1 h). New table + migration. Remove `md5(secret + salt)` scheme.
 - [ ] Refuse to start if `secret` is the default or empty; clear error message.
 - [ ] CORS: remove the wildcard from `legacy/client/nginx.conf.docker`; add `cors_origins` config (default empty = same origin). The server, not nginx, owns CORS from phase 2 on.
 - [ ] Audit token and password comparisons for constant-time compare.

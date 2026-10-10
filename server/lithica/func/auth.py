@@ -118,14 +118,5 @@ def verify_privilege(user: model.User, privilege_name: str) -> None:
         raise errors.AuthError("Insufficient privileges to do this.")
 
 
-def generate_authentication_token(user: model.User) -> str:
-    """Generate nonguessable challenge (e.g. links in password reminder)."""
-    assert user
-    digest = hashlib.md5()
-    digest.update(config.config["secret"].encode("utf8"))
-    digest.update(user.password_salt.encode("utf8"))
-    return digest.hexdigest()
-
-
 def generate_authorization_token() -> str:
     return uuid.uuid4().__str__()
