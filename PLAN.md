@@ -96,7 +96,7 @@ nothing behaves differently.
 
 ### 0.4 Python 3.13 blockers
 - [x] Replace `cgi.FieldStorage` in `rest/app.py` with a maintained multipart parser (`python-multipart`, which FastAPI uses later anyway). Tests for multipart uploads must pass unchanged. This must land **before** the interpreter switch.
-- [ ] Run the suite on 3.13; fix anything else removed or changed in 3.12/3.13.
+- [x] Run the suite on 3.13; fix anything else removed or changed in 3.12/3.13.
 
 ### 0.5 Lint, format, types
 - [ ] Configure ruff in `pyproject.toml` (line length 88, isort rules, pyflakes, pycodestyle, bugbear, pyupgrade). Remove black/isort/flake8 config (`.flake8`, `[tool.black]`, `[tool.isort]`).
