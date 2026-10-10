@@ -2172,6 +2172,12 @@ data.
     exception of privilege array keys being converted to lower camel case to
     match the API convention.
 
+    `<disk-usage>` is the size of the data directory. It is measured in the
+    background and can be up to an hour old; it is null until the first
+    measurement after a server start has finished. When several server
+    processes run, each measures for itself, so two requests can briefly
+    report different sizes.
+
 ## Uploading temporary file
 
 - **Request**
