@@ -53,7 +53,8 @@ def test_get_post_thumbnail_url(input_mime_type, config_injector):
         ("totally/unknown", "posts/1_244c8840887984c4.dat"),
     ],
 )
-def test_get_post_content_path(input_mime_type, expected_path):
+def test_get_post_content_path(input_mime_type, expected_path, config_injector):
+    config_injector({"secret": "test"})
     post = model.Post()
     post.post_id = 1
     post.mime_type = input_mime_type
@@ -61,7 +62,8 @@ def test_get_post_content_path(input_mime_type, expected_path):
 
 
 @pytest.mark.parametrize("input_mime_type", ["image/jpeg", "image/gif"])
-def test_get_post_thumbnail_path(input_mime_type):
+def test_get_post_thumbnail_path(input_mime_type, config_injector):
+    config_injector({"secret": "test"})
     post = model.Post()
     post.post_id = 1
     post.mime_type = input_mime_type
@@ -72,7 +74,8 @@ def test_get_post_thumbnail_path(input_mime_type):
 
 
 @pytest.mark.parametrize("input_mime_type", ["image/jpeg", "image/gif"])
-def test_get_post_thumbnail_backup_path(input_mime_type):
+def test_get_post_thumbnail_backup_path(input_mime_type, config_injector):
+    config_injector({"secret": "test"})
     post = model.Post()
     post.post_id = 1
     post.mime_type = input_mime_type

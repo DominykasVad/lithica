@@ -217,10 +217,13 @@ def context_factory(session):
 
 @pytest.fixture
 def config_injector():
+    original_config = config.config
+
     def injector(new_config_content):
         config.config = new_config_content
 
-    return injector
+    yield injector
+    config.config = original_config
 
 
 @pytest.fixture
