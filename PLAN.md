@@ -62,6 +62,13 @@ None. (The signature `ARRAY` + `unnest()` and `ilike` uses are removed in phase 
 Agents append decisions made during tasks here: date, task, decision, reason.
 
 - 2026-10-10 — planning — initial decisions above.
+- 2026-10-10 — 0.1 — baseline recorded: `scripts/run-server-tests.sh` on the
+  existing Alpine 3.22 test image (Python 3.12.15, SQLAlchemy 2.0.40,
+  linux/arm64) gives **1257 passed, 10 skipped, 1 xfailed** (1268 collected),
+  0 failed. This is the reference count for "nothing changed". Note the
+  baseline interpreter is already 3.12, not 3.9.
+- 2026-10-10 — 0.1 — default branch renamed `master` → `main` at the owner's
+  request; `fork-point` tag created locally at `10ac850`.
 
 ---
 
@@ -71,8 +78,8 @@ Goal: the repo is ours, builds with uv on Python 3.13 in Debian, CI runs, and
 nothing behaves differently.
 
 ### 0.1 Baseline
-- [ ] Tag `10ac850` as `fork-point`.
-- [ ] Confirm the current suite passes on the existing Alpine test image; record the result (pass/fail counts) in the decision log. This is the reference for "nothing changed".
+- [x] Tag `10ac850` as `fork-point`.
+- [x] Confirm the current suite passes on the existing Alpine test image; record the result (pass/fail counts) in the decision log. This is the reference for "nothing changed".
 
 ### 0.2 Rename and rebrand (mechanical, separate commits)
 - [ ] Rename package `server/szurubooru/` → `server/lithica/`; update all imports, `alembic.ini`, `migrations/env.py`, entry points, test paths, scripts. No other changes in this commit.
