@@ -1,7 +1,3 @@
-# Linter configs
-pyproject.toml
-.flake8
-
 # Docker build files
 Dockerfile
 .dockerignore

@@ -69,6 +69,8 @@ When a phase is merged, its entries are folded into the tables above or deleted.
 - 2026-10-10 — 0.2 — example env defaults renamed to `lithica` (user, paths)
 - 2026-10-10 — 0.3 — SQLAlchemy held at `<2.1`: 2.1 defaults to psycopg 3, a driver change outside phase 0
 - 2026-10-10 — 0.3 — `lithica` is an installable package built with `uv_build` (flat layout, no `src/`)
+- 2026-10-10 — 0.5 — ruff skips `lithica/migrations/versions/` (committed migrations are not rewritten)
+- 2026-10-10 — 0.5 — ruff also selects `T20` (print ban, replaces flake8-print); `lithica-admin` exempt
 
 ---
 
@@ -99,7 +101,7 @@ nothing behaves differently.
 - [x] Run the suite on 3.13; fix anything else removed or changed in 3.12/3.13.
 
 ### 0.5 Lint, format, types
-- [ ] Configure ruff in `pyproject.toml` (line length 88, isort rules, pyflakes, pycodestyle, bugbear, pyupgrade). Remove black/isort/flake8 config (`.flake8`, `[tool.black]`, `[tool.isort]`).
+- [x] Configure ruff in `pyproject.toml` (line length 88, isort rules, pyflakes, pycodestyle, bugbear, pyupgrade). Remove black/isort/flake8 config (`.flake8`, `[tool.black]`, `[tool.isort]`).
 - [ ] One commit: `ruff format` over the whole server. Nothing else in it.
 - [ ] One or more commits: fix `ruff check` findings (or add justified per-file ignores).
 - [ ] Configure pyright `basic`. Write the initial error count into this task line; it does not need to be zero in this phase, but CI reports it.

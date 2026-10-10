@@ -35,16 +35,30 @@ module-root = ""
 [tool.pytest.ini_options]
 testpaths = ["lithica"]
 
-[tool.black]
-line-length = 79
+[tool.ruff]
+line-length = 88
+target-version = "py313"
+extend-include = ["lithica-admin"]
+# Committed migrations are history and are not rewritten (see AGENTS.md).
+extend-exclude = ["lithica/migrations/versions"]
 
-[tool.isort]
-known_first_party = ["lithica"]
-known_third_party = ["PIL", "alembic", "coloredlogs", "freezegun", "nacl", "numpy", "pyrfc3339", "pytest", "pytz", "sqlalchemy", "yaml", "youtube_dl"]
-multi_line_output = 3
-include_trailing_comma = true
-force_grid_wrap = 0
-use_parentheses = true
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+    "T20", # no print() in server code
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["lithica"]
+
+[tool.ruff.lint.per-file-ignores]
+# the admin CLI talks to a terminal
+"lithica-admin" = ["T20"]
 
 [dependency-groups]
 dev = [
