@@ -11,6 +11,7 @@ from lithica.model.post import (
     PostRelation,
     PostScore,
     PostSignature,
+    PostSignatureWord,
     PostTag,
 )
 from lithica.model.snapshot import Snapshot

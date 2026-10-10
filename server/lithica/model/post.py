@@ -157,6 +157,40 @@ class PostTag(Base):
         self.tag_id = tag_id
 
 
+class PostSignatureWord(Base):
+    """
+    One word of a post signature. A signature has a fixed number of words and
+    two images are candidates for being similar when they have equal words at
+    the same positions.
+    """
+
+    __tablename__ = "post_signature_word"
+
+    post_id = sa.Column(
+        "post_id",
+        sa.Integer,
+        sa.ForeignKey("post_signature.post_id", ondelete="CASCADE"),
+        primary_key=True,
+        nullable=False,
+    )
+    position = sa.Column(
+        "position",
+        sa.Integer,
+        primary_key=True,
+        nullable=False,
+        autoincrement=False,
+    )
+    word = sa.Column("word", sa.Integer, nullable=False)
+
+    __table_args__ = (
+        sa.Index("ix_post_signature_word_word_position", "word", "position"),
+    )
+
+    def __init__(self, position: int, word: int) -> None:
+        self.position = position
+        self.word = word
+
+
 class PostSignature(Base):
     __tablename__ = "post_signature"
 
@@ -174,6 +208,13 @@ class PostSignature(Base):
         sa.dialects.postgresql.ARRAY(sa.Integer, dimensions=1),
         nullable=False,
         index=True,
+    )
+
+    word_rows = sa.orm.relationship(
+        "PostSignatureWord",
+        order_by="PostSignatureWord.position",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
 
     post = sa.orm.relationship("Post", back_populates="signature")
