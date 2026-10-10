@@ -69,6 +69,15 @@ Agents append decisions made during tasks here: date, task, decision, reason.
   baseline interpreter is already 3.12, not 3.9.
 - 2026-10-10 — 0.1 — default branch renamed `master` → `main` at the owner's
   request; `fork-point` tag created locally at `10ac850`.
+- 2026-10-10 — 0.2 — repository URLs in docs, OCI labels and the legacy
+  client footer use `https://github.com/DominykasVad/lithica` (AGENTS.md: new
+  names everywhere). They resolve only once the owner renames the GitHub
+  repo; until then the clone URL in `doc/INSTALL.md` does not work.
+- 2026-10-10 — 0.2 — rebrand also changed the example defaults
+  (`POSTGRES_USER=lithica`, `/var/local/lithica/...` in `doc/example.env` and
+  `doc/install.sh`). Existing installs keep their own `.env`, so nothing
+  moves. Left untouched as outside the listed items: legacy client
+  `package.json` name, `build.js` app name, About page text, `doc/API.md`.
 
 ---
 
@@ -85,7 +94,7 @@ nothing behaves differently.
 - [x] Rename package `server/szurubooru/` → `server/lithica/`; update all imports, `alembic.ini`, `migrations/env.py`, entry points, test paths, scripts. No other changes in this commit.
 - [x] Rename `szuru-admin` → `lithica-admin`.
 - [x] Move `client/` → `legacy/client/`; fix compose files and scripts so it still builds and serves.
-- [ ] Rebrand docs and metadata: `README.md` (state clearly: fork of szurubooru at `10ac850`, GPLv3, modified — GPLv3 §5a notice), `doc/INSTALL.md`, `doc/install.sh`, OCI labels in both Dockerfiles, `config.yaml.dist` default `name`, legacy client footer "Build" link and `package.json` script.
+- [x] Rebrand docs and metadata: `README.md` (state clearly: fork of szurubooru at `10ac850`, GPLv3, modified — GPLv3 §5a notice), `doc/INSTALL.md`, `doc/install.sh`, OCI labels in both Dockerfiles, `config.yaml.dist` default `name`, legacy client footer "Build" link and `package.json` script.
 - [ ] Image names: `ghcr.io/dominykasvad/lithica-server`, `ghcr.io/dominykasvad/lithica-client-legacy`.
 
 ### 0.3 uv project
