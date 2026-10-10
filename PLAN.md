@@ -82,7 +82,7 @@ nothing behaves differently.
 - [x] Confirm the current suite passes on the existing Alpine test image; record the result (pass/fail counts) in the decision log. This is the reference for "nothing changed".
 
 ### 0.2 Rename and rebrand (mechanical, separate commits)
-- [ ] Rename package `server/szurubooru/` → `server/lithica/`; update all imports, `alembic.ini`, `migrations/env.py`, entry points, test paths, scripts. No other changes in this commit.
+- [x] Rename package `server/szurubooru/` → `server/lithica/`; update all imports, `alembic.ini`, `migrations/env.py`, entry points, test paths, scripts. No other changes in this commit.
 - [ ] Rename `szuru-admin` → `lithica-admin`.
 - [ ] Move `client/` → `legacy/client/`; fix compose files and scripts so it still builds and serves.
 - [ ] Rebrand docs and metadata: `README.md` (state clearly: fork of szurubooru at `10ac850`, GPLv3, modified — GPLv3 §5a notice), `doc/INSTALL.md`, `doc/install.sh`, OCI labels in both Dockerfiles, `config.yaml.dist` default `name`, legacy client footer "Build" link and `package.json` script.
