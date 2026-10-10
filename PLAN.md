@@ -78,6 +78,11 @@ Agents append decisions made during tasks here: date, task, decision, reason.
   `doc/install.sh`). Existing installs keep their own `.env`, so nothing
   moves. Left untouched as outside the listed items: legacy client
   `package.json` name, `build.js` app name, About page text, `doc/API.md`.
+- 2026-10-10 — 0.2 — GHCR image names are in `docker-compose.yml` and the
+  install docs, but no image is published until the first release, so
+  `docker compose pull` fails until then (0.6 switches compose to `build:`).
+  `build-containers.yml` still names the Docker Hub images; it only triggers
+  on the removed `master` branch and is deleted in 0.7, so it was left alone.
 
 ---
 
@@ -95,7 +100,7 @@ nothing behaves differently.
 - [x] Rename `szuru-admin` → `lithica-admin`.
 - [x] Move `client/` → `legacy/client/`; fix compose files and scripts so it still builds and serves.
 - [x] Rebrand docs and metadata: `README.md` (state clearly: fork of szurubooru at `10ac850`, GPLv3, modified — GPLv3 §5a notice), `doc/INSTALL.md`, `doc/install.sh`, OCI labels in both Dockerfiles, `config.yaml.dist` default `name`, legacy client footer "Build" link and `package.json` script.
-- [ ] Image names: `ghcr.io/dominykasvad/lithica-server`, `ghcr.io/dominykasvad/lithica-client-legacy`.
+- [x] Image names: `ghcr.io/dominykasvad/lithica-server`, `ghcr.io/dominykasvad/lithica-client-legacy`.
 
 ### 0.3 uv project
 - [ ] `server/pyproject.toml` as a uv project: `requires-python = ">=3.13,<3.14"`, `.python-version` = `3.13`. Dependencies taken from what the **Dockerfile actually installs today** (it is the source of truth, not `requirements.txt`), at current compatible versions.
