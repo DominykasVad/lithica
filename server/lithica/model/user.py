@@ -100,6 +100,10 @@ class User(Base):
     }
 
 
+# searches compare lower(name), see lithica.search.configs.util
+sa.Index("ix_user_name_lower", sa.func.lower(User.name))
+
+
 class UserToken(Base):
     __tablename__ = "user_token"
 

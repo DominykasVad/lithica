@@ -118,17 +118,26 @@ def create_num_filter(
     return wrapper
 
 
+def _like_ignoring_case(column: SaColumn, pattern: str) -> Any:
+    """
+    Case-insensitive LIKE that every database understands, unlike ILIKE.
+    The escape character is named because only some databases default to
+    the backslash that wildcard_transformer escapes with.
+    """
+    return sa.func.lower(column).like(sa.func.lower(pattern), escape="\\")
+
+
 def apply_str_criterion_to_column(
     column: SaColumn,
     criterion: criteria.BaseCriterion,
     transformer: Callable[[str], str] = wildcard_transformer,
 ) -> SaQuery:
     if isinstance(criterion, criteria.PlainCriterion):
-        expr = column.ilike(transformer(criterion.value))
+        expr = _like_ignoring_case(column, transformer(criterion.value))
     elif isinstance(criterion, criteria.ArrayCriterion):
         expr = sa.sql.false()
         for value in criterion.values:
-            expr = expr | column.ilike(transformer(value))
+            expr = expr | _like_ignoring_case(column, transformer(value))
     elif isinstance(criterion, criteria.RangedCriterion):
         raise errors.SearchError(
             "Ranged criterion is invalid in this context. "

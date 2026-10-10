@@ -73,6 +73,10 @@ class TagName(Base):
         self.order = order
 
 
+# searches compare lower(name), see lithica.search.configs.util
+sa.Index("ix_tag_name_name_lower", sa.func.lower(TagName.name))
+
+
 class Tag(Base):
     __tablename__ = "tag"
 

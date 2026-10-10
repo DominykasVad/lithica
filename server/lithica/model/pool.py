@@ -24,6 +24,10 @@ class PoolName(Base):
         self.order = order
 
 
+# searches compare lower(name), see lithica.search.configs.util
+sa.Index("ix_pool_name_name_lower", sa.func.lower(PoolName.name))
+
+
 class PoolPost(Base):
     __tablename__ = "pool_post"
 

@@ -509,3 +509,39 @@ def test_sort_by_category(
     db.session.add_all([tag1, tag2, tag3])
     db.session.flush()
     verify_unpaged(input, expected_tag_names)
+
+
+@pytest.mark.parametrize(
+    "input,expected_tag_names",
+    [
+        ("mixedcase", ["MixedCase"]),
+        ("MIXEDCASE", ["MixedCase"]),
+        ("MixedCase", ["MixedCase"]),
+        ("name:mIxEd*", ["MixedCase"]),
+        ("*CASE", ["MixedCase", "lowercase"]),
+        ("zażółć", ["ZAŻÓŁĆ"]),
+        ("ZAŻ*", ["ZAŻÓŁĆ"]),
+        ("-name:MIXEDCASE", ["100%", "ZAŻÓŁĆ", "a_b", "axb", "lowercase"]),
+        # "%" and "_" are ordinary characters in a search, not wildcards
+        ("100%", ["100%"]),
+        ("1%", []),
+        ("%", []),
+        ("a_b", ["a_b"]),
+        ("A_B", ["a_b"]),
+        ("a*b", ["a_b", "axb"]),
+        ("_", []),
+        ("______", []),
+    ],
+)
+def test_filter_by_name_ignores_case_and_sql_wildcards(
+    executor, tag_factory, input, expected_tag_names
+):
+    for name in ["MixedCase", "lowercase", "ZAŻÓŁĆ", "100%", "a_b", "axb"]:
+        db.session.add(tag_factory(names=[name]))
+    db.session.flush()
+    actual_count, actual_tags = executor.execute(input, offset=0, limit=100)
+    assert actual_count == len(expected_tag_names)
+    # the order of names depends on the database collation
+    assert sorted(tag.names[0].name for tag in actual_tags) == sorted(
+        expected_tag_names
+    )
