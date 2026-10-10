@@ -1,0 +1,184 @@
+# AGENTS.md
+
+Rules and facts for any coding agent working in this repository. Read this file
+and `PLAN.md` before starting any task. `PLAN.md` says *what* to do next; this
+file says *how* to work. If they conflict, stop and ask.
+
+## Project
+
+**Lithica** is a self-hosted image board ("booru") engine. It is a hard fork of
+[szurubooru](https://github.com/rr-/szurubooru) taken at upstream commit
+`10ac850` (2026-07-25). There is no upstream tracking: do not add an upstream
+remote, do not cherry-pick, do not open PRs against `rr-/szurubooru`.
+
+- **Engine** (`Lithica`): generic booru — posts, tags, pools, users, comments,
+  search, snapshots. Must stay usable as a plain image booru.
+- **Modules**: optional features layered on the engine, switched on in config.
+  No real module exists yet; phase 3 builds the module system itself.
+- The repository folder and GitHub repo still say `szurubooru`; the owner will
+  rename them later. Use the new names everywhere in code and docs.
+
+Licence is **GPLv3**. Keep `LICENSE.md` and the original copyright/attribution.
+Never relicense, never strip headers or credits.
+
+## Current phase
+
+Server modernisation (PLAN.md phases 0–3). Work only on tasks listed there,
+in order, unless the owner says otherwise. Anything not listed in PLAN.md is
+**out of scope**.
+
+## Layout
+
+Target layout (phase 0 performs the renames; until then the old paths apply —
+`server/szurubooru/`, `client/`, `szuru-admin`):
+
+```
+server/
+  pyproject.toml, uv.lock, .python-version
+  lithica/              engine package (was szurubooru/)
+    api/                HTTP layer (FastAPI routers after phase 2)
+    func/               business logic
+    model/              SQLAlchemy models
+    search/             query language
+    migrations/         Alembic
+    modules/            optional modules (phase 3+); engine code never imports from here
+    tests/
+  lithica-admin         admin CLI (was szuru-admin)
+legacy/client/          old vanilla-JS client + nginx config — FROZEN, see below
+doc/
+PLAN.md, AGENTS.md, ANALYSIS.md
+```
+
+Layering on the server is strict: `api → func → model`. `api` handles HTTP
+only (parsing, auth, status codes). Business rules live in `func`. Models
+contain no HTTP or request logic.
+
+## Toolchain and commands
+
+Python **3.13**, managed by **uv** only. Run everything from `server/`.
+
+| Task | Command |
+|---|---|
+| Install / sync env | `uv sync` |
+| Add dependency | `uv add <pkg>` (dev: `uv add --dev <pkg>`) |
+| Lint | `uv run ruff check .` |
+| Format | `uv run ruff format .` |
+| Type check | `uv run pyright` |
+| Test database | `docker compose -f docker-compose.test.yml up -d` (PostgreSQL 17 on `localhost:5433`) |
+| Tests (local) | `uv run pytest -n auto` — uses `LITHICA_TEST_DATABASE_URL`, default `postgresql://postgres:postgres@localhost:5433/postgres` |
+| Tests (container) | `scripts/run-server-tests.sh [path]` |
+| New migration | `uv run alembic revision --autogenerate -m "<what>"`, then review by hand |
+| Dev stack | `docker compose -f docker-compose.dev.yml up` |
+
+Never use `pip`, `pip install`, `requirements.txt`, `poetry` or `conda`.
+`uv.lock` is committed; change it only through `uv add` / `uv remove` /
+`uv lock`.
+
+Before phase 0 finishes, some of these commands do not exist yet; use the
+old equivalents (`scripts/run-server-tests.sh`) and note it in your report.
+No local PostgreSQL install is needed or wanted — the database always runs in
+a container. Everything must work on any host with Docker-compatible tooling
+and uv; do not assume a specific OS, CPU architecture or machine.
+
+## Definition of done (every task)
+
+1. `ruff check`, `ruff format --check`, `pyright` and the full test suite pass.
+2. New or changed behaviour has tests. Do not delete, skip or weaken an
+   existing test to make the suite pass; if a test is genuinely wrong, say so
+   in the report and explain.
+3. The matching checkbox in `PLAN.md` is ticked, and any decision you had to
+   make is added to the **Decision log** there.
+4. Report: what changed, what you verified and how, what you did not verify.
+
+## Hard rules
+
+### Scope and decisions
+- Working notes, scratch scripts and investigation output go in `scratch/`
+  at the repo root (git-ignored; create it if missing). Never commit them and
+  never leave such files elsewhere in the tree.
+- Branches: one branch per phase (`phase-0`, `phase-1`, …); later, one branch
+  per feature (`feat/<name>`). Never commit directly to `main`; the owner
+  merges. Keep commits small inside the branch.
+- Do one PLAN.md task per change set. No drive-by refactors, renames or
+  reformatting outside the task.
+- If a task needs a decision PLAN.md does not cover (a new dependency, a
+  schema change not described, an API change, a security trade-off), stop and
+  ask. Do not pick silently.
+- Mechanical changes (renames, reformatting) go in their own commits, never
+  mixed with behaviour changes.
+
+### API compatibility
+- Through phases 0–3 the HTTP API stays **wire-compatible** with
+  `doc/API.md`: same paths, methods, parameter names, JSON shapes, error body
+  (`name`, `title`, `description`) and status codes. The legacy client is the
+  smoke test for this.
+- The only allowed breaking changes are the ones listed under
+  "Intentional API changes" in PLAN.md.
+- After phase 2, `doc/openapi.json` is the API contract. It is generated from
+  code (`uv run python -m lithica.openapi > ../doc/openapi.json`) and CI fails
+  if the committed file differs. Never hand-edit it.
+
+### Database
+- PostgreSQL 17 is the only database tested and shipped, but code must stay
+  **database-agnostic**:
+  - SQLAlchemy ORM / Core expressions only. No `text()`, no raw SQL strings,
+    no `sa.dialects.*` types, no Postgres-only functions — unless listed under
+    "Allowed dialect exceptions" in PLAN.md.
+  - JSON columns use `sa.JSON().with_variant(JSONB, "postgresql")`.
+  - Case-insensitive matching uses `func.lower(col).like(...)`, not `ilike`.
+- Migrations: Alembic only. Never edit a migration that has been committed to
+  `main`; add a new one. Every migration has a working `downgrade()`.
+  Data migrations must be idempotent and batch large tables.
+- Timestamps are stored as **naive UTC**. Get "now" only via `util.utcnow()`
+  (returns naive UTC). Never call `datetime.utcnow()` or `datetime.now()`
+  directly, and do not introduce timezone-aware values into model columns.
+
+### Sessions and concurrency
+- `func/` code uses the request-scoped session from `lithica.db`. After phase
+  2 the scope is a `ContextVar` set per request, **not** thread-local. Never
+  rely on thread identity for request state.
+- Endpoints are plain `def` (run in the thread pool), not `async def`, because
+  the business layer is synchronous. Do not make an endpoint `async` unless it
+  awaits nothing blocking, and say why.
+- Background work (upload purge, backfills) creates and closes its own
+  session. Never share a session between threads.
+- Assume more than one server process may run. Do not add new in-process
+  caches or global mutable state.
+
+### Modules (phase 3+)
+- The engine must never import from `lithica.modules.*`. Modules register
+  themselves through the module registry. `import-linter` enforces this in CI.
+- A module may import engine code, never another module.
+- Module tables are created by normal Alembic migrations regardless of
+  whether the module is enabled; the config switch only enables behaviour.
+
+### Security
+- Never commit `config.yaml`, `.env`, secrets, tokens or real user data.
+- The server must refuse to start with the default `secret`.
+- Treat all uploaded content — including metadata embedded in files (PNG text
+  chunks, EXIF, video metadata) — as untrusted. Never execute it, never
+  render it as HTML server-side, never pass it to a shell. Subprocess calls
+  (`ffmpeg`, `yt-dlp`) use argument lists, never `shell=True`.
+- Use `secrets` for tokens and `hmac.compare_digest` for comparisons.
+- Do not log passwords, tokens, reset links or request bodies.
+
+### Legacy client
+- `legacy/client/` is **frozen**. Change it only when needed to keep it
+  building and talking to the API, or for the rebrand items PLAN.md lists.
+  No features, no refactors, no dependency upgrades beyond what a build fix
+  needs.
+
+### Style
+- ruff defaults as configured in `pyproject.toml`, line length 88.
+- Type-annotate all new and changed code. Do not add `# type: ignore` or
+  `Any` to silence pyright without a comment saying why.
+- No `print()` in server code; use `logging.getLogger(__name__)`.
+- Commit messages: `<area>: <imperative summary>` where area is `server`,
+  `client`, `ci`, `docker`, `doc`, or a module name. Body explains *why*.
+
+## Reference
+
+- `PLAN.md` — phases, tasks, decisions, open questions.
+- `ANALYSIS.md` — snapshot analysis of the codebase at the fork point. Local only (git-ignored); may be absent in a fresh clone.
+- `doc/API.md` — wire contract until `doc/openapi.json` replaces it.
+- `server/config.yaml.dist` — all settings and the privilege matrix.
