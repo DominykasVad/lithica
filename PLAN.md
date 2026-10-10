@@ -88,7 +88,7 @@ correct code.
 
 ### 1.1 Security
 - [x] Password reset: random token (`secrets.token_urlsafe`), stored hashed, single use, expiry (configurable, default 1 h). New table + migration. Remove `md5(secret + salt)` scheme.
-- [ ] Refuse to start if `secret` is the default or empty; clear error message.
+- [x] Refuse to start if `secret` is the default or empty; clear error message.
 - [ ] CORS: remove the wildcard from `legacy/client/nginx.conf.docker`; add `cors_origins` config (default empty = same origin). The server, not nginx, owns CORS from phase 2 on.
 - [ ] Audit token and password comparisons for constant-time compare.
 - [ ] Audit `subprocess` calls (ffmpeg, ffprobe, yt-dlp) for list arguments and timeouts.

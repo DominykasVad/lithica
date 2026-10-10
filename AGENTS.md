@@ -66,7 +66,7 @@ directory in the "Run from" column.
 | Tests (local) | `server/` | `uv run pytest -n auto` — uses `LITHICA_TEST_DATABASE_URL`, default `postgresql://postgres:postgres@localhost:5433/postgres` |
 | New migration | `server/` | `uv run alembic revision --autogenerate -m "<what>"`, then review by hand — needs `database:` set in a local `server/config.yaml` (git-ignored) |
 | Tests (container) | repo root | `scripts/run-server-tests.sh [path]` |
-| Dev stack | repo root | `docker compose -f docker-compose.dev.yml up` — needs a `.env` (copy `doc/example.env`) |
+| Dev stack | repo root | `docker compose -f docker-compose.dev.yml up` — needs a `.env` (copy `doc/example.env`) and a `server/config.yaml` that sets `secret` |
 
 Never use `pip`, `pip install`, `requirements.txt`, `poetry` or `conda`.
 `uv.lock` is committed; change it only through `uv add` / `uv remove` /

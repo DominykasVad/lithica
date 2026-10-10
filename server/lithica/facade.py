@@ -75,6 +75,8 @@ def validate_config() -> None:
     """
     from lithica.func.auth import RANK_MAP
 
+    config.validate_secret()
+
     for privilege, rank in config.config["privileges"].items():
         if rank not in RANK_MAP.values():
             raise errors.ConfigError(

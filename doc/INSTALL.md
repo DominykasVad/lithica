@@ -18,7 +18,10 @@ and the Docker Compose CLI (version 1.27.0 or greater) already installed.
 
     Pay extra attention to these fields:
 
-    - secret
+    - `secret`: the server refuses to start while it has the default value.
+      Set it to your own long random string, for example the output of
+      `openssl rand -hex 32`, and keep it: changing it later invalidates
+      every password.
     - the `smtp` section.
 
     You can omit lines when you want to use the defaults of that field.

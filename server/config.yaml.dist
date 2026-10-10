@@ -5,7 +5,9 @@
 name: lithica
 # full url to the homepage of this Lithica site, with no trailing slash
 domain: # example: http://example.com
-# used to salt the users' password hashes and generate filenames for static content
+# used to salt the users' password hashes and generate filenames for static content.
+# the server refuses to start until this is changed to your own long random
+# string, for example the output of: openssl rand -hex 32
 secret: change
 
 # Delete thumbnails and source files on post delete

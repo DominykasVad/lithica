@@ -2,6 +2,8 @@
 ##
 ## Data is transient by using named vols.
 ## Run: docker-compose -f ./docker-compose.dev.yml up
+## Needs server/config.yaml with your own "secret"; the server refuses to
+## start with the default one.
 services:
 
   server:
