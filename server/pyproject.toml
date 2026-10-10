@@ -47,4 +47,13 @@ force_grid_wrap = 0
 use_parentheses = true
 
 [dependency-groups]
-dev = []
+dev = [
+    "freezegun>=1.5.5",
+    "hupper>=1.12.1",
+    "import-linter>=2.15",
+    "pyright>=1.1.414",
+    "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
+    "pytest-xdist>=3.8.0",
+    "ruff>=0.17.0",
+]
