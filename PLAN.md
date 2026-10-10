@@ -91,7 +91,7 @@ nothing behaves differently.
 ### 0.3 uv project
 - [x] `server/pyproject.toml` as a uv project: `requires-python = ">=3.13,<3.14"`, `.python-version` = `3.13`. Dependencies taken from what the **Dockerfile actually installs today** (it is the source of truth, not `requirements.txt`), at current compatible versions.
 - [x] Dev dependency group: pytest, pytest-xdist, pytest-cov, freezegun, ruff, pyright, import-linter.
-- [ ] Test database from Docker instead of local binaries: add `docker-compose.test.yml` (`postgres:17`, port 5433, tmpfs data, fsync off). `conftest.py` reads `LITHICA_TEST_DATABASE_URL` and creates one database per xdist worker (`test_<worker_id>`), dropped at session end. Remove `testing.postgresql` and `pytest-pgsql`.
+- [x] Test database from Docker instead of local binaries: add `docker-compose.test.yml` (`postgres:17`, port 5433, tmpfs data, fsync off). `conftest.py` reads `LITHICA_TEST_DATABASE_URL` and creates one database per xdist worker (`test_<worker_id>`), dropped at session end. Remove `testing.postgresql` and `pytest-pgsql`.
 - [ ] Commit `uv.lock`. Delete `requirements.txt` and `dev-requirements.txt`.
 
 ### 0.4 Python 3.13 blockers

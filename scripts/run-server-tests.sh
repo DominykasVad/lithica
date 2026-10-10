@@ -4,8 +4,14 @@
 
 set -euo pipefail
 
+cd "$(dirname "$0")/.."
+
 # Build the testing image (with xdist)
 docker buildx build --load --target testing -t lithica-server-tests ./server
+
+# Start the test database; the test container joins its network.
+docker compose -f server/docker-compose.test.yml up -d --wait
+TEST_DATABASE_URL="postgresql://postgres:postgres@db:5432/postgres"
 
 # Optional path filter (dir/file/node), default to full suite.
 TARGET="${1:-lithica/}"
@@ -13,7 +19,10 @@ TARGET="${1:-lithica/}"
 run_tests() {
   local output_file
   output_file=$(mktemp)
-  if docker run --rm -t lithica-server-tests "$@" 2>&1 | tee "$output_file"; then
+  if docker run --rm -t \
+      --network lithica-test_default \
+      -e LITHICA_TEST_DATABASE_URL="$TEST_DATABASE_URL" \
+      lithica-server-tests "$@" 2>&1 | tee "$output_file"; then
     rm -f "$output_file"
     return 0
   fi

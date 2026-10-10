@@ -45,9 +45,7 @@ RUN apk --no-cache add \
         py3-pip \
         py3-pytest \
         py3-pytest-cov \
-        postgresql \
  && pip3 install --no-cache-dir --disable-pip-version-check --break-system-packages \
-        pytest-pgsql \
         pytest-xdist \
         freezegun \
  && apk --no-cache del py3-pip \

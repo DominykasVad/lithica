@@ -9,28 +9,52 @@ import freezegun
 import pytest
 import sqlalchemy as sa
 import sqlalchemy.orm as sa_orm
-import testing.postgresql
 from sqlalchemy import event
 
-from lithica import config, db, model, rest
+from lithica import config
 
-_PG_ARGS = (
-    "-c TimeZone=UTC "
-    "-c fsync=off "
-    "-c synchronous_commit=off "
-    "-c full_page_writes=off "
+_DEFAULT_DATABASE_URL = "postgresql://postgres:postgres@localhost:5433/postgres"
+
+# lithica.db builds its engine at import time from the config. Outside a
+# container the config has no database URL, so give it one before importing.
+# Tests never use that engine; they swap db.session for their own session.
+config.config.setdefault(
+    "database",
+    os.environ.get("LITHICA_TEST_DATABASE_URL", _DEFAULT_DATABASE_URL),
 )
 
-
-@pytest.fixture(scope="session")
-def _pg_server():
-    with testing.postgresql.Postgresql(postgres_args=_PG_ARGS) as pg:
-        yield pg
+from lithica import db, model, rest  # noqa: E402
 
 
 @pytest.fixture(scope="session")
-def _pg_engine(_pg_server):
-    engine = sa.create_engine(_pg_server.url())
+def _pg_database_url(worker_id):
+    """Create a database for this xdist worker and drop it at session end.
+
+    The server comes from LITHICA_TEST_DATABASE_URL (see
+    docker-compose.test.yml); the database named in that URL is only used to
+    issue CREATE / DROP DATABASE.
+    """
+    admin_url = sa.make_url(
+        os.environ.get("LITHICA_TEST_DATABASE_URL", _DEFAULT_DATABASE_URL)
+    )
+    name = "test_%s" % worker_id
+    admin_engine = sa.create_engine(admin_url, isolation_level="AUTOCOMMIT")
+    try:
+        with admin_engine.connect() as conn:
+            conn.execute(sa.DDL("DROP DATABASE IF EXISTS %s" % name))
+            conn.execute(sa.DDL("CREATE DATABASE %s" % name))
+        yield admin_url.set(database=name)
+        with admin_engine.connect() as conn:
+            conn.execute(sa.DDL("DROP DATABASE IF EXISTS %s" % name))
+    finally:
+        admin_engine.dispose()
+
+
+@pytest.fixture(scope="session")
+def _pg_engine(_pg_database_url):
+    engine = sa.create_engine(
+        _pg_database_url, connect_args={"options": "-c timezone=UTC"}
+    )
     yield engine
     engine.dispose()
 
@@ -83,7 +107,7 @@ class _CommittingTestDB:
 
 @pytest.fixture
 def transacted_postgresql_db(_pg_engine):
-    """Override pytest_pgsql's fixture with an SA 2.0-compatible version."""
+    """Database fixture; the name is kept from pytest_pgsql, which it replaced."""
     conn = _pg_engine.connect()
     trans = conn.begin()
     # bind= is deprecated in SA 2.0 but still functional; removed in SA 3.0
@@ -108,7 +132,7 @@ def transacted_postgresql_db(_pg_engine):
 
 @pytest.fixture
 def postgresql_db(_pg_engine):
-    """Override pytest_pgsql's fixture with an SA 2.0-compatible version."""
+    """Database fixture; the name is kept from pytest_pgsql, which it replaced."""
     session = sa_orm.Session(_pg_engine)
     try:
         yield _CommittingTestDB(session, _pg_engine)
