@@ -112,7 +112,7 @@ correct code.
 
 ### 1.5 Housekeeping
 - [x] pyright `basic` reaches zero errors.
-- [ ] Remove stale config: `youtube_dl` references, `python3.9` pins.
+- [x] Remove stale config: `youtube_dl` references, `python3.9` pins.
 
 **Exit criteria:** suite green; pyright basic clean; grep gate clean; legacy
 client smoke test passes; password reset tested end to end.

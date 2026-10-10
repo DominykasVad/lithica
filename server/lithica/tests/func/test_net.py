@@ -167,7 +167,7 @@ def _yt_dlp_result(stdout):
 def test_video_downloader_command():
     with patch("subprocess.run") as run:
         run.return_value = _yt_dlp_result("http://example.com/video.mp4\nmore\n")
-        url = net._get_youtube_dl_content_url("http://example.com/watch?v=1")
+        url = net._get_yt_dlp_content_url("http://example.com/watch?v=1")
     assert url == "http://example.com/video.mp4"
     args, kwargs = run.call_args
     assert args[0] == [
@@ -188,7 +188,7 @@ def test_video_downloader_passes_user_agent(config_injector):
     config_injector({"user_agent": "agent with spaces; $(id)"})
     with patch("subprocess.run") as run:
         run.return_value = _yt_dlp_result("http://example.com/video.mp4\n")
-        net._get_youtube_dl_content_url("http://example.com/")
+        net._get_yt_dlp_content_url("http://example.com/")
     cmd = run.call_args[0][0]
     assert cmd[cmd.index("--user-agent") + 1] == "agent with spaces; $(id)"
 
@@ -199,7 +199,7 @@ def test_video_downloader_passes_user_agent(config_injector):
 def test_video_downloader_never_reads_url_as_option(url):
     with patch("subprocess.run") as run:
         run.return_value = _yt_dlp_result("")
-        net._get_youtube_dl_content_url(url)
+        net._get_yt_dlp_content_url(url)
     cmd = run.call_args[0][0]
     # the URL is one argument, and it comes after the end-of-options marker
     assert cmd.count(url) == 1
@@ -211,11 +211,11 @@ def test_video_downloader_timeout():
     with patch("subprocess.run") as run:
         run.side_effect = subprocess.TimeoutExpired(cmd="yt-dlp", timeout=1)
         with pytest.raises(errors.ThirdPartyError):
-            net._get_youtube_dl_content_url("http://example.com/")
+            net._get_yt_dlp_content_url("http://example.com/")
 
 
 def test_video_downloader_failure():
     with patch("subprocess.run") as run:
         run.side_effect = subprocess.CalledProcessError(1, "yt-dlp")
         with pytest.raises(errors.ThirdPartyError):
-            net._get_youtube_dl_content_url("http://example.com/")
+            net._get_yt_dlp_content_url("http://example.com/")

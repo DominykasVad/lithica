@@ -25,12 +25,12 @@ class DownloadTooLargeError(DownloadError):
 
 def download(url: str, use_video_downloader: bool = False) -> bytes:
     assert url
-    youtube_dl_error = None
+    yt_dlp_error = None
     if use_video_downloader:
         try:
-            url = _get_youtube_dl_content_url(url) or url
+            url = _get_yt_dlp_content_url(url) or url
         except errors.ThirdPartyError as ex:
-            youtube_dl_error = ex
+            yt_dlp_error = ex
 
     request = urllib.request.Request(url)
     if config.config["user_agent"]:
@@ -57,15 +57,15 @@ def download(url: str, use_video_downloader: bool = False) -> bytes:
         ) from ex
 
     if (
-        youtube_dl_error
+        yt_dlp_error
         and mime.get_mime_type(content_buffer) == "application/octet-stream"
     ):
-        raise youtube_dl_error
+        raise yt_dlp_error
 
     return content_buffer
 
 
-def _get_youtube_dl_content_url(url: str) -> str:
+def _get_yt_dlp_content_url(url: str) -> str:
     cmd = ["yt-dlp", "--format", "best", "--no-playlist"]
     if config.config["user_agent"]:
         cmd.extend(["--user-agent", config.config["user_agent"]])
