@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import sqlalchemy as sa
 import sqlalchemy.orm as sa_orm
 from sqlalchemy.ext.associationproxy import association_proxy
@@ -9,16 +11,22 @@ from lithica.model.base import Base
 class PoolName(Base):
     __tablename__ = "pool_name"
 
-    pool_name_id = sa.Column("pool_name_id", sa.Integer, primary_key=True)
-    pool_id = sa.Column(
+    pool_name_id: sa_orm.Mapped[int] = sa_orm.mapped_column(
+        "pool_name_id", sa.Integer, primary_key=True
+    )
+    pool_id: sa_orm.Mapped[int] = sa_orm.mapped_column(
         "pool_id",
         sa.Integer,
         sa.ForeignKey("pool.id"),
         nullable=False,
         index=True,
     )
-    name = sa.Column("name", sa.Unicode(128), nullable=False, unique=True)
-    order = sa.Column("ord", sa.Integer, nullable=False, index=True)
+    name: sa_orm.Mapped[str] = sa_orm.mapped_column(
+        "name", sa.Unicode(128), nullable=False, unique=True
+    )
+    order: sa_orm.Mapped[int] = sa_orm.mapped_column(
+        "ord", sa.Integer, nullable=False, index=True
+    )
 
     def __init__(self, name: str, order: int) -> None:
         self.name = name
@@ -32,7 +40,7 @@ sa.Index("ix_pool_name_name_lower", sa.func.lower(PoolName.name))
 class PoolPost(Base):
     __tablename__ = "pool_post"
 
-    pool_id = sa.Column(
+    pool_id: sa_orm.Mapped[int] = sa_orm.mapped_column(
         "pool_id",
         sa.Integer,
         sa.ForeignKey("pool.id"),
@@ -40,7 +48,7 @@ class PoolPost(Base):
         primary_key=True,
         index=True,
     )
-    post_id = sa.Column(
+    post_id: sa_orm.Mapped[int] = sa_orm.mapped_column(
         "post_id",
         sa.Integer,
         sa.ForeignKey("post.id"),
@@ -48,7 +56,9 @@ class PoolPost(Base):
         primary_key=True,
         index=True,
     )
-    order = sa.Column("ord", sa.Integer, nullable=False, index=True)
+    order: sa_orm.Mapped[int] = sa_orm.mapped_column(
+        "ord", sa.Integer, nullable=False, index=True
+    )
 
     pool = sa_orm.relationship("Pool", back_populates="_posts")
     post = sa_orm.relationship("Post", back_populates="_pools")
@@ -60,18 +70,28 @@ class PoolPost(Base):
 class Pool(Base):
     __tablename__ = "pool"
 
-    pool_id = sa.Column("id", sa.Integer, primary_key=True)
-    category_id = sa.Column(
+    pool_id: sa_orm.Mapped[int] = sa_orm.mapped_column(
+        "id", sa.Integer, primary_key=True
+    )
+    category_id: sa_orm.Mapped[int] = sa_orm.mapped_column(
         "category_id",
         sa.Integer,
         sa.ForeignKey("pool_category.id"),
         nullable=False,
         index=True,
     )
-    version = sa.Column("version", sa.Integer, default=1, nullable=False)
-    creation_time = sa.Column("creation_time", sa.DateTime, nullable=False)
-    last_edit_time = sa.Column("last_edit_time", sa.DateTime)
-    description = sa.Column("description", sa.UnicodeText, default=None)
+    version: sa_orm.Mapped[int] = sa_orm.mapped_column(
+        "version", sa.Integer, default=1, nullable=False
+    )
+    creation_time: sa_orm.Mapped[datetime] = sa_orm.mapped_column(
+        "creation_time", sa.DateTime, nullable=False
+    )
+    last_edit_time: sa_orm.Mapped[datetime | None] = sa_orm.mapped_column(
+        "last_edit_time", sa.DateTime
+    )
+    description: sa_orm.Mapped[str | None] = sa_orm.mapped_column(
+        "description", sa.UnicodeText, default=None
+    )
 
     category = sa_orm.relationship("PoolCategory", lazy="joined")
     names = sa_orm.relationship(

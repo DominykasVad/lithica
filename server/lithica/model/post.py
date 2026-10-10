@@ -1,3 +1,6 @@
+from datetime import datetime
+from typing import Any
+
 import sqlalchemy as sa
 import sqlalchemy.orm as sa_orm
 from sqlalchemy.ext.associationproxy import association_proxy
@@ -10,22 +13,26 @@ from lithica.model.comment import Comment
 class PostFeature(Base):
     __tablename__ = "post_feature"
 
-    post_feature_id = sa.Column("id", sa.Integer, primary_key=True)
-    post_id = sa.Column(
+    post_feature_id: sa_orm.Mapped[int] = sa_orm.mapped_column(
+        "id", sa.Integer, primary_key=True
+    )
+    post_id: sa_orm.Mapped[int] = sa_orm.mapped_column(
         "post_id",
         sa.Integer,
         sa.ForeignKey("post.id"),
         nullable=False,
         index=True,
     )
-    user_id = sa.Column(
+    user_id: sa_orm.Mapped[int | None] = sa_orm.mapped_column(
         "user_id",
         sa.Integer,
         sa.ForeignKey("user.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )
-    time = sa.Column("time", sa.DateTime, nullable=False)
+    time: sa_orm.Mapped[datetime] = sa_orm.mapped_column(
+        "time", sa.DateTime, nullable=False
+    )
 
     post = sa_orm.relationship("Post", back_populates="features")
     user = sa_orm.relationship(
@@ -37,7 +44,7 @@ class PostFeature(Base):
 class PostScore(Base):
     __tablename__ = "post_score"
 
-    post_id = sa.Column(
+    post_id: sa_orm.Mapped[int] = sa_orm.mapped_column(
         "post_id",
         sa.Integer,
         sa.ForeignKey("post.id"),
@@ -45,7 +52,7 @@ class PostScore(Base):
         nullable=False,
         index=True,
     )
-    user_id = sa.Column(
+    user_id: sa_orm.Mapped[int] = sa_orm.mapped_column(
         "user_id",
         sa.Integer,
         sa.ForeignKey("user.id"),
@@ -53,8 +60,12 @@ class PostScore(Base):
         nullable=False,
         index=True,
     )
-    time = sa.Column("time", sa.DateTime, nullable=False)
-    score = sa.Column("score", sa.Integer, nullable=False)
+    time: sa_orm.Mapped[datetime] = sa_orm.mapped_column(
+        "time", sa.DateTime, nullable=False
+    )
+    score: sa_orm.Mapped[int] = sa_orm.mapped_column(
+        "score", sa.Integer, nullable=False
+    )
 
     post = sa_orm.relationship("Post", back_populates="scores")
     user = sa_orm.relationship(
@@ -66,7 +77,7 @@ class PostScore(Base):
 class PostFavorite(Base):
     __tablename__ = "post_favorite"
 
-    post_id = sa.Column(
+    post_id: sa_orm.Mapped[int] = sa_orm.mapped_column(
         "post_id",
         sa.Integer,
         sa.ForeignKey("post.id"),
@@ -74,7 +85,7 @@ class PostFavorite(Base):
         nullable=False,
         index=True,
     )
-    user_id = sa.Column(
+    user_id: sa_orm.Mapped[int] = sa_orm.mapped_column(
         "user_id",
         sa.Integer,
         sa.ForeignKey("user.id"),
@@ -82,7 +93,9 @@ class PostFavorite(Base):
         nullable=False,
         index=True,
     )
-    time = sa.Column("time", sa.DateTime, nullable=False)
+    time: sa_orm.Mapped[datetime] = sa_orm.mapped_column(
+        "time", sa.DateTime, nullable=False
+    )
 
     post = sa_orm.relationship("Post", back_populates="favorited_by")
     user = sa_orm.relationship(
@@ -94,16 +107,22 @@ class PostFavorite(Base):
 class PostNote(Base):
     __tablename__ = "post_note"
 
-    post_note_id = sa.Column("id", sa.Integer, primary_key=True)
-    post_id = sa.Column(
+    post_note_id: sa_orm.Mapped[int] = sa_orm.mapped_column(
+        "id", sa.Integer, primary_key=True
+    )
+    post_id: sa_orm.Mapped[int] = sa_orm.mapped_column(
         "post_id",
         sa.Integer,
         sa.ForeignKey("post.id"),
         nullable=False,
         index=True,
     )
-    polygon = sa.Column("polygon", sa.PickleType, nullable=False)
-    text = sa.Column("text", sa.UnicodeText, nullable=False)
+    polygon: sa_orm.Mapped[Any] = sa_orm.mapped_column(
+        "polygon", sa.PickleType, nullable=False
+    )
+    text: sa_orm.Mapped[str] = sa_orm.mapped_column(
+        "text", sa.UnicodeText, nullable=False
+    )
 
     post = sa_orm.relationship("Post", back_populates="notes")
 
@@ -111,7 +130,7 @@ class PostNote(Base):
 class PostRelation(Base):
     __tablename__ = "post_relation"
 
-    parent_id = sa.Column(
+    parent_id: sa_orm.Mapped[int] = sa_orm.mapped_column(
         "parent_id",
         sa.Integer,
         sa.ForeignKey("post.id"),
@@ -119,7 +138,7 @@ class PostRelation(Base):
         nullable=False,
         index=True,
     )
-    child_id = sa.Column(
+    child_id: sa_orm.Mapped[int] = sa_orm.mapped_column(
         "child_id",
         sa.Integer,
         sa.ForeignKey("post.id"),
@@ -136,7 +155,7 @@ class PostRelation(Base):
 class PostTag(Base):
     __tablename__ = "post_tag"
 
-    post_id = sa.Column(
+    post_id: sa_orm.Mapped[int] = sa_orm.mapped_column(
         "post_id",
         sa.Integer,
         sa.ForeignKey("post.id"),
@@ -144,7 +163,7 @@ class PostTag(Base):
         nullable=False,
         index=True,
     )
-    tag_id = sa.Column(
+    tag_id: sa_orm.Mapped[int] = sa_orm.mapped_column(
         "tag_id",
         sa.Integer,
         sa.ForeignKey("tag.id"),
@@ -167,21 +186,21 @@ class PostSignatureWord(Base):
 
     __tablename__ = "post_signature_word"
 
-    post_id = sa.Column(
+    post_id: sa_orm.Mapped[int] = sa_orm.mapped_column(
         "post_id",
         sa.Integer,
         sa.ForeignKey("post_signature.post_id", ondelete="CASCADE"),
         primary_key=True,
         nullable=False,
     )
-    position = sa.Column(
+    position: sa_orm.Mapped[int] = sa_orm.mapped_column(
         "position",
         sa.Integer,
         primary_key=True,
         nullable=False,
         autoincrement=False,
     )
-    word = sa.Column("word", sa.Integer, nullable=False)
+    word: sa_orm.Mapped[int] = sa_orm.mapped_column("word", sa.Integer, nullable=False)
 
     __table_args__ = (
         sa.Index("ix_post_signature_word_word_position", "word", "position"),
@@ -195,7 +214,7 @@ class PostSignatureWord(Base):
 class PostSignature(Base):
     __tablename__ = "post_signature"
 
-    post_id = sa.Column(
+    post_id: sa_orm.Mapped[int] = sa_orm.mapped_column(
         "post_id",
         sa.Integer,
         sa.ForeignKey("post.id"),
@@ -203,7 +222,9 @@ class PostSignature(Base):
         nullable=False,
         index=True,
     )
-    signature = sa.Column("signature", sa.LargeBinary, nullable=False)
+    signature: sa_orm.Mapped[bytes] = sa_orm.mapped_column(
+        "signature", sa.LargeBinary, nullable=False
+    )
     word_rows = sa_orm.relationship(
         "PostSignatureWord",
         order_by="PostSignatureWord.position",
@@ -240,29 +261,55 @@ class Post(Base):
     FLAG_SOUND = "sound"
 
     # basic meta
-    post_id = sa.Column("id", sa.Integer, primary_key=True)
-    user_id = sa.Column(
+    post_id: sa_orm.Mapped[int] = sa_orm.mapped_column(
+        "id", sa.Integer, primary_key=True
+    )
+    user_id: sa_orm.Mapped[int | None] = sa_orm.mapped_column(
         "user_id",
         sa.Integer,
         sa.ForeignKey("user.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )
-    version = sa.Column("version", sa.Integer, default=1, nullable=False)
-    creation_time = sa.Column("creation_time", sa.DateTime, nullable=False)
-    last_edit_time = sa.Column("last_edit_time", sa.DateTime)
-    safety = sa.Column("safety", sa.Unicode(32), nullable=False)
-    source = sa.Column("source", sa.Unicode(2048))
-    flags_string = sa.Column("flags", sa.Unicode(32), default="")
+    version: sa_orm.Mapped[int] = sa_orm.mapped_column(
+        "version", sa.Integer, default=1, nullable=False
+    )
+    creation_time: sa_orm.Mapped[datetime] = sa_orm.mapped_column(
+        "creation_time", sa.DateTime, nullable=False
+    )
+    last_edit_time: sa_orm.Mapped[datetime | None] = sa_orm.mapped_column(
+        "last_edit_time", sa.DateTime
+    )
+    safety: sa_orm.Mapped[str] = sa_orm.mapped_column(
+        "safety", sa.Unicode(32), nullable=False
+    )
+    source: sa_orm.Mapped[str | None] = sa_orm.mapped_column("source", sa.Unicode(2048))
+    flags_string: sa_orm.Mapped[str | None] = sa_orm.mapped_column(
+        "flags", sa.Unicode(32), default=""
+    )
 
     # content description
-    type = sa.Column("type", sa.Unicode(32), nullable=False)
-    checksum = sa.Column("checksum", sa.Unicode(64), nullable=False)
-    checksum_md5 = sa.Column("checksum_md5", sa.Unicode(32))
-    file_size = sa.Column("file_size", sa.BigInteger)
-    canvas_width = sa.Column("image_width", sa.Integer)
-    canvas_height = sa.Column("image_height", sa.Integer)
-    mime_type = sa.Column("mime-type", sa.Unicode(32), nullable=False)
+    type: sa_orm.Mapped[str] = sa_orm.mapped_column(
+        "type", sa.Unicode(32), nullable=False
+    )
+    checksum: sa_orm.Mapped[str] = sa_orm.mapped_column(
+        "checksum", sa.Unicode(64), nullable=False
+    )
+    checksum_md5: sa_orm.Mapped[str | None] = sa_orm.mapped_column(
+        "checksum_md5", sa.Unicode(32)
+    )
+    file_size: sa_orm.Mapped[int | None] = sa_orm.mapped_column(
+        "file_size", sa.BigInteger
+    )
+    canvas_width: sa_orm.Mapped[int | None] = sa_orm.mapped_column(
+        "image_width", sa.Integer
+    )
+    canvas_height: sa_orm.Mapped[int | None] = sa_orm.mapped_column(
+        "image_height", sa.Integer
+    )
+    mime_type: sa_orm.Mapped[str] = sa_orm.mapped_column(
+        "mime-type", sa.Unicode(32), nullable=False
+    )
 
     # foreign tables
     user = sa_orm.relationship("User")
