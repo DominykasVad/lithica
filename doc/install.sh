@@ -45,20 +45,6 @@ else echo "${OK} Docker Daemon accessible."
 fi
 
 
-########################################################################################
-# Check CPU architectue and, if ARM (such as Raspberry Pi), modify docker-compose.yml
-# https://github.com/rr-/szurubooru/wiki/ARM-and-Raspberry-Pi-Support-for-Docker-builds
-# https://github.com/DominykasVad/lithica/blob/main/docker-compose.yml
-########################################################################################
-
-if [[ "$(uname -m)" == 'a'* ]]; then
-    echo -e "${NOTICE} ARM architecture detected.  Modfying docker-compose.yml for local build."
-    # Modify docker-compose file to build locally instead of pulling from dockerhub
-    sed -zi "s|image: ghcr.io/dominykasvad/lithica-server:latest|build:\n      context: ./server|; \
-             s|image: ghcr.io/dominykasvad/lithica-client-legacy:latest|build:\n      context: ./legacy/client|" ./docker-compose.yml
-fi
-
-
 function server_config () {
     ################################################################################################################
     # Copy ./server/config.yaml.dist to ./server/config.yaml, then prompt the user to set the basic config settings
@@ -142,7 +128,7 @@ echo -e "\nCreating and setting up environmental variables (.env)..."
 set_env # Configuration via ./.env
 
 echo -e "\nConfig is all done!  Now pulling Docker containers..."
-docker-compose pull # Download containers
+docker-compose build # Build containers
 
 echo "Starting SQL container..."
 docker-compose up -d sql # Start SQL first

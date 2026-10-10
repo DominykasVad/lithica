@@ -34,16 +34,18 @@ and the Docker Compose CLI (version 1.27.0 or greater) already installed.
     Read the comments to guide you. Note that `.env` should be in the root
     directory of this repository.
 
-4. Pull the containers:
+4. Build the containers:
 
-    This pulls the latest containers from ghcr.io:
     ```console
-    user@host:lithica$ docker compose pull
+    user@host:lithica$ docker compose build
     ```
 
-    If you have modified the application's source and would like to manually
-    build it, follow the instructions in [**Building**](#Building) instead,
-    then read here once you're done.
+    This builds the server and the client from the source you downloaded.
+    You can name `server` or `client` to build only one. If your changes are
+    not taking effect in your builds, consider building with `--no-cache`.
+
+    To run published release images instead of building, see
+    [**Using published images**](#using-published-images).
 
 5. Run it!
 
@@ -63,49 +65,17 @@ and the Docker Compose CLI (version 1.27.0 or greater) already installed.
     # (CTRL+C to exit)
     ```
 
-### Building
+### Using published images
 
-1. Edit `docker-compose.yml` to tell Docker to build instead of pull containers:
+Release images are published to the GitHub Container Registry when a release
+is made, tagged with the release version. To use them, edit
+`docker-compose.yml`: comment out the `build` section of the `server` and
+`client` services and uncomment the `image` line below it, setting the
+release tag you want. Then pull instead of building:
 
-    ```diff yaml
-    ...
-    server:
-    - image: ghcr.io/dominykasvad/lithica-server:latest
-    + build: server
-    ...
-    client:
-    - image: ghcr.io/dominykasvad/lithica-client-legacy:latest
-    + build: legacy/client
-    ...
-    ```
-
-    You can choose to build either one from source.
-
-2. Build the containers:
-
-    ```console
-    user@host:lithica$ docker compose build
-    ```
-
-    That will attempt to build both containers, but you can specify `client`
-    or `server` to make it build only one.
-
-    If `docker compose build` spits out:
-
-    ```
-    ERROR: Service 'server' failed to build: failed to parse platform : "" is an invalid component of "": platform specifier component must match "^[A-Za-z0-9_-]+$": invalid argument
-    ```
-
-    ...you will need to export Docker BuildKit flags:
-
-    ```console
-    user@host:lithica$ export DOCKER_BUILDKIT=1; export COMPOSE_DOCKER_CLI_BUILD=1
-    ```
-
-    ...and run `docker compose build` again.
-
-*Note: If your changes are not taking effect in your builds, consider building
-with `--no-cache`.*
+```console
+user@host:lithica$ docker compose pull
+```
 
 
 ### Additional Features
