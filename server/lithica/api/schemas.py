@@ -8,10 +8,10 @@ what the old framework's `get_param_as_*` readers accepted and refuses what
 they refused, with the same messages.
 """
 
-from typing import Annotated, Any, LiteralString, Self
+from typing import TYPE_CHECKING, Annotated, Any, LiteralString, Self
 
 import pydantic
-from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, PrivateAttr
 from pydantic.alias_generators import to_camel
 from pydantic_core import PydanticCustomError
 
@@ -123,16 +123,49 @@ class RequestModel(BaseModel):
     """
     Base of the request bodies. Field names are camelCase on the wire.
     Unknown fields are ignored, as they always were.
+
+    A value that cannot be read is reported when the endpoint reads it, not
+    when the request arrives. The old framework read parameters one by one,
+    in between its other checks, and clients see that order: an anonymous
+    request that sends a malformed `relations` list is refused for lacking
+    the privilege to edit relations, not for the list. So a model with an
+    unreadable field is still built, and reading that field raises the
+    API's error for it.
     """
 
     model_config = ConfigDict(alias_generator=to_camel, extra="ignore")
+
+    _unreadable: dict[str, errors.ValidationError] = PrivateAttr(default_factory=dict)
 
     @classmethod
     def from_params(cls, params: dict[str, Any]) -> Self:
         try:
             return cls.model_validate(params)
         except pydantic.ValidationError as ex:
-            raise parameter_error(ex.errors()) from ex
+            details = ex.errors()
+        names = {field.alias or name: name for name, field in cls.model_fields.items()}
+        problems: dict[str, Any] = {}
+        for detail in details:
+            # only the first problem of a field is reported
+            problems.setdefault(str(detail["loc"][0]), detail)
+        readable = {key: value for key, value in params.items() if key not in problems}
+        instance = cls.model_validate(readable)
+        for alias, detail in problems.items():
+            name = names[alias]
+            # leave the attribute unset, so that reading it reaches __getattr__
+            vars(instance).pop(name)
+            instance.model_fields_set.add(name)
+            instance._unreadable[name] = parameter_error([detail])
+        return instance
+
+    if not TYPE_CHECKING:
+        # reached only for an attribute that is not set: an unreadable field
+        def __getattr__(self, name: str) -> Any:
+            private = object.__getattribute__(self, "__pydantic_private__") or {}
+            unreadable = private.get("_unreadable") or {}
+            if name in unreadable:
+                raise unreadable[name]
+            return super().__getattr__(name)
 
     def has(self, field: str) -> bool:
         """Whether the request carried this field at all (even as null)."""

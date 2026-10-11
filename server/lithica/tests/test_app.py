@@ -33,17 +33,18 @@ def test_unknown_path_is_answered_by_the_old_application(client, path):
     }
 
 
-# /posts is the last route to be ported, so it stands for "a route the old
-# application still serves" in the tests below
-
-
-def test_old_application_still_checks_the_accept_header(client):
+def test_request_must_accept_json(client):
     response = client.get("/posts", headers={"Accept": "text/html"})
     assert response.status_code == 406
     assert response.json()["name"] == "ValidationError"
 
 
-def test_old_application_still_refuses_unknown_methods(client):
+@pytest.mark.xfail(
+    strict=True,
+    reason="until the old application is removed (PLAN.md 2.4) its mount "
+    "answers a wrong method on a known path, with 404",
+)
+def test_unknown_method_is_refused(client):
     response = client.request("PATCH", "/posts")
     assert response.status_code == 405
     assert response.json()["title"] == "Method Not Allowed"

@@ -263,7 +263,7 @@ class ApiClient:
         headers: dict[str, str] | None = None,
     ) -> httpx2.Response:
         kwargs: dict[str, Any] = {"params": query, "headers": headers}
-        if files is not None:
+        if files:
             kwargs["files"] = {
                 name: (name, content, "application/octet-stream")
                 for name, content in files.items()

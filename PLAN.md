@@ -133,7 +133,7 @@ then rewrite that resource's `tests/api/` tests to go through FastAPI's
 - [x] comments
 - [x] snapshots
 - [x] uploads (temporary upload tokens)
-- [ ] posts (largest; includes multipart create/update, merge, featuring, similar search)
+- [x] posts (largest; includes multipart create/update, merge, featuring, similar search)
 
 ### 2.3 Uploads
 - [ ] Multipart and `contentUrl` downloads stream to a temp file; hashing, MIME detection and thumbnailing read from the file, not from a full in-memory `bytes`. Configurable max upload size, enforced by the server (and matched in nginx).

@@ -33,8 +33,12 @@ def _read(**params: Any) -> _Params:
 
 
 def _refused(description: str, **params: Any) -> None:
+    """Reading the (first) given parameter is refused with this description."""
+    wire_name = next(iter(params))
+    field = {"contentUrl": "content_url"}.get(wire_name, wire_name)
+    read = _read(**params)
     with pytest.raises(errors.InvalidParameterError) as ex:
-        _read(**params)
+        getattr(read, field)
     assert str(ex.value) == description
 
 
@@ -118,8 +122,27 @@ def test_unknown_fields_are_ignored():
     assert _read(unknown="x", text="t").text == "t"
 
 
-def test_only_the_first_problem_is_reported():
-    _refused("Parameter 'text' must be a string value.", text={}, number="x")
+def test_unreadable_value_is_reported_when_it_is_read():
+    # the request is accepted; the endpoint may refuse it for another reason
+    # before it gets to the value
+    params = _read(text={}, number="x", flag="yes", names=["a"])
+    assert params.flag is True
+    assert params.names == ["a"]
+    assert params.has("text") and params.has("number")
+    with pytest.raises(errors.InvalidParameterError, match="'text' must be a string"):
+        getattr(params, "text")  # noqa: B009  (the read is the test)
+    with pytest.raises(errors.InvalidParameterError, match="'number' must be an int"):
+        params.require("number")
+    # and again, every time
+    with pytest.raises(errors.InvalidParameterError, match="'text' must be a string"):
+        getattr(params, "text")  # noqa: B009
+
+
+def test_unknown_attribute_is_still_an_attribute_error():
+    with pytest.raises(AttributeError):
+        getattr(_read(), "no_such_field")  # noqa: B009
+    with pytest.raises(AttributeError):
+        getattr(_read(text={}), "no_such_field")  # noqa: B009
 
 
 def test_has():
