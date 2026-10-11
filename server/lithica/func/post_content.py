@@ -18,12 +18,13 @@ contract says, is logged and skipped. It never fails the upload.
 import io
 import json
 import logging
-from collections.abc import Collection
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import BinaryIO, cast
 
-from lithica import registry
+from lithica import model, registry
 from lithica.func import content as content_module
+from lithica.func import tags, util
 from lithica.func.content import ContentLike
 
 logger = logging.getLogger(__name__)
@@ -32,6 +33,9 @@ logger = logging.getLogger(__name__)
 # the uploader made it; this is what the database is asked to keep of it.
 MAX_RESULTS = 64
 MAX_PAYLOAD_SIZE = 1024 * 1024
+
+# how many tags one module may put on one post
+MAX_AUTO_TAGS = 100
 
 
 class _InvalidResultError(Exception):
@@ -160,3 +164,84 @@ def extract(
     if kinds is not None:
         extraction.failed_kinds &= set(kinds)
     return extraction
+
+
+def _rows(contents: Sequence[registry.ExtractedContent]) -> list[model.PostContent]:
+    kinds = registry.content_kinds()
+    now = util.utcnow()
+    return [
+        model.PostContent(
+            kind=content.kind,
+            schema_version=kinds[content.kind].schema_version,
+            payload=content.payload,
+            extracted_at=now,
+        )
+        for content in contents
+    ]
+
+
+def update_post_contents(post: model.Post, content: ContentLike) -> None:
+    """
+    Make the post's extracted content that of this file: its new content.
+    Every row the post had goes, also those of modules that are switched
+    off now, because they describe a file the post no longer has.
+    """
+    post.contents = _rows(extract(post.mime_type, content).contents)
+
+
+def _verified_auto_tags(result: object) -> dict[str, list[str]]:
+    if not isinstance(result, Mapping):
+        raise _InvalidResultError("returned %s" % type(result).__name__)
+    auto_tags: dict[str, list[str]] = {}
+    count = 0
+    for category, names in cast(Mapping[object, object], result).items():
+        if not isinstance(category, str):
+            raise _InvalidResultError("returned a category that is not a string")
+        if isinstance(names, str) or not isinstance(names, Sequence):
+            raise _InvalidResultError("returned tags that are not a list")
+        for name in cast(Sequence[object], names):
+            if not isinstance(name, str):
+                raise _InvalidResultError("returned a tag that is not a string")
+            count += 1
+            if count > MAX_AUTO_TAGS:
+                raise _InvalidResultError("returned more than %d tags" % MAX_AUTO_TAGS)
+            # A name the site does not accept is left out and the rest is
+            # kept: names come from the file, and a module cannot know the
+            # site's rule for them.
+            if tags.is_valid_name(name):
+                auto_tags.setdefault(category, []).append(name)
+    return auto_tags
+
+
+def get_auto_tags(post: model.Post) -> list[tuple[str, str]]:
+    """
+    The tags the modules want on the post for what was extracted from its
+    file, as (category name, tag name), each name once. A module is shown
+    the content of its own kinds only, and is not asked when there is none.
+    Like extract(), this never raises for what a module does.
+    """
+    auto_tags: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for module, auto_tag in registry.auto_taggers():
+        owned_kinds = {kind.name for kind in module.content_kinds}
+        contents = [
+            registry.ExtractedContent(row.kind, row.payload)
+            for row in post.contents
+            if row.kind in owned_kinds
+        ]
+        if not contents:
+            continue
+        try:
+            wanted = _verified_auto_tags(auto_tag(contents))
+        except _InvalidResultError as ex:
+            logger.error("The auto-tag hook of module %r %s.", module.name, ex)
+            continue
+        except Exception:
+            logger.exception("The auto-tag hook of module %r failed.", module.name)
+            continue
+        for category, names in wanted.items():
+            for name in names:
+                if name.lower() not in seen:
+                    seen.add(name.lower())
+                    auto_tags.append((category, name))
+    return auto_tags

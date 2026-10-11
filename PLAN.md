@@ -92,6 +92,9 @@ When a phase is merged, its entries are folded into the tables above or deleted.
 - 2026-10-11 — 3.2 — `post_content.kind` is 64 characters; a kind belongs to exactly one module (`registry.ContentKind`)
 - 2026-10-11 — 3.2 — an extractor returns at most 64 results of at most 1 MiB of JSON each; beyond that it counts as failed
 - 2026-10-11 — 3.2 — one bad result drops all results of that extractor for the file (no telling which to trust)
+- 2026-10-11 — 3.2 — new content replaces every `post_content` row of the post, also rows of kinds no loaded module owns
+- 2026-10-11 — 3.2 — auto-tags are added on create and on content change, never removed, and need no `tags:create` privilege
+- 2026-10-11 — 3.2 — an auto-tag's category is used only when the tag is created; a missing category means the default one
 - 2026-10-11 — 3.1 — a module may add search tokens, post fields and commands but never replace the engine's (startup error)
 
 ---
@@ -144,7 +147,7 @@ yet beyond a test fixture module. Tag `v0.1.0`.
 
 ### 3.1 Module registry
 - [x] Config `modules: []` (list of module names). Registry loads `lithica.modules.<name>` dynamically at startup; unknown names fail fast.
-- [ ] Module interface (a small protocol/dataclass), each part optional:
+- [x] Module interface (a small protocol/dataclass), each part optional:
   - routers to mount (under the module's own path prefix),
   - content extractors (see 3.2),
   - auto-tag hook (extracted content → tag names, per category),
@@ -156,7 +159,7 @@ yet beyond a test fixture module. Tag `v0.1.0`.
 ### 3.2 Embedded-content pipeline (engine side)
 - [x] Table `post_content`: id, post id (FK, cascade delete), `kind` (string, e.g. `dummy_v1`), `schema_version`, `payload` (`JSON` / `JSONB` variant), `extracted_at`. Index on (`post_id`, `kind`). Multiple rows per post allowed.
 - [x] Extractor contract: given MIME type and a readable file, return zero or more `(kind, payload)` results. Extractors are registered by modules and keyed by MIME type (PNG text chunks, WebP EXIF, video metadata — not PNG-only).
-- [ ] Run extractors on post create and on content update (replace the post's rows); errors in one extractor are logged and do not fail the upload.
+- [x] Run extractors on post create and on content update (replace the post's rows); errors in one extractor are logged and do not fail the upload.
 - [ ] `lithica-admin reextract [--kind K]` re-runs extractors over existing posts in batches.
 - [ ] Post API exposes content kinds present (`contentKinds: [...]`) and an endpoint to fetch a post's extracted content; modules decide the public shape.
 - [ ] Redaction hook: a module can mark payload fields as private (not returned to users without a privilege).

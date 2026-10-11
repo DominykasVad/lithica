@@ -3,7 +3,7 @@ import logging
 
 import pytest
 
-from lithica import registry
+from lithica import model, registry
 from lithica.func import content as content_module
 from lithica.func import post_content
 
@@ -283,3 +283,151 @@ def test_limiting_the_extraction_to_some_kinds():
     calls.clear()
     assert post_content.extract(PNG, b"", kinds=["nobody_has_this"]).contents == []
     assert calls == []
+
+
+def _post_with(*contents):
+    post = model.Post()
+    post.contents = [
+        model.PostContent(kind=content.kind, payload=content.payload)
+        for content in contents
+    ]
+    return post
+
+
+@pytest.fixture
+def tag_rule(config_injector):
+    config_injector({"tag_name_regex": r"^\S+$"})
+
+
+def test_auto_tags_of_no_module(tag_rule):
+    assert post_content.get_auto_tags(_post_with(_found(text="x"))) == []
+
+
+def test_auto_tag_hook_sees_the_content_of_its_own_kinds(tag_rule):
+    seen = {}
+
+    def tagger(name):
+        def auto_tag(contents):
+            seen[name] = list(contents)
+            return {name: ["by_" + name]}
+
+        return auto_tag
+
+    registry.use(
+        [
+            registry.Module(
+                name="one",
+                content_kinds=[registry.ContentKind("one_a")],
+                auto_tag=tagger("one"),
+            ),
+            registry.Module(
+                name="two",
+                content_kinds=[
+                    registry.ContentKind("two_a"),
+                    registry.ContentKind("two_b"),
+                ],
+                auto_tag=tagger("two"),
+            ),
+            registry.Module(
+                name="three",
+                content_kinds=[registry.ContentKind("three_a")],
+                auto_tag=tagger("three"),
+            ),
+        ]
+    )
+    post = _post_with(
+        _found("one_a", n=1),
+        _found("two_b", n=2),
+        _found("two_a", n=3),
+        _found("left_by_a_module_that_is_gone", n=4),
+    )
+    assert post_content.get_auto_tags(post) == [("one", "by_one"), ("two", "by_two")]
+    assert seen == {
+        "one": [_found("one_a", n=1)],
+        "two": [_found("two_b", n=2), _found("two_a", n=3)],
+        # "three" found nothing in the file and is not asked
+    }
+
+
+def _tagging_module(auto_tag, name="alpha"):
+    return registry.Module(
+        name=name,
+        content_kinds=[registry.ContentKind(name + "_v1")],
+        auto_tag=auto_tag,
+    )
+
+
+def test_auto_tags_keep_their_order_and_come_once(tag_rule):
+    registry.use(
+        [
+            _tagging_module(
+                lambda contents: {"meta": ["b", "a", "B"], "other": ["c", "a"]}
+            ),
+            _tagging_module(lambda contents: {"third": ["C", "d"]}, "beta"),
+        ]
+    )
+    post = _post_with(_found("alpha_v1"), _found("beta_v1"))
+    assert post_content.get_auto_tags(post) == [
+        ("meta", "b"),
+        ("meta", "a"),
+        ("other", "c"),
+        ("third", "d"),
+    ]
+
+
+def test_auto_tag_names_the_site_refuses_are_left_out(config_injector):
+    config_injector({"tag_name_regex": "^[a-z_]+$"})
+    names = ["fine", "has space", "", "UPPER", "also_fine", "x" * 1000, ".", "a\nb"]
+    registry.use([_tagging_module(lambda contents: {"meta": names})])
+    assert post_content.get_auto_tags(_post_with(_found())) == [
+        ("meta", "fine"),
+        ("meta", "also_fine"),
+    ]
+
+
+def test_failing_auto_tag_hook_does_not_stop_the_others(tag_rule, caplog):
+    def broken(_contents):
+        raise KeyError("prompt")
+
+    registry.use(
+        [
+            _tagging_module(broken),
+            _tagging_module(lambda contents: {"meta": ["kept"]}, "beta"),
+        ]
+    )
+    with caplog.at_level(logging.ERROR):
+        found = post_content.get_auto_tags(
+            _post_with(_found("alpha_v1"), _found("beta_v1"))
+        )
+    assert found == [("meta", "kept")]
+    assert "The auto-tag hook of module 'alpha' failed" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "result,problem",
+    [
+        (None, "NoneType"),
+        ([SECRET], "returned list"),
+        ({1: [SECRET]}, "category that is not a string"),
+        ({"meta": SECRET}, "tags that are not a list"),
+        ({"meta": None}, "tags that are not a list"),
+        ({"meta": [SECRET, 1]}, "tag that is not a string"),
+        (
+            {"meta": ["tag%d" % n for n in range(post_content.MAX_AUTO_TAGS + 1)]},
+            "more than %d tags" % post_content.MAX_AUTO_TAGS,
+        ),
+    ],
+)
+def test_auto_tags_outside_the_contract_are_dropped(tag_rule, caplog, result, problem):
+    registry.use([_tagging_module(lambda contents: result)])
+    with caplog.at_level(logging.ERROR):
+        assert post_content.get_auto_tags(_post_with(_found())) == []
+    assert "The auto-tag hook of module 'alpha' returned" in caplog.text
+    assert problem in caplog.text
+    assert SECRET not in caplog.text
+
+
+def test_most_auto_tags_a_module_may_give(tag_rule):
+    names = ["tag%d" % n for n in range(post_content.MAX_AUTO_TAGS)]
+    registry.use([_tagging_module(lambda contents: {"meta": tuple(names)})])
+    assert len(post_content.get_auto_tags(_post_with(_found()))) == len(names)

@@ -202,6 +202,8 @@ def create_post(
     posts.update_post_flags(post, flags)
     if data.has_file("thumbnail"):
         posts.update_post_thumbnail(post, data.get_file("thumbnail"))
+    # tags the modules add are not the uploader's: no privilege is asked
+    new_tags = new_tags + posts.update_post_auto_tags(post)
     db.session.add(post)
     db.session.flush()
     create_snapshots_for_post(post, new_tags, None if body.anonymous else auth_user)
@@ -308,7 +310,8 @@ def update_post(
     post = _get_post(post_id)
     versions.verify_version(post, body.require("version"))
     versions.bump_version(post)
-    if data.has_file("content"):
+    content_changed = data.has_file("content")
+    if content_changed:
         auth.verify_privilege(auth_user, "posts:edit:content")
         posts.update_post_content(
             post,
@@ -347,8 +350,13 @@ def update_post(
     if data.has_file("thumbnail"):
         auth.verify_privilege(auth_user, "posts:edit:thumbnail")
         posts.update_post_thumbnail(post, data.get_file("thumbnail"))
+    # new content may bring new tags from the modules; as on creation, no
+    # privilege is asked for those
+    auto_tags = posts.update_post_auto_tags(post) if content_changed else []
     post.last_edit_time = util.utcnow()
     db.session.flush()
+    for tag in auto_tags:
+        snapshots.create(tag, auth_user)
     snapshots.modify(post, auth_user)
     db.session.commit()
     return _serialize_post(post, auth_user, fields)

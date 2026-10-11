@@ -16,8 +16,10 @@ from lithica.func import (
     images,
     mime,
     pools,
+    post_content,
     scores,
     serialization,
+    tag_categories,
     tags,
     users,
     util,
@@ -763,7 +765,49 @@ def update_post_content(post: model.Post, content: ContentLike | None) -> None:
         else:
             post.canvas_width = None
             post.canvas_height = None
+    post_content.update_post_contents(post, content)
     setattr(post, "__content", content)
+
+
+def update_post_auto_tags(post: model.Post) -> list[model.Tag]:
+    """
+    Add the tags the loaded modules derive from what was extracted from the
+    post's file (see lithica.registry.Module.auto_tag). Tags the post has
+    stay; a tag that does not exist yet is created in the category the
+    module names, or in the default one if the site has no such category.
+    Returns the tags created.
+
+    Call it once the post has its tags and before the session is flushed.
+    It never fails the request: a module's wish for a tag is not worth an
+    upload.
+    """
+    wanted = post_content.get_auto_tags(post)
+    if not wanted:
+        return []
+    present = {name.name.lower() for tag in post.tags for name in tag.names}
+    new_tags: list[model.Tag] = []
+    try:
+        for category_name, name in wanted:
+            if name.lower() in present:
+                continue
+            existing_tags, created_tags = tags.get_or_create_tags_by_names([name])
+            for tag in created_tags:
+                if tag_categories.try_get_category_by_name(category_name):
+                    tags.update_tag_category_name(tag, category_name)
+                else:
+                    logger.warning(
+                        "No tag category %r: an automatic tag was put in the "
+                        "default category.",
+                        category_name,
+                    )
+            for tag in existing_tags + created_tags:
+                post.tags.append(tag)
+                present |= {tag_name.name.lower() for tag_name in tag.names}
+            new_tags += created_tags
+    except errors.BaseError as ex:
+        # for one: a site without any tag category cannot create a tag
+        logger.warning("Automatic tags were not all added: %s", ex)
+    return new_tags
 
 
 def update_post_thumbnail(post: model.Post, content: ContentLike | None = None) -> None:
