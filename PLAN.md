@@ -130,7 +130,7 @@ then rewrite that resource's `tests/api/` tests to go through FastAPI's
 - [x] password reset
 - [x] tag categories, tags
 - [x] pool categories, pools
-- [ ] comments
+- [x] comments
 - [ ] snapshots
 - [ ] uploads (temporary upload tokens)
 - [ ] posts (largest; includes multipart create/update, merge, featuring, similar search)

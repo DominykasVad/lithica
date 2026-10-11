@@ -23,6 +23,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from lithica import config, db, facade, rest
 from lithica.api import (
+    comment_api,
     error_handlers,
     info_api,
     password_reset_api,
@@ -228,6 +229,7 @@ def create_app() -> FastAPI:
         tag_api,
         pool_category_api,
         pool_api,
+        comment_api,
     ]:
         application.include_router(ported.router)
 

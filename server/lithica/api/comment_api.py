@@ -1,107 +1,187 @@
-from lithica import model, rest, search
-from lithica.func import (
-    auth,
-    comments,
-    posts,
-    scores,
-    serialization,
-    util,
-    versions,
+from typing import Annotated, Any
+
+from fastapi import Depends
+
+from lithica import db, model, search
+from lithica.api import resources
+from lithica.api.dependencies import (
+    CurrentUser,
+    Fields,
+    PageParams,
+    read_body,
+    require,
 )
+from lithica.api.dependencies import search as run_search
+from lithica.api.routing import ApiRouter
+from lithica.api.schemas import (
+    Int,
+    RequestModel,
+    Str,
+    VersionOnly,
+    request_body,
+    required,
+)
+from lithica.func import auth, comments, posts, scores, util, versions
+
+router = ApiRouter(tags=["Comments"])
 
 _search_executor = search.Executor(search.configs.CommentSearchConfig())
 
 
-def _get_comment(params: dict[str, str]) -> model.Comment:
+class CommentCreate(RequestModel):
+    text: Str = required()
+    post_id: Int = required()
+
+
+class CommentUpdate(RequestModel):
+    version: Int = required()
+    text: Str = required()
+
+
+class ScoreUpdate(RequestModel):
+    score: Int = required()
+
+
+def _get_comment(comment_id: str) -> model.Comment:
     try:
-        comment_id = int(params["comment_id"])
-    except TypeError as ex:
+        return comments.get_comment_by_id(int(comment_id))
+    except ValueError:
         raise comments.InvalidCommentIdError(
-            "Invalid comment ID: %r." % params["comment_id"]
-        ) from ex
-    return comments.get_comment_by_id(comment_id)
+            "Invalid comment ID: %r." % comment_id
+        ) from None
 
 
-def _serialize(ctx: rest.Context, comment: model.Comment) -> rest.Response:
-    return comments.serialize_comment(
-        comment, ctx.user, options=serialization.get_serialization_options(ctx)
-    )
+# Any: the serializer's output, which the response model describes
+def _serialize(comment: model.Comment, auth_user: model.User, fields: list[str]) -> Any:
+    return comments.serialize_comment(comment, auth_user, options=fields)
 
 
-@rest.routes.get("/comments/?")
+@router.get(
+    "/comments",
+    response_model=resources.Paged[resources.Comment],
+    summary="List comments",
+)
 def get_comments(
-    ctx: rest.Context, _params: dict[str, str] | None = None
-) -> rest.Response:
-    if _params is None:
-        _params = {}
-    auth.verify_privilege(ctx.user, "comments:list")
-    return _search_executor.execute_and_serialize(
-        ctx, lambda comment: _serialize(ctx, comment)
+    auth_user: Annotated[model.User, Depends(require("comments:list"))],
+    fields: Fields,
+    page: PageParams,
+) -> Any:
+    return run_search(
+        _search_executor,
+        page,
+        lambda comment: _serialize(comment, auth_user, fields),
     )
 
 
-@rest.routes.post("/comments/?")
+@router.post(
+    "/comments",
+    response_model=resources.Comment,
+    summary="Create a comment",
+    openapi_extra=request_body(CommentCreate),
+)
 def create_comment(
-    ctx: rest.Context, _params: dict[str, str] | None = None
-) -> rest.Response:
-    if _params is None:
-        _params = {}
-    auth.verify_privilege(ctx.user, "comments:create")
-    text = ctx.get_param_as_string("text")
-    post_id = ctx.get_param_as_int("postId")
+    auth_user: Annotated[model.User, Depends(require("comments:create"))],
+    fields: Fields,
+    body: Annotated[CommentCreate, Depends(read_body(CommentCreate))],
+) -> Any:
+    text = body.require("text")
+    post_id = body.require("post_id")
     post = posts.get_post_by_id(post_id)
-    comment = comments.create_comment(ctx.user if ctx.user.name else None, post, text)
-    ctx.session.add(comment)
-    ctx.session.commit()
-    return _serialize(ctx, comment)
+    comment = comments.create_comment(auth_user if auth_user.name else None, post, text)
+    db.session.add(comment)
+    db.session.commit()
+    return _serialize(comment, auth_user, fields)
 
 
-@rest.routes.get("/comment/(?P<comment_id>[^/]+)/?")
-def get_comment(ctx: rest.Context, params: dict[str, str]) -> rest.Response:
-    auth.verify_privilege(ctx.user, "comments:view")
-    comment = _get_comment(params)
-    return _serialize(ctx, comment)
+@router.get(
+    "/comment/{comment_id}",
+    response_model=resources.Comment,
+    summary="Get a comment",
+)
+def get_comment(
+    comment_id: str,
+    auth_user: Annotated[model.User, Depends(require("comments:view"))],
+    fields: Fields,
+) -> Any:
+    comment = _get_comment(comment_id)
+    return _serialize(comment, auth_user, fields)
 
 
-@rest.routes.put("/comment/(?P<comment_id>[^/]+)/?")
-def update_comment(ctx: rest.Context, params: dict[str, str]) -> rest.Response:
-    comment = _get_comment(params)
-    versions.verify_version(comment, ctx)
+@router.put(
+    "/comment/{comment_id}",
+    response_model=resources.Comment,
+    summary="Update a comment",
+    openapi_extra=request_body(CommentUpdate),
+)
+def update_comment(
+    comment_id: str,
+    auth_user: CurrentUser,
+    fields: Fields,
+    body: Annotated[CommentUpdate, Depends(read_body(CommentUpdate))],
+) -> Any:
+    comment = _get_comment(comment_id)
+    versions.verify_version(comment, body.require("version"))
     versions.bump_version(comment)
-    infix = "own" if ctx.user.user_id == comment.user_id else "any"
-    text = ctx.get_param_as_string("text")
-    auth.verify_privilege(ctx.user, "comments:edit:%s" % infix)
+    infix = "own" if auth_user.user_id == comment.user_id else "any"
+    text = body.require("text")
+    auth.verify_privilege(auth_user, "comments:edit:%s" % infix)
     comments.update_comment_text(comment, text)
     comment.last_edit_time = util.utcnow()
-    ctx.session.commit()
-    return _serialize(ctx, comment)
+    db.session.commit()
+    return _serialize(comment, auth_user, fields)
 
 
-@rest.routes.delete("/comment/(?P<comment_id>[^/]+)/?")
-def delete_comment(ctx: rest.Context, params: dict[str, str]) -> rest.Response:
-    comment = _get_comment(params)
-    versions.verify_version(comment, ctx)
-    infix = "own" if ctx.user.user_id == comment.user_id else "any"
-    auth.verify_privilege(ctx.user, "comments:delete:%s" % infix)
-    ctx.session.delete(comment)
-    ctx.session.commit()
+@router.delete(
+    "/comment/{comment_id}",
+    response_model=resources.Empty,
+    summary="Delete a comment",
+    openapi_extra=request_body(VersionOnly),
+)
+def delete_comment(
+    comment_id: str,
+    auth_user: CurrentUser,
+    body: Annotated[VersionOnly, Depends(read_body(VersionOnly))],
+) -> Any:
+    comment = _get_comment(comment_id)
+    versions.verify_version(comment, body.require("version"))
+    infix = "own" if auth_user.user_id == comment.user_id else "any"
+    auth.verify_privilege(auth_user, "comments:delete:%s" % infix)
+    db.session.delete(comment)
+    db.session.commit()
     return {}
 
 
-@rest.routes.put("/comment/(?P<comment_id>[^/]+)/score/?")
-def set_comment_score(ctx: rest.Context, params: dict[str, str]) -> rest.Response:
-    auth.verify_privilege(ctx.user, "comments:score")
-    score = ctx.get_param_as_int("score")
-    comment = _get_comment(params)
-    scores.set_score(comment, ctx.user, score)
-    ctx.session.commit()
-    return _serialize(ctx, comment)
+@router.put(
+    "/comment/{comment_id}/score",
+    response_model=resources.Comment,
+    summary="Rate a comment",
+    openapi_extra=request_body(ScoreUpdate),
+)
+def set_comment_score(
+    comment_id: str,
+    auth_user: Annotated[model.User, Depends(require("comments:score"))],
+    fields: Fields,
+    body: Annotated[ScoreUpdate, Depends(read_body(ScoreUpdate))],
+) -> Any:
+    """`score` is 1 (like), -1 (dislike) or 0 (take the rating back)."""
+    score = body.require("score")
+    comment = _get_comment(comment_id)
+    scores.set_score(comment, auth_user, score)
+    db.session.commit()
+    return _serialize(comment, auth_user, fields)
 
 
-@rest.routes.delete("/comment/(?P<comment_id>[^/]+)/score/?")
-def delete_comment_score(ctx: rest.Context, params: dict[str, str]) -> rest.Response:
-    auth.verify_privilege(ctx.user, "comments:score")
-    comment = _get_comment(params)
-    scores.delete_score(comment, ctx.user)
-    ctx.session.commit()
-    return _serialize(ctx, comment)
+@router.delete(
+    "/comment/{comment_id}/score",
+    response_model=resources.Comment,
+    summary="Take back the rating of a comment",
+)
+def delete_comment_score(
+    comment_id: str,
+    auth_user: Annotated[model.User, Depends(require("comments:score"))],
+    fields: Fields,
+) -> Any:
+    comment = _get_comment(comment_id)
+    scores.delete_score(comment, auth_user)
+    db.session.commit()
+    return _serialize(comment, auth_user, fields)

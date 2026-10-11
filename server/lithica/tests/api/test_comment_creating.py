@@ -3,8 +3,9 @@ from unittest.mock import patch
 
 import pytest
 
-from lithica import api, db, errors, model
+from lithica import db, errors, model
 from lithica.func import comments, posts
+from lithica.tests.api.http import assert_error, ok
 
 
 @pytest.fixture(autouse=True)
@@ -12,15 +13,17 @@ def inject_config(config_injector):
     config_injector({"privileges": {"comments:create": model.User.RANK_REGULAR}})
 
 
-def test_creating_comment(user_factory, post_factory, context_factory, fake_datetime):
+def test_creating_comment(user_factory, post_factory, client, fake_datetime):
     post = post_factory()
     user = user_factory(rank=model.User.RANK_REGULAR)
     db.session.add_all([post, user])
     db.session.flush()
     with patch("lithica.func.comments.serialize_comment"), fake_datetime("1997-01-01"):
         comments.serialize_comment.return_value = "serialized comment"
-        result = api.comment_api.create_comment(
-            context_factory(params={"text": "input", "postId": post.post_id}, user=user)
+        result = ok(
+            client.post(
+                "/comments", user=user, body={"text": "input", "postId": post.post_id}
+            )
         )
         assert result == "serialized comment"
         comment = db.session.query(model.Comment).one()
@@ -40,9 +43,7 @@ def test_creating_comment(user_factory, post_factory, context_factory, fake_date
         {"text": [""]},
     ],
 )
-def test_trying_to_pass_invalid_params(
-    user_factory, post_factory, context_factory, params
-):
+def test_trying_to_pass_invalid_params(user_factory, post_factory, client, params):
     post = post_factory()
     user = user_factory(rank=model.User.RANK_REGULAR)
     db.session.add_all([post, user])
@@ -50,37 +51,40 @@ def test_trying_to_pass_invalid_params(
     real_params = {"text": "input", "postId": post.post_id}
     for key, value in params.items():
         real_params[key] = value
-    with pytest.raises(errors.ValidationError):
-        api.comment_api.create_comment(context_factory(params=real_params, user=user))
+    assert_error(
+        client.post("/comments", user=user, body=real_params), errors.ValidationError
+    )
 
 
 @pytest.mark.parametrize("field", ["text", "postId"])
-def test_trying_to_omit_mandatory_field(user_factory, context_factory, field):
+def test_trying_to_omit_mandatory_field(user_factory, client, field):
     params = {
         "text": "input",
         "postId": 1,
     }
     del params[field]
-    with pytest.raises(errors.ValidationError):
-        api.comment_api.create_comment(
-            context_factory(params={}, user=user_factory(rank=model.User.RANK_REGULAR))
-        )
+    assert_error(
+        client.post(
+            "/comments", user=user_factory(rank=model.User.RANK_REGULAR), body={}
+        ),
+        errors.ValidationError,
+    )
 
 
-def test_trying_to_comment_non_existing(user_factory, context_factory):
+def test_trying_to_comment_non_existing(user_factory, client):
     user = user_factory(rank=model.User.RANK_REGULAR)
     db.session.add_all([user])
     db.session.flush()
-    with pytest.raises(posts.PostNotFoundError):
-        api.comment_api.create_comment(
-            context_factory(params={"text": "bad", "postId": 5}, user=user)
-        )
+    assert_error(
+        client.post("/comments", user=user, body={"text": "bad", "postId": 5}),
+        posts.PostNotFoundError,
+    )
 
 
-def test_trying_to_create_without_privileges(user_factory, context_factory):
-    with pytest.raises(errors.AuthError):
-        api.comment_api.create_comment(
-            context_factory(
-                params={}, user=user_factory(rank=model.User.RANK_ANONYMOUS)
-            )
-        )
+def test_trying_to_create_without_privileges(user_factory, client):
+    assert_error(
+        client.post(
+            "/comments", user=user_factory(rank=model.User.RANK_ANONYMOUS), body={}
+        ),
+        errors.AuthError,
+    )
