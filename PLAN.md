@@ -175,7 +175,7 @@ yet beyond a test fixture module. Tag `v0.1.0`.
 - [x] `tests/fixtures/modules/dummy`: registers one extractor (reads a PNG `tEXt` chunk), one auto-tag, one search token, one route. Tests cover enable/disable, extraction on upload, re-extraction, search and the import boundary.
 
 ### 3.4 Release
-- [ ] `doc/INSTALL.md` rewritten for Lithica (uv, Debian image, Postgres 17, GHCR images, config, modules).
+- [x] `doc/INSTALL.md` rewritten for Lithica (uv, Debian image, Postgres 17, GHCR images, config, modules).
 - [ ] `doc/UPGRADING.md` covers szurubooru → Lithica 0.1.0 (data volume, config renames, DB upgrade).
 - [x] pyright `strict` enabled at least for `lithica/modules/` and the new pipeline code.
 - [ ] Publish GitHub release `v0.1.0`; verify the GHCR image builds and `docker compose up` works from the published images.
