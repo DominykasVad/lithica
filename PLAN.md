@@ -71,6 +71,10 @@ with `doc/openapi.json` since phase 2.
    404 for pools) and a JSON body that is not an object (400).
 6. An unknown path is 404 whatever the `Accept` header (it was 406 without
    `Accept: application/json`); a wrong method lists the allowed methods.
+7. Additions for modules, nothing removed: posts have `contentKinds`,
+   `GET /post/<id>/content` returns a post's extracted content, and a site's
+   modules may add routes under `modules/<name>/`, post search tokens and
+   post fields of their own.
 
 ### Allowed dialect exceptions
 
@@ -96,6 +100,7 @@ When a phase is merged, its entries are folded into the tables above or deleted.
 - 2026-10-11 — 3.2 — auto-tags are added on create and on content change, never removed, and need no `tags:create` privilege
 - 2026-10-11 — 3.2 — an auto-tag's category is used only when the tag is created; a missing category means the default one
 - 2026-10-11 — 3.2 — `reextract` replaces only rows of kinds loaded modules own, keeps old rows where an extractor fails, never tags
+- 2026-10-11 — 3.2 — `GET /post/<id>/content` needs `posts:view`; rows of kinds no loaded module owns are stored but never shown
 - 2026-10-11 — 3.1 — a module may add search tokens, post fields and commands but never replace the engine's (startup error)
 
 ---
@@ -162,7 +167,7 @@ yet beyond a test fixture module. Tag `v0.1.0`.
 - [x] Extractor contract: given MIME type and a readable file, return zero or more `(kind, payload)` results. Extractors are registered by modules and keyed by MIME type (PNG text chunks, WebP EXIF, video metadata — not PNG-only).
 - [x] Run extractors on post create and on content update (replace the post's rows); errors in one extractor are logged and do not fail the upload.
 - [x] `lithica-admin reextract [--kind K]` re-runs extractors over existing posts in batches.
-- [ ] Post API exposes content kinds present (`contentKinds: [...]`) and an endpoint to fetch a post's extracted content; modules decide the public shape.
+- [x] Post API exposes content kinds present (`contentKinds: [...]`) and an endpoint to fetch a post's extracted content; modules decide the public shape.
 - [ ] Redaction hook: a module can mark payload fields as private (not returned to users without a privilege).
 
 ### 3.3 Proof module (tests only)

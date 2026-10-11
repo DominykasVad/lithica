@@ -20,7 +20,7 @@ import json
 import logging
 from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import BinaryIO, cast
+from typing import Any, BinaryIO, cast
 
 from lithica import model, registry
 from lithica.func import content as content_module
@@ -279,3 +279,55 @@ def get_extracted_mime_types(kinds: Collection[str] | None = None) -> set[str]:
             for extractor in module.extractors:
                 mime_types |= extractor.mime_types
     return mime_types
+
+
+def get_content_kinds(post: model.Post) -> list[str]:
+    """
+    The kinds of extracted content the post has, for the post resource.
+    Only kinds a loaded module owns are named: what a switched-off module
+    left behind is nobody's to show.
+    """
+    owned_kinds = registry.content_kinds()
+    if not owned_kinds:
+        # no module, no content: do not ask the database for every post
+        return []
+    return sorted({row.kind for row in post.contents if row.kind in owned_kinds})
+
+
+def serialize_post_contents(post: model.Post) -> list[dict[str, Any]]:
+    """
+    The extracted content of the post as the API returns it: one entry per
+    row of a kind a loaded module owns, in the order the rows were stored.
+    The module that owns the kind decides what `content` looks like (see
+    lithica.registry.ContentKind); without its say it is the stored payload.
+    """
+    owned_kinds = registry.content_kinds()
+    if not owned_kinds:
+        return []
+    serialized: list[dict[str, Any]] = []
+    for row in post.contents:
+        kind = owned_kinds.get(row.kind)
+        if kind is None:
+            continue
+        payload = cast(registry.Payload, row.payload)
+        try:
+            shown = kind.serialize(dict(payload)) if kind.serialize else payload
+        except Exception:
+            # a module that cannot show a row must not take the others,
+            # or the request, down with it
+            logger.exception(
+                "The module that owns the content kind %r could not serialize "
+                "a row of post %d.",
+                row.kind,
+                post.post_id,
+            )
+            continue
+        serialized.append(
+            {
+                "kind": row.kind,
+                "schemaVersion": row.schema_version,
+                "extractedAt": row.extracted_at,
+                "content": shown,
+            }
+        )
+    return serialized

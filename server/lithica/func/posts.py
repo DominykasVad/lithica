@@ -212,6 +212,7 @@ class PostSerializer(serialization.BaseSerializer):
             "notes": self.serialize_notes,
             "comments": self.serialize_comments,
             "pools": self.serialize_pools,
+            "contentKinds": self.serialize_content_kinds,
         }
 
     def serialize_id(self) -> Any:
@@ -355,6 +356,9 @@ class PostSerializer(serialization.BaseSerializer):
             for pool in sorted(self.post.pools, key=lambda pool: pool.creation_time)
         ]
 
+    def serialize_content_kinds(self) -> Any:
+        return post_content.get_content_kinds(self.post)
+
 
 def serialize_post(
     post: model.Post | None, auth_user: model.User, options: list[str] | None = None
@@ -372,6 +376,10 @@ def serialize_micro_post(
     # the two fields of a micro post do not depend on who is asking
     serializer = PostSerializer(post, cast(model.User, auth_user))
     return serializer.serialize(["id", "thumbnailUrl"])
+
+
+def serialize_post_contents(post: model.Post) -> list[dict[str, Any]]:
+    return post_content.serialize_post_contents(post)
 
 
 def get_engine_post_field_names() -> set[str]:

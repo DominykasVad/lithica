@@ -5,10 +5,12 @@ from datetime import datetime
 from unittest.mock import patch
 
 import pytest
+import sqlalchemy as sa
 
-from lithica import db, model, registry
+from lithica import db, errors, model, registry
+from lithica.api import resources
 from lithica.func import posts, tags
-from lithica.tests.api.http import ok
+from lithica.tests.api.http import assert_error, assert_fits, ok
 
 EXTRACTED_AT = datetime(2020, 2, 3, 4, 5, 6)
 
@@ -413,3 +415,166 @@ def test_merging_posts(client, user, read_asset, replace_content):
     else:
         assert _contents(target["id"]) == target_contents
     assert db.session.query(model.PostContent).count() == len(_contents(target["id"]))
+
+
+def _content(client, user, post_id):
+    body = ok(client.get("/post/%d/content" % post_id, user=user))
+    assert_fits(resources.Unpaged[resources.PostContent], body)
+    return body["results"]
+
+
+def test_post_names_the_kinds_of_its_content(client, user, read_asset):
+    registry.use([_probe_module(auto_tag=None)])
+    png = _upload(client, user, read_asset("png.png"))
+    gif = _upload(client, user, read_asset("gif.gif"))
+
+    post = ok(client.get("/post/%d" % png["id"], user=user))
+    assert post["contentKinds"] == ["probe_file", "probe_png"]
+    assert_fits(resources.Post, post)
+    assert ok(client.get("/post/%d" % gif["id"], user=user))["contentKinds"] == []
+    chosen = ok(
+        client.get("/post/%d" % png["id"], user=user, query={"fields": "contentKinds"})
+    )
+    assert chosen == {"contentKinds": ["probe_file", "probe_png"]}
+
+
+def test_kind_is_named_once_however_many_rows_it_has(client, user, read_asset):
+    def extract(_mime_type, _handle):
+        return [registry.ExtractedContent("probe_png", {"n": n}) for n in range(3)]
+
+    registry.use([_probe_module(extract=extract, auto_tag=None)])
+    created = _upload(client, user, read_asset("png.png"))
+    post = ok(client.get("/post/%d" % created["id"], user=user))
+    assert post["contentKinds"] == ["probe_png"]
+    assert [entry["content"] for entry in _content(client, user, created["id"])] == [
+        {"n": 0},
+        {"n": 1},
+        {"n": 2},
+    ]
+
+
+def test_fetching_the_content_of_a_post(client, user, read_asset):
+    registry.use([_probe_module(auto_tag=None)])
+    asset = read_asset("png.png")
+    created = _upload(client, user, asset)
+
+    assert _content(client, user, created["id"]) == [
+        {
+            "kind": "probe_file",
+            "schemaVersion": 7,
+            "extractedAt": "2020-02-03T04:05:06Z",
+            "content": {"mimeType": "image/png", "size": len(asset)},
+        },
+        {
+            "kind": "probe_png",
+            "schemaVersion": 1,
+            "extractedAt": "2020-02-03T04:05:06Z",
+            "content": {"header": "PNG"},
+        },
+    ]
+    # also with a trailing slash, as every route
+    assert ok(client.get("/post/%d/content/" % created["id"], user=user))["results"]
+
+
+def test_post_without_content_has_an_empty_list(client, user, read_asset):
+    registry.use([_probe_module(auto_tag=None)])
+    created = _upload(client, user, read_asset("gif.gif"))
+    assert _content(client, user, created["id"]) == []
+
+
+def test_module_decides_what_its_content_looks_like(client, user, read_asset):
+    def serialize(payload):
+        payload["size"] = "%d bytes" % payload.pop("size")
+        return {"summary": payload}
+
+    module = registry.Module(
+        name="probe",
+        content_kinds=[
+            registry.ContentKind("probe_file", serialize=serialize),
+            registry.ContentKind("probe_png", serialize=lambda payload: "a PNG"),
+        ],
+        extractors=_probe_module().extractors,
+    )
+    registry.use([module])
+    asset = read_asset("png.png")
+    created = _upload(client, user, asset)
+
+    shown = [entry["content"] for entry in _content(client, user, created["id"])]
+    assert shown == [
+        {"summary": {"mimeType": "image/png", "size": "%d bytes" % len(asset)}},
+        "a PNG",
+    ]
+    # what is stored is not what is shown, and showing it changed nothing
+    assert _contents(created["id"])[0][2] == {
+        "mimeType": "image/png",
+        "size": len(asset),
+    }
+
+
+def test_content_of_a_module_that_is_switched_off_is_not_shown(
+    client, user, read_asset
+):
+    registry.use([_probe_module(auto_tag=None)])
+    created = _upload(client, user, read_asset("png.png"))
+
+    registry.use([])
+    assert ok(client.get("/post/%d" % created["id"], user=user))["contentKinds"] == []
+    assert _content(client, user, created["id"]) == []
+    # it is still there for when the module is back
+    assert len(_contents(created["id"])) == 2
+
+    registry.use(
+        [
+            registry.Module(
+                name="probe", content_kinds=[registry.ContentKind("probe_png")]
+            )
+        ]
+    )
+    assert [entry["kind"] for entry in _content(client, user, created["id"])] == [
+        "probe_png"
+    ]
+
+
+def test_row_a_module_cannot_show_is_left_out(client, user, read_asset, caplog):
+    def serialize(payload):
+        return {"header": payload["header"]}
+
+    module = registry.Module(
+        name="probe",
+        content_kinds=[
+            # every row of this kind lacks the key
+            registry.ContentKind("probe_file", serialize=serialize),
+            registry.ContentKind("probe_png", serialize=serialize),
+        ],
+        extractors=_probe_module().extractors,
+    )
+    registry.use([module])
+    created = _upload(client, user, read_asset("png.png"))
+    with caplog.at_level(logging.ERROR):
+        shown = _content(client, user, created["id"])
+    assert [entry["content"] for entry in shown] == [{"header": "PNG"}]
+    assert "content kind 'probe_file' could not serialize a row of post" in caplog.text
+
+
+def test_content_of_a_post_that_does_not_exist(client, user):
+    assert_error(client.get("/post/999/content", user=user), posts.PostNotFoundError)
+    assert_error(client.get("/post/nine/content", user=user), posts.InvalidPostIdError)
+
+
+def test_content_needs_the_privilege_to_view_posts(client, user_factory, read_asset):
+    anonymous = user_factory(rank=model.User.RANK_ANONYMOUS)
+    assert_error(client.get("/post/1/content", user=anonymous), errors.AuthError)
+
+
+def test_post_without_modules_is_not_asked_for_its_content(client, user, read_asset):
+    registry.use([_probe_module(auto_tag=None)])
+    created = _upload(client, user, read_asset("png.png"))
+    registry.use([])
+    db.session.expire_all()
+    post = posts.get_post_by_id(created["id"])
+
+    assert posts.serialize_post(post, user, ["contentKinds"]) == {"contentKinds": []}
+    assert posts.serialize_post_contents(post) == []
+    # a site without modules pays nothing for the field: the rows the post
+    # has were not read
+    assert "contents" in sa.inspect(post).unloaded

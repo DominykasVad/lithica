@@ -275,6 +275,35 @@ def get_post(
     return _serialize_post(post, auth_user, fields)
 
 
+@router.get(
+    "/post/{post_id}/content",
+    response_model=resources.Unpaged[resources.PostContent],
+    summary="Get the content extracted from a post's file",
+)
+def get_post_content(
+    post_id: str,
+    auth_user: Annotated[model.User, Depends(require("posts:view"))],
+) -> Any:
+    """
+    Retrieves what the modules of this installation read out of the post's
+    file: metadata embedded in it, such as PNG text chunks or EXIF. There is
+    one result per piece of content found, and a post may have several of
+    one kind. What `content` holds depends on the kind and is described by
+    the module that owns it. The kinds a post has are listed in the
+    `contentKinds` field of the post.
+
+    Without modules, and for a post in which nothing was found, the list is
+    empty.
+
+    Errors:
+
+    - the post does not exist
+    - privileges are too low
+    """
+    post = _get_post(post_id)
+    return {"results": posts.serialize_post_contents(post)}
+
+
 @router.put(
     "/post/{post_id}",
     response_model=resources.Post,
