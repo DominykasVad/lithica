@@ -1,9 +1,15 @@
 import os
 import threading
 from datetime import datetime, timedelta
+from typing import Any
 
-from lithica import config, rest
+from lithica import config
+from lithica.api import resources
+from lithica.api.dependencies import CurrentUser
+from lithica.api.routing import ApiRouter
 from lithica.func import auth, posts, users, util
+
+router = ApiRouter(tags=["Info"])
 
 # How long a measured disk usage is served before it is measured again.
 DISK_USAGE_TTL = timedelta(hours=1)
@@ -40,9 +46,12 @@ class _DiskUsage:
             if start:
                 self._measuring = True
         if start:
-            threading.Thread(target=self._measure, daemon=True).start()
+            self._start_measuring()
         with self._lock:
             return self._value
+
+    def _start_measuring(self) -> None:
+        threading.Thread(target=self._measure, daemon=True).start()
 
     def _measure(self) -> None:
         try:
@@ -66,12 +75,14 @@ class _DiskUsage:
 _disk_usage = _DiskUsage()
 
 
-@rest.routes.get("/info/?")
-def get_info(ctx: rest.Context, _params: dict[str, str] | None = None) -> rest.Response:
-    if _params is None:
-        _params = {}
+@router.get("/info", response_model=resources.Info, summary="Get global info")
+def get_info(user: CurrentUser) -> dict[str, Any]:
+    """
+    Statistics and the settings a client needs: the name of the site, the
+    name rules and what each rank may do.
+    """
     post_feature = posts.try_get_current_post_feature()
-    ret = {
+    ret: dict[str, Any] = {
         "postCount": posts.get_post_count(),
         "diskUsage": _disk_usage.get(),
         "serverTime": util.utcnow(),
@@ -90,12 +101,12 @@ def get_info(ctx: rest.Context, _params: dict[str, str] | None = None) -> rest.R
             ),
         },
     }
-    if auth.has_privilege(ctx.user, "posts:view:featured"):
+    if auth.has_privilege(user, "posts:view:featured"):
         ret["featuredPost"] = (
-            posts.serialize_post(post_feature.post, ctx.user) if post_feature else None
+            posts.serialize_post(post_feature.post, user) if post_feature else None
         )
         ret["featuringUser"] = (
-            users.serialize_user(post_feature.user, ctx.user) if post_feature else None
+            users.serialize_user(post_feature.user, user) if post_feature else None
         )
         ret["featuringTime"] = post_feature.time if post_feature else None
     return ret

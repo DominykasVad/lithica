@@ -1,8 +1,9 @@
-"""Helpers for tests that call the API over HTTP (the `api` fixture)."""
+"""Helpers for tests that call the API over HTTP (the `client` fixture)."""
 
 from typing import Any
 
 import httpx2
+import pydantic
 
 from lithica.api.error_handlers import ERROR_KINDS
 
@@ -35,3 +36,21 @@ def assert_error(
     if description is not None:
         assert body["description"] == description
     return body
+
+
+def assert_fits(
+    model: type[pydantic.BaseModel], body: Any, complete: bool = True
+) -> None:
+    """
+    Assert that a response body is what its response model describes: every
+    field of a known name and the documented type. A body that leaves fields
+    out on purpose (`fields=`, or a field shown only to some users) is
+    checked with `complete=False`.
+    """
+    try:
+        model.model_validate(body)
+    except pydantic.ValidationError as ex:
+        problems = [
+            error for error in ex.errors() if complete or error["type"] != "missing"
+        ]
+        assert not problems, problems

@@ -279,7 +279,7 @@ class ApiClient:
 
 
 @pytest.fixture
-def api(session):
+def client(session):
     return ApiClient()
 
 

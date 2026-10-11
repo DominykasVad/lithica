@@ -22,7 +22,7 @@ from starlette.responses import Response
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from lithica import config, db, facade, rest
-from lithica.api import error_handlers
+from lithica.api import error_handlers, info_api
 from lithica.api.dependencies import LOG_USER_KEY
 from lithica.func import file_uploads, posts
 
@@ -208,6 +208,8 @@ def create_app() -> FastAPI:
     # added last, so outermost: also answers for responses made further in
     application.add_middleware(CorsMiddleware)
     error_handlers.install(application)
+
+    application.include_router(info_api.router)
 
     # Routes that are not ported to FastAPI yet are answered by the old WSGI
     # application. It must stay the last route: a mount at "/" matches

@@ -125,7 +125,7 @@ For each: port handlers to sync `def` endpoints with Pydantic request models,
 then rewrite that resource's `tests/api/` tests to go through FastAPI's
 `TestClient` (HTTP level). Keep every existing assertion.
 
-- [ ] info
+- [x] info
 - [ ] users, user tokens
 - [ ] password reset
 - [ ] tag categories, tags
