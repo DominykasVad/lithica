@@ -1,8 +1,10 @@
 import contextlib
+import json
 import os
 import random
 import string
 from datetime import datetime
+from typing import Any
 
 import freezegun
 import pytest
@@ -21,7 +23,12 @@ config.config.setdefault(
     os.environ.get("LITHICA_TEST_DATABASE_URL", _DEFAULT_DATABASE_URL),
 )
 
+import httpx2  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
+
 from lithica import db, model, rest  # noqa: E402
+from lithica.api import dependencies  # noqa: E402
+from lithica.app import app as lithica_app  # noqa: E402
 
 
 @pytest.fixture(scope="session")
@@ -213,6 +220,67 @@ def scoped_db_session(session):
     db.session = REAL_DB_SESSION
     yield REAL_DB_SESSION
     db.session = session
+
+
+class ApiClient:
+    """
+    Calls the API over HTTP, in the application's own process.
+
+    `user` is who the request comes from: authentication is replaced by that
+    user, so a test does not need passwords. Without it the request is
+    anonymous. `query` is the query string; `body` is sent as JSON, or as the
+    `metadata` part of a multipart request when `files` are given.
+    """
+
+    def __init__(self) -> None:
+        # not used as a context manager: the startup work does not run
+        self._client = TestClient(lithica_app, headers={"Accept": "application/json"})
+
+    def request(
+        self,
+        method: str,
+        path: str,
+        *,
+        user: model.User | None = None,
+        query: dict[str, Any] | None = None,
+        body: Any = None,
+        files: dict[str, bytes] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> httpx2.Response:
+        kwargs: dict[str, Any] = {"params": query, "headers": headers}
+        if files is not None:
+            kwargs["files"] = {
+                name: (name, content, "application/octet-stream")
+                for name, content in files.items()
+            }
+            if body is not None:
+                kwargs["data"] = {"metadata": json.dumps(body)}
+        elif body is not None:
+            kwargs["json"] = body
+        overrides = lithica_app.dependency_overrides
+        if user is not None:
+            overrides[dependencies.get_user] = lambda: user
+        try:
+            return self._client.request(method, path, **kwargs)
+        finally:
+            overrides.pop(dependencies.get_user, None)
+
+    def get(self, path: str, **kwargs: Any) -> httpx2.Response:
+        return self.request("GET", path, **kwargs)
+
+    def post(self, path: str, **kwargs: Any) -> httpx2.Response:
+        return self.request("POST", path, **kwargs)
+
+    def put(self, path: str, **kwargs: Any) -> httpx2.Response:
+        return self.request("PUT", path, **kwargs)
+
+    def delete(self, path: str, **kwargs: Any) -> httpx2.Response:
+        return self.request("DELETE", path, **kwargs)
+
+
+@pytest.fixture
+def api(session):
+    return ApiClient()
 
 
 @pytest.fixture
