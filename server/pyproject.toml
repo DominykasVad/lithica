@@ -85,3 +85,35 @@ dev = [
     "pytest-xdist>=3.8.0",
     "ruff>=0.17.0",
 ]
+
+# The module boundary (AGENTS.md, "Modules"). Checked by `uv run lint-imports`
+# in CI and by lithica/tests/test_module_boundary.py.
+[tool.importlinter]
+root_package = "lithica"
+
+[[tool.importlinter.contracts]]
+name = "The engine does not import modules"
+type = "forbidden"
+# every part of the engine; the test checks that none is missing.
+# lithica/migrations is not a package (Alembic runs its files as scripts)
+# and lithica.tests is not engine code
+source_modules = [
+    "lithica.api",
+    "lithica.app",
+    "lithica.config",
+    "lithica.db",
+    "lithica.errors",
+    "lithica.func",
+    "lithica.model",
+    "lithica.openapi",
+    "lithica.registry",
+    "lithica.search",
+    "lithica.serve",
+    "lithica.version",
+]
+forbidden_modules = ["lithica.modules"]
+
+[[tool.importlinter.contracts]]
+name = "Modules do not import each other"
+type = "independence"
+modules = ["lithica.modules.*"]

@@ -146,7 +146,7 @@ yet beyond a test fixture module. Tag `v0.1.0`.
   - search field contributions (named tokens added to the post search config),
   - serializer extras (extra fields on post responses),
   - admin CLI subcommands.
-- [ ] `import-linter` contract in CI: `lithica` (engine) must not import `lithica.modules`; modules must not import each other.
+- [x] `import-linter` contract in CI: `lithica` (engine) must not import `lithica.modules`; modules must not import each other.
 
 ### 3.2 Embedded-content pipeline (engine side)
 - [ ] Table `post_content`: id, post id (FK, cascade delete), `kind` (string, e.g. `dummy_v1`), `schema_version`, `payload` (`JSON` / `JSONB` variant), `extracted_at`. Index on (`post_id`, `kind`). Multiple rows per post allowed.
