@@ -66,6 +66,30 @@ def test_cascade_deletions(pool_factory, post_factory):
     assert db.session.query(model.Post).count() == 2
 
 
+def test_deleting_post_removes_it_from_pools(pool_factory, post_factory):
+    # pool_post has no ON DELETE CASCADE; the session must delete the rows
+    pool = pool_factory()
+    post1 = post_factory()
+    post2 = post_factory()
+    db.session.add_all([pool, post1, post2])
+    db.session.flush()
+    pool.posts.append(post1)
+    pool.posts.append(post2)
+    db.session.commit()
+    kept_post_id = post2.post_id
+
+    db.session.delete(post1)
+    db.session.commit()
+    db.session.expire_all()
+
+    assert db.session.query(model.Pool).count() == 1
+    assert db.session.query(model.Post).count() == 1
+    assert [pool_post.post_id for pool_post in db.session.query(model.PoolPost)] == [
+        kept_post_id
+    ]
+    assert pool.post_count == 1
+
+
 def test_tracking_post_count(post_factory, pool_factory):
     pool1 = pool_factory()
     pool2 = pool_factory()

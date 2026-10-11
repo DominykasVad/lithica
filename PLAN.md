@@ -105,7 +105,7 @@ Goal: the custom `rest/` framework is gone; the API is FastAPI with a
 generated, enforced OpenAPI contract; uploads stream to disk.
 
 ### 2.0 Reconcile models and migrations
-- [ ] One Alembic migration that brings the migrated schema in line with the models (foreign keys on `comment` and `pool_post`, missing indexes, `pool_name.name` length). Add a CI check that `alembic check` (autogenerate finds no differences) passes on a database migrated from empty.
+- [x] One Alembic migration that brings the migrated schema in line with the models (foreign keys on `comment` and `pool_post`, missing indexes, `pool_name.name` length). Add a CI check that `alembic check` (autogenerate finds no differences) passes on a database migrated from empty.
 
 ### 2.1 Skeleton
 - [ ] `lithica/app.py`: FastAPI app, run by uvicorn. Mount the existing WSGI app with `a2wsgi` as the fallback, so unported routes keep working.

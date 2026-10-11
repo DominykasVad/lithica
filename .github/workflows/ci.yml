@@ -68,5 +68,17 @@ jobs:
       - name: Database portability gate
         run: uv run pytest --color=yes lithica/tests/test_portability.py
 
+      # The tests build their tables from the models; a real database is built
+      # by the migrations. This fails when the two describe different schemas.
+      # It migrates the service's own "postgres" database, which nothing else
+      # uses: the tests create a database per worker.
+      - name: Migrations match the models
+        run: |
+          printf 'database: %s\ndata_dir: %s\n' \
+            "$LITHICA_TEST_DATABASE_URL" "$RUNNER_TEMP/data" > config.yaml
+          uv run alembic upgrade head
+          uv run alembic check
+          rm config.yaml
+
       - name: Test
         run: uv run pytest -n auto --color=yes
