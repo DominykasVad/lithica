@@ -636,3 +636,45 @@ def test_default_limit_applies_without_the_setting(client, config_injector):
     config_injector({"max_upload_size": None})
     assert dependencies._max_upload_size() == 1024 * 1024 * 1024
     assert client.post("/things", json={"safety": "safe"}).status_code == 200
+
+
+def test_client_that_leaves_in_the_middle_of_its_request(client, upload_dirs):
+    """The request ends as a refused one: no server error, nothing left on disk."""
+    import asyncio
+
+    body = _multipart([("content", "big.bin", None, os.urandom(2 * 1024 * 1024))])
+    half = body["content"][: 1024 * 1024 + 300000]
+    messages = [
+        {"type": "http.request", "body": half, "more_body": True},
+        {"type": "http.disconnect"},
+    ]
+    sent = []
+
+    async def receive():
+        return messages.pop(0)
+
+    async def send(message):
+        sent.append(message)
+
+    scope = {
+        "type": "http",
+        "asgi": {"version": "3.0"},
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": "/where/content",
+        "raw_path": b"/where/content",
+        "root_path": "",
+        "query_string": b"",
+        "server": ("test", 80),
+        "client": ("test", 1),
+        "headers": [
+            (b"accept", b"application/json"),
+            (b"content-type", body["headers"]["Content-Type"].encode()),
+        ],
+    }
+    # raises if the application lets the disconnect escape as an error
+    asyncio.run(client.app(scope, receive, send))
+    assert sent[0]["type"] == "http.response.start"
+    assert sent[0]["status"] == 400
+    assert _all_removed(upload_dirs)

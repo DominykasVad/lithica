@@ -20,6 +20,7 @@ from fastapi.security.http import HTTPBase
 from python_multipart.exceptions import FormParserError
 from python_multipart.multipart import Field, File
 from starlette.concurrency import run_in_threadpool
+from starlette.requests import ClientDisconnect
 
 from lithica import config, db, errors, model
 from lithica.api.error_handlers import HttpError
@@ -319,15 +320,23 @@ async def _body(request: Request) -> AsyncIterator[bytes]:
     received = 0
     pieces: list[bytes] = []
     gathered = 0
-    async for chunk in request.stream():
-        received += len(chunk)
-        if received > limit:
-            raise too_large
-        pieces.append(chunk)
-        gathered += len(chunk)
-        if gathered >= MAX_MEMORY_FILE_SIZE:
-            yield b"".join(pieces)
-            pieces, gathered = [], 0
+    try:
+        async for chunk in request.stream():
+            received += len(chunk)
+            if received > limit:
+                raise too_large
+            pieces.append(chunk)
+            gathered += len(chunk)
+            if gathered >= MAX_MEMORY_FILE_SIZE:
+                yield b"".join(pieces)
+                pieces, gathered = [], 0
+    except ClientDisconnect:
+        # The client went away in the middle of its request (a browser does
+        # that when the page is left). Nobody is there to read an answer;
+        # this ends the request as a refused one instead of a server error.
+        raise HttpError(
+            400, "ValidationError", "The request ended before it was complete."
+        ) from None
     if pieces:
         yield b"".join(pieces)
 
