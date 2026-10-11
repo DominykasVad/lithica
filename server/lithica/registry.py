@@ -78,11 +78,15 @@ class ContentKind:
 
     `schema_version` is stored with every row, so that a module that
     changes the shape of its payload can tell old rows from new ones.
-    `private_fields` are keys of the payload that only users with the
-    `posts:view:content:private` privilege are given. `serialize` turns the
-    payload (already without the private fields, for users who may not see
-    them) into what the API returns; without it the payload is returned as
-    it is stored.
+
+    `private_fields` are top-level keys of the payload that only users with
+    the `posts:view:content:private` privilege are given. The engine takes
+    them out before anything else sees the payload, `serialize` included.
+    It guards the content endpoint only: a search token or a post field
+    that a module builds on a private field is the module's to guard.
+
+    `serialize` turns the payload into what the API returns; without it the
+    payload is returned as it is stored.
     """
 
     name: str

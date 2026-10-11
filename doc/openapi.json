@@ -5133,7 +5133,7 @@
           "Posts"
         ],
         "summary": "Get the content extracted from a post's file",
-        "description": "Retrieves what the modules of this installation read out of the post's\nfile: metadata embedded in it, such as PNG text chunks or EXIF. There is\none result per piece of content found, and a post may have several of\none kind. What `content` holds depends on the kind and is described by\nthe module that owns it. The kinds a post has are listed in the\n`contentKinds` field of the post.\n\nWithout modules, and for a post in which nothing was found, the list is\nempty.\n\nErrors:\n\n- the post does not exist\n- privileges are too low",
+        "description": "Retrieves what the modules of this installation read out of the post's\nfile: metadata embedded in it, such as PNG text chunks or EXIF. There is\none result per piece of content found, and a post may have several of\none kind. What `content` holds depends on the kind and is described by\nthe module that owns it. The kinds a post has are listed in the\n`contentKinds` field of the post.\n\nWithout modules, and for a post in which nothing was found, the list is\nempty. A module can mark parts of its content as private; those are left\nout unless the requester has the `posts:view:content:private` privilege.\n\nErrors:\n\n- the post does not exist\n- privileges are too low",
         "operationId": "get_post_content",
         "security": [
           {

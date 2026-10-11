@@ -101,6 +101,7 @@ When a phase is merged, its entries are folded into the tables above or deleted.
 - 2026-10-11 — 3.2 — an auto-tag's category is used only when the tag is created; a missing category means the default one
 - 2026-10-11 — 3.2 — `reextract` replaces only rows of kinds loaded modules own, keeps old rows where an extractor fails, never tags
 - 2026-10-11 — 3.2 — `GET /post/<id>/content` needs `posts:view`; rows of kinds no loaded module owns are stored but never shown
+- 2026-10-11 — 3.2 — private payload fields: top-level keys per kind, one privilege `posts:view:content:private` (default moderator)
 - 2026-10-11 — 3.1 — a module may add search tokens, post fields and commands but never replace the engine's (startup error)
 
 ---
@@ -168,7 +169,7 @@ yet beyond a test fixture module. Tag `v0.1.0`.
 - [x] Run extractors on post create and on content update (replace the post's rows); errors in one extractor are logged and do not fail the upload.
 - [x] `lithica-admin reextract [--kind K]` re-runs extractors over existing posts in batches.
 - [x] Post API exposes content kinds present (`contentKinds: [...]`) and an endpoint to fetch a post's extracted content; modules decide the public shape.
-- [ ] Redaction hook: a module can mark payload fields as private (not returned to users without a privilege).
+- [x] Redaction hook: a module can mark payload fields as private (not returned to users without a privilege).
 
 ### 3.3 Proof module (tests only)
 - [ ] `tests/fixtures/modules/dummy`: registers one extractor (reads a PNG `tEXt` chunk), one auto-tag, one search token, one route. Tests cover enable/disable, extraction on upload, re-extraction, search and the import boundary.

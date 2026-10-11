@@ -135,6 +135,8 @@ privileges:
     'posts:reverse_search':         regular
     'posts:view':                   anonymous
     'posts:view:featured':          anonymous
+    # fields of extracted content that a module marks as private
+    'posts:view:content:private':   moderator
     'posts:edit:content':           power
     'posts:edit:flags':             regular
     'posts:edit:notes':             regular

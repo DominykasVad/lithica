@@ -294,12 +294,18 @@ def get_content_kinds(post: model.Post) -> list[str]:
     return sorted({row.kind for row in post.contents if row.kind in owned_kinds})
 
 
-def serialize_post_contents(post: model.Post) -> list[dict[str, Any]]:
+def serialize_post_contents(
+    post: model.Post, show_private: bool
+) -> list[dict[str, Any]]:
     """
     The extracted content of the post as the API returns it: one entry per
     row of a kind a loaded module owns, in the order the rows were stored.
     The module that owns the kind decides what `content` looks like (see
     lithica.registry.ContentKind); without its say it is the stored payload.
+
+    Unless `show_private`, the fields the module marked as private are
+    taken out of the payload first, before the module's own code sees it:
+    what a module's `serialize` is not given, it cannot leak.
     """
     owned_kinds = registry.content_kinds()
     if not owned_kinds:
@@ -309,9 +315,12 @@ def serialize_post_contents(post: model.Post) -> list[dict[str, Any]]:
         kind = owned_kinds.get(row.kind)
         if kind is None:
             continue
-        payload = cast(registry.Payload, row.payload)
+        payload = dict(cast(registry.Payload, row.payload))
+        if not show_private:
+            for name in kind.private_fields:
+                payload.pop(name, None)
         try:
-            shown = kind.serialize(dict(payload)) if kind.serialize else payload
+            shown = kind.serialize(payload) if kind.serialize else payload
         except Exception:
             # a module that cannot show a row must not take the others,
             # or the request, down with it

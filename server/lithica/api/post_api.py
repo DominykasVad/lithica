@@ -293,7 +293,8 @@ def get_post_content(
     `contentKinds` field of the post.
 
     Without modules, and for a post in which nothing was found, the list is
-    empty.
+    empty. A module can mark parts of its content as private; those are left
+    out unless the requester has the `posts:view:content:private` privilege.
 
     Errors:
 
@@ -301,7 +302,7 @@ def get_post_content(
     - privileges are too low
     """
     post = _get_post(post_id)
-    return {"results": posts.serialize_post_contents(post)}
+    return {"results": posts.serialize_post_contents(post, auth_user)}
 
 
 @router.put(

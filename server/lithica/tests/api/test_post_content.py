@@ -75,6 +75,7 @@ def site(config_injector, tmpdir, tag_category_factory, fake_datetime):
                 "posts:edit:safety": model.User.RANK_REGULAR,
                 "posts:merge": model.User.RANK_REGULAR,
                 "posts:view": model.User.RANK_REGULAR,
+                "posts:view:content:private": model.User.RANK_MODERATOR,
                 "uploads:use_downloader": model.User.RANK_POWER,
                 # nobody in these tests may create a tag by hand
                 "tags:create": model.User.RANK_ADMINISTRATOR,
@@ -574,7 +575,104 @@ def test_post_without_modules_is_not_asked_for_its_content(client, user, read_as
     post = posts.get_post_by_id(created["id"])
 
     assert posts.serialize_post(post, user, ["contentKinds"]) == {"contentKinds": []}
-    assert posts.serialize_post_contents(post) == []
+    assert posts.serialize_post_contents(post, user) == []
     # a site without modules pays nothing for the field: the rows the post
     # has were not read
     assert "contents" in sa.inspect(post).unloaded
+
+
+def _secretive_module(serialize=None):
+    def extract(_mime_type, _handle):
+        yield registry.ExtractedContent(
+            "probe_file",
+            {
+                "title": "public",
+                "author": "private",
+                "location": {"author": "nested: stays", "city": "private too"},
+            },
+        )
+        yield registry.ExtractedContent("probe_png", {"author": "not private here"})
+
+    return registry.Module(
+        name="probe",
+        content_kinds=[
+            registry.ContentKind(
+                "probe_file",
+                private_fields=frozenset({"author", "location", "never_there"}),
+                serialize=serialize,
+            ),
+            registry.ContentKind("probe_png"),
+        ],
+        extractors=[registry.Extractor(frozenset({"image/png"}), extract)],
+    )
+
+
+@pytest.fixture
+def moderator(user_factory):
+    moderator = user_factory(rank=model.User.RANK_MODERATOR)
+    db.session.add(moderator)
+    db.session.flush()
+    return moderator
+
+
+def test_private_fields_are_left_out(client, user, moderator, read_asset):
+    registry.use([_secretive_module()])
+    created = _upload(client, user, read_asset("png.png"))
+
+    # the uploader is not special: what counts is the privilege
+    assert [entry["content"] for entry in _content(client, user, created["id"])] == [
+        {"title": "public"},
+        # privacy is per kind
+        {"author": "not private here"},
+    ]
+    shown = _content(client, moderator, created["id"])
+    assert [entry["content"] for entry in shown] == [
+        {
+            "title": "public",
+            "author": "private",
+            "location": {"author": "nested: stays", "city": "private too"},
+        },
+        {"author": "not private here"},
+    ]
+    # nothing was taken out of what is stored
+    assert _contents(created["id"])[0][2]["author"] == "private"
+
+
+def test_private_fields_never_reach_the_modules_serializer(
+    client, user, moderator, read_asset
+):
+    seen = []
+
+    def serialize(payload):
+        seen.append(dict(payload))
+        # a careless module: returns everything it was given
+        return {"all": payload}
+
+    registry.use([_secretive_module(serialize)])
+    created = _upload(client, user, read_asset("png.png"))
+
+    shown = _content(client, user, created["id"])[0]["content"]
+    assert shown == {"all": {"title": "public"}}
+    assert seen == [{"title": "public"}]
+
+    shown = _content(client, moderator, created["id"])[0]["content"]
+    assert set(shown["all"]) == {"title", "author", "location"}
+
+
+def test_privilege_for_private_fields_is_configurable(
+    client, user, read_asset, config_injector
+):
+    from lithica import config
+
+    registry.use([_secretive_module()])
+    created = _upload(client, user, read_asset("png.png"))
+    config.config["privileges"]["posts:view:content:private"] = model.User.RANK_REGULAR
+    assert "author" in _content(client, user, created["id"])[0]["content"]
+
+
+def test_shipped_configuration_keeps_private_fields_for_moderators():
+    from lithica import config
+
+    privileges = config._file_config("config.yaml.dist")["privileges"]
+    assert privileges["posts:view:content:private"] == "moderator"
+    assert privileges["posts:view"] == "anonymous"

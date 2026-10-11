@@ -584,6 +584,10 @@ number of them, also several of one kind.
 
 Content of a kind whose module is switched off is kept, but not returned.
 
+A module can mark fields of its content as private. Those are left out unless
+the requester has the `posts:view:content:private` privilege (moderators, by
+default).
+
 ## Micro post
 **Description**
 

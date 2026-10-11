@@ -10,6 +10,7 @@ import sqlalchemy.orm as sa_orm
 
 from lithica import config, db, errors, model, registry
 from lithica.func import (
+    auth,
     comments,
     files,
     image_hash,
@@ -378,8 +379,19 @@ def serialize_micro_post(
     return serializer.serialize(["id", "thumbnailUrl"])
 
 
-def serialize_post_contents(post: model.Post) -> list[dict[str, Any]]:
-    return post_content.serialize_post_contents(post)
+PRIVATE_CONTENT_PRIVILEGE = "posts:view:content:private"
+
+
+def serialize_post_contents(
+    post: model.Post, auth_user: model.User
+) -> list[dict[str, Any]]:
+    """
+    The content extracted from the post's file, as this user may see it:
+    without the fields modules marked as private, unless the user has the
+    privilege for them.
+    """
+    show_private = auth.has_privilege(auth_user, PRIVATE_CONTENT_PRIVILEGE)
+    return post_content.serialize_post_contents(post, show_private)
 
 
 def get_engine_post_field_names() -> set[str]:
