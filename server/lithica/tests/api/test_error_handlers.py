@@ -179,3 +179,34 @@ def test_timestamps_and_indentation_of_the_old_framework():
         b'{\n  "time": "1997-01-02T03:04:05Z",\n  "list": [\n    1\n  ]\n}'
     )
     assert response.headers["content-type"] == "application/json"
+
+
+def test_unknown_method_lists_every_method_of_the_path():
+    from fastapi import APIRouter
+
+    app = FastAPI()
+    error_handlers.install(app)
+    router = APIRouter()
+
+    @router.get("/thing/{name}")
+    def get_thing(name: str) -> None:
+        pass
+
+    @router.put("/thing/{name}")
+    def put_thing(name: str) -> None:
+        pass
+
+    @router.delete("/other")
+    def delete_other() -> None:
+        pass
+
+    app.include_router(router)
+
+    @app.post("/thing/{name}")
+    def post_thing(name: str) -> None:
+        pass
+
+    response = TestClient(app).patch("/thing/x")
+    assert response.status_code == 405
+    assert response.json()["description"] == "Allowed methods: ['GET', 'POST', 'PUT']"
+    assert response.headers["allow"] == "GET, POST, PUT"

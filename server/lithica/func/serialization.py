@@ -1,11 +1,10 @@
 from collections.abc import Callable
 from typing import Any
 
-from lithica import errors, model, rest
+from lithica import errors, model
 
-
-def get_serialization_options(ctx: rest.Context) -> list[str]:
-    return ctx.get_param_as_list("fields", default=[])
+# what a serializer gives: the fields of a resource, or nothing for no resource
+Response = dict[str, Any] | None
 
 
 class BaseSerializer:

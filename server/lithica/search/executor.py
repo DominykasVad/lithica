@@ -1,10 +1,7 @@
-from collections.abc import Callable
-from typing import Any
-
 import sqlalchemy as sa
 import sqlalchemy.orm as sa_orm
 
-from lithica import db, errors, model, rest
+from lithica import db, errors, model
 from lithica.search import parser, tokens
 from lithica.search.configs.base_search_config import BaseSearchConfig
 from lithica.search.query import SearchQuery
@@ -61,21 +58,6 @@ class Executor:
             next_filter_query.one_or_none(),
         )
 
-    def get_around_and_serialize(
-        self,
-        ctx: rest.Context,
-        entity_id: int,
-        # each executor yields entities of its own config's model
-        serializer: Callable[[Any], rest.Response],
-    ) -> rest.Response:
-        entities = self.get_around(
-            ctx.get_param_as_string("query", default=""), entity_id
-        )
-        return {
-            "prev": serializer(entities[0]),
-            "next": serializer(entities[1]),
-        }
-
     def execute(
         self, query_text: str, offset: int, limit: int
     ) -> tuple[int, list[model.Base]]:
@@ -105,24 +87,6 @@ class Executor:
         count = db.session.execute(count_statement).scalar()
 
         return (count, entities)
-
-    def execute_and_serialize(
-        self,
-        ctx: rest.Context,
-        # each executor yields entities of its own config's model
-        serializer: Callable[[Any], rest.Response],
-    ) -> rest.Response:
-        query = ctx.get_param_as_string("query", default="")
-        offset = ctx.get_param_as_int("offset", default=0, min=0)
-        limit = ctx.get_param_as_int("limit", default=100, min=1, max=100)
-        count, entities = self.execute(query, offset, limit)
-        return {
-            "query": query,
-            "offset": offset,
-            "limit": limit,
-            "total": count,
-            "results": list([serializer(entity) for entity in entities]),
-        }
 
     def _prepare_db_query(
         self, db_query: SaQuery, search_query: SearchQuery, use_sort: bool

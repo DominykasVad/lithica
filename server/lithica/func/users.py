@@ -4,7 +4,7 @@ from typing import Any
 
 import sqlalchemy as sa
 
-from lithica import config, db, errors, model, rest
+from lithica import config, db, errors, model
 from lithica.func import auth, files, images, serialization, util
 from lithica.func.content import ContentLike
 
@@ -161,7 +161,7 @@ def serialize_user(
     auth_user: model.User,
     options: list[str] | None = None,
     force_show_email: bool = False,
-) -> rest.Response | None:
+) -> serialization.Response | None:
     if options is None:
         options = []
     if not user:
@@ -171,7 +171,7 @@ def serialize_user(
 
 def serialize_micro_user(
     user: model.User | None, auth_user: model.User
-) -> rest.Response | None:
+) -> serialization.Response | None:
     return serialize_user(user, auth_user=auth_user, options=["name", "avatarUrl"])
 
 

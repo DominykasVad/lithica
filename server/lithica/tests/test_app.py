@@ -22,7 +22,7 @@ def test_importing_the_app_does_not_start_it():
 
 
 @pytest.mark.parametrize("path", ["/no-such-path", "/no-such-path/", "/a/b/c"])
-def test_unknown_path_is_answered_by_the_old_application(client, path):
+def test_unknown_path(client, path):
     response = client.get(path)
     assert response.status_code == 404
     assert response.headers["content-type"] == "application/json"
@@ -39,15 +39,16 @@ def test_request_must_accept_json(client):
     assert response.json()["name"] == "ValidationError"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="until the old application is removed (PLAN.md 2.4) its mount "
-    "answers a wrong method on a known path, with 404",
-)
 def test_unknown_method_is_refused(client):
     response = client.request("PATCH", "/posts")
     assert response.status_code == 405
-    assert response.json()["title"] == "Method Not Allowed"
+    assert response.headers["content-type"] == "application/json"
+    assert response.json() == {
+        "name": "ValidationError",
+        "title": "Method Not Allowed",
+        "description": "Allowed methods: ['GET', 'POST']",
+    }
+    assert response.headers["allow"] == "GET, POST"
 
 
 def test_no_redirect_for_a_trailing_slash(client):
@@ -99,7 +100,7 @@ def test_startup_and_shutdown(valid_config, no_logging_setup):
             assert threads[0].daemon
             # the first purge runs right away, not after the first interval
             file_uploads.purge_old_uploads_once.assert_called_once_with()
-            assert client.get("/no-such-path").status_code == 406
+            assert client.get("/no-such-path").status_code == 404
         threads[0].join(timeout=10)
         assert _purge_threads() == []
         purge.assert_called_once_with()
@@ -173,3 +174,36 @@ def test_request_thread_pool_keeps_its_default_without_the_setting(
 ):
     assert _thread_limit_inside(monkeypatch, None) == 40
     assert _thread_limit_inside(monkeypatch, "") == 40
+
+
+def test_every_request_is_logged(client, caplog):
+    import logging
+
+    with caplog.at_level(logging.INFO, logger="lithica.app"):
+        client.get("/no-such-path")
+        client.get("/posts", headers={"Accept": "text/html"})
+        client.get("/posts", headers={"Authorization": "Secret x"})
+    assert [record.getMessage() for record in caplog.records] == [
+        "GET /no-such-path (user=None, queries=0)",
+        "GET /posts (user=None, queries=0)",
+        "GET /posts (user=None, queries=0)",
+    ]
+    assert "Secret" not in caplog.text
+
+
+def test_old_framework_is_gone(client):
+    import importlib.util
+    import os
+
+    from starlette.routing import Mount
+
+    import lithica
+
+    package = os.path.dirname(lithica.__file__)
+    for name in ["rest", "middleware", "facade.py"]:
+        # (a directory of stale bytecode may linger in a working copy)
+        path = os.path.join(package, name)
+        assert not os.path.isfile(path)
+        assert not os.path.isfile(os.path.join(path, "__init__.py"))
+    assert importlib.util.find_spec("a2wsgi") is None
+    assert not any(isinstance(route, Mount) for route in client.app.routes)

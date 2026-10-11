@@ -27,7 +27,7 @@ config.config.setdefault(
 import httpx2  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
-from lithica import db, model, rest  # noqa: E402
+from lithica import db, model  # noqa: E402
 from lithica.api import dependencies, responses  # noqa: E402
 from lithica.app import app as lithica_app  # noqa: E402
 
@@ -297,24 +297,6 @@ class ApiClient:
 @pytest.fixture
 def client(session):
     return ApiClient()
-
-
-@pytest.fixture
-def context_factory(session):
-    def factory(params=None, files=None, user=None, headers=None):
-        ctx = rest.Context(
-            env={"HTTP_ORIGIN": "http://example.com"},
-            method="",
-            url="",
-            headers=headers or {},
-            params=params or {},
-            files=files or {},
-        )
-        ctx.session = session
-        ctx.user = user or model.User()
-        return ctx
-
-    return factory
 
 
 @pytest.fixture

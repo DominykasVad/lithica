@@ -2,7 +2,7 @@ from typing import Protocol
 
 import sqlalchemy.orm as sa_orm
 
-from lithica import errors, rest
+from lithica import errors
 
 
 class Versioned(Protocol):
@@ -11,19 +11,12 @@ class Versioned(Protocol):
     version: sa_orm.Mapped[int]
 
 
-def verify_version(
-    entity: Versioned,
-    # the version the client edited; the old handlers pass their context and
-    # the parameter is read from it (removed with the old framework)
-    version: "int | rest.Context",
-    field_name: str = "version",
-) -> None:
-    if isinstance(version, int):
-        actual_version = version
-    else:
-        actual_version = version.get_param_as_int(field_name)
-    expected_version = entity.version
-    if actual_version != expected_version:
+def verify_version(entity: Versioned, version: int) -> None:
+    """
+    Refuse an edit that was made from an older version of the resource than
+    the current one: `version` is the version the client edited.
+    """
+    if version != entity.version:
         raise errors.IntegrityError(
             "Someone else modified this in the meantime. " + "Please try again."
         )

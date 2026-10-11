@@ -7,7 +7,7 @@ carries. Which status and title an error gets is decided here by the kind of
 business error it is.
 """
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from http import HTTPStatus
 from typing import Any, LiteralString
 
@@ -15,6 +15,7 @@ import sqlalchemy.orm as sa_orm
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException
+from starlette.routing import BaseRoute, Match
 
 from lithica import errors
 from lithica.api.responses import JsonResponse
@@ -133,16 +134,45 @@ async def _on_routing_error(request: Request, ex: Exception) -> JsonResponse:
     if ex.status_code == 404:
         description = "Requested path %s was not found." % request.url.path
     elif ex.status_code == 405:
-        allowed = (ex.headers or {}).get("Allow", "")
-        description = "Allowed methods: %r" % sorted(
-            method.strip() for method in allowed.split(",") if method.strip()
-        )
+        allowed = _allowed_methods(request) or _listed_in(ex.headers)
+        description = "Allowed methods: %r" % allowed
     else:
         description = str(ex.detail)
     response = error_response(ex.status_code, "ValidationError", title, description)
     if ex.headers:
         response.headers.update(ex.headers)
+    if ex.status_code == 405:
+        response.headers["Allow"] = ", ".join(allowed)
     return response
+
+
+def _listed_in(headers: Mapping[str, str] | None) -> list[str]:
+    """The methods of an Allow header, as the router set it."""
+    allow = (headers or {}).get("Allow", "")
+    return sorted(method.strip() for method in allow.split(",") if method.strip())
+
+
+def _allowed_methods(request: Request) -> list[str]:
+    """
+    The methods the requested path does answer to. The router reports those
+    of one route only, and each method of a path is a route of its own.
+    """
+    methods: set[str] = set()
+
+    def collect(routes: Sequence[BaseRoute]) -> None:
+        for route in routes:
+            # a router added with include_router() is kept as one entry
+            # that holds the router
+            included = getattr(route, "original_router", None)
+            if included is not None:
+                collect(included.routes)
+                continue
+            match, _child_scope = route.matches(request.scope)
+            if match != Match.NONE:
+                methods.update(getattr(route, "methods", None) or [])
+
+    collect(request.app.routes)
+    return sorted(methods)
 
 
 def install(app: FastAPI) -> None:

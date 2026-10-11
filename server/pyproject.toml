@@ -6,7 +6,6 @@ readme = "../README.md"
 license = "GPL-3.0-only"
 requires-python = ">=3.13,<3.14"
 dependencies = [
-    "a2wsgi>=1.10.10",
     "alembic>=1.20.0",
     "certifi>=2026.7.22",
     "coloredlogs>=15.0.1",

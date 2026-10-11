@@ -142,8 +142,8 @@ then rewrite that resource's `tests/api/` tests to go through FastAPI's
 - [x] Memory test: uploading a large video does not grow server RSS by the file size.
 
 ### 2.4 Remove the old framework
-- [ ] Delete `rest/`, `facade.py`, `middleware/`, the `a2wsgi` mount and the multipart shim from phase 0.
-- [ ] Entry point everywhere is `lithica.app:app`.
+- [x] Delete `rest/`, `facade.py`, `middleware/`, the `a2wsgi` mount and the multipart shim from phase 0.
+- [x] Entry point everywhere is `lithica.app:app`.
 
 ### 2.5 OpenAPI contract
 - [ ] `python -m lithica.openapi` prints the spec; commit `doc/openapi.json`.

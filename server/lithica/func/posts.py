@@ -7,7 +7,7 @@ import sqlalchemy as sa
 import sqlalchemy.event as sa_event
 import sqlalchemy.orm as sa_orm
 
-from lithica import config, db, errors, model, rest
+from lithica import config, db, errors, model
 from lithica.func import (
     comments,
     files,
@@ -348,7 +348,7 @@ class PostSerializer(serialization.BaseSerializer):
 
 def serialize_post(
     post: model.Post | None, auth_user: model.User, options: list[str] | None = None
-) -> rest.Response | None:
+) -> serialization.Response | None:
     if options is None:
         options = []
     if not post:

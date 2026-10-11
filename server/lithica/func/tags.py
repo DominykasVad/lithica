@@ -5,7 +5,7 @@ from typing import Any
 import sqlalchemy as sa
 import sqlalchemy.orm as sa_orm
 
-from lithica import config, db, errors, model, rest
+from lithica import config, db, errors, model
 from lithica.func import serialization, tag_categories, util
 
 
@@ -138,7 +138,7 @@ class TagSerializer(serialization.BaseSerializer):
 
 def serialize_tag(
     tag: model.Tag, options: list[str] | None = None
-) -> rest.Response | None:
+) -> serialization.Response | None:
     if options is None:
         options = []
     if not tag:

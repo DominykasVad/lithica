@@ -14,14 +14,13 @@ from collections.abc import AsyncIterator
 
 import anyio
 import coloredlogs
-from a2wsgi import WSGIMiddleware
 from fastapi import FastAPI
 from starlette.concurrency import run_in_threadpool
 from starlette.datastructures import Headers, MutableHeaders
 from starlette.responses import Response
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from lithica import config, db, facade, rest
+from lithica import config, db
 from lithica.api import (
     comment_api,
     error_handlers,
@@ -118,16 +117,15 @@ class SessionScopeMiddleware:
         try:
             await self.app(scope, receive, send)
         finally:
-            # One line per request. Only for the routes served here: the old
-            # application still writes its own line for the ones it serves.
-            if LOG_USER_KEY in scope:
-                logger.info(
-                    "%s %s (user=%s, queries=%d)",
-                    scope["method"],
-                    scope["path"],
-                    scope[LOG_USER_KEY],
-                    db.get_query_count(),
-                )
+            # one line per request; the user is None for a request that was
+            # refused before anybody was authenticated
+            logger.info(
+                "%s %s (user=%s, queries=%d)",
+                scope["method"],
+                scope["path"],
+                scope.get(LOG_USER_KEY),
+                db.get_query_count(),
+            )
             try:
                 # Closing rolls back and returns the connection: blocking
                 # work, so off the event loop. Shielded, because a request
@@ -241,14 +239,6 @@ def create_app() -> FastAPI:
     ]:
         application.include_router(ported.router)
 
-    # Routes that are not ported to FastAPI yet are answered by the old WSGI
-    # application. It must stay the last route: a mount at "/" matches
-    # every path.
-    facade.register_error_handlers()
-    # a2wsgi and Starlette each declare the WSGI and ASGI callables with
-    # their own, structurally equal, types; pyright cannot match them
-    fallback = WSGIMiddleware(rest.application)  # type: ignore[arg-type]
-    application.mount("/", fallback)  # type: ignore[arg-type]
     return application
 
 
