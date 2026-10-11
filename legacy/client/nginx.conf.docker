@@ -34,6 +34,7 @@ http {
         location ~ ^/api/(.*)$ {
             tcp_nodelay on;
 
+            # keep in step with max_upload_size in the server's config.yaml
             client_max_body_size 1073741824;
 
             gzip on;

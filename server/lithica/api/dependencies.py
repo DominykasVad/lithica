@@ -6,19 +6,26 @@ they sent.
 import base64
 import dataclasses
 import json
+import os
+import shutil
+import tempfile
 import urllib.parse
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Annotated, Any, cast
 
+import python_multipart
 from fastapi import Depends, Query, Request
 from fastapi.security import APIKeyHeader
 from fastapi.security.http import HTTPBase
-from starlette.exceptions import HTTPException
+from python_multipart.exceptions import FormParserError
+from python_multipart.multipart import Field, File
+from starlette.concurrency import run_in_threadpool
 
-from lithica import db, errors, model
+from lithica import config, db, errors, model
 from lithica.api.error_handlers import HttpError
 from lithica.api.schemas import Bool, Int, RequestModel
 from lithica.func import auth, file_uploads, net, user_tokens, users
+from lithica.func.content import Content, ContentLike
 from lithica.search.executor import Executor
 
 # where the request's user name is kept for the request log
@@ -208,6 +215,12 @@ def search(
 
 _MISSING = object()
 
+# what the server accepts in one request when max_upload_size is not set
+DEFAULT_MAX_UPLOAD_SIZE = 1024 * 1024 * 1024
+
+# an uploaded file up to this size is kept in memory, a larger one on disk
+MAX_MEMORY_FILE_SIZE = 1024 * 1024
+
 
 class RequestData:
     """
@@ -216,11 +229,28 @@ class RequestData:
     `params` is the query string overlaid with the JSON of the body, as the
     old framework merged them. In a multipart request the JSON is the
     `metadata` part and every part sent as a file is in `files`.
+
+    A large file is not in memory: it is a `Content` in a temporary
+    directory that belongs to the request and is removed by `close()`, as
+    is every file downloaded for it.
     """
 
-    def __init__(self, params: dict[str, Any], files: dict[str, bytes]) -> None:
+    def __init__(
+        self,
+        params: dict[str, Any],
+        files: dict[str, ContentLike],
+        upload_dir: str | None = None,
+    ) -> None:
         self.params = params
         self.files = files
+        self._upload_dir = upload_dir
+        self._downloads: list[Content] = []
+
+    def close(self) -> None:
+        for download in self._downloads:
+            download.delete()
+        if self._upload_dir is not None:
+            shutil.rmtree(self._upload_dir, ignore_errors=True)
 
     def has_file(self, name: str, allow_tokens: bool = True) -> bool:
         return (
@@ -235,7 +265,7 @@ class RequestData:
         default: object | bytes = _MISSING,
         use_video_downloader: bool = False,
         allow_tokens: bool = True,
-    ) -> bytes:
+    ) -> ContentLike:
         """
         The content of a file the request refers to: uploaded as a part,
         named by URL (`<name>Url`, downloaded here) or uploaded earlier
@@ -245,10 +275,13 @@ class RequestData:
             return self.files[name]
 
         if name + "Url" in self.params:
-            return net.download(
+            download = net.download(
                 self.params[name + "Url"],
                 use_video_downloader=use_video_downloader,
             )
+            if isinstance(download, Content):
+                self._downloads.append(download)
+            return download
 
         if allow_tokens and name + "Token" in self.params:
             ret = file_uploads.get(self.params[name + "Token"])
@@ -264,40 +297,115 @@ class RequestData:
         raise errors.MissingRequiredFileError("Required file %r is missing." % name)
 
 
-# a JSON part larger than this is refused; uploads are not limited here
-MAX_FORM_FIELD_SIZE = 1024 * 1024
+def _max_upload_size() -> int:
+    return config.config.get("max_upload_size") or DEFAULT_MAX_UPLOAD_SIZE
 
 
-async def _read_multipart(request: Request) -> tuple[bytes | str | None, dict]:
-    files: dict[str, bytes] = {}
+async def _body(request: Request) -> AsyncIterator[bytes]:
+    """
+    The request body, in pieces of about a megabyte, refused once it is
+    larger than the max_upload_size setting.
+    """
+    limit = _max_upload_size()
+    too_large = HttpError(
+        413,
+        "RequestTooLargeError",
+        "The request is larger than the maximum of %d bytes." % limit,
+        title="Payload Too Large",
+    )
+    declared = request.headers.get("Content-Length", "")
+    if declared.isdigit() and int(declared) > limit:
+        raise too_large
+    received = 0
+    pieces: list[bytes] = []
+    gathered = 0
+    async for chunk in request.stream():
+        received += len(chunk)
+        if received > limit:
+            raise too_large
+        pieces.append(chunk)
+        gathered += len(chunk)
+        if gathered >= MAX_MEMORY_FILE_SIZE:
+            yield b"".join(pieces)
+            pieces, gathered = [], 0
+    if pieces:
+        yield b"".join(pieces)
+
+
+async def _read_multipart(
+    request: Request, upload_dir: str
+) -> tuple[bytes | str | None, dict[str, ContentLike]]:
+    """
+    Read a multipart/form-data body. Parts that carry a file name are files;
+    the large ones are written to `upload_dir` as they arrive. Plain form
+    fields are text.
+    """
+    files: dict[str, ContentLike] = {}
     fields: dict[str, str] = {}
+    opened: list[File] = []
+
+    def on_field(field: Field) -> None:
+        if field.field_name is not None:
+            value = field.value or b""
+            fields[field.field_name.decode("utf-8")] = value.decode("utf-8")
+
+    def on_file(file: File) -> None:
+        # the parser still flushes the last file when it finishes, so the
+        # files are closed only after parsing is over
+        opened.append(file)
+        if file.field_name is None:
+            return
+        name = file.field_name.decode("utf-8")
+        if file.in_memory:
+            file.file_object.seek(0)
+            files[name] = file.file_object.read()
+        else:
+            assert file.actual_file_name is not None
+            file.file_object.flush()
+            files[name] = Content(os.fsdecode(file.actual_file_name))
+
+    headers = {
+        "Content-Type": request.headers.get("Content-Type", "").encode("latin-1")
+    }
     try:
-        async with request.form(max_part_size=MAX_FORM_FIELD_SIZE) as form:
-            for name, value in form.multi_items():
-                if isinstance(value, str):
-                    fields[name] = value
-                else:
-                    files[name] = await value.read()
-    except HTTPException as ex:
+        parser = python_multipart.create_form_parser(
+            headers,
+            on_field,
+            on_file,
+            config={
+                "UPLOAD_DIR": upload_dir,
+                "UPLOAD_DELETE_TMP": False,
+                "MAX_MEMORY_FILE_SIZE": MAX_MEMORY_FILE_SIZE,
+            },
+        )
+        async for piece in _body(request):
+            # writes to disk: off the event loop
+            await run_in_threadpool(parser.write, piece)
+        await run_in_threadpool(parser.finalize)
+    except (FormParserError, ValueError, UnicodeDecodeError) as ex:
         raise HttpError(
             400, "ValidationError", "Could not decode the multipart request body."
         ) from ex
+    finally:
+        for file in opened:
+            file.close()
     if not files and not fields:
         raise HttpError(400, "ValidationError", "No files attached.")
     # browsers send the JSON part as a Blob, which arrives as a file
     metadata = files.get("metadata", fields.get("metadata"))
+    if isinstance(metadata, Content):
+        metadata = metadata.read()
     return metadata, files
 
 
-# async because it awaits the request body; it does no blocking work itself
-async def read_request(request: Request) -> RequestData:
+async def _read_request(request: Request, upload_dir: str | None) -> RequestData:
     params: dict[str, Any] = dict(urllib.parse.parse_qsl(request.url.query))
-    files: dict[str, bytes] = {}
+    files: dict[str, ContentLike] = {}
     body: bytes | str | None
-    if "multipart" in request.headers.get("Content-Type", ""):
-        body, files = await _read_multipart(request)
+    if upload_dir is not None:
+        body, files = await _read_multipart(request, upload_dir)
     else:
-        body = await request.body()
+        body = b"".join([piece async for piece in _body(request)])
 
     if body:
         try:
@@ -314,7 +422,29 @@ async def read_request(request: Request) -> RequestData:
                 "was incorrect or was not encoded as UTF-8.",
             ) from ex
         params.update(content)
-    return RequestData(params, files)
+    return RequestData(params, files, upload_dir)
+
+
+# async because it awaits the request body; the disk work is on the pool
+async def read_request(request: Request) -> AsyncIterator[RequestData]:
+    """
+    The request's parameters and files. What it stored on disk is removed
+    when the request is over, whatever became of it.
+    """
+    upload_dir = None
+    if "multipart" in request.headers.get("Content-Type", ""):
+        # the uploads of one request go to a directory of their own, so
+        # that all of them, finished or not, can be removed together
+        upload_dir = await run_in_threadpool(tempfile.mkdtemp, prefix="lithica-upload-")
+    data = None
+    try:
+        data = await _read_request(request, upload_dir)
+        yield data
+    finally:
+        if data is not None:
+            await run_in_threadpool(data.close)
+        elif upload_dir is not None:
+            await run_in_threadpool(shutil.rmtree, upload_dir, True)
 
 
 RequestDataParam = Annotated[RequestData, Depends(read_request)]

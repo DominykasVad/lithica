@@ -140,3 +140,65 @@ def test_is_animated_gif(read_asset, input_path, expected_state):
 )
 def test_is_heif(input_mime_type, expected_state):
     assert mime.is_heif(input_mime_type) == expected_state
+
+
+@pytest.mark.parametrize("block_size", [1, 7, 9, 10, 11, 64, 10**6])
+@pytest.mark.parametrize(
+    "input_path,expected_state",
+    [("gif.gif", False), ("gif-animated.gif", True), ("png.png", False)],
+)
+def test_is_animated_gif_reads_a_file_in_blocks(
+    read_asset, monkeypatch, block_size, input_path, expected_state
+):
+    # whatever the block size, a frame header split over two blocks is
+    # counted, and counted once
+    from lithica.func import content as content_module
+
+    monkeypatch.setattr(content_module, "BLOCK_SIZE", block_size)
+    content = content_module.temporary_copy(read_asset(input_path))
+    assert mime.is_animated_gif(content) == expected_state
+    content.delete()
+
+
+@pytest.mark.parametrize("block_size", [1, 3, 9, 10, 11, 13, 19, 20, 21, 64])
+def test_animated_gif_frames_are_counted_as_in_one_piece(monkeypatch, block_size):
+    import re
+
+    from lithica.func import content as content_module
+
+    header = b"\x21\xf9\x04abcd\x00\x2c"
+    # the last byte of the first header also starts what looks like a second
+    # one; searching the whole content does not count that, and neither may
+    # the search in blocks
+    overlapping = b"GIF89a" + b"\x21\xf9\x04abcd\x00\x21" + b"\xf9\x04efgh\x00\x2c"
+    monkeypatch.setattr(content_module, "BLOCK_SIZE", block_size)
+    for data in [
+        b"GIF89a" + header,
+        b"GIF89a" + header + b"x" * 30 + header,
+        b"GIF89a" + header + header,
+        b"GIF89a" + b"x" * 17 + header + b"y" * 5,
+        overlapping,
+        b"GIF89a",
+    ]:
+        whole = len(re.findall(mime._GIF_FRAME, data)) > 1
+        content = content_module.temporary_copy(data)
+        assert mime.is_animated_gif(content) == whole, (block_size, data)
+        assert mime.is_animated_gif(data) == whole
+        content.delete()
+
+
+def test_mime_type_of_a_file(read_asset):
+    from lithica.func import content as content_module
+
+    for name, expected in [
+        ("png.png", "image/png"),
+        ("mp4.mp4", "video/mp4"),
+        ("webm.webm", "video/webm"),
+        ("text.txt", "application/octet-stream"),
+    ]:
+        content = content_module.temporary_copy(read_asset(name))
+        assert mime.get_mime_type(content) == expected
+        content.delete()
+    empty = content_module.Content.create_temporary()
+    assert mime.get_mime_type(empty) == "application/octet-stream"
+    empty.delete()

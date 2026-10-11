@@ -2,6 +2,7 @@ from typing import Any, cast
 
 from lithica import errors, model
 from lithica.func import file_uploads, net
+from lithica.func.content import ContentLike
 
 MISSING = object()
 Request = dict[str, Any]
@@ -51,7 +52,7 @@ class Context:
         default: object | bytes = MISSING,
         use_video_downloader: bool = False,
         allow_tokens: bool = True,
-    ) -> bytes:
+    ) -> ContentLike:
         if name in self._files and self._files[name]:
             return self._files[name]
 

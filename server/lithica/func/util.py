@@ -1,4 +1,3 @@
-import hashlib
 import os
 import re
 import tempfile
@@ -8,6 +7,8 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, TypeVar
 
 from lithica import errors
+from lithica.func import content
+from lithica.func.content import ContentLike
 
 T = TypeVar("T")
 
@@ -67,20 +68,16 @@ def unalias_dict[T](source: list[tuple[list[str], T]]) -> dict[str, T]:
     return output_dict
 
 
-def get_md5(source: str | bytes) -> str:
-    if not isinstance(source, bytes):
+def get_md5(source: str | ContentLike) -> str:
+    if isinstance(source, str):
         source = source.encode("utf-8")
-    md5 = hashlib.md5()
-    md5.update(source)
-    return md5.hexdigest()
+    return content.md5(source)
 
 
-def get_sha1(source: str | bytes) -> str:
-    if not isinstance(source, bytes):
+def get_sha1(source: str | ContentLike) -> str:
+    if isinstance(source, str):
         source = source.encode("utf-8")
-    sha1 = hashlib.sha1()
-    sha1.update(source)
-    return sha1.hexdigest()
+    return content.sha1(source)
 
 
 def flip(source: dict[Any, Any]) -> dict[Any, Any]:

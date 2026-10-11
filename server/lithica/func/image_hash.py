@@ -8,6 +8,7 @@ from PIL import Image, features
 from pillow_heif import register_heif_opener
 
 from lithica import errors
+from lithica.func.content import Content, ContentLike
 
 register_heif_opener()
 if not features.check("avif"):
@@ -41,9 +42,10 @@ Window = tuple[tuple[float, float], tuple[float, float]]
 NpMatrix = np.ndarray
 
 
-def _preprocess_image(content: bytes) -> NpMatrix:
+def _preprocess_image(content: ContentLike) -> NpMatrix:
     try:
-        img = Image.open(BytesIO(content))
+        source = content.path if isinstance(content, Content) else BytesIO(content)
+        img = Image.open(source)
         return np.asarray(img.convert("L"), dtype=np.uint8)
     except (OSError, ValueError) as ex:
         raise errors.ProcessingError(
@@ -230,7 +232,7 @@ def _get_words(array: NpMatrix, k: int, n: int) -> NpMatrix:
     return words
 
 
-def generate_signature(content: bytes) -> NpMatrix:
+def generate_signature(content: ContentLike) -> NpMatrix:
     im_array = _preprocess_image(content)
     image_limits = _crop_image(
         im_array,

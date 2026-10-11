@@ -3,6 +3,7 @@ from datetime import UTC, datetime, timedelta
 
 from lithica import db
 from lithica.func import files, util
+from lithica.func.content import Content, ContentLike
 
 logger = logging.getLogger(__name__)
 
@@ -43,11 +44,11 @@ def purge_old_uploads_once() -> None:
             logger.exception(ex)
 
 
-def get(checksum: str) -> bytes | None:
+def get(checksum: str) -> Content | None:
     return files.get("temporary-uploads/%s.dat" % checksum)
 
 
-def save(content: bytes) -> str:
+def save(content: ContentLike) -> str:
     checksum = util.get_sha1(content)
     path = _get_path(checksum)
     if not files.has(path):

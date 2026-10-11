@@ -6,6 +6,7 @@ import sqlalchemy as sa
 
 from lithica import config, db, errors, model, rest
 from lithica.func import auth, files, images, serialization, util
+from lithica.func.content import ContentLike
 
 
 class UserNotFoundError(errors.NotFoundError):
@@ -288,7 +289,7 @@ def update_user_rank(user: model.User, rank: str, auth_user: model.User) -> None
 
 
 def update_user_avatar(
-    user: model.User, avatar_style: str, avatar_content: bytes | None = None
+    user: model.User, avatar_style: str, avatar_content: ContentLike | None = None
 ) -> None:
     assert user
     if avatar_style == "gravatar":

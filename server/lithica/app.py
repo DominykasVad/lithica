@@ -148,6 +148,8 @@ def _configure_logging() -> None:
         logging.getLogger("lithica").setLevel(logging.INFO)
     if config.config["show_sql"]:
         logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
+    # it reports every file it writes to disk
+    logging.getLogger("python_multipart").setLevel(logging.WARNING)
 
 
 def _limit_request_threads() -> None:

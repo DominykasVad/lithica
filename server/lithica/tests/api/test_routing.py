@@ -1,4 +1,7 @@
+import hashlib
 import json
+import os
+import tempfile
 from typing import Annotated, Any
 from unittest.mock import patch
 
@@ -16,6 +19,7 @@ from lithica.api.dependencies import (
 )
 from lithica.api.routing import ApiRouter
 from lithica.api.schemas import Int, RequestModel, ResponseModel, Str, request_body
+from lithica.func import content as content_module
 from lithica.func import file_uploads, net
 
 BOUNDARY = "----lithicatestboundary"
@@ -82,7 +86,18 @@ def client():
 
     @router.post("/echo/{name}")
     def echo_file(name: str, data: RequestDataParam) -> dict[str, Any]:
-        return {"hex": data.get_file(name).hex()}
+        return {"hex": content_module.read(data.get_file(name)).hex()}
+
+    @router.post("/where/{name}")
+    def where_is_file(name: str, data: RequestDataParam) -> dict[str, Any]:
+        """Report how the file is held: in memory, or at which path."""
+        content = data.get_file(name)
+        on_disk = isinstance(content, content_module.Content)
+        return {
+            "path": content.path if on_disk else None,
+            "size": content_module.size(content),
+            "sha1": content_module.sha1(content),
+        }
 
     app = FastAPI()
     error_handlers.install(app)
@@ -120,6 +135,7 @@ def test_trailing_slash_variant_is_not_in_the_schema(client):
         "/thing/{name}",
         "/item/{name}",
         "/echo/{name}",
+        "/where/{name}",
     }
 
 
@@ -456,3 +472,167 @@ def test_uploaded_file_wins_over_url_and_token():
         )
         assert data.get_file("key") == b"uploaded"
         download.assert_not_called()
+
+
+def _streamed(body: bytes, piece: int = 65536):
+    """The body as a generator, so that it is sent without a Content-Length."""
+    for start in range(0, len(body), piece):
+        yield body[start : start + piece]
+
+
+@pytest.fixture
+def upload_dirs(monkeypatch):
+    """The directories made for the uploads of the requests in this test."""
+    made: list[str] = []
+    real_mkdtemp = tempfile.mkdtemp
+
+    def recording_mkdtemp(*args: Any, **kwargs: Any) -> str:
+        made.append(real_mkdtemp(*args, **kwargs))
+        return made[-1]
+
+    monkeypatch.setattr(dependencies.tempfile, "mkdtemp", recording_mkdtemp)
+    return made
+
+
+def _all_removed(directories: list[str]) -> bool:
+    assert directories, "no upload directory was made"
+    return not any(os.path.exists(directory) for directory in directories)
+
+
+def test_small_upload_is_kept_in_memory(client):
+    payload = b"x" * 1000
+    response = client.post(
+        "/where/content", **_multipart([("content", "small.bin", None, payload)])
+    )
+    assert response.json() == {
+        "path": None,
+        "size": 1000,
+        "sha1": hashlib.sha1(payload).hexdigest(),
+    }
+
+
+def test_large_upload_is_written_to_disk_and_removed_afterwards(client, upload_dirs):
+    payload = os.urandom(3 * 1024 * 1024 + 17)
+    response = client.post(
+        "/where/content",
+        **_multipart(
+            [
+                ("metadata", None, None, b'{"safety": "safe"}'),
+                ("content", "big.bin", "video/mp4", payload),
+            ]
+        ),
+    )
+    result = response.json()
+    assert result["size"] == len(payload)
+    assert result["sha1"] == hashlib.sha1(payload).hexdigest()
+    # it was a file in a directory of its own while the request ran ...
+    assert os.path.basename(os.path.dirname(result["path"])).startswith(
+        "lithica-upload-"
+    )
+    # ... and neither is left once the request is over
+    assert not os.path.exists(result["path"])
+    assert _all_removed(upload_dirs)
+
+
+def test_upload_directory_is_removed_when_the_endpoint_fails(client, upload_dirs):
+    payload = os.urandom(2 * 1024 * 1024)
+    response = client.post(
+        "/echo/missing", **_multipart([("content", "big.bin", None, payload)])
+    )
+    assert response.status_code == 400
+    assert response.json()["name"] == "MissingRequiredFileError"
+    assert _all_removed(upload_dirs)
+
+
+def test_upload_directory_is_removed_when_the_body_is_malformed(client, upload_dirs):
+    body = _multipart([("content", "big.bin", None, os.urandom(2 * 1024 * 1024))])
+    # cut the body off in the middle of the file
+    response = client.post(
+        "/where/content",
+        content=body["content"][: 1024 * 1024 + 500000],
+        headers=body["headers"],
+    )
+    assert response.status_code == 400
+    assert _all_removed(upload_dirs)
+
+
+def test_downloaded_file_is_removed_afterwards(client, tmpdir):
+    downloaded = content_module.Content.create_temporary()
+    with downloaded.open_for_writing() as handle:
+        handle.write(b"downloaded content")
+    with patch("lithica.func.net.download", return_value=downloaded):
+        response = client.post(
+            "/where/content", json={"contentUrl": "http://example.com/file"}
+        )
+    assert response.json()["path"] == downloaded.path
+    assert response.json()["size"] == 18
+    assert not os.path.exists(downloaded.path)
+
+
+@pytest.fixture
+def upload_limit(config_injector):
+    def set_limit(limit):
+        config_injector({"max_upload_size": limit})
+
+    return set_limit
+
+
+TOO_LARGE = {
+    "name": "RequestTooLargeError",
+    "title": "Payload Too Large",
+    "description": "The request is larger than the maximum of 100000 bytes.",
+}
+
+
+def test_request_up_to_the_limit_is_accepted(client, upload_limit):
+    body = _multipart([("content", "f.bin", None, b"x" * 50000)])
+    upload_limit(len(body["content"]))
+    response = client.post("/where/content", **body)
+    assert response.status_code == 200
+    assert response.json()["size"] == 50000
+
+
+def test_request_over_the_limit_is_refused_by_its_declared_length(
+    client, upload_limit, upload_dirs
+):
+    upload_limit(100000)
+    body = _multipart([("content", "f.bin", None, b"x" * 100000)])
+    response = client.post("/where/content", **body)
+    assert response.status_code == 413
+    assert response.json() == TOO_LARGE
+    assert _all_removed(upload_dirs)
+
+
+def test_request_over_the_limit_is_refused_while_it_arrives(
+    client, upload_limit, upload_dirs
+):
+    upload_limit(100000)
+    body = _multipart([("content", "f.bin", None, os.urandom(5 * 1024 * 1024))])
+    # no Content-Length: the server finds out only by counting
+    response = client.post(
+        "/where/content", content=_streamed(body["content"]), headers=body["headers"]
+    )
+    assert "content-length" not in response.request.headers
+    assert response.status_code == 413
+    assert response.json() == TOO_LARGE
+    assert _all_removed(upload_dirs)
+
+
+def test_json_body_over_the_limit_is_refused(client, upload_limit):
+    upload_limit(100000)
+    response = client.post("/things", json={"source": "x" * 100000})
+    assert response.status_code == 413
+    assert response.json() == TOO_LARGE
+    response = client.post(
+        "/things",
+        content=_streamed(json.dumps({"source": "x" * 100000}).encode()),
+    )
+    assert response.status_code == 413
+
+
+def test_default_limit_applies_without_the_setting(client, config_injector):
+    config_injector({})
+    assert dependencies._max_upload_size() == 1024 * 1024 * 1024
+    config_injector({"max_upload_size": None})
+    assert dependencies._max_upload_size() == 1024 * 1024 * 1024
+    assert client.post("/things", json={"safety": "safe"}).status_code == 200

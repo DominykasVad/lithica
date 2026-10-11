@@ -21,6 +21,8 @@ from lithica.func import (
     users,
     util,
 )
+from lithica.func import content as content_module
+from lithica.func.content import ContentLike
 
 logger = logging.getLogger(__name__)
 
@@ -405,7 +407,7 @@ def try_get_featured_post() -> model.Post | None:
 
 
 def create_post(
-    content: bytes, tag_names: list[str], user: model.User | None
+    content: ContentLike, tag_names: list[str], user: model.User | None
 ) -> tuple[model.Post, list[model.Tag]]:
     post = model.Post()
     post.safety = model.Post.SAFETY_SAFE
@@ -484,7 +486,7 @@ def _sync_post_content(post: model.Post) -> None:
 
 
 def generate_alternate_formats(
-    post: model.Post, content: bytes
+    post: model.Post, content: ContentLike
 ) -> list[tuple[model.Post, list[model.Tag]]]:
     assert post
     assert content
@@ -521,7 +523,7 @@ def generate_alternate_formats(
     return new_posts
 
 
-def get_default_flags(content: bytes) -> list[str]:
+def get_default_flags(content: ContentLike) -> list[str]:
     assert content
     ret = []
     if mime.is_video(mime.get_mime_type(content)):
@@ -545,7 +547,7 @@ def purge_post_signature(post: model.Post) -> None:
     db.session.flush()
 
 
-def generate_post_signature(post: model.Post, content: bytes) -> None:
+def generate_post_signature(post: model.Post, content: ContentLike) -> None:
     try:
         unpacked_signature = image_hash.generate_signature(content)
         packed_signature = image_hash.pack_signature(unpacked_signature)
@@ -690,7 +692,7 @@ def warn_about_pending_backfills() -> None:
             )
 
 
-def update_post_content(post: model.Post, content: bytes | None) -> None:
+def update_post_content(post: model.Post, content: ContentLike | None) -> None:
     assert post
     if not content:
         raise InvalidPostContentError("Post content missing.")
@@ -725,7 +727,7 @@ def update_post_content(post: model.Post, content: bytes | None) -> None:
         purge_post_signature(post)
         generate_post_signature(post, content)
 
-    post.file_size = len(content)
+    post.file_size = content_module.size(content)
     try:
         image = images.Image(content)
         post.canvas_width = image.width
@@ -749,7 +751,7 @@ def update_post_content(post: model.Post, content: bytes | None) -> None:
     setattr(post, "__content", content)
 
 
-def update_post_thumbnail(post: model.Post, content: bytes | None = None) -> None:
+def update_post_thumbnail(post: model.Post, content: ContentLike | None = None) -> None:
     assert post
     setattr(post, "__thumbnail", content)
 
@@ -981,7 +983,11 @@ def merge_posts(
 
     content = None
     if replace_content:
-        content = files.get(get_post_content_path(source_post))
+        stored = files.get(get_post_content_path(source_post))
+        if stored is not None:
+            # the source post is deleted below, and its file with it, before
+            # the target takes the content over: keep a copy until then
+            content = content_module.temporary_copy(stored)
         transfer_flags(source_post.post_id, target_post.post_id)
 
     # fixes unknown issue with SA's cascade deletions
@@ -990,10 +996,14 @@ def merge_posts(
     db.session.flush()
 
     if content is not None:
+        # The copy is written to the target's file when the post is flushed
+        # (see _sync_post_content), which may be after this function
+        # returns. It is a temporary content: its file goes away when the
+        # post lets go of it.
         update_post_content(target_post, content)
 
 
-def search_by_image_exact(image_content: bytes) -> model.Post | None:
+def search_by_image_exact(image_content: ContentLike) -> model.Post | None:
     checksum = util.get_sha1(image_content)
     return (
         db.session.query(model.Post)
@@ -1041,7 +1051,9 @@ def _find_similar_signatures(query_words: list[int]) -> list[tuple[int, bytes, i
     return [(post_id, signature, score) for post_id, signature, score in rows]
 
 
-def search_by_image(image_content: bytes) -> list[tuple[float, model.Post]]:
+def search_by_image(
+    image_content: ContentLike,
+) -> list[tuple[float, model.Post]]:
     query_signature = image_hash.generate_signature(image_content)
     query_words = image_hash.generate_words(query_signature)
 

@@ -76,6 +76,8 @@ When a phase is merged, its entries are folded into the tables above or deleted.
 - 2026-10-11 — 2.1 — Endpoints return serializer output through `JsonResponse`; response models only document it (no wire drift).
 - 2026-10-11 — 2.1 — Request bodies are read by our own dependency, not FastAPI's (JSON may be the `metadata` multipart part).
 - 2026-10-11 — 2.1 — `THREADS` sizes the request thread pool, `WORKERS` (default 1) the uvicorn processes (keeps the old knob).
+- 2026-10-11 — 2.3 — Uploads, downloads and stored files are file-backed `Content`; server-made data stays `bytes`; code takes either.
+- 2026-10-11 — 2.3 — A request over `max_upload_size` (default 1 GiB, nginx's limit) gets 413 `RequestTooLargeError` (new status).
 
 ---
 
@@ -136,8 +138,8 @@ then rewrite that resource's `tests/api/` tests to go through FastAPI's
 - [x] posts (largest; includes multipart create/update, merge, featuring, similar search)
 
 ### 2.3 Uploads
-- [ ] Multipart and `contentUrl` downloads stream to a temp file; hashing, MIME detection and thumbnailing read from the file, not from a full in-memory `bytes`. Configurable max upload size, enforced by the server (and matched in nginx).
-- [ ] Memory test: uploading a large video does not grow server RSS by the file size.
+- [x] Multipart and `contentUrl` downloads stream to a temp file; hashing, MIME detection and thumbnailing read from the file, not from a full in-memory `bytes`. Configurable max upload size, enforced by the server (and matched in nginx).
+- [x] Memory test: uploading a large video does not grow server RSS by the file size.
 
 ### 2.4 Remove the old framework
 - [ ] Delete `rest/`, `facade.py`, `middleware/`, the `a2wsgi` mount and the multipart shim from phase 0.

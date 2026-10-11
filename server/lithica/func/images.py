@@ -11,7 +11,9 @@ from PIL import features
 from pillow_heif import register_heif_opener
 
 from lithica import errors
+from lithica.func import content as content_module
 from lithica.func import mime, util
+from lithica.func.content import Content, ContentLike
 
 logger = logging.getLogger(__name__)
 # seconds one ffmpeg or ffprobe run may take before it is killed
@@ -23,16 +25,23 @@ if not features.check("avif"):
     import pillow_avif  # noqa: F401
 
 
-def convert_heif_to_png(content: bytes) -> bytes:
-    img = PILImage.open(BytesIO(content))
+def convert_heif_to_png(content: ContentLike) -> bytes:
+    source = content.path if isinstance(content, Content) else BytesIO(content)
+    img = PILImage.open(source)
     img_byte_arr = BytesIO()
     img.save(img_byte_arr, format="PNG")
     return img_byte_arr.getvalue()
 
 
 class Image:
-    def __init__(self, content: bytes) -> None:
-        self.content = content
+    """
+    A picture or a video, looked at and converted with ffmpeg. The content
+    may be a file (see lithica.func.content); it is handed to ffmpeg by
+    name and never read into memory here.
+    """
+
+    def __init__(self, content: ContentLike) -> None:
+        self.content: ContentLike = content
         self._reload_info()
 
     @property
@@ -277,11 +286,9 @@ class Image:
             self.content = convert_heif_to_png(self.content)
         extension = mime.get_extension(mime_type)
         assert extension
-        with util.create_temp_file(suffix="." + extension) as handle:
-            handle.write(self.content)
-            handle.flush()
+        with content_module.as_file(self.content, suffix="." + extension) as path:
             cli = [program, "-loglevel", "32" if get_logs else "24"] + cli
-            cli = [part.format(path=handle.name) for part in cli]
+            cli = [part.format(path=path) for part in cli]
             proc = subprocess.Popen(
                 cli,
                 stdout=subprocess.PIPE,

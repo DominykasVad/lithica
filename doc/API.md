@@ -158,6 +158,10 @@ that bundles user files, must send the request data (which is JSON) as an
 additional file with the special name of `metadata` (whereas the actual files
 must have names specific to the API that is being used.)
 
+The server accepts requests up to the size set as `max_upload_size` in its
+config (1 GiB unless changed). A larger request is refused with status 413
+and an error named `RequestTooLargeError`.
+
 Alternatively, the server can download the files from the Internet on client's
 behalf. In that case, the request doesn't need to be specially encoded in any
 way. The files, however, should be passed as regular fields appended with a

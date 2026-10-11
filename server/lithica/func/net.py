@@ -12,6 +12,7 @@ from typing import Any
 
 from lithica import config, errors
 from lithica.func import mime
+from lithica.func.content import Content
 
 logger = logging.getLogger(__name__)
 _dl_chunk_size = 2**15
@@ -198,7 +199,12 @@ def _verify_url(url: str) -> None:
         raise _generic_download_error(url, ex) from None
 
 
-def download(url: str, use_video_downloader: bool = False) -> bytes:
+def download(url: str, use_video_downloader: bool = False) -> Content:
+    """
+    Fetch the URL into a temporary file. The caller owns the result and
+    deletes it when done (see lithica.func.content); nothing of the
+    download is kept in memory.
+    """
     assert url
     _verify_url_scheme(url)
     yt_dlp_error = None
@@ -218,10 +224,27 @@ def download(url: str, use_video_downloader: bool = False) -> bytes:
         request.add_header("User-Agent", config.config["user_agent"])
     request.add_header("Referer", url)
 
-    content_buffer = b""
+    downloaded = Content.create_temporary()
+    try:
+        _download_into(downloaded, request, url)
+        if (
+            yt_dlp_error
+            and mime.get_mime_type(downloaded) == "application/octet-stream"
+        ):
+            raise yt_dlp_error
+    except BaseException:
+        downloaded.delete()
+        raise
+    return downloaded
+
+
+def _download_into(target: Content, request: urllib.request.Request, url: str) -> None:
     length_tally = 0
     try:
-        with _build_opener().open(request, timeout=DOWNLOAD_TIMEOUT) as handle:
+        with (
+            _build_opener().open(request, timeout=DOWNLOAD_TIMEOUT) as handle,
+            target.open_for_writing() as output,
+        ):
             while chunk := handle.read(_dl_chunk_size):
                 length_tally += len(chunk)
                 if length_tally > config.config["max_dl_filesize"]:
@@ -230,7 +253,7 @@ def download(url: str, use_video_downloader: bool = False) -> bytes:
                         % (config.config["max_dl_filesize"]),
                         extra_fields={"URL": url},
                     )
-                content_buffer += chunk
+                output.write(chunk)
     except urllib.error.HTTPError as ex:
         if 300 <= ex.code < 400:
             # a redirect that was not followed: too many hops, or a loop
@@ -242,14 +265,6 @@ def download(url: str, use_video_downloader: bool = False) -> bytes:
     except (OSError, http.client.HTTPException, ValueError) as ex:
         # URLError and timeouts are OSErrors
         raise _generic_download_error(url, ex) from None
-
-    if (
-        yt_dlp_error
-        and mime.get_mime_type(content_buffer) == "application/octet-stream"
-    ):
-        raise yt_dlp_error
-
-    return content_buffer
 
 
 def _get_yt_dlp_content_url(url: str) -> str:

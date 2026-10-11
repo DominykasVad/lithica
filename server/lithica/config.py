@@ -141,6 +141,14 @@ def validate() -> None:
                 "'https://example.com', with no path or trailing slash." % origin
             )
 
+    max_upload_size = config["max_upload_size"]
+    if (
+        isinstance(max_upload_size, bool)
+        or not isinstance(max_upload_size, int)
+        or max_upload_size <= 0
+    ):
+        raise errors.ConfigError("max_upload_size must be a positive number of bytes")
+
     lifetime = config["password_reset_token_lifetime"]
     if isinstance(lifetime, bool) or not isinstance(lifetime, int) or lifetime <= 0:
         raise errors.ConfigError(
