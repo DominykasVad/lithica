@@ -426,3 +426,72 @@ def test_trying_to_create_tags_without_privileges(
             ),
             errors.AuthError,
         )
+
+
+def test_large_post_is_stored_and_no_temporary_file_is_left(
+    client, user_factory, tag_category_factory, config_injector, tmpdir, read_asset
+):
+    import os
+    import shutil
+
+    from lithica.func import content as content_module
+    from lithica.tests.func.test_large_content import make_large_video
+
+    if shutil.which("ffmpeg") is None:
+        pytest.skip("ffmpeg is not installed")
+    data_dir = str(tmpdir.mkdir("data"))
+    config_injector(
+        {
+            "data_dir": data_dir,
+            "data_url": "http://example.com/data/",
+            "secret": "test",
+            "allow_broken_uploads": False,
+            "delete_source_files": True,
+            "thumbnails": {
+                "post_width": 300,
+                "post_height": 300,
+                "avatar_width": 30,
+                "avatar_height": 30,
+            },
+            "convert": {"gif": {"to_mp4": False, "to_webm": False}},
+            "privileges": {
+                "posts:create:identified": model.User.RANK_REGULAR,
+                "uploads:use_downloader": model.User.RANK_POWER,
+                "users:edit:any:email": model.User.RANK_MODERATOR,
+            },
+            "webhooks": [],
+        }
+    )
+    video = str(tmpdir.join("video.mp4"))
+    make_large_video(video, 3 * 1024 * 1024, read_asset("mp4.mp4"))
+    with open(video, "rb") as handle:
+        content = handle.read()
+    user = user_factory(name="uploader", rank=model.User.RANK_REGULAR)
+    db.session.add_all([user, tag_category_factory(default=True)])
+    db.session.flush()
+    temporary = os.path.join(data_dir, "temporary-uploads", ".tmp")
+
+    created = ok(
+        client.post(
+            "/posts", user=user, body={"safety": "safe"}, files={"content": content}
+        )
+    )
+
+    assert created["type"] == "video"
+    assert created["fileSize"] == len(content)
+    post = posts.get_post_by_id(created["id"])
+    stored = os.path.join(data_dir, posts.get_post_content_path(post))
+    with open(stored, "rb") as handle:
+        assert handle.read() == content
+    assert os.stat(stored).st_mode & 0o777 == content_module.STORED_FILE_MODE
+    assert os.path.getsize(os.path.join(data_dir, posts.get_post_thumbnail_path(post)))
+    assert os.listdir(temporary) == []
+
+    # the same file again is refused, and that leaves nothing behind either
+    response = client.post(
+        "/posts", user=user, body={"safety": "safe"}, files={"content": content}
+    )
+    assert_error(response, posts.PostAlreadyUploadedError)
+    assert os.listdir(temporary) == []
+    with open(stored, "rb") as handle:
+        assert handle.read() == content

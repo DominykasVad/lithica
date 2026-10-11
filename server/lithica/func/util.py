@@ -41,6 +41,7 @@ def snake_case_to_lower_camel_case_keys(source: dict[str, Any]) -> dict[str, Any
 
 @contextmanager
 def create_temp_file(**kwargs: Any) -> Generator:
+    kwargs.setdefault("dir", content.temporary_dir())
     (descriptor, path) = tempfile.mkstemp(**kwargs)
     os.close(descriptor)
     try:
@@ -52,6 +53,7 @@ def create_temp_file(**kwargs: Any) -> Generator:
 
 @contextmanager
 def create_temp_file_path(**kwargs: Any) -> Generator:
+    kwargs.setdefault("dir", content.temporary_dir())
     (descriptor, path) = tempfile.mkstemp(**kwargs)
     os.close(descriptor)
     try:

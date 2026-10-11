@@ -146,3 +146,19 @@ def test_background_run_survives_errors():
             file_uploads.purge_old_uploads_once()
     db.session_scope.assert_called_once_with()
     db.session_scope.return_value.__exit__.assert_called_once()
+
+
+def test_purge_leaves_the_folder_for_temporary_files_alone(fake_datetime):
+    from lithica.func import content as content_module
+
+    folder = content_module.temporary_dir()
+    in_use = os.path.join(folder, "content-in-use")
+    with open(in_use, "wb") as handle:
+        handle.write(b"x")
+    token = file_uploads.save(b"content")
+    with fake_datetime(_later(file_uploads.MAX_MINUTES + 1)):
+        file_uploads.purge_old_uploads()
+    # the old upload is gone; the folder next to it, and what is in it, is not
+    assert file_uploads.get(token) is None
+    assert _stored_names() == [".tmp"]
+    assert os.path.exists(in_use)

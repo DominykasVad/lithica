@@ -1,3 +1,4 @@
+import os
 from unittest.mock import patch
 
 import pytest
@@ -103,3 +104,49 @@ def test_trying_to_upload_without_privileges(client, user_factory):
         errors.AuthError,
     )
     assert list(file_uploads.files.scan("temporary-uploads")) == []
+
+
+def _temporary_files(tmpdir) -> list[str]:
+    return os.listdir(os.path.join(str(tmpdir), "temporary-uploads", ".tmp"))
+
+
+def test_large_upload_is_renamed_into_place(client, user_factory, tmpdir, monkeypatch):
+    from lithica.func import content as content_module
+
+    copies = []
+    real_copyfile = content_module.shutil.copyfile
+
+    def recording_copyfile(*args):
+        copies.append(args)
+        return real_copyfile(*args)
+
+    monkeypatch.setattr(content_module.shutil, "copyfile", recording_copyfile)
+    content = os.urandom(2 * 1024 * 1024 + 5)
+    result = ok(
+        client.post(
+            "/uploads",
+            user=user_factory(rank=model.User.RANK_REGULAR),
+            files={"content": content},
+        )
+    )
+    stored = os.path.join(str(tmpdir), "temporary-uploads", result["token"] + ".dat")
+    with open(stored, "rb") as handle:
+        assert handle.read() == content
+    # written once, in the data directory, then renamed: never copied
+    assert copies == []
+    # readable like any stored file, not private like a temporary one
+    assert os.stat(stored).st_mode & 0o777 == content_module.STORED_FILE_MODE
+    assert _temporary_files(tmpdir) == []
+
+
+def test_failed_large_upload_leaves_nothing_behind(client, user_factory, tmpdir):
+    assert_error(
+        client.post(
+            "/uploads",
+            user=user_factory(rank=model.User.RANK_ANONYMOUS),
+            files={"content": os.urandom(2 * 1024 * 1024)},
+        ),
+        errors.AuthError,
+    )
+    # refused before the body was read: not even the folder was made
+    assert not os.path.exists(os.path.join(str(tmpdir), "temporary-uploads"))

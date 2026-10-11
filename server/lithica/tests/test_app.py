@@ -207,3 +207,48 @@ def test_old_framework_is_gone(client):
         assert not os.path.isfile(os.path.join(path, "__init__.py"))
     assert importlib.util.find_spec("a2wsgi") is None
     assert not any(isinstance(route, Mount) for route in client.app.routes)
+
+
+def test_startup_prepares_the_folder_for_temporary_files(
+    valid_config, no_logging_setup
+):
+    import os
+    import time
+
+    folder = os.path.join(valid_config["data_dir"], "temporary-uploads", ".tmp")
+    os.makedirs(folder)
+    stale = os.path.join(folder, "content-of-a-crashed-process")
+    fresh = os.path.join(folder, "content-of-another-worker")
+    for path in [stale, fresh]:
+        with open(path, "wb"):
+            pass
+    long_ago = time.time() - 2 * 3600
+    os.utime(stale, (long_ago, long_ago))
+    with patch("lithica.func.file_uploads.purge_old_uploads_once"):
+        with TestClient(lithica_app.app):
+            assert os.listdir(folder) == ["content-of-another-worker"]
+
+
+def test_startup_makes_the_folder_for_temporary_files(valid_config, no_logging_setup):
+    import os
+
+    folder = os.path.join(valid_config["data_dir"], "temporary-uploads", ".tmp")
+    assert not os.path.exists(folder)
+    with patch("lithica.func.file_uploads.purge_old_uploads_once"):
+        with TestClient(lithica_app.app):
+            assert os.path.isdir(folder)
+
+
+def test_starts_although_the_temporary_folder_cannot_be_prepared(
+    valid_config, no_logging_setup, caplog
+):
+    with (
+        patch("lithica.func.file_uploads.purge_old_uploads_once"),
+        patch(
+            "lithica.func.content.remove_stale_temporary_files",
+            side_effect=OSError("read-only file system"),
+        ),
+    ):
+        with TestClient(lithica_app.app) as client:
+            assert client.get("/no-such-path").status_code == 404
+    assert "read-only file system" in caplog.text

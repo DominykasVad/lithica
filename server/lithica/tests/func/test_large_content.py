@@ -145,8 +145,9 @@ def test_merge_takes_over_the_content_although_the_source_file_is_deleted(
     real_temporary_copy = content_module.temporary_copy
 
     def recording_temporary_copy(*args, **kwargs):
-        copies.append(real_temporary_copy(*args, **kwargs))
-        return copies[-1]
+        copy = real_temporary_copy(*args, **kwargs)
+        copies.append((copy, copy.path))
+        return copy
 
     monkeypatch.setattr(content_module, "temporary_copy", recording_temporary_copy)
 
@@ -174,8 +175,12 @@ def test_merge_takes_over_the_content_although_the_source_file_is_deleted(
     assert target.checksum == hashlib.sha1(content).hexdigest()
     assert target.mime_type == "image/png"
 
-    # the copy that bridged the gap is gone as well
+    # the copy that bridged the gap was a temporary file in the data
+    # directory; it was renamed into place, not copied a second time, and
+    # nothing is left where it was
     assert len(copies) == 1
-    copy_path = copies[0].path
-    del copies[:]
+    copy, copy_path = copies[0]
+    assert copy_path.startswith(os.path.join(data_dir, "temporary-uploads", ".tmp"))
     assert not os.path.exists(copy_path)
+    assert copy.path == target_path
+    assert os.listdir(os.path.dirname(copy_path)) == []
