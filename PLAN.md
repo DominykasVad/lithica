@@ -131,7 +131,7 @@ then rewrite that resource's `tests/api/` tests to go through FastAPI's
 - [x] tag categories, tags
 - [x] pool categories, pools
 - [x] comments
-- [ ] snapshots
+- [x] snapshots
 - [ ] uploads (temporary upload tokens)
 - [ ] posts (largest; includes multipart create/update, merge, featuring, similar search)
 
