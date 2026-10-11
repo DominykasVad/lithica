@@ -68,5 +68,22 @@ jobs:
       - name: Database portability gate
         run: uv run pytest --color=yes lithica/tests/test_portability.py
 
+      # The tests build their tables from the models; a real database is built
+      # by the migrations. This fails when the two describe different schemas.
+      # It migrates the service's own "postgres" database, which nothing else
+      # uses: the tests create a database per worker.
+      - name: Migrations match the models
+        run: |
+          printf 'database: %s\ndata_dir: %s\n' \
+            "$LITHICA_TEST_DATABASE_URL" "$RUNNER_TEMP/data" > config.yaml
+          uv run alembic upgrade head
+          uv run alembic check
+          rm config.yaml
+
+      # doc/openapi.json is generated from the code and is the API contract.
+      # Also part of the suite; run first so that the difference is shown.
+      - name: OpenAPI contract is up to date
+        run: uv run python -m lithica.openapi | diff -u ../doc/openapi.json -
+
       - name: Test
         run: uv run pytest -n auto --color=yes

@@ -1,5 +1,15 @@
-from lithica import config, errors, rest
+from typing import Annotated, Any
+
+from fastapi import Depends
+
+from lithica import config, db, errors
+from lithica.api import resources
+from lithica.api.dependencies import read_body
+from lithica.api.routing import ApiRouter
+from lithica.api.schemas import RequestModel, Str, request_body, required
 from lithica.func import mailer, password_reset, users, versions
+
+router = ApiRouter(tags=["Password reset"])
 
 MAIL_SUBJECT = "Password reset for {name}"
 MAIL_BODY = (
@@ -9,9 +19,31 @@ MAIL_BODY = (
 )
 
 
-@rest.routes.get("/password-reset/(?P<user_name>[^/]+)/?")
-def start_password_reset(ctx: rest.Context, params: dict[str, str]) -> rest.Response:
-    user_name = params["user_name"]
+class PasswordResetConfirmation(RequestModel):
+    token: Str = required()
+
+
+@router.get(
+    "/password-reset/{user_name}",
+    response_model=resources.Empty,
+    summary="Request a password reset",
+)
+def start_password_reset(user_name: str) -> Any:
+    """
+    Sends a confirmation email to given user. The email contains link containing
+    a token. The token cannot be guessed, thus using such link proves that the
+    person who requested to reset the password also owns the mailbox, which is a
+    strong indication they are the rightful owner of the account.
+
+    The token is random, works once and expires after the time set in
+    `password_reset_token_lifetime` (one hour by default). Requesting another
+    email makes the previous token stop working.
+
+    Errors:
+
+    - the user does not exist
+    - the user hasn't provided an email address
+    """
     user = users.get_user_by_name_or_email(user_name)
     if not user.email:
         raise errors.ValidationError(
@@ -34,18 +66,37 @@ def start_password_reset(ctx: rest.Context, params: dict[str, str]) -> rest.Resp
         MAIL_SUBJECT.format(name=config.config["name"]),
         MAIL_BODY.format(name=config.config["name"], url=url),
     )
-    ctx.session.commit()
+    db.session.commit()
 
     return {}
 
 
-@rest.routes.post("/password-reset/(?P<user_name>[^/]+)/?")
-def finish_password_reset(ctx: rest.Context, params: dict[str, str]) -> rest.Response:
-    user_name = params["user_name"]
+@router.post(
+    "/password-reset/{user_name}",
+    response_model=resources.PasswordResetResult,
+    summary="Confirm a password reset",
+    openapi_extra=request_body(PasswordResetConfirmation),
+)
+def finish_password_reset(
+    user_name: str,
+    body: Annotated[
+        PasswordResetConfirmation, Depends(read_body(PasswordResetConfirmation))
+    ],
+) -> Any:
+    """
+    Generates a new password for given user. Password is sent as plain-text, so
+    it is recommended to connect through HTTPS.
+
+    Errors:
+
+    - the token is missing
+    - the token is invalid, expired or already used
+    - the user does not exist
+    """
     user = users.get_user_by_name_or_email(user_name)
-    token = ctx.get_param_as_string("token")
+    token = body.require("token")
     password_reset.consume_token(user, token)
     new_password = users.reset_user_password(user)
     versions.bump_version(user)
-    ctx.session.commit()
+    db.session.commit()
     return {"password": new_password}

@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from typing import Any
 
-from lithica import db, errors, model, rest
+from lithica import db, errors, model
 from lithica.func import scores, serialization, users, util
 
 
@@ -65,7 +65,7 @@ class CommentSerializer(serialization.BaseSerializer):
 
 def serialize_comment(
     comment: model.Comment, auth_user: model.User, options: list[str] | None = None
-) -> rest.Response:
+) -> serialization.Response:
     if options is None:
         options = []
     if comment is None:

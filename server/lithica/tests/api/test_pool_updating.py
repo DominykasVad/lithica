@@ -2,8 +2,9 @@ from unittest.mock import patch
 
 import pytest
 
-from lithica import api, db, errors, model
+from lithica import db, errors, model
 from lithica.func import pools, posts, snapshots
+from lithica.tests.api.http import assert_error, ok
 
 
 @pytest.fixture(autouse=True)
@@ -21,7 +22,7 @@ def inject_config(config_injector):
     )
 
 
-def test_simple_updating(user_factory, pool_factory, context_factory):
+def test_simple_updating(user_factory, pool_factory, client):
     auth_user = user_factory(rank=model.User.RANK_REGULAR)
     pool = pool_factory(id=1, names=["pool1", "pool2"])
     db.session.add(pool)
@@ -38,18 +39,18 @@ def test_simple_updating(user_factory, pool_factory, context_factory):
     ):
         posts.get_posts_by_ids.return_value = ([], [])
         pools.serialize_pool.return_value = "serialized pool"
-        result = api.pool_api.update_pool(
-            context_factory(
-                params={
+        result = ok(
+            client.put(
+                "/pool/1",
+                user=auth_user,
+                body={
                     "version": 1,
                     "names": ["pool3"],
                     "category": "series",
                     "description": "desc",
                     "posts": [1, 2],
                 },
-                user=auth_user,
-            ),
-            {"pool_id": "1"},
+            )
         )
         assert result == "serialized pool"
         pools.create_pool.assert_not_called()
@@ -70,7 +71,7 @@ def test_simple_updating(user_factory, pool_factory, context_factory):
         "posts",
     ],
 )
-def test_omitting_optional_field(user_factory, pool_factory, context_factory, field):
+def test_omitting_optional_field(user_factory, pool_factory, client, field):
     db.session.add(pool_factory(id=1))
     db.session.commit()
     params = {
@@ -86,24 +87,24 @@ def test_omitting_optional_field(user_factory, pool_factory, context_factory, fi
         patch("lithica.func.pools.update_pool_category_name"),
         patch("lithica.func.pools.serialize_pool"),
     ):
-        api.pool_api.update_pool(
-            context_factory(
-                params={**params, **{"version": 1}},
+        ok(
+            client.put(
+                "/pool/1",
                 user=user_factory(rank=model.User.RANK_REGULAR),
-            ),
-            {"pool_id": "1"},
+                body={**params, **{"version": 1}},
+            )
         )
 
 
-def test_trying_to_update_non_existing(user_factory, context_factory):
-    with pytest.raises(pools.PoolNotFoundError):
-        api.pool_api.update_pool(
-            context_factory(
-                params={"names": ["dummy"]},
-                user=user_factory(rank=model.User.RANK_REGULAR),
-            ),
-            {"pool_id": "9999"},
-        )
+def test_trying_to_update_non_existing(user_factory, client):
+    assert_error(
+        client.put(
+            "/pool/9999",
+            user=user_factory(rank=model.User.RANK_REGULAR),
+            body={"names": ["dummy"]},
+        ),
+        pools.PoolNotFoundError,
+    )
 
 
 @pytest.mark.parametrize(
@@ -115,22 +116,22 @@ def test_trying_to_update_non_existing(user_factory, context_factory):
     ],
 )
 def test_trying_to_update_without_privileges(
-    user_factory, pool_factory, context_factory, params
+    user_factory, pool_factory, client, params
 ):
     db.session.add(pool_factory(id=1))
     db.session.commit()
-    with pytest.raises(errors.AuthError):
-        api.pool_api.update_pool(
-            context_factory(
-                params={**params, **{"version": 1}},
-                user=user_factory(rank=model.User.RANK_ANONYMOUS),
-            ),
-            {"pool_id": "1"},
-        )
+    assert_error(
+        client.put(
+            "/pool/1",
+            user=user_factory(rank=model.User.RANK_ANONYMOUS),
+            body={**params, **{"version": 1}},
+        ),
+        errors.AuthError,
+    )
 
 
 def test_trying_to_create_pools_without_privileges(
-    config_injector, context_factory, pool_factory, user_factory
+    config_injector, client, pool_factory, user_factory
 ):
     pool = pool_factory(id=1)
     db.session.add(pool)
@@ -146,11 +147,12 @@ def test_trying_to_create_pools_without_privileges(
     )
     with patch("lithica.func.posts.get_posts_by_ids"):
         posts.get_posts_by_ids.return_value = ([], ["new-post"])
-        with pytest.raises(errors.AuthError):
-            api.pool_api.create_pool(
-                context_factory(
-                    params={"posts": [1, 2], "version": 1},
-                    user=user_factory(rank=model.User.RANK_REGULAR),
-                ),
-                {"pool_id": "1"},
-            )
+        # the old test passed a pool id as well, which creating ignores
+        assert_error(
+            client.post(
+                "/pool",
+                user=user_factory(rank=model.User.RANK_REGULAR),
+                body={"posts": [1, 2], "version": 1},
+            ),
+            errors.AuthError,
+        )

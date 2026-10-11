@@ -1,8 +1,11 @@
 import contextlib
+import json
 import os
 import random
 import string
 from datetime import datetime
+from typing import Any
+from unittest.mock import Mock, patch
 
 import freezegun
 import pytest
@@ -21,7 +24,12 @@ config.config.setdefault(
     os.environ.get("LITHICA_TEST_DATABASE_URL", _DEFAULT_DATABASE_URL),
 )
 
-from lithica import db, model, rest  # noqa: E402
+import httpx2  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
+
+from lithica import db, model  # noqa: E402
+from lithica.api import dependencies, responses  # noqa: E402
+from lithica.app import app as lithica_app  # noqa: E402
 
 
 @pytest.fixture(scope="session")
@@ -55,6 +63,26 @@ def _pg_engine(_pg_database_url):
     )
     yield engine
     engine.dispose()
+
+
+# the scoped session lithica.db builds; the session fixtures put their own
+# session in its place
+REAL_DB_SESSION = db.session
+
+
+class _TestSession(sa_orm.Session):
+    """
+    The session the tests put in place of lithica.db.session. The engine
+    code treats that object as a scoped session: it calls it to get the
+    session and calls remove() when a unit of work ends. A test's session
+    outlives the units of work it is used for, so both do nothing here.
+    """
+
+    def __call__(self) -> "_TestSession":
+        return self
+
+    def remove(self) -> None:
+        pass
 
 
 class _TransactedTestDB:
@@ -111,7 +139,7 @@ def transacted_postgresql_db(_pg_engine):
     # The session works in savepoints of the outer transaction: commit()
     # releases one and rollback() rolls one back, so neither touches the
     # tables the test created, and the outer rollback still undoes it all.
-    session = sa_orm.Session(bind=conn, join_transaction_mode="create_savepoint")
+    session = _TestSession(bind=conn, join_transaction_mode="create_savepoint")
 
     try:
         yield _TransactedTestDB(conn, session, trans)
@@ -125,7 +153,7 @@ def transacted_postgresql_db(_pg_engine):
 @pytest.fixture
 def postgresql_db(_pg_engine):
     """Database fixture; the name is kept from pytest_pgsql, which it replaced."""
-    session = sa_orm.Session(_pg_engine)
+    session = _TestSession(_pg_engine)
     try:
         yield _CommittingTestDB(session, _pg_engine)
     finally:
@@ -188,21 +216,87 @@ def nontransacted_session(query_logger, postgresql_db):
 
 
 @pytest.fixture
-def context_factory(session):
-    def factory(params=None, files=None, user=None, headers=None):
-        ctx = rest.Context(
-            env={"HTTP_ORIGIN": "http://example.com"},
-            method="",
-            url="",
-            headers=headers or {},
-            params=params or {},
-            files=files or {},
-        )
-        ctx.session = session
-        ctx.user = user or model.User()
-        return ctx
+def scoped_db_session(session):
+    """Put the real, scope-bound lithica.db.session back for one test."""
+    db.session = REAL_DB_SESSION
+    yield REAL_DB_SESSION
+    db.session = session
 
-    return factory
+
+_serialize_default = responses._serialize_default
+
+
+def _serialize_with_mocks(obj: Any) -> str:
+    """
+    Many tests replace a serializer with a mock and do not care what the
+    endpoint returns. A mock in a response is written as text instead of
+    failing the request.
+    """
+    if isinstance(obj, Mock):
+        return repr(obj)
+    return _serialize_default(obj)
+
+
+class ApiClient:
+    """
+    Calls the API over HTTP, in the application's own process.
+
+    `user` is who the request comes from: authentication is replaced by that
+    user, so a test does not need passwords. Without it the request is
+    anonymous. `query` is the query string; `body` is sent as JSON, or as the
+    `metadata` part of a multipart request when `files` are given.
+    """
+
+    def __init__(self) -> None:
+        # not used as a context manager: the startup work does not run
+        self._client = TestClient(lithica_app, headers={"Accept": "application/json"})
+
+    def request(
+        self,
+        method: str,
+        path: str,
+        *,
+        user: model.User | None = None,
+        query: dict[str, Any] | None = None,
+        body: Any = None,
+        files: dict[str, bytes] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> httpx2.Response:
+        kwargs: dict[str, Any] = {"params": query, "headers": headers}
+        if files:
+            kwargs["files"] = {
+                name: (name, content, "application/octet-stream")
+                for name, content in files.items()
+            }
+            if body is not None:
+                kwargs["data"] = {"metadata": json.dumps(body)}
+        elif body is not None:
+            kwargs["json"] = body
+        overrides = lithica_app.dependency_overrides
+        if user is not None:
+            overrides[dependencies.get_user] = lambda: user
+        try:
+            with patch.object(responses, "_serialize_default", _serialize_with_mocks):
+                return self._client.request(method, path, **kwargs)
+        finally:
+            overrides.pop(dependencies.get_user, None)
+
+    def get(self, path: str, **kwargs: Any) -> httpx2.Response:
+        return self.request("GET", path, **kwargs)
+
+    def post(self, path: str, **kwargs: Any) -> httpx2.Response:
+        return self.request("POST", path, **kwargs)
+
+    def put(self, path: str, **kwargs: Any) -> httpx2.Response:
+        return self.request("PUT", path, **kwargs)
+
+    def delete(self, path: str, **kwargs: Any) -> httpx2.Response:
+        return self.request("DELETE", path, **kwargs)
+
+
+@pytest.fixture
+def client(session):
+    return ApiClient()
 
 
 @pytest.fixture

@@ -5,7 +5,7 @@ from typing import Any
 import pytz
 from pyrfc3339 import parser as rfc3339_parser
 
-from lithica import db, errors, model, rest
+from lithica import db, errors, model
 from lithica.func import auth, serialization, users, util
 
 
@@ -71,7 +71,7 @@ def serialize_user_token(
     user_token: model.UserToken | None,
     auth_user: model.User,
     options: list[str] | None = None,
-) -> rest.Response | None:
+) -> serialization.Response | None:
     if options is None:
         options = []
     if not user_token:

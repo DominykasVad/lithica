@@ -2,8 +2,9 @@ from unittest.mock import patch
 
 import pytest
 
-from lithica import api, db, errors, model
+from lithica import db, errors, model
 from lithica.func import users
+from lithica.tests.api.http import assert_error, ok
 
 
 @pytest.fixture(autouse=True)
@@ -26,7 +27,7 @@ def inject_config(config_injector):
     )
 
 
-def test_updating_user(context_factory, user_factory):
+def test_updating_user(client, user_factory):
     user = user_factory(name="u1", rank=model.User.RANK_ADMINISTRATOR)
     auth_user = user_factory(rank=model.User.RANK_ADMINISTRATOR)
     db.session.add(user)
@@ -43,9 +44,11 @@ def test_updating_user(context_factory, user_factory):
     ):
         users.serialize_user.return_value = "serialized user"
 
-        result = api.user_api.update_user(
-            context_factory(
-                params={
+        result = ok(
+            client.put(
+                "/user/u1",
+                user=auth_user,
+                body={
                     "version": 1,
                     "name": "chewie",
                     "email": "asd@asd.asd",
@@ -56,9 +59,7 @@ def test_updating_user(context_factory, user_factory):
                 files={
                     "avatar": b"...",
                 },
-                user=auth_user,
-            ),
-            {"user_name": "u1"},
+            )
         )
 
         assert result == "serialized user"
@@ -72,7 +73,7 @@ def test_updating_user(context_factory, user_factory):
 
 
 @pytest.mark.parametrize("field", ["name", "email", "password", "rank", "avatarStyle"])
-def test_omitting_optional_field(user_factory, context_factory, field):
+def test_omitting_optional_field(user_factory, client, field):
     user = user_factory(name="u1", rank=model.User.RANK_ADMINISTRATOR)
     db.session.add(user)
     db.session.flush()
@@ -93,22 +94,21 @@ def test_omitting_optional_field(user_factory, context_factory, field):
         patch("lithica.func.users.update_user_avatar"),
         patch("lithica.func.users.serialize_user"),
     ):
-        api.user_api.update_user(
-            context_factory(
-                params={**params, **{"version": 1}},
-                files={"avatar": b"..."},
+        ok(
+            client.put(
+                "/user/u1",
                 user=user,
-            ),
-            {"user_name": "u1"},
+                body={**params, **{"version": 1}},
+                files={"avatar": b"..."},
+            )
         )
 
 
-def test_trying_to_update_non_existing(user_factory, context_factory):
+def test_trying_to_update_non_existing(user_factory, client):
     user = user_factory(name="u1", rank=model.User.RANK_ADMINISTRATOR)
     db.session.add(user)
     db.session.flush()
-    with pytest.raises(users.UserNotFoundError):
-        api.user_api.update_user(context_factory(user=user), {"user_name": "u2"})
+    assert_error(client.put("/user/u2", user=user), users.UserNotFoundError)
 
 
 @pytest.mark.parametrize(
@@ -121,15 +121,14 @@ def test_trying_to_update_non_existing(user_factory, context_factory):
         {"avatarStyle": "whatever"},
     ],
 )
-def test_trying_to_update_field_without_privileges(
-    user_factory, context_factory, params
-):
+def test_trying_to_update_field_without_privileges(user_factory, client, params):
     user1 = user_factory(name="u1", rank=model.User.RANK_REGULAR)
     user2 = user_factory(name="u2", rank=model.User.RANK_REGULAR)
     db.session.add_all([user1, user2])
     db.session.flush()
-    with pytest.raises(errors.AuthError):
-        api.user_api.update_user(
-            context_factory(params={**params, **{"version": 1}}, user=user1),
-            {"user_name": user2.name},
-        )
+    assert_error(
+        client.put(
+            "/user/%s" % user2.name, user=user1, body={**params, **{"version": 1}}
+        ),
+        errors.AuthError,
+    )

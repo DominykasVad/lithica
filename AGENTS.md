@@ -179,5 +179,6 @@ and uv; do not assume a specific OS, CPU architecture or machine.
 
 - `PLAN.md` — phases, tasks, decisions, open questions.
 - `ANALYSIS.md` — snapshot analysis of the codebase at the fork point. Local only (git-ignored); may be absent in a fresh clone.
-- `doc/API.md` — wire contract until `doc/openapi.json` replaces it.
+- `doc/openapi.json` — the API contract (generated; see "API compatibility").
+- `doc/API.md` — how the API works: authentication, uploads, errors, resources, search syntax.
 - `server/config.yaml.dist` — all settings and the privilege matrix.

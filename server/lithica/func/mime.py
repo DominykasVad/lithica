@@ -1,7 +1,18 @@
 import re
 
+from lithica.func import content as content_module
+from lithica.func.content import ContentLike
 
-def get_mime_type(content: bytes) -> str:
+# the longest file signature looked at below ends at byte 12
+SIGNATURE_LENGTH = 16
+
+# two graphic control extensions mean two frames: an animation
+_GIF_FRAME = re.compile(b"\x21\xf9\x04[\x00-\xff]{4}\x00[\x2c\x21]")
+_GIF_FRAME_LENGTH = 10
+
+
+def get_mime_type(content: ContentLike) -> str:
+    content = content_module.head(content, SIGNATURE_LENGTH)
     if not content:
         return "application/octet-stream"
 
@@ -95,11 +106,25 @@ def is_image(mime_type: str) -> bool:
     )
 
 
-def is_animated_gif(content: bytes) -> bool:
-    pattern = b"\x21\xf9\x04[\x00-\xff]{4}\x00[\x2c\x21]"
-    return (
-        get_mime_type(content) == "image/gif" and len(re.findall(pattern, content)) > 1
-    )
+def is_animated_gif(content: ContentLike) -> bool:
+    if get_mime_type(content) != "image/gif":
+        return False
+    # The content is searched a block at a time. A frame header may straddle
+    # two blocks, so the end of each block is searched again with the next
+    # one: as much of it as could start a header, and nothing of a header
+    # that was already counted.
+    frames = 0
+    carry = b""
+    for block in content_module.blocks(content):
+        data = carry + block
+        counted_up_to = 0
+        for match in _GIF_FRAME.finditer(data):
+            frames += 1
+            counted_up_to = match.end()
+        if frames > 1:
+            return True
+        carry = data[max(counted_up_to, len(data) - (_GIF_FRAME_LENGTH - 1)) :]
+    return False
 
 
 def is_heif(mime_type: str) -> bool:

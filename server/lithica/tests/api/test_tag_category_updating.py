@@ -2,8 +2,9 @@ from unittest.mock import patch
 
 import pytest
 
-from lithica import api, db, errors, model
+from lithica import db, errors, model
 from lithica.func import snapshots, tag_categories
+from lithica.tests.api.http import assert_error, ok
 
 
 def _update_category_name(category, name):
@@ -24,7 +25,7 @@ def inject_config(config_injector):
     )
 
 
-def test_simple_updating(user_factory, tag_category_factory, context_factory):
+def test_simple_updating(user_factory, tag_category_factory, client):
     auth_user = user_factory(rank=model.User.RANK_REGULAR)
     category = tag_category_factory(name="name", color="black")
     db.session.add(category)
@@ -37,12 +38,12 @@ def test_simple_updating(user_factory, tag_category_factory, context_factory):
     ):
         tag_categories.update_category_name.side_effect = _update_category_name
         tag_categories.serialize_category.return_value = "serialized category"
-        result = api.tag_category_api.update_tag_category(
-            context_factory(
-                params={"name": "changed", "color": "white", "version": 1},
+        result = ok(
+            client.put(
+                "/tag-category/name",
                 user=auth_user,
-            ),
-            {"category_name": "name"},
+                body={"name": "changed", "color": "white", "version": 1},
+            )
         )
         assert result == "serialized category"
         tag_categories.update_category_name.assert_called_once_with(category, "changed")
@@ -51,9 +52,7 @@ def test_simple_updating(user_factory, tag_category_factory, context_factory):
 
 
 @pytest.mark.parametrize("field", ["name", "color"])
-def test_omitting_optional_field(
-    user_factory, tag_category_factory, context_factory, field
-):
+def test_omitting_optional_field(user_factory, tag_category_factory, client, field):
     db.session.add(tag_category_factory(name="name", color="black"))
     db.session.commit()
     params = {
@@ -66,24 +65,24 @@ def test_omitting_optional_field(
         patch("lithica.func.tag_categories.update_category_name"),
         patch("lithica.func.snapshots._post_to_webhooks"),
     ):
-        api.tag_category_api.update_tag_category(
-            context_factory(
-                params={**params, **{"version": 1}},
+        ok(
+            client.put(
+                "/tag-category/name",
                 user=user_factory(rank=model.User.RANK_REGULAR),
-            ),
-            {"category_name": "name"},
+                body={**params, **{"version": 1}},
+            )
         )
 
 
-def test_trying_to_update_non_existing(user_factory, context_factory):
-    with pytest.raises(tag_categories.TagCategoryNotFoundError):
-        api.tag_category_api.update_tag_category(
-            context_factory(
-                params={"name": ["dummy"]},
-                user=user_factory(rank=model.User.RANK_REGULAR),
-            ),
-            {"category_name": "bad"},
-        )
+def test_trying_to_update_non_existing(user_factory, client):
+    assert_error(
+        client.put(
+            "/tag-category/bad",
+            user=user_factory(rank=model.User.RANK_REGULAR),
+            body={"name": ["dummy"]},
+        ),
+        tag_categories.TagCategoryNotFoundError,
+    )
 
 
 @pytest.mark.parametrize(
@@ -94,21 +93,21 @@ def test_trying_to_update_non_existing(user_factory, context_factory):
     ],
 )
 def test_trying_to_update_without_privileges(
-    user_factory, tag_category_factory, context_factory, params
+    user_factory, tag_category_factory, client, params
 ):
     db.session.add(tag_category_factory(name="dummy"))
     db.session.commit()
-    with pytest.raises(errors.AuthError):
-        api.tag_category_api.update_tag_category(
-            context_factory(
-                params={**params, **{"version": 1}},
-                user=user_factory(rank=model.User.RANK_ANONYMOUS),
-            ),
-            {"category_name": "dummy"},
-        )
+    assert_error(
+        client.put(
+            "/tag-category/dummy",
+            user=user_factory(rank=model.User.RANK_ANONYMOUS),
+            body={**params, **{"version": 1}},
+        ),
+        errors.AuthError,
+    )
 
 
-def test_set_as_default(user_factory, tag_category_factory, context_factory):
+def test_set_as_default(user_factory, tag_category_factory, client):
     category = tag_category_factory(name="name", color="black")
     db.session.add(category)
     db.session.commit()
@@ -118,16 +117,16 @@ def test_set_as_default(user_factory, tag_category_factory, context_factory):
     ):
         tag_categories.update_category_name.side_effect = _update_category_name
         tag_categories.serialize_category.return_value = "serialized category"
-        result = api.tag_category_api.set_tag_category_as_default(
-            context_factory(
-                params={
+        result = ok(
+            client.put(
+                "/tag-category/name/default",
+                user=user_factory(rank=model.User.RANK_REGULAR),
+                body={
                     "name": "changed",
                     "color": "white",
                     "version": 1,
                 },
-                user=user_factory(rank=model.User.RANK_REGULAR),
-            ),
-            {"category_name": "name"},
+            )
         )
         assert result == "serialized category"
         tag_categories.set_default_category.assert_called_once_with(category)

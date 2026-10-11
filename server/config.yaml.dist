@@ -22,6 +22,18 @@ thumbnails:
     post_width: 300
     post_height: 300
 
+# serve the API's documentation next to the API: the OpenAPI document at
+# openapi.json and pages that display it at docs and redoc (with the client
+# image in front: /api/docs). the pages load their scripts from a public CDN.
+# off by default; the development image switches it on
+api_docs: false
+
+# the largest request the server accepts, in bytes: an upload with everything
+# sent along with it. a larger one is refused with 413. the web server in
+# front must allow as much: the nginx of the client image has
+# client_max_body_size set to the same 1 GiB, so change both together
+max_upload_size: 1073741824
+
 # settings used to download files from the web on behalf of the api users
 user_agent:
 max_dl_filesize: 25.0E+6 # maximum filesize limit in bytes

@@ -2,8 +2,9 @@ from unittest.mock import patch
 
 import pytest
 
-from lithica import api, db, errors, model
+from lithica import db, errors, model
 from lithica.func import snapshots, tag_categories
+from lithica.tests.api.http import assert_error, ok
 
 
 def _update_category_name(category, name):
@@ -19,7 +20,7 @@ def inject_config(config_injector):
     )
 
 
-def test_creating_category(tag_category_factory, user_factory, context_factory):
+def test_creating_category(tag_category_factory, user_factory, client):
     auth_user = user_factory(rank=model.User.RANK_REGULAR)
     category = tag_category_factory(name="meta")
     db.session.add(category)
@@ -33,10 +34,11 @@ def test_creating_category(tag_category_factory, user_factory, context_factory):
         tag_categories.create_category.return_value = category
         tag_categories.update_category_name.side_effect = _update_category_name
         tag_categories.serialize_category.return_value = "serialized category"
-        result = api.tag_category_api.create_tag_category(
-            context_factory(
-                params={"name": "meta", "color": "black", "order": 0},
+        result = ok(
+            client.post(
+                "/tag-categories",
                 user=auth_user,
+                body={"name": "meta", "color": "black", "order": 0},
             )
         )
         assert result == "serialized category"
@@ -45,25 +47,28 @@ def test_creating_category(tag_category_factory, user_factory, context_factory):
 
 
 @pytest.mark.parametrize("field", ["name", "color"])
-def test_trying_to_omit_mandatory_field(user_factory, context_factory, field):
+def test_trying_to_omit_mandatory_field(user_factory, client, field):
     params = {
         "name": "meta",
         "color": "black",
     }
     del params[field]
-    with pytest.raises(errors.ValidationError):
-        api.tag_category_api.create_tag_category(
-            context_factory(
-                params=params, user=user_factory(rank=model.User.RANK_REGULAR)
-            )
-        )
+    assert_error(
+        client.post(
+            "/tag-categories",
+            user=user_factory(rank=model.User.RANK_REGULAR),
+            body=params,
+        ),
+        errors.ValidationError,
+    )
 
 
-def test_trying_to_create_without_privileges(user_factory, context_factory):
-    with pytest.raises(errors.AuthError):
-        api.tag_category_api.create_tag_category(
-            context_factory(
-                params={"name": "meta", "color": "black"},
-                user=user_factory(rank=model.User.RANK_ANONYMOUS),
-            )
-        )
+def test_trying_to_create_without_privileges(user_factory, client):
+    assert_error(
+        client.post(
+            "/tag-categories",
+            user=user_factory(rank=model.User.RANK_ANONYMOUS),
+            body={"name": "meta", "color": "black"},
+        ),
+        errors.AuthError,
+    )

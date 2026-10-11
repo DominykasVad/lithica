@@ -2,6 +2,8 @@ import os
 from typing import Any
 
 from lithica import config
+from lithica.func import content as content_module
+from lithica.func.content import Content, ContentLike
 
 
 def _get_full_path(path: str) -> str:
@@ -31,16 +33,18 @@ def move(source_path: str, target_path: str) -> None:
     os.rename(_get_full_path(source_path), _get_full_path(target_path))
 
 
-def get(path: str) -> bytes | None:
+def get(path: str) -> Content | None:
+    """
+    The stored file, or None. It is not read: the result points at the file
+    (see lithica.func.content) and compares equal to the bytes in it.
+    """
     full_path = _get_full_path(path)
     if not os.path.exists(full_path):
         return None
-    with open(full_path, "rb") as handle:
-        return handle.read()
+    return Content(full_path)
 
 
-def save(path: str, content: bytes) -> None:
+def save(path: str, content: ContentLike) -> None:
     full_path = _get_full_path(path)
     os.makedirs(os.path.dirname(full_path), exist_ok=True)
-    with open(full_path, "wb") as handle:
-        handle.write(content)
+    content_module.save(content, full_path)

@@ -3,6 +3,7 @@ from datetime import UTC, datetime, timedelta
 
 from lithica import db
 from lithica.func import files, util
+from lithica.func.content import Content, ContentLike
 
 logger = logging.getLogger(__name__)
 
@@ -32,23 +33,22 @@ def purge_old_uploads() -> None:
 
 def purge_old_uploads_once() -> None:
     """
-    One purge run for the background thread: never raises, and closes any
-    database session the run opened in this thread before returning, so
-    nothing is shared with the request threads.
+    One purge run for the background thread: never raises, and runs in a
+    session scope of its own, so any database session the run opens is
+    closed before returning and nothing is shared with the requests.
     """
-    try:
-        purge_old_uploads()
-    except Exception as ex:
-        logger.exception(ex)
-    finally:
-        db.session.remove()
+    with db.session_scope():
+        try:
+            purge_old_uploads()
+        except Exception as ex:
+            logger.exception(ex)
 
 
-def get(checksum: str) -> bytes | None:
+def get(checksum: str) -> Content | None:
     return files.get("temporary-uploads/%s.dat" % checksum)
 
 
-def save(content: bytes) -> str:
+def save(content: ContentLike) -> str:
     checksum = util.get_sha1(content)
     path = _get_path(checksum)
     if not files.has(path):

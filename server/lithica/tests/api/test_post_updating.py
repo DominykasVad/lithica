@@ -3,8 +3,9 @@ from unittest.mock import patch
 
 import pytest
 
-from lithica import api, db, errors, model
+from lithica import db, errors, model
 from lithica.func import net, posts, snapshots
+from lithica.tests.api.http import assert_error, ok
 
 
 @pytest.fixture(autouse=True)
@@ -28,7 +29,7 @@ def inject_config(config_injector):
     )
 
 
-def test_post_updating(context_factory, post_factory, user_factory, fake_datetime):
+def test_post_updating(client, post_factory, user_factory, fake_datetime):
     auth_user = user_factory(rank=model.User.RANK_REGULAR)
     post = post_factory()
     db.session.add(post)
@@ -50,9 +51,11 @@ def test_post_updating(context_factory, post_factory, user_factory, fake_datetim
     ):
         posts.serialize_post.return_value = "serialized post"
 
-        result = api.post_api.update_post(
-            context_factory(
-                params={
+        result = ok(
+            client.put(
+                "/post/%s" % post.post_id,
+                user=auth_user,
+                body={
                     "version": 1,
                     "safety": "safe",
                     "tags": ["tag1", "tag2"],
@@ -62,19 +65,17 @@ def test_post_updating(context_factory, post_factory, user_factory, fake_datetim
                     "flags": ["flag1", "flag2"],
                 },
                 files={
-                    "content": "post-content",
-                    "thumbnail": "post-thumbnail",
+                    "content": b"post-content",
+                    "thumbnail": b"post-thumbnail",
                 },
-                user=auth_user,
-            ),
-            {"post_id": post.post_id},
+            )
         )
 
         assert result == "serialized post"
         posts.create_post.assert_not_called()
         posts.update_post_tags.assert_called_once_with(post, ["tag1", "tag2"])
-        posts.update_post_content.assert_called_once_with(post, "post-content")
-        posts.update_post_thumbnail.assert_called_once_with(post, "post-thumbnail")
+        posts.update_post_content.assert_called_once_with(post, b"post-content")
+        posts.update_post_thumbnail.assert_called_once_with(post, b"post-thumbnail")
         posts.update_post_safety.assert_called_once_with(post, "safe")
         posts.update_post_source.assert_called_once_with(post, "source")
         posts.update_post_relations.assert_called_once_with(post, [1, 2])
@@ -85,7 +86,7 @@ def test_post_updating(context_factory, post_factory, user_factory, fake_datetim
         assert post.last_edit_time == datetime(1997, 1, 1)
 
 
-def test_uploading_from_url_saves_source(context_factory, post_factory, user_factory):
+def test_uploading_from_url_saves_source(client, post_factory, user_factory):
     post = post_factory()
     db.session.add(post)
     db.session.flush()
@@ -97,21 +98,19 @@ def test_uploading_from_url_saves_source(context_factory, post_factory, user_fac
         patch("lithica.func.snapshots.modify"),
     ):
         net.download.return_value = b"content"
-        api.post_api.update_post(
-            context_factory(
-                params={"contentUrl": "example.com", "version": 1},
+        ok(
+            client.put(
+                "/post/%s" % post.post_id,
                 user=user_factory(rank=model.User.RANK_REGULAR),
-            ),
-            {"post_id": post.post_id},
+                body={"contentUrl": "example.com", "version": 1},
+            )
         )
         net.download.assert_called_once_with("example.com", use_video_downloader=True)
         posts.update_post_content.assert_called_once_with(post, b"content")
         posts.update_post_source.assert_called_once_with(post, "example.com")
 
 
-def test_uploading_from_url_with_source_specified(
-    context_factory, post_factory, user_factory
-):
+def test_uploading_from_url_with_source_specified(client, post_factory, user_factory):
     post = post_factory()
     db.session.add(post)
     db.session.flush()
@@ -123,31 +122,27 @@ def test_uploading_from_url_with_source_specified(
         patch("lithica.func.snapshots.modify"),
     ):
         net.download.return_value = b"content"
-        api.post_api.update_post(
-            context_factory(
-                params={
+        ok(
+            client.put(
+                "/post/%s" % post.post_id,
+                user=user_factory(rank=model.User.RANK_REGULAR),
+                body={
                     "contentUrl": "example.com",
                     "source": "example2.com",
                     "version": 1,
                 },
-                user=user_factory(rank=model.User.RANK_REGULAR),
-            ),
-            {"post_id": post.post_id},
+            )
         )
         net.download.assert_called_once_with("example.com", use_video_downloader=True)
         posts.update_post_content.assert_called_once_with(post, b"content")
         posts.update_post_source.assert_called_once_with(post, "example2.com")
 
 
-def test_trying_to_update_non_existing(context_factory, user_factory):
-    with pytest.raises(posts.PostNotFoundError):
-        api.post_api.update_post(
-            context_factory(
-                params="whatever",
-                user=user_factory(rank=model.User.RANK_REGULAR),
-            ),
-            {"post_id": "1"},
-        )
+def test_trying_to_update_non_existing(client, user_factory):
+    assert_error(
+        client.put("/post/1", user=user_factory(rank=model.User.RANK_REGULAR)),
+        posts.PostNotFoundError,
+    )
 
 
 @pytest.mark.parametrize(
@@ -159,39 +154,38 @@ def test_trying_to_update_non_existing(context_factory, user_factory):
         ({}, {"relations": "..."}),
         ({}, {"notes": "..."}),
         ({}, {"flags": "..."}),
-        ({"content": "..."}, {}),
-        ({"thumbnail": "..."}, {}),
+        ({"content": b"..."}, {}),
+        ({"thumbnail": b"..."}, {}),
     ],
 )
 def test_trying_to_update_field_without_privileges(
-    context_factory, post_factory, user_factory, files, params
+    client, post_factory, user_factory, files, params
 ):
     post = post_factory()
     db.session.add(post)
     db.session.flush()
-    with pytest.raises(errors.AuthError):
-        api.post_api.update_post(
-            context_factory(
-                params={**params, **{"version": 1}},
-                files=files,
-                user=user_factory(rank=model.User.RANK_ANONYMOUS),
-            ),
-            {"post_id": post.post_id},
-        )
+    assert_error(
+        client.put(
+            "/post/%s" % post.post_id,
+            user=user_factory(rank=model.User.RANK_ANONYMOUS),
+            body={**params, **{"version": 1}},
+            files=files,
+        ),
+        errors.AuthError,
+    )
 
 
-def test_trying_to_create_tags_without_privileges(
-    context_factory, post_factory, user_factory
-):
+def test_trying_to_create_tags_without_privileges(client, post_factory, user_factory):
     post = post_factory()
     db.session.add(post)
     db.session.flush()
-    with pytest.raises(errors.AuthError), patch("lithica.func.posts.update_post_tags"):
+    with patch("lithica.func.posts.update_post_tags"):
         posts.update_post_tags.return_value = ["new-tag"]
-        api.post_api.update_post(
-            context_factory(
-                params={"tags": ["tag1", "tag2"], "version": 1},
+        assert_error(
+            client.put(
+                "/post/%s" % post.post_id,
                 user=user_factory(rank=model.User.RANK_REGULAR),
+                body={"tags": ["tag1", "tag2"], "version": 1},
             ),
-            {"post_id": post.post_id},
+            errors.AuthError,
         )

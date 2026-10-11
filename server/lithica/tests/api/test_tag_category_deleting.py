@@ -2,8 +2,9 @@ from unittest.mock import patch
 
 import pytest
 
-from lithica import api, db, errors, model
+from lithica import db, errors, model
 from lithica.func import snapshots, tag_categories
+from lithica.tests.api.http import assert_error, ok
 
 
 @pytest.fixture(autouse=True)
@@ -15,16 +16,15 @@ def inject_config(config_injector):
     )
 
 
-def test_deleting(user_factory, tag_category_factory, context_factory):
+def test_deleting(user_factory, tag_category_factory, client):
     auth_user = user_factory(rank=model.User.RANK_REGULAR)
     category = tag_category_factory(name="category")
     db.session.add(tag_category_factory(name="root"))
     db.session.add(category)
     db.session.flush()
     with patch("lithica.func.snapshots.delete"):
-        result = api.tag_category_api.delete_tag_category(
-            context_factory(params={"version": 1}, user=auth_user),
-            {"category_name": "category"},
+        result = ok(
+            client.delete("/tag-category/category", user=auth_user, body={"version": 1})
         )
         assert result == {}
         assert db.session.query(model.TagCategory).count() == 1
@@ -32,58 +32,57 @@ def test_deleting(user_factory, tag_category_factory, context_factory):
         snapshots.delete.assert_called_once_with(category, auth_user)
 
 
-def test_trying_to_delete_used(
-    user_factory, tag_category_factory, tag_factory, context_factory
-):
+def test_trying_to_delete_used(user_factory, tag_category_factory, tag_factory, client):
     category = tag_category_factory(name="category")
     db.session.add(category)
     db.session.flush()
     tag = tag_factory(names=["tag"], category=category)
     db.session.add(tag)
     db.session.commit()
-    with pytest.raises(tag_categories.TagCategoryIsInUseError):
-        api.tag_category_api.delete_tag_category(
-            context_factory(
-                params={"version": 1},
-                user=user_factory(rank=model.User.RANK_REGULAR),
-            ),
-            {"category_name": "category"},
-        )
+    assert_error(
+        client.delete(
+            "/tag-category/category",
+            user=user_factory(rank=model.User.RANK_REGULAR),
+            body={"version": 1},
+        ),
+        tag_categories.TagCategoryIsInUseError,
+    )
     assert db.session.query(model.TagCategory).count() == 1
 
 
-def test_trying_to_delete_last(user_factory, tag_category_factory, context_factory):
+def test_trying_to_delete_last(user_factory, tag_category_factory, client):
     db.session.add(tag_category_factory(name="root"))
     db.session.commit()
-    with pytest.raises(tag_categories.TagCategoryIsInUseError):
-        api.tag_category_api.delete_tag_category(
-            context_factory(
-                params={"version": 1},
-                user=user_factory(rank=model.User.RANK_REGULAR),
-            ),
-            {"category_name": "root"},
-        )
+    assert_error(
+        client.delete(
+            "/tag-category/root",
+            user=user_factory(rank=model.User.RANK_REGULAR),
+            body={"version": 1},
+        ),
+        tag_categories.TagCategoryIsInUseError,
+    )
 
 
-def test_trying_to_delete_non_existing(user_factory, context_factory):
-    with pytest.raises(tag_categories.TagCategoryNotFoundError):
-        api.tag_category_api.delete_tag_category(
-            context_factory(user=user_factory(rank=model.User.RANK_REGULAR)),
-            {"category_name": "bad"},
-        )
+def test_trying_to_delete_non_existing(user_factory, client):
+    assert_error(
+        client.delete(
+            "/tag-category/bad", user=user_factory(rank=model.User.RANK_REGULAR)
+        ),
+        tag_categories.TagCategoryNotFoundError,
+    )
 
 
 def test_trying_to_delete_without_privileges(
-    user_factory, tag_category_factory, context_factory
+    user_factory, tag_category_factory, client
 ):
     db.session.add(tag_category_factory(name="category"))
     db.session.commit()
-    with pytest.raises(errors.AuthError):
-        api.tag_category_api.delete_tag_category(
-            context_factory(
-                params={"version": 1},
-                user=user_factory(rank=model.User.RANK_ANONYMOUS),
-            ),
-            {"category_name": "category"},
-        )
+    assert_error(
+        client.delete(
+            "/tag-category/category",
+            user=user_factory(rank=model.User.RANK_ANONYMOUS),
+            body={"version": 1},
+        ),
+        errors.AuthError,
+    )
     assert db.session.query(model.TagCategory).count() == 1

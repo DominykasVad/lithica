@@ -73,6 +73,13 @@ respect). One line each, max ~120 characters: `date — task — decision (reaso
 No status notes, no "left untouched", no results — those go in commit messages.
 When a phase is merged, its entries are folded into the tables above or deleted.
 
+- 2026-10-11 — 2.1 — Endpoints return serializer output through `JsonResponse`; response models only document it (no wire drift).
+- 2026-10-11 — 2.1 — Request bodies are read by our own dependency, not FastAPI's (JSON may be the `metadata` multipart part).
+- 2026-10-11 — 2.1 — `THREADS` sizes the request thread pool, `WORKERS` (default 1) the uvicorn processes (keeps the old knob).
+- 2026-10-11 — 2.3 — Uploads, downloads and stored files are file-backed `Content`; server-made data stays `bytes`; code takes either.
+- 2026-10-11 — 2.3 — A request over `max_upload_size` (default 1 GiB, nginx's limit) gets 413 `RequestTooLargeError` (new status).
+- 2026-10-11 — 2.5 — API docs (`docs`, `redoc`, `openapi.json`) need `api_docs` (default off, dev image on); pages use a CDN.
+
 ---
 
 ## Phase 0 — done (merged in PR #1)
@@ -105,46 +112,46 @@ Goal: the custom `rest/` framework is gone; the API is FastAPI with a
 generated, enforced OpenAPI contract; uploads stream to disk.
 
 ### 2.0 Reconcile models and migrations
-- [ ] One Alembic migration that brings the migrated schema in line with the models (foreign keys on `comment` and `pool_post`, missing indexes, `pool_name.name` length). Add a CI check that `alembic check` (autogenerate finds no differences) passes on a database migrated from empty.
+- [x] One Alembic migration that brings the migrated schema in line with the models (foreign keys on `comment` and `pool_post`, missing indexes, `pool_name.name` length). Add a CI check that `alembic check` (autogenerate finds no differences) passes on a database migrated from empty.
 
 ### 2.1 Skeleton
-- [ ] `lithica/app.py`: FastAPI app, run by uvicorn. Mount the existing WSGI app with `a2wsgi` as the fallback, so unported routes keep working.
-- [ ] Session scoping: replace thread-local `scoped_session` with a `ContextVar`-scoped one, set and cleared by middleware per request. Background threads set their own scope. Add tests that two concurrent requests never share a session.
-- [ ] Error handling: exception handlers that produce the existing error body (`name`, `title`, `description`, extra fields) and status codes, mirroring `facade.py`.
-- [ ] Auth as a dependency (Basic, Token, anonymous), replacing `middleware/authenticator.py`. Privilege checks as a dependency factory, e.g. `Depends(require("posts:list"))`.
-- [ ] Serialization: `fields=` query parameter keeps working; response models describe the full shape with all fields optional (document why in the model module).
-- [ ] Startup work (config validation, logging, purge thread) moves to the FastAPI lifespan.
-- [ ] Dev: `uvicorn --reload` replaces hupper; release: uvicorn with `--workers` from env (default 1 until phase 1.4 is verified multi-process safe, then raise).
+- [x] `lithica/app.py`: FastAPI app, run by uvicorn. Mount the existing WSGI app with `a2wsgi` as the fallback, so unported routes keep working.
+- [x] Session scoping: replace thread-local `scoped_session` with a `ContextVar`-scoped one, set and cleared by middleware per request. Background threads set their own scope. Add tests that two concurrent requests never share a session.
+- [x] Error handling: exception handlers that produce the existing error body (`name`, `title`, `description`, extra fields) and status codes, mirroring `facade.py`.
+- [x] Auth as a dependency (Basic, Token, anonymous), replacing `middleware/authenticator.py`. Privilege checks as a dependency factory, e.g. `Depends(require("posts:list"))`.
+- [x] Serialization: `fields=` query parameter keeps working; response models describe the full shape with all fields optional (document why in the model module).
+- [x] Startup work (config validation, logging, purge thread) moves to the FastAPI lifespan.
+- [x] Dev: `uvicorn --reload` replaces hupper; release: uvicorn with `--workers` from env (default 1 until phase 1.4 is verified multi-process safe, then raise).
 
 ### 2.2 Port routes (one router per resource, one commit per router)
 For each: port handlers to sync `def` endpoints with Pydantic request models,
 then rewrite that resource's `tests/api/` tests to go through FastAPI's
 `TestClient` (HTTP level). Keep every existing assertion.
 
-- [ ] info
-- [ ] users, user tokens
-- [ ] password reset
-- [ ] tag categories, tags
-- [ ] pool categories, pools
-- [ ] comments
-- [ ] snapshots
-- [ ] uploads (temporary upload tokens)
-- [ ] posts (largest; includes multipart create/update, merge, featuring, similar search)
+- [x] info
+- [x] users, user tokens
+- [x] password reset
+- [x] tag categories, tags
+- [x] pool categories, pools
+- [x] comments
+- [x] snapshots
+- [x] uploads (temporary upload tokens)
+- [x] posts (largest; includes multipart create/update, merge, featuring, similar search)
 
 ### 2.3 Uploads
-- [ ] Multipart and `contentUrl` downloads stream to a temp file; hashing, MIME detection and thumbnailing read from the file, not from a full in-memory `bytes`. Configurable max upload size, enforced by the server (and matched in nginx).
-- [ ] Memory test: uploading a large video does not grow server RSS by the file size.
+- [x] Multipart and `contentUrl` downloads stream to a temp file; hashing, MIME detection and thumbnailing read from the file, not from a full in-memory `bytes`. Configurable max upload size, enforced by the server (and matched in nginx).
+- [x] Memory test: uploading a large video does not grow server RSS by the file size.
 
 ### 2.4 Remove the old framework
-- [ ] Delete `rest/`, `facade.py`, `middleware/`, the `a2wsgi` mount and the multipart shim from phase 0.
-- [ ] Entry point everywhere is `lithica.app:app`.
+- [x] Delete `rest/`, `facade.py`, `middleware/`, the `a2wsgi` mount and the multipart shim from phase 0.
+- [x] Entry point everywhere is `lithica.app:app`.
 
 ### 2.5 OpenAPI contract
-- [ ] `python -m lithica.openapi` prints the spec; commit `doc/openapi.json`.
-- [ ] CI fails if the generated spec differs from the committed one.
-- [ ] Swagger/ReDoc: enabled in development; in production behind a config flag (default off) or admin-only.
-- [ ] Move narrative parts of `doc/API.md` (search syntax, resource concepts, error model, auth) to `doc/`; retire the endpoint reference.
-- [ ] Spot-check wire compatibility: the legacy client smoke test passes.
+- [x] `python -m lithica.openapi` prints the spec; commit `doc/openapi.json`.
+- [x] CI fails if the generated spec differs from the committed one.
+- [x] Swagger/ReDoc: enabled in development; in production behind a config flag (default off) or admin-only.
+- [x] Move narrative parts of `doc/API.md` (search syntax, resource concepts, error model, auth) to `doc/`; retire the endpoint reference.
+- [x] Spot-check wire compatibility: the legacy client smoke test passes.
 
 **Exit criteria:** no `rest/` code left; all tests green through HTTP;
 OpenAPI committed and enforced; streaming uploads verified; legacy client

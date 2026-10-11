@@ -1,9 +1,10 @@
 import threading
-from datetime import datetime
 
 import pytest
 
-from lithica import api, db, model
+from lithica import db, model
+from lithica.api import info_api
+from lithica.tests.api.http import assert_fits, ok
 
 
 class _ImmediateThread:
@@ -22,14 +23,17 @@ class _ImmediateThread:
 def test_info_api(
     tmpdir,
     config_injector,
-    context_factory,
+    client,
     post_factory,
     user_factory,
     fake_datetime,
     monkeypatch,
 ):
-    monkeypatch.setattr(api.info_api.threading, "Thread", _ImmediateThread)
-    monkeypatch.setattr(api.info_api, "_disk_usage", api.info_api._DiskUsage())
+    # measure inline instead of on a thread, so the result is there at once
+    monkeypatch.setattr(
+        info_api._DiskUsage, "_start_measuring", lambda self: self._measure()
+    )
+    monkeypatch.setattr(info_api, "_disk_usage", info_api._DiskUsage())
     directory = tmpdir.mkdir("data")
     directory.join("test.txt").write("abc")
     auth_user = user_factory(rank=model.User.RANK_REGULAR)
@@ -76,31 +80,31 @@ def test_info_api(
     }
 
     with fake_datetime("2016-01-01 13:00"):
-        assert api.info_api.get_info(context_factory(user=auth_user)) == {
+        assert ok(client.get("/info", user=auth_user)) == {
             "postCount": 2,
             "diskUsage": 3,
             "featuredPost": None,
             "featuringTime": None,
             "featuringUser": None,
-            "serverTime": datetime(2016, 1, 1, 13, 0),
+            "serverTime": "2016-01-01T13:00:00Z",
             "config": expected_config_key,
         }
     directory.join("test2.txt").write("abc")
     with fake_datetime("2016-01-03 13:01"):
-        assert api.info_api.get_info(context_factory(user=auth_user)) == {
+        assert ok(client.get("/info", user=auth_user)) == {
             "postCount": 2,
             "diskUsage": 6,  # cache expired
             "featuredPost": None,
             "featuringTime": None,
             "featuringUser": None,
-            "serverTime": datetime(2016, 1, 3, 13, 1),
+            "serverTime": "2016-01-03T13:01:00Z",
             "config": expected_config_key,
         }
     with fake_datetime("2016-01-03 13:01"):
-        assert api.info_api.get_info(context_factory(user=anon_user)) == {
+        assert ok(client.get("/info", user=anon_user)) == {
             "postCount": 2,
             "diskUsage": 6,  # cache expired
-            "serverTime": datetime(2016, 1, 3, 13, 1),
+            "serverTime": "2016-01-03T13:01:00Z",
             "config": expected_config_key,
         }
 
@@ -114,7 +118,7 @@ def data_dir(tmpdir, config_injector):
 
 
 def test_disk_usage_is_measured_in_the_background(data_dir):
-    disk_usage = api.info_api._DiskUsage()
+    disk_usage = info_api._DiskUsage()
     # the request that starts the first measurement does not wait for it
     first = disk_usage.get()
     assert first in (None, 3)
@@ -125,8 +129,8 @@ def test_disk_usage_is_measured_in_the_background(data_dir):
 
 
 def test_disk_usage_is_kept_for_the_ttl(data_dir, fake_datetime, monkeypatch):
-    monkeypatch.setattr(api.info_api.threading, "Thread", _ImmediateThread)
-    disk_usage = api.info_api._DiskUsage()
+    monkeypatch.setattr(info_api.threading, "Thread", _ImmediateThread)
+    disk_usage = info_api._DiskUsage()
     with fake_datetime("2016-01-01 13:00:00"):
         assert disk_usage.get() == 3
     data_dir.join("test2.txt").write("abc")
@@ -139,7 +143,7 @@ def test_disk_usage_is_kept_for_the_ttl(data_dir, fake_datetime, monkeypatch):
 def test_disk_usage_starts_one_measurement_at_a_time(data_dir, monkeypatch):
     started = []
     release = threading.Event()
-    disk_usage = api.info_api._DiskUsage()
+    disk_usage = info_api._DiskUsage()
     real_measure = disk_usage._measure
 
     def slow_measure():
@@ -173,12 +177,90 @@ def test_disk_usage_recovers_from_a_failed_measurement(
             except OSError:
                 pass
 
-    monkeypatch.setattr(api.info_api.threading, "Thread", _FailingOnceThread)
-    disk_usage = api.info_api._DiskUsage()
+    monkeypatch.setattr(info_api.threading, "Thread", _FailingOnceThread)
+    disk_usage = info_api._DiskUsage()
     with monkeypatch.context() as patched:
         patched.setattr(
-            api.info_api.os, "walk", lambda _path: (_ for _ in ()).throw(OSError())
+            info_api.os, "walk", lambda _path: (_ for _ in ()).throw(OSError())
         )
         assert disk_usage.get() is None
     # the failure did not leave the "measuring" flag set
     assert disk_usage.get() == 3
+
+
+def test_info_fits_its_response_model(
+    client,
+    config_injector,
+    tmpdir,
+    post_factory,
+    user_factory,
+    tag_category_factory,
+    monkeypatch,
+):
+    from lithica.api import resources
+    from lithica.func import posts
+
+    monkeypatch.setattr(
+        info_api._DiskUsage, "_start_measuring", lambda self: self._measure()
+    )
+    monkeypatch.setattr(info_api, "_disk_usage", info_api._DiskUsage())
+    config_injector(
+        {
+            "name": "test installation",
+            "contact_email": None,
+            "enable_safety": True,
+            "data_dir": str(tmpdir),
+            "data_url": "http://example.com/data/",
+            "secret": "test",
+            "user_name_regex": "1",
+            "password_regex": "2",
+            "tag_name_regex": "3",
+            "tag_category_name_regex": "4",
+            "default_rank": "regular",
+            "thumbnails": {"post_width": 300, "post_height": 300, "avatar_width": 30},
+            "privileges": {
+                "posts:view:featured": "regular",
+                "users:edit:any:email": "moderator",
+            },
+            "smtp": {"host": None},
+        }
+    )
+    user = user_factory(rank=model.User.RANK_REGULAR)
+    post = post_factory()
+    db.session.add_all([user, post, tag_category_factory(default=True)])
+    db.session.flush()
+
+    anonymous = ok(client.get("/info"))
+    assert "featuredPost" not in anonymous
+    assert_fits(resources.Info, anonymous, complete=False)
+
+    nothing_featured = ok(client.get("/info", user=user))
+    assert nothing_featured["featuredPost"] is None
+    assert_fits(resources.Info, nothing_featured)
+
+    posts.feature_post(post, user)
+    db.session.flush()
+    featured = ok(client.get("/info", user=user))
+    assert featured["featuredPost"]["id"] == post.post_id
+    assert featured["featuringUser"]["name"] == user.name
+    assert_fits(resources.Info, featured)
+
+
+def test_info_with_a_trailing_slash(client, config_injector, tmpdir, monkeypatch):
+    monkeypatch.setattr(info_api, "_disk_usage", info_api._DiskUsage())
+    config_injector(
+        {
+            "name": "n",
+            "contact_email": None,
+            "enable_safety": True,
+            "data_dir": str(tmpdir),
+            "user_name_regex": "1",
+            "password_regex": "2",
+            "tag_name_regex": "3",
+            "tag_category_name_regex": "4",
+            "default_rank": "regular",
+            "privileges": {"posts:view:featured": "regular"},
+            "smtp": {"host": None},
+        }
+    )
+    assert ok(client.get("/info/"))["postCount"] == 0

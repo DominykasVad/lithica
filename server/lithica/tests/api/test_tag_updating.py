@@ -2,8 +2,9 @@ from unittest.mock import patch
 
 import pytest
 
-from lithica import api, db, errors, model
+from lithica import db, errors, model
 from lithica.func import snapshots, tags
+from lithica.tests.api.http import assert_error, ok
 
 
 @pytest.fixture(autouse=True)
@@ -22,7 +23,7 @@ def inject_config(config_injector):
     )
 
 
-def test_simple_updating(user_factory, tag_factory, context_factory):
+def test_simple_updating(user_factory, tag_factory, client):
     auth_user = user_factory(rank=model.User.RANK_REGULAR)
     tag = tag_factory(names=["tag1", "tag2"])
     db.session.add(tag)
@@ -40,9 +41,11 @@ def test_simple_updating(user_factory, tag_factory, context_factory):
     ):
         tags.get_or_create_tags_by_names.return_value = ([], [])
         tags.serialize_tag.return_value = "serialized tag"
-        result = api.tag_api.update_tag(
-            context_factory(
-                params={
+        result = ok(
+            client.put(
+                "/tag/tag1",
+                user=auth_user,
+                body={
                     "version": 1,
                     "names": ["tag3"],
                     "category": "character",
@@ -50,9 +53,7 @@ def test_simple_updating(user_factory, tag_factory, context_factory):
                     "suggestions": ["sug1", "sug2"],
                     "implications": ["imp1", "imp2"],
                 },
-                user=auth_user,
-            ),
-            {"tag_name": "tag1"},
+            )
         )
         assert result == "serialized tag"
         tags.create_tag.assert_not_called()
@@ -75,7 +76,7 @@ def test_simple_updating(user_factory, tag_factory, context_factory):
         "suggestions",
     ],
 )
-def test_omitting_optional_field(user_factory, tag_factory, context_factory, field):
+def test_omitting_optional_field(user_factory, tag_factory, client, field):
     db.session.add(tag_factory(names=["tag"]))
     db.session.commit()
     params = {
@@ -92,24 +93,24 @@ def test_omitting_optional_field(user_factory, tag_factory, context_factory, fie
         patch("lithica.func.tags.update_tag_category_name"),
         patch("lithica.func.tags.serialize_tag"),
     ):
-        api.tag_api.update_tag(
-            context_factory(
-                params={**params, **{"version": 1}},
+        ok(
+            client.put(
+                "/tag/tag",
                 user=user_factory(rank=model.User.RANK_REGULAR),
-            ),
-            {"tag_name": "tag"},
+                body={**params, **{"version": 1}},
+            )
         )
 
 
-def test_trying_to_update_non_existing(user_factory, context_factory):
-    with pytest.raises(tags.TagNotFoundError):
-        api.tag_api.update_tag(
-            context_factory(
-                params={"names": ["dummy"]},
-                user=user_factory(rank=model.User.RANK_REGULAR),
-            ),
-            {"tag_name": "tag1"},
-        )
+def test_trying_to_update_non_existing(user_factory, client):
+    assert_error(
+        client.put(
+            "/tag/tag1",
+            user=user_factory(rank=model.User.RANK_REGULAR),
+            body={"names": ["dummy"]},
+        ),
+        tags.TagNotFoundError,
+    )
 
 
 @pytest.mark.parametrize(
@@ -121,24 +122,22 @@ def test_trying_to_update_non_existing(user_factory, context_factory):
         {"implications": ["whatever"]},
     ],
 )
-def test_trying_to_update_without_privileges(
-    user_factory, tag_factory, context_factory, params
-):
+def test_trying_to_update_without_privileges(user_factory, tag_factory, client, params):
     db.session.add(tag_factory(names=["tag"]))
     db.session.commit()
-    with pytest.raises(errors.AuthError):
-        api.tag_api.update_tag(
-            context_factory(
-                params={**params, **{"version": 1}},
-                user=user_factory(rank=model.User.RANK_ANONYMOUS),
-            ),
-            {"tag_name": "tag"},
-        )
+    assert_error(
+        client.put(
+            "/tag/tag",
+            user=user_factory(rank=model.User.RANK_ANONYMOUS),
+            body={**params, **{"version": 1}},
+        ),
+        errors.AuthError,
+    )
 
 
 @pytest.mark.parametrize("type", ["suggestions", "implications"])
 def test_trying_to_create_tags_without_privileges(
-    config_injector, context_factory, tag_factory, user_factory, type
+    config_injector, client, tag_factory, user_factory, type
 ):
     tag = tag_factory(names=["tag"])
     db.session.add(tag)
@@ -154,11 +153,11 @@ def test_trying_to_create_tags_without_privileges(
     )
     with patch("lithica.func.tags.get_or_create_tags_by_names"):
         tags.get_or_create_tags_by_names.return_value = ([], ["new-tag"])
-        with pytest.raises(errors.AuthError):
-            api.tag_api.update_tag(
-                context_factory(
-                    params={type: ["tag1", "tag2"], "version": 1},
-                    user=user_factory(rank=model.User.RANK_REGULAR),
-                ),
-                {"tag_name": "tag"},
-            )
+        assert_error(
+            client.put(
+                "/tag/tag",
+                user=user_factory(rank=model.User.RANK_REGULAR),
+                body={type: ["tag1", "tag2"], "version": 1},
+            ),
+            errors.AuthError,
+        )

@@ -2,8 +2,9 @@ from unittest.mock import patch
 
 import pytest
 
-from lithica import api, db, errors, model
+from lithica import db, errors, model
 from lithica.func import net, posts, snapshots
+from lithica.tests.api.http import assert_error, ok
 
 
 @pytest.fixture(autouse=True)
@@ -21,7 +22,7 @@ def inject_config(config_injector):
     )
 
 
-def test_creating_minimal_posts(context_factory, post_factory, user_factory):
+def test_creating_minimal_posts(client, post_factory, user_factory):
     auth_user = user_factory(rank=model.User.RANK_REGULAR)
     post = post_factory()
     db.session.add(post)
@@ -41,36 +42,37 @@ def test_creating_minimal_posts(context_factory, post_factory, user_factory):
         posts.create_post.return_value = (post, [])
         posts.serialize_post.return_value = "serialized post"
 
-        result = api.post_api.create_post(
-            context_factory(
-                params={
+        result = ok(
+            client.post(
+                "/posts",
+                user=auth_user,
+                body={
                     "safety": "safe",
                     "tags": ["tag1", "tag2"],
                 },
                 files={
-                    "content": "post-content",
-                    "thumbnail": "post-thumbnail",
+                    "content": b"post-content",
+                    "thumbnail": b"post-thumbnail",
                 },
-                user=auth_user,
             )
         )
 
         assert result == "serialized post"
         posts.create_post.assert_called_once_with(
-            "post-content", ["tag1", "tag2"], auth_user
+            b"post-content", ["tag1", "tag2"], auth_user
         )
-        posts.update_post_thumbnail.assert_called_once_with(post, "post-thumbnail")
+        posts.update_post_thumbnail.assert_called_once_with(post, b"post-thumbnail")
         posts.update_post_safety.assert_called_once_with(post, "safe")
         posts.update_post_source.assert_called_once_with(post, "")
         posts.update_post_relations.assert_called_once_with(post, [])
         posts.update_post_notes.assert_called_once_with(post, [])
         posts.update_post_flags.assert_called_once_with(post, [])
-        posts.update_post_thumbnail.assert_called_once_with(post, "post-thumbnail")
+        posts.update_post_thumbnail.assert_called_once_with(post, b"post-thumbnail")
         posts.serialize_post.assert_called_once_with(post, auth_user, options=[])
         snapshots.create.assert_called_once_with(post, auth_user)
 
 
-def test_creating_full_posts(context_factory, post_factory, user_factory):
+def test_creating_full_posts(client, post_factory, user_factory):
     auth_user = user_factory(rank=model.User.RANK_REGULAR)
     post = post_factory()
     db.session.add(post)
@@ -89,9 +91,11 @@ def test_creating_full_posts(context_factory, post_factory, user_factory):
         posts.create_post.return_value = (post, [])
         posts.serialize_post.return_value = "serialized post"
 
-        result = api.post_api.create_post(
-            context_factory(
-                params={
+        result = ok(
+            client.post(
+                "/posts",
+                user=auth_user,
+                body={
                     "safety": "safe",
                     "tags": ["tag1", "tag2"],
                     "relations": [1, 2],
@@ -100,15 +104,14 @@ def test_creating_full_posts(context_factory, post_factory, user_factory):
                     "flags": ["flag1", "flag2"],
                 },
                 files={
-                    "content": "post-content",
+                    "content": b"post-content",
                 },
-                user=auth_user,
             )
         )
 
         assert result == "serialized post"
         posts.create_post.assert_called_once_with(
-            "post-content", ["tag1", "tag2"], auth_user
+            b"post-content", ["tag1", "tag2"], auth_user
         )
         posts.update_post_safety.assert_called_once_with(post, "safe")
         posts.update_post_source.assert_called_once_with(post, "source")
@@ -119,9 +122,7 @@ def test_creating_full_posts(context_factory, post_factory, user_factory):
         snapshots.create.assert_called_once_with(post, auth_user)
 
 
-def test_anonymous_uploads(
-    config_injector, context_factory, post_factory, user_factory
-):
+def test_anonymous_uploads(config_injector, client, post_factory, user_factory):
     auth_user = user_factory(rank=model.User.RANK_REGULAR)
     post = post_factory()
     db.session.add(post)
@@ -142,26 +143,27 @@ def test_anonymous_uploads(
             }
         )
         posts.create_post.return_value = [post, []]
-        api.post_api.create_post(
-            context_factory(
-                params={
+        ok(
+            client.post(
+                "/posts",
+                user=auth_user,
+                body={
                     "safety": "safe",
                     "tags": ["tag1", "tag2"],
                     "anonymous": "True",
                 },
                 files={
-                    "content": "post-content",
+                    "content": b"post-content",
                 },
-                user=auth_user,
             )
         )
         posts.create_post.assert_called_once_with(
-            "post-content", ["tag1", "tag2"], None
+            b"post-content", ["tag1", "tag2"], None
         )
 
 
 def test_creating_from_url_saves_source(
-    config_injector, context_factory, post_factory, user_factory
+    config_injector, client, post_factory, user_factory
 ):
     auth_user = user_factory(rank=model.User.RANK_REGULAR)
     post = post_factory()
@@ -185,14 +187,15 @@ def test_creating_from_url_saves_source(
         )
         net.download.return_value = b"content"
         posts.create_post.return_value = [post, []]
-        api.post_api.create_post(
-            context_factory(
-                params={
+        ok(
+            client.post(
+                "/posts",
+                user=auth_user,
+                body={
                     "safety": "safe",
                     "tags": ["tag1", "tag2"],
                     "contentUrl": "example.com",
                 },
-                user=auth_user,
             )
         )
         net.download.assert_called_once_with("example.com", use_video_downloader=False)
@@ -203,7 +206,7 @@ def test_creating_from_url_saves_source(
 
 
 def test_creating_from_url_with_source_specified(
-    config_injector, context_factory, post_factory, user_factory
+    config_injector, client, post_factory, user_factory
 ):
     auth_user = user_factory(rank=model.User.RANK_REGULAR)
     post = post_factory()
@@ -227,15 +230,16 @@ def test_creating_from_url_with_source_specified(
         )
         net.download.return_value = b"content"
         posts.create_post.return_value = [post, []]
-        api.post_api.create_post(
-            context_factory(
-                params={
+        ok(
+            client.post(
+                "/posts",
+                user=auth_user,
+                body={
                     "safety": "safe",
                     "tags": ["tag1", "tag2"],
                     "contentUrl": "example.com",
                     "source": "example2.com",
                 },
-                user=auth_user,
             )
         )
         net.download.assert_called_once_with("example.com", use_video_downloader=True)
@@ -246,23 +250,24 @@ def test_creating_from_url_with_source_specified(
 
 
 @pytest.mark.parametrize("field", ["safety"])
-def test_trying_to_omit_mandatory_field(context_factory, user_factory, field):
+def test_trying_to_omit_mandatory_field(client, user_factory, field):
     params = {
         "safety": "safe",
     }
     del params[field]
-    with pytest.raises(errors.MissingRequiredParameterError):
-        api.post_api.create_post(
-            context_factory(
-                params=params,
-                files={"content": "..."},
-                user=user_factory(rank=model.User.RANK_REGULAR),
-            )
-        )
+    assert_error(
+        client.post(
+            "/posts",
+            user=user_factory(rank=model.User.RANK_REGULAR),
+            body=params,
+            files={"content": "..."},
+        ),
+        errors.MissingRequiredParameterError,
+    )
 
 
 @pytest.mark.parametrize("field", ["tags", "relations", "source", "notes", "flags"])
-def test_omitting_optional_field(field, context_factory, post_factory, user_factory):
+def test_omitting_optional_field(field, client, post_factory, user_factory):
     auth_user = user_factory(rank=model.User.RANK_REGULAR)
     post = post_factory()
     db.session.add(post)
@@ -288,18 +293,19 @@ def test_omitting_optional_field(field, context_factory, post_factory, user_fact
     ):
         posts.create_post.return_value = (post, [])
         posts.serialize_post.return_value = "serialized post"
-        result = api.post_api.create_post(
-            context_factory(
-                params=params,
-                files={"content": "post-content"},
+        result = ok(
+            client.post(
+                "/posts",
                 user=auth_user,
+                body=params,
+                files={"content": b"post-content"},
             )
         )
         assert result == "serialized post"
 
 
 def test_errors_not_spending_ids(
-    config_injector, tmpdir, context_factory, read_asset, user_factory
+    config_injector, tmpdir, client, read_asset, user_factory
 ):
     config_injector(
         {
@@ -325,23 +331,23 @@ def test_errors_not_spending_ids(
         patch("lithica.func.snapshots._post_to_webhooks"),
     ):
         posts.serialize_post.side_effect = lambda post, *_, **__: post.post_id
-        post1_id = api.post_api.create_post(
-            context_factory(
-                params={"safety": "safe", "tags": []},
-                files={"content": read_asset("png.png")},
+        post1_id = ok(
+            client.post(
+                "/posts",
                 user=auth_user,
+                body={"safety": "safe", "tags": []},
+                files={"content": read_asset("png.png")},
             )
         )
-
-    # erroreous request (duplicate post)
-    with pytest.raises(posts.PostAlreadyUploadedError):
-        api.post_api.create_post(
-            context_factory(
-                params={"safety": "safe", "tags": []},
-                files={"content": read_asset("png.png")},
-                user=auth_user,
-            )
-        )
+    assert_error(
+        client.post(
+            "/posts",
+            user=auth_user,
+            body={"safety": "safe", "tags": []},
+            files={"content": read_asset("png.png")},
+        ),
+        posts.PostAlreadyUploadedError,
+    )
 
     # successful request
     with (
@@ -350,11 +356,12 @@ def test_errors_not_spending_ids(
         patch("lithica.func.snapshots._post_to_webhooks"),
     ):
         posts.serialize_post.side_effect = lambda post, *_, **__: post.post_id
-        post2_id = api.post_api.create_post(
-            context_factory(
-                params={"safety": "safe", "tags": []},
-                files={"content": read_asset("jpeg.jpg")},
+        post2_id = ok(
+            client.post(
+                "/posts",
                 user=auth_user,
+                body={"safety": "safe", "tags": []},
+                files={"content": read_asset("jpeg.jpg")},
             )
         )
 
@@ -366,31 +373,29 @@ def test_errors_not_spending_ids(
     assert post2_id == post1_id + 1
 
 
-def test_trying_to_omit_content(context_factory, user_factory):
-    with pytest.raises(errors.MissingRequiredFileError):
-        api.post_api.create_post(
-            context_factory(
-                params={
-                    "safety": "safe",
-                    "tags": ["tag1", "tag2"],
-                },
-                user=user_factory(rank=model.User.RANK_REGULAR),
-            )
-        )
+def test_trying_to_omit_content(client, user_factory):
+    assert_error(
+        client.post(
+            "/posts",
+            user=user_factory(rank=model.User.RANK_REGULAR),
+            body={
+                "safety": "safe",
+                "tags": ["tag1", "tag2"],
+            },
+        ),
+        errors.MissingRequiredFileError,
+    )
 
 
-def test_trying_to_create_post_without_privileges(context_factory, user_factory):
-    with pytest.raises(errors.AuthError):
-        api.post_api.create_post(
-            context_factory(
-                params="whatever",
-                user=user_factory(rank=model.User.RANK_ANONYMOUS),
-            )
-        )
+def test_trying_to_create_post_without_privileges(client, user_factory):
+    assert_error(
+        client.post("/posts", user=user_factory(rank=model.User.RANK_ANONYMOUS)),
+        errors.AuthError,
+    )
 
 
 def test_trying_to_create_tags_without_privileges(
-    config_injector, context_factory, user_factory
+    config_injector, client, user_factory
 ):
     config_injector(
         {
@@ -403,20 +408,21 @@ def test_trying_to_create_tags_without_privileges(
         }
     )
     with (
-        pytest.raises(errors.AuthError),
         patch("lithica.func.posts.update_post_content"),
         patch("lithica.func.posts.update_post_tags"),
     ):
         posts.update_post_tags.return_value = ["new-tag"]
-        api.post_api.create_post(
-            context_factory(
-                params={
+        assert_error(
+            client.post(
+                "/posts",
+                user=user_factory(rank=model.User.RANK_REGULAR),
+                body={
                     "safety": "safe",
                     "tags": ["tag1", "tag2"],
                 },
                 files={
                     "content": posts.EMPTY_PIXEL,
                 },
-                user=user_factory(rank=model.User.RANK_REGULAR),
-            )
+            ),
+            errors.AuthError,
         )

@@ -1,6 +1,17 @@
-`szurubooru` uses REST API for all operations.
+# Lithica API
 
+This document explains how the API works: authentication, uploads, errors,
+field selection, versioning, what the resources mean and how to search.
 
+The reference of every endpoint, with its parameters and responses, is the
+OpenAPI document [`openapi.json`](openapi.json). It is generated from the
+server's code and kept in step with it by CI. A running server can show it
+as interactive documentation at `docs` (Swagger UI) and `redoc`, next to the
+API itself, when `api_docs` is enabled in the server's config; the
+development image enables it.
+
+Depending on the deployment, the API's URLs are relative to some base path;
+with the client image in front, that is `/api/`.
 
 # Table of contents
 
@@ -14,81 +25,7 @@
    - [Field selecting](#field-selecting)
    - [Versioning](#versioning)
    - [Webhooks](#webhooks)
-
-2. [API reference](#api-reference)
-
-    - Tag categories
-        - [Listing tag categories](#listing-tag-categories)
-        - [Creating tag category](#creating-tag-category)
-        - [Updating tag category](#updating-tag-category)
-        - [Getting tag category](#getting-tag-category)
-        - [Deleting tag category](#deleting-tag-category)
-        - [Setting default tag category](#setting-default-tag-category)
-    - Tags
-        - [Listing tags](#listing-tags)
-        - [Creating tag](#creating-tag)
-        - [Updating tag](#updating-tag)
-        - [Getting tag](#getting-tag)
-        - [Deleting tag](#deleting-tag)
-        - [Merging tags](#merging-tags)
-        - [Listing tag siblings](#listing-tag-siblings)
-    - Posts
-        - [Listing posts](#listing-posts)
-        - [Creating post](#creating-post)
-        - [Updating post](#updating-post)
-        - [Getting post](#getting-post)
-        - [Getting around post](#getting-around-post)
-        - [Deleting post](#deleting-post)
-        - [Merging posts](#merging-posts)
-        - [Rating post](#rating-post)
-        - [Adding post to favorites](#adding-post-to-favorites)
-        - [Removing post from favorites](#removing-post-from-favorites)
-        - [Getting featured post](#getting-featured-post)
-        - [Featuring post](#featuring-post)
-        - [Reverse image search](#reverse-image-search)
-    - Pool categories
-        - [Listing pool categories](#listing-pool-categories)
-        - [Creating pool category](#creating-pool-category)
-        - [Updating pool category](#updating-pool-category)
-        - [Getting pool category](#getting-pool-category)
-        - [Deleting pool category](#deleting-pool-category)
-        - [Setting default pool category](#setting-default-pool-category)
-    - Pools
-        - [Listing pools](#listing-pools)
-        - [Creating pool](#creating-pool)
-        - [Updating pool](#updating-pool)
-        - [Getting pool](#getting-pool)
-        - [Deleting pool](#deleting-pool)
-        - [Merging pools](#merging-pools)
-    - Comments
-        - [Listing comments](#listing-comments)
-        - [Creating comment](#creating-comment)
-        - [Updating comment](#updating-comment)
-        - [Getting comment](#getting-comment)
-        - [Deleting comment](#deleting-comment)
-        - [Rating comment](#rating-comment)
-    - Users
-        - [Listing users](#listing-users)
-        - [Creating user](#creating-user)
-        - [Updating user](#updating-user)
-        - [Getting user](#getting-user)
-        - [Deleting user](#deleting-user)
-    - User Tokens
-        - [Listing user tokens](#listing-user-tokens)
-        - [Creating user token](#creating-user-token)
-        - [Updating user token](#updating-user-token)
-        - [Deleting user token](#deleting-user-token)
-    - Password reset
-        - [Password reset - step 1: mail request](#password-reset---step-2-confirmation)
-        - [Password reset - step 2: confirmation](#password-reset---step-2-confirmation)
-    - Snapshots
-        - [Listing snapshots](#listing-snapshots)
-    - Global info
-        - [Getting global info](#getting-global-info)
-    - File uploads
-        - [Uploading temporary file](#uploading-temporary-file)
-
-3. [Resources](#resources)
+2. [Resources](#resources)
 
    - [User](#user)
    - [Micro user](#micro-user)
@@ -98,19 +35,23 @@
    - [Micro tag](#micro-tag)
    - [Post](#post)
    - [Micro post](#micro-post)
+   - [Note](#note)
    - [Pool category](#pool-category)
    - [Pool](#pool)
    - [Micro pool](#micro-pool)
-   - [Note](#note)
    - [Comment](#comment)
    - [Snapshot](#snapshot)
    - [Unpaged search result](#unpaged-search-result)
    - [Paged search result](#paged-search-result)
    - [Image search result](#image-search-result)
+3. [Search](#search)
 
-4. [Search](#search)
-
-
+   - [Tag search](#tag-search)
+   - [Post search](#post-search)
+   - [Pool search](#pool-search)
+   - [Comment search](#comment-search)
+   - [User search](#user-search)
+   - [Snapshot search](#snapshot-search)
 
 # General rules
 
@@ -157,6 +98,10 @@ Requests that upload files must use `multipart/form-data` encoding. Any request
 that bundles user files, must send the request data (which is JSON) as an
 additional file with the special name of `metadata` (whereas the actual files
 must have names specific to the API that is being used.)
+
+The server accepts requests up to the size set as `max_upload_size` in its
+config (1 GiB unless changed). A larger request is refused with status 413
+and an error named `RequestTooLargeError`.
 
 Alternatively, the server can download the files from the Internet on client's
 behalf. In that case, the request doesn't need to be specially encoded in any
@@ -293,1927 +238,6 @@ Webhook URIs can be configured in `config.yaml` (See `config.yaml.dist` for
 example). Upon any event, the API will send a `POST` request to the listed
 URIs with a [snapshot resource](#snapshot) generated with anonymous user
 privileges as the message body, in JSON format.
-
-
-# API reference
-
-Depending on the deployment, the URLs might be relative to some base path such
-as `/api/`. Values denoted with diamond braces (`<like this>`) signify variable
-data.
-
-## Listing tag categories
-- **Request**
-
-    `GET /tag-categories`
-
-- **Output**
-
-    An [unpaged search result](#unpaged-search-result), for which `<resource>`
-    is a [tag category resource](#tag-category).
-
-- **Errors**
-
-    - privileges are too low
-
-- **Description**
-
-    Lists all tag categories. Doesn't use paging.
-
-## Creating tag category
-- **Request**
-
-    `POST /tag-categories`
-
-- **Input**
-
-    ```json5
-    {
-        "name":  <name>,
-        "color": <color>,
-        "order": <order>
-    }
-    ```
-
-- **Output**
-
-    A [tag category resource](#tag-category).
-
-- **Errors**
-
-    - the name is used by an existing tag category (names are case insensitive)
-    - the name is invalid or missing
-    - the color is invalid or missing
-    - privileges are too low
-
-- **Description**
-
-    Creates a new tag category using specified parameters. Name must match
-    `tag_category_name_regex` from server's configuration. First category
-    created becomes the default category.
-
-## Updating tag category
-- **Request**
-
-    `PUT /tag-category/<name>`
-
-- **Input**
-
-    ```json5
-    {
-        "version": <version>,
-        "name":    <name>,    // optional
-        "color":   <color>,   // optional
-        "order":   <order>    // optional
-    }
-    ```
-
-- **Output**
-
-    A [tag category resource](#tag-category).
-
-- **Errors**
-
-    - the version is outdated
-    - the tag category does not exist
-    - the name is used by an existing tag category (names are case insensitive)
-    - the name is invalid
-    - the color is invalid
-    - privileges are too low
-
-- **Description**
-
-    Updates an existing tag category using specified parameters. Name must
-    match `tag_category_name_regex` from server's configuration. All fields
-    except the [`version`](#versioning) are optional - update concerns only
-    provided fields.
-
-## Getting tag category
-- **Request**
-
-    `GET /tag-category/<name>`
-
-- **Output**
-
-    A [tag category resource](#tag-category).
-
-- **Errors**
-
-    - the tag category does not exist
-    - privileges are too low
-
-- **Description**
-
-    Retrieves information about an existing tag category.
-
-## Deleting tag category
-- **Request**
-
-    `DELETE /tag-category/<name>`
-
-- **Input**
-
-    ```json5
-    {
-        "version": <version>
-    }
-    ```
-
-- **Output**
-
-    ```json5
-    {}
-    ```
-
-- **Errors**
-
-    - the version is outdated
-    - the tag category does not exist
-    - the tag category is used by some tags
-    - the tag category is the last tag category available
-    - privileges are too low
-
-- **Description**
-
-    Deletes existing tag category. The tag category to be deleted must have no
-    usages.
-
-## Setting default tag category
-- **Request**
-
-    `PUT /tag-category/<name>/default`
-
-- **Input**
-
-    ```json5
-    {}
-    ```
-
-- **Output**
-
-    A [tag category resource](#tag-category).
-
-- **Errors**
-
-    - the tag category does not exist
-    - privileges are too low
-
-- **Description**
-
-    Sets given tag category as default. All new tags created manually or
-    automatically will have this category.
-
-## Listing tags
-- **Request**
-
-    `GET /tags/?offset=<initial-pos>&limit=<page-size>&query=<query>`
-
-- **Output**
-
-    A [paged search result resource](#paged-search-result), for which
-    `<resource>` is a [tag resource](#tag).
-
-- **Errors**
-
-    - privileges are too low
-
-- **Description**
-
-    Searches for tags.
-
-    **Anonymous tokens**
-
-    Same as `name` token.
-
-    **Named tokens**
-
-    | `<key>`             | Description                               |
-    | ------------------- | ----------------------------------------- |
-    | `name`              | having given name (accepts wildcards)     |
-    | `category`          | having given category (accepts wildcards) |
-    | `creation-date`     | created at given date                     |
-    | `creation-time`     | alias of `creation-date`                  |
-    | `last-edit-date`    | edited at given date                      |
-    | `last-edit-time`    | alias of `last-edit-date`                 |
-    | `edit-date`         | alias of `last-edit-date`                 |
-    | `edit-time`         | alias of `last-edit-date`                 |
-    | `usages`            | used in given number of posts             |
-    | `usage-count`       | alias of `usages`                         |
-    | `post-count`        | alias of `usages`                         |
-    | `suggestion-count`  | with given number of suggestions          |
-    | `implication-count` | with given number of implications         |
-
-    **Sort style tokens**
-
-    | `<value>`           | Description                  |
-    | ------------------- | ---------------------------- |
-    | `random`            | as random as it can get      |
-    | `name`              | A to Z                       |
-    | `category`          | category (A to Z)            |
-    | `creation-date`     | recently created first       |
-    | `creation-time`     | alias of `creation-date`     |
-    | `last-edit-date`    | recently edited first        |
-    | `last-edit-time`    | alias of `creation-time`     |
-    | `edit-date`         | alias of `creation-time`     |
-    | `edit-time`         | alias of `creation-time`     |
-    | `usages`            | used in most posts first     |
-    | `usage-count`       | alias of `usages`            |
-    | `post-count`        | alias of `usages`            |
-    | `suggestion-count`  | with most suggestions first  |
-    | `implication-count` | with most implications first |
-
-    **Special tokens**
-
-    None.
-
-## Creating tag
-- **Request**
-
-    `POST /tags`
-
-- **Input**
-
-    ```json5
-    {
-        "names":        [<name1>, <name2>, ...],
-        "category":     <category>,
-        "description":  <description>,           // optional
-        "implications": [<name1>, <name2>, ...], // optional
-        "suggestions":  [<name1>, <name2>, ...]  // optional
-    }
-    ```
-
-- **Output**
-
-    A [tag resource](#tag).
-
-- **Errors**
-
-    - any name is used by an existing tag (names are case insensitive)
-    - any name, implication or is invalid
-    - category is invalid
-    - no name was specified
-    - implications or suggestions contain any item from names (e.g. there's a
-      shallow cyclic dependency)
-    - privileges are too low
-
-- **Description**
-
-    Creates a new tag using specified parameters. Names, suggestions and
-    implications must match `tag_name_regex` from server's configuration.
-    Category must exist and is the same as `name` field within
-    [`<tag-category>` resource](#tag-category). Suggestions and implications
-    are optional. If specified implied tags or suggested tags do not exist yet,
-    they will be automatically created. Tags created automatically have no
-    implications, no suggestions, one name and their category is set to the
-    first tag category found. If there are no tag categories established yet,
-    an error will be thrown.
-
-## Updating tag
-- **Request**
-
-    `PUT /tag/<name>`
-
-- **Input**
-
-    ```json5
-    {
-        "version":      <version>,
-        "names":        [<name1>, <name2>, ...], // optional
-        "category":     <category>,              // optional
-        "description":  <description>,           // optional
-        "implications": [<name1>, <name2>, ...], // optional
-        "suggestions":  [<name1>, <name2>, ...]  // optional
-    }
-    ```
-
-- **Output**
-
-    A [tag resource](#tag).
-
-- **Errors**
-
-    - the version is outdated
-    - the tag does not exist
-    - any name is used by an existing tag (names are case insensitive)
-    - any name, implication or suggestion name is invalid
-    - category is invalid
-    - implications or suggestions contain any item from names (e.g. there's a
-      shallow cyclic dependency)
-    - privileges are too low
-
-- **Description**
-
-    Updates an existing tag using specified parameters. Names, suggestions and
-    implications must match `tag_name_regex` from server's configuration.
-    Category must exist and is the same as `name` field within
-    [`<tag-category>` resource](#tag-category). If specified implied tags or
-    suggested tags do not exist yet, they will be automatically created. Tags
-    created automatically have no implications, no suggestions, one name and
-    their category is set to the first tag category found. All fields except
-    the [`version`](#versioning) are optional - update concerns only provided
-    fields.
-
-## Getting tag
-- **Request**
-
-    `GET /tag/<name>`
-
-- **Output**
-
-    A [tag resource](#tag).
-
-- **Errors**
-
-    - the tag does not exist
-    - privileges are too low
-
-- **Description**
-
-    Retrieves information about an existing tag.
-
-## Deleting tag
-- **Request**
-
-    `DELETE /tag/<name>`
-
-- **Input**
-
-    ```json5
-    {
-        "version": <version>
-    }
-    ```
-
-- **Output**
-
-    ```json5
-    {}
-    ```
-
-- **Errors**
-
-    - the version is outdated
-    - the tag does not exist
-    - privileges are too low
-
-- **Description**
-
-    Deletes existing tag. The tag to be deleted must have no usages.
-
-## Merging tags
-- **Request**
-
-    `POST /tag-merge/`
-
-- **Input**
-
-    ```json5
-    {
-        "removeVersion":  <source-tag-version>,
-        "remove":         <source-tag-name>,
-        "mergeToVersion": <target-tag-version>,
-        "mergeTo":        <target-tag-name>
-    }
-    ```
-
-- **Output**
-
-    A [tag resource](#tag) containing the merged tag.
-
-- **Errors**
-
-    - the version of either tag is outdated
-    - the source or target tag does not exist
-    - the source tag is the same as the target tag
-    - privileges are too low
-
-- **Description**
-
-    Removes source tag and merges all of its usages, suggestions and
-    implications to the target tag. Other tag properties such as category and
-    aliases do not get transferred and are discarded.
-
-## Listing tag siblings
-- **Request**
-
-    `GET /tag-siblings/<name>`
-
-- **Output**
-
-    ```json5
-    {
-        "results": [
-            {
-                "tag": <tag>,
-                "occurrences": <occurrence-count>
-            },
-            {
-                "tag": <tag>,
-                "occurrences": <occurrence-count>
-            }
-        ]
-    }
-    ```
-    ...where `<tag>` is a [tag resource](#tag).
-
-- **Errors**
-
-    - privileges are too low
-
-- **Description**
-
-    Lists siblings of given tag, e.g. tags that were used in the same posts as
-    the given tag. `occurrences` field signifies how many times a given sibling
-    appears with given tag. Results are sorted by occurrences count and the
-    list is truncated to the first 50 elements. Doesn't use paging.
-
-## Listing posts
-- **Request**
-
-    `GET /posts/?offset=<initial-pos>&limit=<page-size>&query=<query>`
-
-- **Output**
-
-    A [paged search result resource](#paged-search-result), for which
-    `<resource>` is a [post resource](#post).
-
-- **Errors**
-
-    - privileges are too low
-
-- **Description**
-
-    Searches for posts.
-
-    **Anonymous tokens**
-
-    Same as `tag` token.
-
-    **Named tokens**
-
-    | `<key>`              | Description                                                                                                                             |
-    | -------------------- | ----------------------------------------------------------                                                                              |
-    | `id`                 | having given post number                                                                                                                |
-    | `tag`                | having given tag (accepts wildcards)                                                                                                    |
-    | `score`              | having given score                                                                                                                      |
-    | `uploader`           | uploaded by given user (accepts wildcards)                                                                                              |
-    | `upload`             | alias of upload                                                                                                                         |
-    | `submit`             | alias of upload                                                                                                                         |
-    | `comment`            | commented by given user (accepts wildcards)                                                                                             |
-    | `fav`                | favorited by given user (accepts wildcards)                                                                                             |
-    | `pool`               | belonging to the pool with the given ID                                                                                                 |
-    | `tag-count`          | having given number of tags                                                                                                             |
-    | `comment-count`      | having given number of comments                                                                                                         |
-    | `fav-count`          | favorited by given number of users                                                                                                      |
-    | `note-count`         | having given number of annotations                                                                                                      |
-    | `note-text`          | having given note text (accepts wildcards)                                                                                              |
-    | `relation-count`     | having given number of relations                                                                                                        |
-    | `feature-count`      | having been featured given number of times                                                                                              |
-    | `type`               | given type of posts. `<value>` can be either `image`, `animation` (or `animated` or `anim`), `flash` (or `swf`) or `video` (or `webm`). |
-    | `content-checksum`   | having given SHA1 checksum                                                                                                              |
-    | `file-size`          | having given file size (in bytes)                                                                                                       |
-    | `image-width`        | having given image width (where applicable)                                                                                             |
-    | `image-height`       | having given image height (where applicable)                                                                                            |
-    | `image-area`         | having given number of pixels (image width * image height)                                                                              |
-    | `image-aspect-ratio` | having given aspect ratio (image width / image height)                                                                                  |
-    | `image-ar`           | alias of `image-aspect-ratio`                                                                                                           |
-    | `width`              | alias of `image-width`                                                                                                                  |
-    | `height`             | alias of `image-height`                                                                                                                 |
-    | `area`               | alias of `image-area`                                                                                                                   |
-    | `ar`                 | alias of `image-aspect-ratio`                                                                                                           |
-    | `aspect-ratio`       | alias of `image-aspect-ratio`                                                                                                           |
-    | `creation-date`      | posted at given date                                                                                                                    |
-    | `creation-time`      | alias of `creation-date`                                                                                                                |
-    | `date`               | alias of `creation-date`                                                                                                                |
-    | `time`               | alias of `creation-date`                                                                                                                |
-    | `last-edit-date`     | edited at given date                                                                                                                    |
-    | `last-edit-time`     | alias of `last-edit-date`                                                                                                               |
-    | `edit-date`          | alias of `last-edit-date`                                                                                                               |
-    | `edit-time`          | alias of `last-edit-date`                                                                                                               |
-    | `comment-date`       | commented at given date                                                                                                                 |
-    | `comment-time`       | alias of `comment-date`                                                                                                                 |
-    | `fav-date`           | last favorited at given date                                                                                                            |
-    | `fav-time`           | alias of `fav-date`                                                                                                                     |
-    | `feature-date`       | featured at given date                                                                                                                  |
-    | `feature-time`       | alias of `feature-time`                                                                                                                 |
-    | `safety`             | having given safety. `<value>` can be either `safe`, `sketchy` or `unsafe`.                                         |
-    | `rating`             | alias of `safety`                                                                                                                       |
-
-    **Sort style tokens**
-
-    | `<value>`        | Description                                      |
-    | ---------------- | ------------------------------------------------ |
-    | `random`         | as random as it can get                          |
-    | `id`             | highest to lowest post number                    |
-    | `score`          | highest scored                                   |
-    | `tag-count`      | with most tags                                   |
-    | `comment-count`  | most commented first                             |
-    | `fav-count`      | loved by most                                    |
-    | `note-count`     | with most annotations                            |
-    | `relation-count` | with most relations                              |
-    | `feature-count`  | most often featured                              |
-    | `file-size`      | largest files first                              |
-    | `image-width`    | widest images first                              |
-    | `image-height`   | tallest images first                             |
-    | `image-area`     | largest images first                             |
-    | `width`          | alias of `image-width`                           |
-    | `height`         | alias of `image-height`                          |
-    | `area`           | alias of `image-area`                            |
-    | `creation-date`  | newest to oldest (pretty much same as id)        |
-    | `creation-time`  | alias of `creation-date`                         |
-    | `date`           | alias of `creation-date`                         |
-    | `time`           | alias of `creation-date`                         |
-    | `last-edit-date` | like creation-date, only looks at last edit time |
-    | `last-edit-time` | alias of `last-edit-date`                        |
-    | `edit-date`      | alias of `last-edit-date`                        |
-    | `edit-time`      | alias of `last-edit-date`                        |
-    | `comment-date`   | recently commented by anyone                     |
-    | `comment-time`   | alias of `comment-date`                          |
-    | `fav-date`       | recently added to favorites by anyone            |
-    | `fav-time`       | alias of `fav-date`                              |
-    | `feature-date`   | recently featured                                |
-    | `feature-time`   | alias of `feature-time`                          |
-
-    **Special tokens**
-
-    | `<value>`    | Description                                                   |
-    | ------------ | ------------------------------------------------------------- |
-    | `liked`      | posts liked by currently logged in user                       |
-    | `disliked`   | posts disliked by currently logged in user                    |
-    | `fav`        | posts added to favorites by currently logged in user          |
-    | `tumbleweed` | posts with score of 0, without comments and without favorites |
-
-## Creating post
-- **Request**
-
-    `POST /posts/`
-
-- **Input**
-
-    ```json5
-    {
-        "tags":      [<tag1>, <tag2>, <tag3>],
-        "safety":    <safety>,
-        "source":    <source>,                    // optional
-        "relations": [<post1>, <post2>, <post3>], // optional
-        "notes":     [<note1>, <note2>, <note3>], // optional
-        "flags":     [<flag1>, <flag2>],          // optional
-        "anonymous": <anonymous>                  // optional
-    }
-    ```
-
-- **Files**
-
-    - `content` - the content of the post.
-    - `thumbnail` - the content of custom thumbnail (optional).
-
-- **Output**
-
-    A [post resource](#post).
-
-- **Errors**
-
-    - tags have invalid names
-    - safety, notes or flags are invalid
-    - relations refer to non-existing posts
-    - privileges are too low
-
-- **Description**
-
-    Creates a new post. If specified tags do not exist yet, they will be
-    automatically created. Tags created automatically have no implications, no
-    suggestions, one name and their category is set to the first tag category
-    found. Safety must be any of `"safe"`, `"sketchy"` or `"unsafe"`. Relations
-    must contain valid post IDs. If `<flag>` is omitted, they will be defined
-    by default (`"loop"` will be set for all video posts, and `"sound"` will be
-    auto-detected). Sending empty `thumbnail` will cause the post to use default
-    thumbnail. If `anonymous` is set to truthy value, the uploader name won't be
-    recorded (privilege verification still applies; it's possible to disallow
-    anonymous uploads completely from config.) For details on how to pass `content`
-    and `thumbnail`, see [file uploads](#file-uploads).
-
-## Updating post
-- **Request**
-
-    `PUT /post/<id>`
-
-- **Input**
-
-    ```json5
-    {
-        "version":   <version>,
-        "tags":      [<tag1>, <tag2>, <tag3>],    // optional
-        "safety":    <safety>,                    // optional
-        "source":    <source>,                    // optional
-        "relations": [<post1>, <post2>, <post3>], // optional
-        "notes":     [<note1>, <note2>, <note3>], // optional
-        "flags":     [<flag1>, <flag2>]           // optional
-    }
-    ```
-
-- **Files**
-
-    - `content` - the content of the post (optional).
-    - `thumbnail` - the content of custom thumbnail (optional).
-
-- **Output**
-
-    A [post resource](#post).
-
-- **Errors**
-
-    - the version is outdated
-    - tags have invalid names
-    - safety, notes or flags are invalid
-    - relations refer to non-existing posts
-    - privileges are too low
-
-- **Description**
-
-    Updates existing post. If specified tags do not exist yet, they will be
-    automatically created. Tags created automatically have no implications, no
-    suggestions, one name and their category is set to the first tag category
-    found. Safety must be any of `"safe"`, `"sketchy"` or `"unsafe"`. Relations
-    must contain valid post IDs. `<flag>` can be either `"loop"` to enable looping
-    for video posts or `"sound"` to indicate sound. Sending empty `thumbnail` will
-    reset the post thumbnail to default. For details how to pass `content` and
-    `thumbnail`, see [file uploads](#file-uploads). All fields except the
-    [`version`](#versioning) are optional - update concerns only provided
-    fields.
-
-## Getting post
-- **Request**
-
-    `GET /post/<id>`
-
-- **Output**
-
-    A [post resource](#post).
-
-- **Errors**
-
-    - the post does not exist
-    - privileges are too low
-
-- **Description**
-
-    Retrieves information about an existing post.
-
-## Getting around post
-- **Request**
-
-    `GET /post/<id>/around`
-
-- **Output**
-
-    ```json5
-    {
-        "prev":  <post-resource>,
-        "next":  <post-resource>
-    }
-    ```
-
-- **Errors**
-
-    - the post does not exist
-    - privileges are too low
-
-- **Description**
-
-    Retrieves information about posts that are before or after an existing post.
-
-## Deleting post
-- **Request**
-
-    `DELETE /post/<id>`
-
-- **Input**
-
-    ```json5
-    {
-        "version": <version>
-    }
-    ```
-
-- **Output**
-
-    ```json5
-    {}
-    ```
-
-- **Errors**
-
-    - the version is outdated
-    - the post does not exist
-    - privileges are too low
-
-- **Description**
-
-    Deletes existing post. Related posts and tags are kept.
-
-## Merging posts
-- **Request**
-
-    `POST /post-merge/`
-
-- **Input**
-
-    ```json5
-    {
-        "removeVersion":  <source-post-version>,
-        "remove":         <source-post-id>,
-        "mergeToVersion": <target-post-version>,
-        "mergeTo":        <target-post-id>,
-        "replaceContent": <true-or-false>
-    }
-    ```
-
-- **Output**
-
-    A [post resource](#post) containing the merged post.
-
-- **Errors**
-
-    - the version of either post is outdated
-    - the source or target post does not exist
-    - the source post is the same as the target post
-    - privileges are too low
-
-- **Description**
-
-    Removes source post and merges all of its tags, relations, scores,
-    favorites and comments to the target post. If `replaceContent` is set to
-    true, content of the target post is replaced using the content of the
-    source post; otherwise it remains unchanged. Source post properties such as
-    its safety, source, whether to loop the video and other scalar values do
-    not get transferred and are discarded.
-
-## Rating post
-- **Request**
-
-    `PUT /post/<id>/score`
-
-- **Input**
-
-    ```json5
-    {
-        "score": <score>
-    }
-    ```
-
-- **Output**
-
-    A [post resource](#post).
-
-- **Errors**
-
-    - post does not exist
-    - score is invalid
-    - privileges are too low
-
-- **Description**
-
-    Updates score of authenticated user for given post. Valid scores are -1, 0
-    and 1.
-
-## Adding post to favorites
-- **Request**
-
-    `POST /post/<id>/favorite`
-
-- **Output**
-
-    A [post resource](#post).
-
-- **Errors**
-
-    - post does not exist
-    - privileges are too low
-
-- **Description**
-
-    Marks the post as favorite for authenticated user.
-
-## Removing post from favorites
-- **Request**
-
-    `DELETE /post/<id>/favorite`
-
-- **Output**
-
-    A [post resource](#post).
-
-- **Errors**
-
-    - post does not exist
-    - privileges are too low
-
-- **Description**
-
-    Unmarks the post as favorite for authenticated user.
-
-## Getting featured post
-- **Request**
-
-    `GET /featured-post`
-
-- **Output**
-
-    A [post resource](#post).
-
-- **Errors**
-
-    - privileges are too low
-
-- **Description**
-
-    Retrieves the post that is currently featured on the main page in web
-    client. If no post is featured, `<post>` is null. Note that this method
-    exists mostly for compatibility with setting featured post - most of times,
-    you'd want to use query global info which contains more information.
-
-## Featuring post
-- **Request**
-
-    `POST /featured-post`
-
-- **Input**
-
-    ```json5
-    {
-        "id": <post-id>
-    }
-    ```
-
-- **Output**
-
-    A [post resource](#post).
-
-- **Errors**
-
-    - privileges are too low
-    - trying to feature a post that is currently featured
-
-- **Description**
-
-    Features a post on the main page in web client.
-
-## Reverse image search
-- **Request**
-
-    `POST /posts/reverse-search`
-
-- **Files**
-
-    - `content` - the image to search for.
-
-- **Output**
-
-    An [image search result](#image-search-result).
-
-- **Errors**
-
-    - privileges are too low
-
-- **Description**
-
-    Retrieves posts that look like the input image.
-
-## Listing pool categories
-- **Request**
-
-    `GET /pool-categories`
-
-- **Output**
-
-    An [unpaged search result](#unpaged-search-result), for which `<resource>`
-    is a [pool category resource](#pool-category).
-
-- **Errors**
-
-    - privileges are too low
-
-- **Description**
-
-    Lists all pool categories. Doesn't use paging.
-
-## Creating pool category
-- **Request**
-
-    `POST /pool-categories`
-
-- **Input**
-
-    ```json5
-    {
-        "name":  <name>,
-        "color": <color>
-    }
-    ```
-
-- **Output**
-
-    A [pool category resource](#pool-category).
-
-- **Errors**
-
-    - the name is used by an existing pool category (names are case insensitive)
-    - the name is invalid or missing
-    - the color is invalid or missing
-    - privileges are too low
-
-- **Description**
-
-    Creates a new pool category using specified parameters. Name must match
-    `pool_category_name_regex` from server's configuration. First category
-    created becomes the default category.
-
-## Updating pool category
-- **Request**
-
-    `PUT /pool-category/<name>`
-
-- **Input**
-
-    ```json5
-    {
-        "version": <version>,
-        "name":    <name>,    // optional
-        "color":   <color>,   // optional
-    }
-    ```
-
-- **Output**
-
-    A [pool category resource](#pool-category).
-
-- **Errors**
-
-    - the version is outdated
-    - the pool category does not exist
-    - the name is used by an existing pool category (names are case insensitive)
-    - the name is invalid
-    - the color is invalid
-    - privileges are too low
-
-- **Description**
-
-    Updates an existing pool category using specified parameters. Name must
-    match `pool_category_name_regex` from server's configuration. All fields
-    except the [`version`](#versioning) are optional - update concerns only
-    provided fields.
-
-## Getting pool category
-- **Request**
-
-    `GET /pool-category/<name>`
-
-- **Output**
-
-    A [pool category resource](#pool-category).
-
-- **Errors**
-
-    - the pool category does not exist
-    - privileges are too low
-
-- **Description**
-
-    Retrieves information about an existing pool category.
-
-## Deleting pool category
-- **Request**
-
-    `DELETE /pool-category/<name>`
-
-- **Input**
-
-    ```json5
-    {
-        "version": <version>
-    }
-    ```
-
-- **Output**
-
-    ```json5
-    {}
-    ```
-
-- **Errors**
-
-    - the version is outdated
-    - the pool category does not exist
-    - the pool category is used by some pools
-    - the pool category is the last pool category available
-    - privileges are too low
-
-- **Description**
-
-    Deletes existing pool category. The pool category to be deleted must have no
-    usages.
-
-## Setting default pool category
-- **Request**
-
-    `PUT /pool-category/<name>/default`
-
-- **Input**
-
-    ```json5
-    {}
-    ```
-
-- **Output**
-
-    A [pool category resource](#pool-category).
-
-- **Errors**
-
-    - the pool category does not exist
-    - privileges are too low
-
-- **Description**
-
-    Sets given pool category as default. All new pools created manually or
-    automatically will have this category.
-
-## Listing pools
-- **Request**
-
-    `GET /pools/?offset=<initial-pos>&limit=<page-size>&query=<query>`
-
-- **Output**
-
-    A [paged search result resource](#paged-search-result), for which
-    `<resource>` is a [pool resource](#pool).
-
-- **Errors**
-
-    - privileges are too low
-
-- **Description**
-
-    Searches for pools.
-
-    **Anonymous tokens**
-
-    Same as `name` token.
-
-    **Named tokens**
-
-    | `<key>`             | Description                               |
-    | ------------------- | ----------------------------------------- |
-    | `name`              | having given name (accepts wildcards)     |
-    | `category`          | having given category (accepts wildcards) |
-    | `creation-date`     | created at given date                     |
-    | `creation-time`     | alias of `creation-date`                  |
-    | `last-edit-date`    | edited at given date                      |
-    | `last-edit-time`    | alias of `last-edit-date`                 |
-    | `edit-date`         | alias of `last-edit-date`                 |
-    | `edit-time`         | alias of `last-edit-date`                 |
-    | `post-count`        | used in given number of posts             |
-
-    **Sort style tokens**
-
-    | `<value>`           | Description                  |
-    | ------------------- | ---------------------------- |
-    | `random`            | as random as it can get      |
-    | `name`              | A to Z                       |
-    | `category`          | category (A to Z)            |
-    | `creation-date`     | recently created first       |
-    | `creation-time`     | alias of `creation-date`     |
-    | `last-edit-date`    | recently edited first        |
-    | `last-edit-time`    | alias of `creation-time`     |
-    | `edit-date`         | alias of `creation-time`     |
-    | `edit-time`         | alias of `creation-time`     |
-    | `post-count`        | used in most posts first     |
-
-    **Special tokens**
-
-    None.
-
-## Creating pool
-- **Request**
-
-    `POST /pool`
-
-- **Input**
-
-    ```json5
-    {
-        "names":        [<name1>, <name2>, ...],
-        "category":     <category>,
-        "description":  <description>,           // optional
-        "posts":        [<id1>, <id2>, ...],     // optional
-    }
-    ```
-
-- **Output**
-
-    A [pool resource](#pool).
-
-- **Errors**
-
-    - any name is invalid
-    - category is invalid
-    - no name was specified
-    - there is at least one duplicate post
-    - at least one post ID does not exist
-    - privileges are too low
-
-- **Description**
-
-    Creates a new pool using specified parameters. Names, suggestions and
-    implications must match `pool_name_regex` from server's configuration.
-    Category must exist and is the same as `name` field within
-    [`<pool-category>` resource](#pool-category). `posts` is an optional list of
-    integer post IDs. If the specified posts do not exist, an error will be
-    thrown.
-
-## Updating pool
-- **Request**
-
-    `PUT /pool/<id>`
-
-- **Input**
-
-    ```json5
-    {
-        "version":      <version>,
-        "names":        [<name1>, <name2>, ...], // optional
-        "category":     <category>,              // optional
-        "description":  <description>,           // optional
-        "posts":        [<id1>, <id2>, ...],     // optional
-    }
-    ```
-
-- **Output**
-
-    A [pool resource](#pool).
-
-- **Errors**
-
-    - the version is outdated
-    - the pool does not exist
-    - any name is invalid
-    - category is invalid
-    - no name was specified
-    - there is at least one duplicate post
-    - at least one post ID does not exist
-    - privileges are too low
-
-- **Description**
-
-    Updates an existing pool using specified parameters. Names, suggestions and
-    implications must match `pool_name_regex` from server's configuration.
-    Category must exist and is the same as `name` field within
-    [`<pool-category>` resource](#pool-category). `posts` is an optional list of
-    integer post IDs. If the specified posts do not exist yet, an error will be
-    thrown. The full list of post IDs must be provided if they are being
-    updated, and the previous list of posts will be replaced with the new one.
-    All fields except the [`version`](#versioning) are optional - update
-    concerns only provided fields.
-
-## Getting pool
-- **Request**
-
-    `GET /pool/<id>`
-
-- **Output**
-
-    A [pool resource](#pool).
-
-- **Errors**
-
-    - the pool does not exist
-    - privileges are too low
-
-- **Description**
-
-    Retrieves information about an existing pool.
-
-## Deleting pool
-- **Request**
-
-    `DELETE /pool/<name>`
-
-- **Input**
-
-    ```json5
-    {
-        "version": <version>
-    }
-    ```
-
-- **Output**
-
-    ```json5
-    {}
-    ```
-
-- **Errors**
-
-    - the version is outdated
-    - the pool does not exist
-    - privileges are too low
-
-- **Description**
-
-    Deletes existing pool. All posts in the pool will only have their relation
-    to the pool removed.
-
-## Merging pools
-- **Request**
-
-    `POST /pool-merge/`
-
-- **Input**
-
-    ```json5
-    {
-        "removeVersion":  <source-pool-version>,
-        "remove":         <source-pool-id>,
-        "mergeToVersion": <target-pool-version>,
-        "mergeTo":        <target-pool-id>
-    }
-    ```
-
-- **Output**
-
-    A [pool resource](#pool) containing the merged pool.
-
-- **Errors**
-
-    - the version of either pool is outdated
-    - the source or target pool does not exist
-    - the source pool is the same as the target pool
-    - privileges are too low
-
-- **Description**
-
-    Removes source pool and merges all of its posts with the target pool. Other
-    pool properties such as category and aliases do not get transferred and are
-    discarded.
-
-## Listing comments
-- **Request**
-
-    `GET /comments/?offset=<initial-pos>&limit=<page-size>&query=<query>`
-
-- **Output**
-
-    A [paged search result resource](#paged-search-result), for which
-    `<resource>` is a [comment resource](#comment).
-
-- **Errors**
-
-    - privileges are too low
-
-- **Description**
-
-    Searches for comments.
-
-    **Anonymous tokens**
-
-    Same as `text` token.
-
-    **Named tokens**
-
-    | `<key>`          | Description                                    |
-    | ---------------- | ---------------------------------------------- |
-    | `id`             | specific comment ID                            |
-    | `post`           | specific post ID                               |
-    | `user`           | created by given user (accepts wildcards)      |
-    | `author`         | alias of `user`                                |
-    | `text`           | containing given text (accepts wildcards)      |
-    | `creation-date`  | created at given date                          |
-    | `creation-time`  | alias of `creation-date`                       |
-    | `last-edit-date` | whose most recent edit date matches given date |
-    | `last-edit-time` | alias of `last-edit-date`                      |
-    | `edit-date`      | alias of `last-edit-date`                      |
-    | `edit-time`      | alias of `last-edit-date`                      |
-
-    **Sort style tokens**
-
-    | `<value>`        | Description               |
-    | ---------------- | ------------------------- |
-    | `random`         | as random as it can get   |
-    | `user`           | author name, A to Z       |
-    | `author`         | alias of `user`           |
-    | `post`           | post ID, newest to oldest |
-    | `creation-date`  | newest to oldest          |
-    | `creation-time`  | alias of `creation-date`  |
-    | `last-edit-date` | recently edited first     |
-    | `last-edit-time` | alias of `last-edit-date` |
-    | `edit-date`      | alias of `last-edit-date` |
-    | `edit-time`      | alias of `last-edit-date` |
-
-    **Special tokens**
-
-    None.
-
-## Creating comment
-- **Request**
-
-    `POST /comments/`
-
-- **Input**
-
-    ```json5
-    {
-        "text":   <text>,
-        "postId": <post-id>
-    }
-    ```
-
-- **Output**
-
-    A [comment resource](#comment).
-
-- **Errors**
-
-    - the post does not exist
-    - comment text is empty
-    - privileges are too low
-
-- **Description**
-
-    Creates a new comment under given post.
-
-## Updating comment
-- **Request**
-
-    `PUT /comment/<id>`
-
-- **Input**
-
-    ```json5
-    {
-        "version": <version>,
-        "text":    <new-text> // mandatory
-    }
-    ```
-
-- **Output**
-
-    A [comment resource](#comment).
-
-- **Errors**
-
-    - the version is outdated
-    - the comment does not exist
-    - new comment text is empty
-    - privileges are too low
-
-- **Description**
-
-    Updates an existing comment text.
-
-## Getting comment
-- **Request**
-
-    `GET /comment/<id>`
-
-- **Output**
-
-    A [comment resource](#comment).
-
-- **Errors**
-
-    - the comment does not exist
-    - privileges are too low
-
-- **Description**
-
-    Retrieves information about an existing comment.
-
-## Deleting comment
-- **Request**
-
-    `DELETE /comment/<id>`
-
-- **Input**
-
-    ```json5
-    {
-        "version": <version>
-    }
-    ```
-
-- **Output**
-
-    ```json5
-    {}
-    ```
-
-- **Errors**
-
-    - the version is outdated
-    - the comment does not exist
-    - privileges are too low
-
-- **Description**
-
-    Deletes existing comment.
-
-## Rating comment
-- **Request**
-
-    `PUT /comment/<id>/score`
-
-- **Input**
-
-    ```json5
-    {
-        "score": <score>
-    }
-    ```
-
-- **Output**
-
-    A [comment resource](#comment).
-
-- **Errors**
-
-    - comment does not exist
-    - score is invalid
-    - privileges are too low
-
-- **Description**
-
-    Updates score of authenticated user for given comment. Valid scores are -1,
-    0 and 1.
-
-## Listing users
-- **Request**
-
-    `GET /users/?offset=<initial-pos>&limit=<page-size>&query=<query>`
-
-- **Output**
-
-    A [paged search result resource](#paged-search-result), for which
-    `<resource>` is a [user resource](#user).
-
-- **Errors**
-
-    - privileges are too low
-
-- **Description**
-
-    Searches for users.
-
-    **Anonymous tokens**
-
-    Same as `name` token.
-
-    **Named tokens**
-
-    | `<key>`           | Description                                     |
-    | ----------------- | ----------------------------------------------- |
-    | `name`            | having given name (accepts wildcards)           |
-    | `creation-date`   | registered at given date                        |
-    | `creation-time`   | alias of `creation-date`                        |
-    | `last-login-date` | whose most recent login date matches given date |
-    | `last-login-time` | alias of `last-login-date`                      |
-    | `login-date`      | alias of `last-login-date`                      |
-    | `login-time`      | alias of `last-login-date`                      |
-
-    **Sort style tokens**
-
-    | `<value>`         | Description                |
-    | ----------------- | -------------------------- |
-    | `random`          | as random as it can get    |
-    | `name`            | A to Z                     |
-    | `creation-date`   | newest to oldest           |
-    | `creation-time`   | alias of `creation-date`   |
-    | `last-login-date` | recently active first      |
-    | `last-login-time` | alias of `last-login-date` |
-    | `login-date`      | alias of `last-login-date` |
-    | `login-time`      | alias of `last-login-date` |
-
-    **Special tokens**
-
-    None.
-
-## Creating user
-- **Request**
-
-    `POST /users`
-
-- **Input**
-
-    ```json5
-    {
-        "name":        <user-name>,
-        "password":    <user-password>,
-        "email":       <email>,         // optional
-        "rank":        <rank>,          // optional
-        "avatarStyle": <avatar-style>   // optional
-    }
-    ```
-
-- **Files**
-
-    - `avatar` - the content of the new avatar (optional).
-
-- **Output**
-
-    A [user resource](#user).
-
-- **Errors**
-
-    - a user with such name already exists (names are case insensitive)
-    - either user name, password, email or rank are invalid
-    - the user is trying to update their or someone else's rank to higher than
-      their own
-    - avatar is missing for manual avatar style
-    - privileges are too low
-
-- **Description**
-
-    Creates a new user using specified parameters. Names and passwords must
-    match `user_name_regex` and `password_regex` from server's configuration,
-    respectively. Email address, rank and avatar fields are optional. Avatar
-    style can be either `gravatar` or `manual`. `manual` avatar style requires
-    client to pass also `avatar` file - see [file uploads](#file-uploads) for
-    details. If the rank is empty and the user happens to be the first user
-    ever created, become an administrator, whereas subsequent users will be
-    given the rank indicated by `default_rank` in the server's configuration.
-
-## Updating user
-- **Request**
-
-    `PUT /user/<name>`
-
-- **Input**
-
-    ```json5
-    {
-        "version":     <version>,
-        "name":        <user-name>,     // optional
-        "password":    <user-password>, // optional
-        "email":       <email>,         // optional
-        "rank":        <rank>,          // optional
-        "avatarStyle": <avatar-style>   // optional
-    }
-    ```
-
-- **Files**
-
-    - `avatar` - the content of the new avatar (optional).
-
-- **Output**
-
-    A [user resource](#user).
-
-- **Errors**
-
-    - the version is outdated
-    - the user does not exist
-    - a user with new name already exists (names are case insensitive)
-    - either user name, password, email or rank are invalid
-    - the user is trying to update their or someone else's rank to higher than
-      their own
-    - avatar is missing for manual avatar style
-    - privileges are too low
-
-- **Description**
-
-    Updates an existing user using specified parameters. Names and passwords
-    must match `user_name_regex` and `password_regex` from server's
-    configuration, respectively. All fields are optional - update concerns only
-    provided fields. To update last login time, see
-    [authentication](#authentication). Avatar style can be either `gravatar` or
-    `manual`. `manual` avatar style requires client to pass also `avatar`
-    file - see [file uploads](#file-uploads) for details. All fields except the
-    [`version`](#versioning) are optional - update concerns only provided
-    fields.
-
-## Getting user
-- **Request**
-
-    `GET /user/<name>`
-
-- **Output**
-
-    A [user resource](#user).
-
-- **Errors**
-
-    - the user does not exist
-    - privileges are too low
-
-- **Description**
-
-    Retrieves information about an existing user.
-
-## Deleting user
-- **Request**
-
-    `DELETE /user/<name>`
-
-- **Input**
-
-    ```json5
-    {
-        "version": <version>
-    }
-    ```
-
-- **Output**
-
-    ```json5
-    {}
-    ```
-
-- **Errors**
-
-    - the version is outdated
-    - the user does not exist
-    - privileges are too low
-
-- **Description**
-
-    Deletes existing user.
-
-## Listing user tokens
-- **Request**
-
-    `GET /user-tokens/<user_name>`
-
-- **Output**
-
-    An [unpaged search result resource](#unpaged-search-result), for which
-    `<resource>` is a [user token resource](#user-token).
-
-- **Errors**
-
-    - privileges are too low
-
-- **Description**
-
-    Searches for user tokens for the given user.
-
-## Creating user token
-- **Request**
-
-    `POST /user-token/<user_name>`
-
-- **Input**
-
-    ```json5
-    {
-        "enabled":        <enabled>,        // optional
-        "note":           <note>,           // optional
-        "expirationTime": <expiration-time> // optional
-    }
-    ```
-
-- **Output**
-
-    A [user token resource](#user-token).
-
-- **Errors**
-
-    - privileges are too low
-
-- **Description**
-
-    Creates a new user token that can be used for authentication of API
-    endpoints instead of a password.
-
-## Updating user token
-- **Request**
-
-    `PUT /user-token/<user_name>/<token>`
-
-- **Input**
-
-    ```json5
-    {
-        "version":        <version>,
-        "enabled":        <enabled>,        // optional
-        "note":           <note>,           // optional
-        "expirationTime": <expiration-time> // optional
-    }
-    ```
-
-- **Output**
-
-    A [user token resource](#user-token).
-
-- **Errors**
-
-    - the version is outdated
-    - the user token does not exist
-    - privileges are too low
-
-- **Description**
-
-    Updates an existing user token using specified parameters. All fields
-    except the [`version`](#versioning) are optional - update concerns only
-    provided fields.
-
-## Deleting user token
-- **Request**
-
-    `DELETE /user-token/<user_name>/<token>`
-
-- **Input**
-
-    ```json5
-    {
-        "version": <version>
-    }
-    ```
-
-- **Output**
-
-    ```json5
-    {}
-    ```
-
-- **Errors**
-
-    - the token does not exist
-    - privileges are too low
-
-- **Description**
-
-    Deletes existing user token.
-
-## Password reset - step 1: mail request
-- **Request**
-
-    `GET /password-reset/<email-or-name>`
-
-- **Output**
-
-    ```
-    {}
-    ```
-
-- **Errors**
-
-    - the user does not exist
-    - the user hasn't provided an email address
-
-- **Description**
-
-    Sends a confirmation email to given user. The email contains link
-    containing a token. The token cannot be guessed, thus using such link
-    proves that the person who requested to reset the password also owns the
-    mailbox, which is a strong indication they are the rightful owner of the
-    account.
-
-    The token is random, works once and expires after the time set in
-    `password_reset_token_lifetime` (one hour by default). Requesting another
-    email makes the previous token stop working.
-
-## Password reset - step 2: confirmation
-- **Request**
-
-    `POST /password-reset/<email-or-name>`
-
-- **Input**
-
-    ```json5
-    {
-        "token": <token-from-email>
-    }
-    ```
-
-- **Output**
-
-    ```json5
-    {
-        "password": <new-password>
-    }
-    ```
-
-- **Errors**
-
-    - the token is missing
-    - the token is invalid, expired or already used
-    - the user does not exist
-
-- **Description**
-
-    Generates a new password for given user. Password is sent as plain-text, so
-    it is recommended to connect through HTTPS.
-
-## Listing snapshots
-- **Request**
-
-    `GET /snapshots/?offset=<initial-pos>&limit=<page-size>&query=<query>`
-
-- **Output**
-
-    A [paged search result resource](#paged-search-result), for which
-    `<resource>` is a [snapshot resource](#snapshot).
-
-- **Errors**
-
-    - privileges are too low
-
-- **Description**
-
-    Lists recent resource snapshots.
-
-    **Anonymous tokens**
-
-    Not supported.
-
-    **Named tokens**
-
-    | `<key>`           | Description                                                      |
-    | ----------------- | ---------------------------------------------------------------- |
-    | `type`            | involving given resource type                                    |
-    | `id`              | involving given resource id                                      |
-    | `date`            | created at given date                                            |
-    | `time`            | alias of `date`                                                  |
-    | `operation`       | `modified`, `created`, `deleted` or `merged`                     |
-    | `user`            | name of the user that created given snapshot (accepts wildcards) |
-
-    **Sort style tokens**
-
-    None. The snapshots are always sorted by creation time.
-
-    **Special tokens**
-
-    None.
-
-## Getting global info
-- **Request**
-
-    `GET /info`
-
-- **Output**
-
-    ```json5
-    {
-        "postCount": <post-count>,
-        "diskUsage": <disk-usage>,  // in bytes
-        "featuredPost": <featured-post>,
-        "featuringTime": <time>,
-        "featuringUser": <user>,
-        "serverTime": <server-time>,
-        "config": {
-            "userNameRegex": <user-name-regex>,
-            "passwordRegex": <password-regex>,
-            "tagNameRegex": <tag-name-regex>,
-            "tagCategoryNameRegex": <tag-category-name-regex>,
-            "defaultUserRank": <default-rank>,
-            "privileges": <privileges>
-        }
-    }
-    ```
-
-- **Description**
-
-    Retrieves simple statistics. `<featured-post>` is null if there is no
-    featured post yet. `<server-time>` is pretty much the same as the `Date`
-    HTTP field, only formatted in a manner consistent with other dates. Values
-    in `config` key are taken directly from the server config, with the
-    exception of privilege array keys being converted to lower camel case to
-    match the API convention.
-
-    `<disk-usage>` is the size of the data directory. It is measured in the
-    background and can be up to an hour old; it is null until the first
-    measurement after a server start has finished. When several server
-    processes run, each measures for itself, so two requests can briefly
-    report different sizes.
-
-## Uploading temporary file
-
-- **Request**
-
-    `POST /uploads`
-
-- **Files**
-
-    - `content` - the content of the file to upload. Note that in this
-      particular API, one can't use token-based uploads.
-
-- **Output**
-
-    ```json5
-    {
-        "token": <token>
-    }
-    ```
-
-- **Errors**
-
-    - privileges are too low
-
-- **Description**
-
-    Puts a file in temporary storage and assigns it a token that can be used in
-    other requests. The files uploaded that way are deleted after a short while
-    so clients shouldn't use it as a free upload service.
-
 
 
 # Resources
@@ -2915,6 +939,7 @@ A result of reverse image search operation.
 - `<distance>`: distance from the original image (0..1). The lower this value
    is, the more similar the post is.
 
+
 # Search
 
 Search queries are built of tokens that are separated by spaces. Each token can
@@ -2966,3 +991,290 @@ Searching for posts with `re:zero` will show an error message about unknown
 named token.
 
 Searching for posts with `re\:zero` will show posts tagged with `re:zero`.
+
+## Tag search
+
+### Anonymous tokens
+
+Same as `name` token.
+
+### Named tokens
+
+| `<key>`             | Description                               |
+| ------------------- | ----------------------------------------- |
+| `name`              | having given name (accepts wildcards)     |
+| `category`          | having given category (accepts wildcards) |
+| `creation-date`     | created at given date                     |
+| `creation-time`     | alias of `creation-date`                  |
+| `last-edit-date`    | edited at given date                      |
+| `last-edit-time`    | alias of `last-edit-date`                 |
+| `edit-date`         | alias of `last-edit-date`                 |
+| `edit-time`         | alias of `last-edit-date`                 |
+| `usages`            | used in given number of posts             |
+| `usage-count`       | alias of `usages`                         |
+| `post-count`        | alias of `usages`                         |
+| `suggestion-count`  | with given number of suggestions          |
+| `implication-count` | with given number of implications         |
+
+### Sort style tokens
+
+| `<value>`           | Description                  |
+| ------------------- | ---------------------------- |
+| `random`            | as random as it can get      |
+| `name`              | A to Z                       |
+| `category`          | category (A to Z)            |
+| `creation-date`     | recently created first       |
+| `creation-time`     | alias of `creation-date`     |
+| `last-edit-date`    | recently edited first        |
+| `last-edit-time`    | alias of `creation-time`     |
+| `edit-date`         | alias of `creation-time`     |
+| `edit-time`         | alias of `creation-time`     |
+| `usages`            | used in most posts first     |
+| `usage-count`       | alias of `usages`            |
+| `post-count`        | alias of `usages`            |
+| `suggestion-count`  | with most suggestions first  |
+| `implication-count` | with most implications first |
+
+### Special tokens
+
+None.
+
+## Post search
+
+### Anonymous tokens
+
+Same as `tag` token.
+
+### Named tokens
+
+| `<key>`              | Description                                                                                                                             |
+| -------------------- | ----------------------------------------------------------                                                                              |
+| `id`                 | having given post number                                                                                                                |
+| `tag`                | having given tag (accepts wildcards)                                                                                                    |
+| `score`              | having given score                                                                                                                      |
+| `uploader`           | uploaded by given user (accepts wildcards)                                                                                              |
+| `upload`             | alias of upload                                                                                                                         |
+| `submit`             | alias of upload                                                                                                                         |
+| `comment`            | commented by given user (accepts wildcards)                                                                                             |
+| `fav`                | favorited by given user (accepts wildcards)                                                                                             |
+| `pool`               | belonging to the pool with the given ID                                                                                                 |
+| `tag-count`          | having given number of tags                                                                                                             |
+| `comment-count`      | having given number of comments                                                                                                         |
+| `fav-count`          | favorited by given number of users                                                                                                      |
+| `note-count`         | having given number of annotations                                                                                                      |
+| `note-text`          | having given note text (accepts wildcards)                                                                                              |
+| `relation-count`     | having given number of relations                                                                                                        |
+| `feature-count`      | having been featured given number of times                                                                                              |
+| `type`               | given type of posts. `<value>` can be either `image`, `animation` (or `animated` or `anim`), `flash` (or `swf`) or `video` (or `webm`). |
+| `content-checksum`   | having given SHA1 checksum                                                                                                              |
+| `file-size`          | having given file size (in bytes)                                                                                                       |
+| `image-width`        | having given image width (where applicable)                                                                                             |
+| `image-height`       | having given image height (where applicable)                                                                                            |
+| `image-area`         | having given number of pixels (image width * image height)                                                                              |
+| `image-aspect-ratio` | having given aspect ratio (image width / image height)                                                                                  |
+| `image-ar`           | alias of `image-aspect-ratio`                                                                                                           |
+| `width`              | alias of `image-width`                                                                                                                  |
+| `height`             | alias of `image-height`                                                                                                                 |
+| `area`               | alias of `image-area`                                                                                                                   |
+| `ar`                 | alias of `image-aspect-ratio`                                                                                                           |
+| `aspect-ratio`       | alias of `image-aspect-ratio`                                                                                                           |
+| `creation-date`      | posted at given date                                                                                                                    |
+| `creation-time`      | alias of `creation-date`                                                                                                                |
+| `date`               | alias of `creation-date`                                                                                                                |
+| `time`               | alias of `creation-date`                                                                                                                |
+| `last-edit-date`     | edited at given date                                                                                                                    |
+| `last-edit-time`     | alias of `last-edit-date`                                                                                                               |
+| `edit-date`          | alias of `last-edit-date`                                                                                                               |
+| `edit-time`          | alias of `last-edit-date`                                                                                                               |
+| `comment-date`       | commented at given date                                                                                                                 |
+| `comment-time`       | alias of `comment-date`                                                                                                                 |
+| `fav-date`           | last favorited at given date                                                                                                            |
+| `fav-time`           | alias of `fav-date`                                                                                                                     |
+| `feature-date`       | featured at given date                                                                                                                  |
+| `feature-time`       | alias of `feature-time`                                                                                                                 |
+| `safety`             | having given safety. `<value>` can be either `safe`, `sketchy` or `unsafe`.                                         |
+| `rating`             | alias of `safety`                                                                                                                       |
+
+### Sort style tokens
+
+| `<value>`        | Description                                      |
+| ---------------- | ------------------------------------------------ |
+| `random`         | as random as it can get                          |
+| `id`             | highest to lowest post number                    |
+| `score`          | highest scored                                   |
+| `tag-count`      | with most tags                                   |
+| `comment-count`  | most commented first                             |
+| `fav-count`      | loved by most                                    |
+| `note-count`     | with most annotations                            |
+| `relation-count` | with most relations                              |
+| `feature-count`  | most often featured                              |
+| `file-size`      | largest files first                              |
+| `image-width`    | widest images first                              |
+| `image-height`   | tallest images first                             |
+| `image-area`     | largest images first                             |
+| `width`          | alias of `image-width`                           |
+| `height`         | alias of `image-height`                          |
+| `area`           | alias of `image-area`                            |
+| `creation-date`  | newest to oldest (pretty much same as id)        |
+| `creation-time`  | alias of `creation-date`                         |
+| `date`           | alias of `creation-date`                         |
+| `time`           | alias of `creation-date`                         |
+| `last-edit-date` | like creation-date, only looks at last edit time |
+| `last-edit-time` | alias of `last-edit-date`                        |
+| `edit-date`      | alias of `last-edit-date`                        |
+| `edit-time`      | alias of `last-edit-date`                        |
+| `comment-date`   | recently commented by anyone                     |
+| `comment-time`   | alias of `comment-date`                          |
+| `fav-date`       | recently added to favorites by anyone            |
+| `fav-time`       | alias of `fav-date`                              |
+| `feature-date`   | recently featured                                |
+| `feature-time`   | alias of `feature-time`                          |
+
+### Special tokens
+
+| `<value>`    | Description                                                   |
+| ------------ | ------------------------------------------------------------- |
+| `liked`      | posts liked by currently logged in user                       |
+| `disliked`   | posts disliked by currently logged in user                    |
+| `fav`        | posts added to favorites by currently logged in user          |
+| `tumbleweed` | posts with score of 0, without comments and without favorites |
+
+## Pool search
+
+### Anonymous tokens
+
+Same as `name` token.
+
+### Named tokens
+
+| `<key>`             | Description                               |
+| ------------------- | ----------------------------------------- |
+| `name`              | having given name (accepts wildcards)     |
+| `category`          | having given category (accepts wildcards) |
+| `creation-date`     | created at given date                     |
+| `creation-time`     | alias of `creation-date`                  |
+| `last-edit-date`    | edited at given date                      |
+| `last-edit-time`    | alias of `last-edit-date`                 |
+| `edit-date`         | alias of `last-edit-date`                 |
+| `edit-time`         | alias of `last-edit-date`                 |
+| `post-count`        | used in given number of posts             |
+
+### Sort style tokens
+
+| `<value>`           | Description                  |
+| ------------------- | ---------------------------- |
+| `random`            | as random as it can get      |
+| `name`              | A to Z                       |
+| `category`          | category (A to Z)            |
+| `creation-date`     | recently created first       |
+| `creation-time`     | alias of `creation-date`     |
+| `last-edit-date`    | recently edited first        |
+| `last-edit-time`    | alias of `creation-time`     |
+| `edit-date`         | alias of `creation-time`     |
+| `edit-time`         | alias of `creation-time`     |
+| `post-count`        | used in most posts first     |
+
+### Special tokens
+
+None.
+
+## Comment search
+
+### Anonymous tokens
+
+Same as `text` token.
+
+### Named tokens
+
+| `<key>`          | Description                                    |
+| ---------------- | ---------------------------------------------- |
+| `id`             | specific comment ID                            |
+| `post`           | specific post ID                               |
+| `user`           | created by given user (accepts wildcards)      |
+| `author`         | alias of `user`                                |
+| `text`           | containing given text (accepts wildcards)      |
+| `creation-date`  | created at given date                          |
+| `creation-time`  | alias of `creation-date`                       |
+| `last-edit-date` | whose most recent edit date matches given date |
+| `last-edit-time` | alias of `last-edit-date`                      |
+| `edit-date`      | alias of `last-edit-date`                      |
+| `edit-time`      | alias of `last-edit-date`                      |
+
+### Sort style tokens
+
+| `<value>`        | Description               |
+| ---------------- | ------------------------- |
+| `random`         | as random as it can get   |
+| `user`           | author name, A to Z       |
+| `author`         | alias of `user`           |
+| `post`           | post ID, newest to oldest |
+| `creation-date`  | newest to oldest          |
+| `creation-time`  | alias of `creation-date`  |
+| `last-edit-date` | recently edited first     |
+| `last-edit-time` | alias of `last-edit-date` |
+| `edit-date`      | alias of `last-edit-date` |
+| `edit-time`      | alias of `last-edit-date` |
+
+### Special tokens
+
+None.
+
+## User search
+
+### Anonymous tokens
+
+Same as `name` token.
+
+### Named tokens
+
+| `<key>`           | Description                                     |
+| ----------------- | ----------------------------------------------- |
+| `name`            | having given name (accepts wildcards)           |
+| `creation-date`   | registered at given date                        |
+| `creation-time`   | alias of `creation-date`                        |
+| `last-login-date` | whose most recent login date matches given date |
+| `last-login-time` | alias of `last-login-date`                      |
+| `login-date`      | alias of `last-login-date`                      |
+| `login-time`      | alias of `last-login-date`                      |
+
+### Sort style tokens
+
+| `<value>`         | Description                |
+| ----------------- | -------------------------- |
+| `random`          | as random as it can get    |
+| `name`            | A to Z                     |
+| `creation-date`   | newest to oldest           |
+| `creation-time`   | alias of `creation-date`   |
+| `last-login-date` | recently active first      |
+| `last-login-time` | alias of `last-login-date` |
+| `login-date`      | alias of `last-login-date` |
+| `login-time`      | alias of `last-login-date` |
+
+### Special tokens
+
+None.
+
+## Snapshot search
+
+### Anonymous tokens
+
+Not supported.
+
+### Named tokens
+
+| `<key>`           | Description                                                      |
+| ----------------- | ---------------------------------------------------------------- |
+| `type`            | involving given resource type                                    |
+| `id`              | involving given resource id                                      |
+| `date`            | created at given date                                            |
+| `time`            | alias of `date`                                                  |
+| `operation`       | `modified`, `created`, `deleted` or `merged`                     |
+| `user`            | name of the user that created given snapshot (accepts wildcards) |
+
+### Sort style tokens
+
+None. The snapshots are always sorted by creation time.
+
+### Special tokens
+
+None.

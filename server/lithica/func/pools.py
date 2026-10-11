@@ -5,7 +5,7 @@ from typing import Any
 import sqlalchemy as sa
 import sqlalchemy.orm as sa_orm
 
-from lithica import config, db, errors, model, rest
+from lithica import config, db, errors, model
 from lithica.func import pool_categories, posts, serialization, util
 
 
@@ -146,7 +146,7 @@ class PoolSerializer(serialization.BaseSerializer):
 
 def serialize_pool(
     pool: model.Pool, options: list[str] | None = None
-) -> rest.Response | None:
+) -> serialization.Response | None:
     if options is None:
         options = []
     if not pool:
@@ -154,7 +154,7 @@ def serialize_pool(
     return PoolSerializer(pool).serialize(options)
 
 
-def serialize_micro_pool(pool: model.Pool) -> rest.Response | None:
+def serialize_micro_pool(pool: model.Pool) -> serialization.Response | None:
     return serialize_pool(
         pool, options=["id", "names", "category", "description", "postCount"]
     )
