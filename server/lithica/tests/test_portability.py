@@ -30,6 +30,15 @@ HISTORICAL_MIGRATIONS = {
 }
 
 
+# PLAN.md, "Allowed dialect exceptions": a JSON column is JSONB on PostgreSQL.
+# The one line that says so may appear in these files and nowhere else.
+JSONB_IMPORT = "from sqlalchemy.dialects.postgresql import JSONB"
+JSONB_FILES = {
+    "lithica/model/types.py",
+    "lithica/migrations/versions/e2b8d4f6a1c3_create_post_content_table.py",
+}
+
+
 def _checked_files() -> list[Path]:
     files = []
     for path in sorted(PACKAGE_DIR.rglob("*.py")):
@@ -42,9 +51,11 @@ def _checked_files() -> list[Path]:
     return files
 
 
-def _find_violations(source: str) -> list[tuple[int, str]]:
+def _find_violations(source: str, allow_jsonb: bool = False) -> list[tuple[int, str]]:
     violations = []
     for line_number, line in enumerate(source.splitlines(), start=1):
+        if allow_jsonb and line == JSONB_IMPORT:
+            continue
         for description, pattern in FORBIDDEN.items():
             if pattern.search(line):
                 violations.append((line_number, description))
@@ -54,12 +65,27 @@ def _find_violations(source: str) -> list[tuple[int, str]]:
 def test_no_database_specific_code():
     files = _checked_files()
     assert len(files) > 100
-    violations = [
-        "%s:%d: %s" % (path.relative_to(PACKAGE_DIR.parent), line_number, what)
-        for path in files
-        for line_number, what in _find_violations(path.read_text(encoding="utf8"))
-    ]
+    violations = []
+    for path in files:
+        name = path.relative_to(PACKAGE_DIR.parent).as_posix()
+        found = _find_violations(
+            path.read_text(encoding="utf8"), allow_jsonb=name in JSONB_FILES
+        )
+        violations += ["%s:%d: %s" % (name, line, what) for line, what in found]
     assert not violations, "\n".join(violations)
+
+
+def test_jsonb_exception_is_one_line_in_known_files():
+    for name in JSONB_FILES:
+        source = (PACKAGE_DIR.parent / name).read_text(encoding="utf8")
+        assert JSONB_IMPORT in source.splitlines()
+    # the same line anywhere else is still refused, and so is any other use
+    # of the dialect in the excepted files
+    assert _find_violations(JSONB_IMPORT)
+    assert _find_violations("    " + JSONB_IMPORT, allow_jsonb=True)
+    assert _find_violations(
+        "from sqlalchemy.dialects.postgresql import ARRAY", allow_jsonb=True
+    )
 
 
 @pytest.mark.parametrize(

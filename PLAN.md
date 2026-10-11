@@ -76,6 +76,8 @@ with `doc/openapi.json` since phase 2.
 
 - `sa.ARRAY` in migrations `8f3a1c2d4e5b` and `b7d2e9a4c1f3` only: they read and (on downgrade) restore the old
   `post_signature.words` array column. No engine code uses it.
+- `JSONB` as the PostgreSQL variant of a JSON column: imported in `lithica/model/types.py` (`json_type()`) and in
+  migration `e2b8d4f6a1c3` only. The portability gate allows that one import line in those two files.
 
 ### Decision log
 
@@ -87,6 +89,7 @@ When a phase is merged, its entries are folded into the tables above or deleted.
 - 2026-10-11 — 3.1 — a module is package `lithica.modules.<name>` exposing a `registry.Module` named `module` (one object to check)
 - 2026-10-11 — 3.1 — modules load when `lithica.app` is imported, not in the lifespan (their routes are part of the application)
 - 2026-10-11 — 3.1 — module routes live under `/modules/<name>/` and stay out of `doc/openapi.json` (the contract is the engine's)
+- 2026-10-11 — 3.2 — `post_content.kind` is 64 characters; a kind belongs to exactly one module (`registry.ContentKind`)
 - 2026-10-11 — 3.1 — a module may add search tokens, post fields and commands but never replace the engine's (startup error)
 
 ---
@@ -149,7 +152,7 @@ yet beyond a test fixture module. Tag `v0.1.0`.
 - [x] `import-linter` contract in CI: `lithica` (engine) must not import `lithica.modules`; modules must not import each other.
 
 ### 3.2 Embedded-content pipeline (engine side)
-- [ ] Table `post_content`: id, post id (FK, cascade delete), `kind` (string, e.g. `dummy_v1`), `schema_version`, `payload` (`JSON` / `JSONB` variant), `extracted_at`. Index on (`post_id`, `kind`). Multiple rows per post allowed.
+- [x] Table `post_content`: id, post id (FK, cascade delete), `kind` (string, e.g. `dummy_v1`), `schema_version`, `payload` (`JSON` / `JSONB` variant), `extracted_at`. Index on (`post_id`, `kind`). Multiple rows per post allowed.
 - [ ] Extractor contract: given MIME type and a readable file, return zero or more `(kind, payload)` results. Extractors are registered by modules and keyed by MIME type (PNG text chunks, WebP EXIF, video metadata — not PNG-only).
 - [ ] Run extractors on post create and on content update (replace the post's rows); errors in one extractor are logged and do not fail the upload.
 - [ ] `lithica-admin reextract [--kind K]` re-runs extractors over existing posts in batches.
