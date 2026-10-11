@@ -28,6 +28,11 @@ thumbnails:
 # off by default; the development image switches it on
 api_docs: false
 
+# optional modules to switch on, by name: features layered on the engine.
+# a name that is not a module is an error and the server does not start.
+# a module's routes are served under modules/<name>/
+modules: [] # example: [some_module]
+
 # the largest request the server accepts, in bytes: an upload with everything
 # sent along with it. a larger one is refused with 413. the web server in
 # front must allow as much: the nginx of the client image has

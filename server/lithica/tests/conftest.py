@@ -25,9 +25,10 @@ config.config.setdefault(
 )
 
 import httpx2  # noqa: E402
+from fastapi import FastAPI  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
-from lithica import db, model  # noqa: E402
+from lithica import db, model, registry  # noqa: E402
 from lithica.api import dependencies, responses  # noqa: E402
 from lithica.app import app as lithica_app  # noqa: E402
 
@@ -247,9 +248,10 @@ class ApiClient:
     `metadata` part of a multipart request when `files` are given.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, application: FastAPI = lithica_app) -> None:
+        self._app = application
         # not used as a context manager: the startup work does not run
-        self._client = TestClient(lithica_app, headers={"Accept": "application/json"})
+        self._client = TestClient(application, headers={"Accept": "application/json"})
 
     def request(
         self,
@@ -272,7 +274,7 @@ class ApiClient:
                 kwargs["data"] = {"metadata": json.dumps(body)}
         elif body is not None:
             kwargs["json"] = body
-        overrides = lithica_app.dependency_overrides
+        overrides = self._app.dependency_overrides
         if user is not None:
             overrides[dependencies.get_user] = lambda: user
         try:
@@ -297,6 +299,14 @@ class ApiClient:
 @pytest.fixture
 def client(session):
     return ApiClient()
+
+
+@pytest.fixture(autouse=True)
+def no_modules():
+    """Every test starts, and leaves, with no module loaded."""
+    registry.use([])
+    yield
+    registry.use([])
 
 
 @pytest.fixture

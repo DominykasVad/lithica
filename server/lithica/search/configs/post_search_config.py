@@ -1,7 +1,7 @@
 import sqlalchemy as sa
 import sqlalchemy.orm as sa_orm
 
-from lithica import db, errors, model
+from lithica import db, errors, model, registry
 from lithica.func import util
 from lithica.search import criteria, tokens
 from lithica.search.configs import util as search_util
@@ -218,6 +218,11 @@ class PostSearchConfig(BaseSearchConfig):
 
     @property
     def named_filters(self) -> dict[str, Filter]:
+        # the engine's tokens and the ones the loaded modules add
+        return {**self.engine_named_filters, **registry.post_search_filters()}
+
+    @property
+    def engine_named_filters(self) -> dict[str, Filter]:
         return util.unalias_dict(
             [
                 (["id"], search_util.create_num_filter(model.Post.post_id)),

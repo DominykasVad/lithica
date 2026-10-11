@@ -1,3 +1,4 @@
+import functools
 import hmac
 import logging
 from collections.abc import Callable
@@ -7,7 +8,7 @@ import sqlalchemy as sa
 import sqlalchemy.event as sa_event
 import sqlalchemy.orm as sa_orm
 
-from lithica import config, db, errors, model
+from lithica import config, db, errors, model, registry
 from lithica.func import (
     comments,
     files,
@@ -167,6 +168,13 @@ class PostSerializer(serialization.BaseSerializer):
         self.auth_user = auth_user
 
     def _serializers(self) -> dict[str, Callable[[], Any]]:
+        serializers = self._engine_serializers()
+        # the fields the loaded modules add to a post
+        for name, serialize in registry.post_fields().items():
+            serializers[name] = functools.partial(serialize, self.post, self.auth_user)
+        return serializers
+
+    def _engine_serializers(self) -> dict[str, Callable[[], Any]]:
         return {
             "id": self.serialize_id,
             "version": self.serialize_version,
@@ -362,6 +370,13 @@ def serialize_micro_post(
     # the two fields of a micro post do not depend on who is asking
     serializer = PostSerializer(post, cast(model.User, auth_user))
     return serializer.serialize(["id", "thumbnailUrl"])
+
+
+def get_engine_post_field_names() -> set[str]:
+    """The fields of a post that are the engine's own; a module may not take them."""
+    # only the names are read: no post is needed to list them
+    serializer = PostSerializer(cast(model.Post, None), cast(model.User, None))
+    return set(serializer._engine_serializers())
 
 
 def get_post_count() -> int:

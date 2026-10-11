@@ -84,6 +84,11 @@ respect). One line each, max ~120 characters: `date — task — decision (reaso
 No status notes, no "left untouched", no results — those go in commit messages.
 When a phase is merged, its entries are folded into the tables above or deleted.
 
+- 2026-10-11 — 3.1 — a module is package `lithica.modules.<name>` exposing a `registry.Module` named `module` (one object to check)
+- 2026-10-11 — 3.1 — modules load when `lithica.app` is imported, not in the lifespan (their routes are part of the application)
+- 2026-10-11 — 3.1 — module routes live under `/modules/<name>/` and stay out of `doc/openapi.json` (the contract is the engine's)
+- 2026-10-11 — 3.1 — a module may add search tokens, post fields and commands but never replace the engine's (startup error)
+
 ---
 
 ## Phase 0 — done (merged in PR #1)
@@ -133,7 +138,7 @@ Goal: the engine can host optional modules; nothing module-specific exists
 yet beyond a test fixture module. Tag `v0.1.0`.
 
 ### 3.1 Module registry
-- [ ] Config `modules: []` (list of module names). Registry loads `lithica.modules.<name>` dynamically at startup; unknown names fail fast.
+- [x] Config `modules: []` (list of module names). Registry loads `lithica.modules.<name>` dynamically at startup; unknown names fail fast.
 - [ ] Module interface (a small protocol/dataclass), each part optional:
   - routers to mount (under the module's own path prefix),
   - content extractors (see 3.2),
