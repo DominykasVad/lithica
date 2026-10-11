@@ -62,6 +62,15 @@ def _serialize(
     "/users", response_model=resources.Paged[resources.User], summary="List users"
 )
 def get_users(auth_user: CurrentUser, fields: Fields, page: PageParams) -> Any:
+    """
+    Searches for users.
+
+    The tokens `query` understands are listed under "User search" in doc/API.md.
+
+    Errors:
+
+    - privileges are too low
+    """
     auth.verify_privilege(auth_user, "users:list")
     return run_search(
         _search_executor, page, lambda user: _serialize(user, auth_user, fields)
@@ -80,7 +89,25 @@ def create_user(
     data: RequestDataParam,
     body: Annotated[UserCreate, Depends(read_body(UserCreate))],
 ) -> Any:
-    """Register oneself (when anonymous) or create a user for someone else."""
+    """
+    Creates a new user using specified parameters. Names and passwords must
+    match `user_name_regex` and `password_regex` from server's configuration,
+    respectively. Email address, rank and avatar fields are optional. Avatar
+    style can be either `gravatar` or `manual`. `manual` avatar style requires
+    client to pass also `avatar` file - see file uploads for details. If the
+    rank is empty and the user happens to be the first user ever created, become
+    an administrator, whereas subsequent users will be given the rank indicated
+    by `default_rank` in the server's configuration.
+
+    Errors:
+
+    - a user with such name already exists (names are case insensitive)
+    - either user name, password, email or rank are invalid
+    - the user is trying to update their or someone else's rank to higher than
+      their own
+    - avatar is missing for manual avatar style
+    - privileges are too low
+    """
     if auth_user.user_id is None:
         auth.verify_privilege(auth_user, "users:create:self")
     else:
@@ -103,6 +130,14 @@ def create_user(
 
 @router.get("/user/{user_name}", response_model=resources.User, summary="Get a user")
 def get_user(user_name: str, auth_user: CurrentUser, fields: Fields) -> Any:
+    """
+    Retrieves information about an existing user.
+
+    Errors:
+
+    - the user does not exist
+    - privileges are too low
+    """
     user = users.get_user_by_name(user_name)
     if auth_user.user_id != user.user_id:
         auth.verify_privilege(auth_user, "users:view")
@@ -122,7 +157,26 @@ def update_user(
     data: RequestDataParam,
     body: Annotated[UserUpdate, Depends(read_body(UserUpdate))],
 ) -> Any:
-    """Only the fields that are sent are changed."""
+    """
+    Updates an existing user using specified parameters. Names and passwords
+    must match `user_name_regex` and `password_regex` from server's
+    configuration, respectively. All fields are optional - update concerns only
+    provided fields. To update last login time, see authentication. Avatar style
+    can be either `gravatar` or `manual`. `manual` avatar style requires client
+    to pass also `avatar` file - see file uploads for details. All fields except
+    the `version` are optional - update concerns only provided fields.
+
+    Errors:
+
+    - the version is outdated
+    - the user does not exist
+    - a user with new name already exists (names are case insensitive)
+    - either user name, password, email or rank are invalid
+    - the user is trying to update their or someone else's rank to higher than
+      their own
+    - avatar is missing for manual avatar style
+    - privileges are too low
+    """
     user = users.get_user_by_name(user_name)
     versions.verify_version(user, body.require("version"))
     versions.bump_version(user)
@@ -159,6 +213,15 @@ def delete_user(
     auth_user: CurrentUser,
     body: Annotated[VersionOnly, Depends(read_body(VersionOnly))],
 ) -> Any:
+    """
+    Deletes existing user.
+
+    Errors:
+
+    - the version is outdated
+    - the user does not exist
+    - privileges are too low
+    """
     user = users.get_user_by_name(user_name)
     versions.verify_version(user, body.require("version"))
     infix = "self" if auth_user.user_id == user.user_id else "any"

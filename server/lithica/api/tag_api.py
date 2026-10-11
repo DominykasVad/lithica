@@ -76,6 +76,15 @@ def get_tags(
     fields: Fields,
     page: PageParams,
 ) -> Any:
+    """
+    Searches for tags.
+
+    The tokens `query` understands are listed under "Tag search" in doc/API.md.
+
+    Errors:
+
+    - privileges are too low
+    """
     return run_search(_search_executor, page, lambda tag: _serialize(tag, fields))
 
 
@@ -90,7 +99,26 @@ def create_tag(
     fields: Fields,
     body: Annotated[TagCreate, Depends(read_body(TagCreate))],
 ) -> Any:
-    """Suggested and implied tags that do not exist yet are created."""
+    """
+    Creates a new tag using specified parameters. Names, suggestions and
+    implications must match `tag_name_regex` from server's configuration.
+    Category must exist and is the same as `name` field within `<tag-category>`
+    resource. Suggestions and implications are optional. If specified implied
+    tags or suggested tags do not exist yet, they will be automatically created.
+    Tags created automatically have no implications, no suggestions, one name
+    and their category is set to the first tag category found. If there are no
+    tag categories established yet, an error will be thrown.
+
+    Errors:
+
+    - any name is used by an existing tag (names are case insensitive)
+    - any name, implication or is invalid
+    - category is invalid
+    - no name was specified
+    - implications or suggestions contain any item from names (e.g. there's a
+      shallow cyclic dependency)
+    - privileges are too low
+    """
     names = body.require("names")
     category = body.require("category")
 
@@ -115,6 +143,14 @@ def get_tag(
     _user: Annotated[model.User, Depends(require("tags:view"))],
     fields: Fields,
 ) -> Any:
+    """
+    Retrieves information about an existing tag.
+
+    Errors:
+
+    - the tag does not exist
+    - privileges are too low
+    """
     tag = tags.get_tag_by_name(tag_name)
     return _serialize(tag, fields)
 
@@ -131,7 +167,27 @@ def update_tag(
     fields: Fields,
     body: Annotated[TagUpdate, Depends(read_body(TagUpdate))],
 ) -> Any:
-    """Only the fields that are sent are changed."""
+    """
+    Updates an existing tag using specified parameters. Names, suggestions and
+    implications must match `tag_name_regex` from server's configuration.
+    Category must exist and is the same as `name` field within `<tag-category>`
+    resource. If specified implied tags or suggested tags do not exist yet, they
+    will be automatically created. Tags created automatically have no
+    implications, no suggestions, one name and their category is set to the
+    first tag category found. All fields except the `version` are optional -
+    update concerns only provided fields.
+
+    Errors:
+
+    - the version is outdated
+    - the tag does not exist
+    - any name is used by an existing tag (names are case insensitive)
+    - any name, implication or suggestion name is invalid
+    - category is invalid
+    - implications or suggestions contain any item from names (e.g. there's a
+      shallow cyclic dependency)
+    - privileges are too low
+    """
     tag = tags.get_tag_by_name(tag_name)
     versions.verify_version(tag, body.require("version"))
     versions.bump_version(tag)
@@ -170,6 +226,15 @@ def delete_tag(
     auth_user: CurrentUser,
     body: Annotated[VersionOnly, Depends(read_body(VersionOnly))],
 ) -> Any:
+    """
+    Deletes existing tag. The tag to be deleted must have no usages.
+
+    Errors:
+
+    - the version is outdated
+    - the tag does not exist
+    - privileges are too low
+    """
     tag = tags.get_tag_by_name(tag_name)
     versions.verify_version(tag, body.require("version"))
     auth.verify_privilege(auth_user, "tags:delete")
@@ -191,8 +256,16 @@ def merge_tags(
     body: Annotated[TagMerge, Depends(read_body(TagMerge))],
 ) -> Any:
     """
-    Remove the tag `remove` and give its posts, suggestions and implications
-    to the tag `mergeTo`, which is returned.
+    Removes source tag and merges all of its usages, suggestions and
+    implications to the target tag. Other tag properties such as category and
+    aliases do not get transferred and are discarded.
+
+    Errors:
+
+    - the version of either tag is outdated
+    - the source or target tag does not exist
+    - the source tag is the same as the target tag
+    - privileges are too low
     """
     source_tag_name = body.require("remove")
     target_tag_name = body.require("merge_to")
@@ -218,6 +291,16 @@ def get_tag_siblings(
     _user: Annotated[model.User, Depends(require("tags:view"))],
     fields: Fields,
 ) -> Any:
+    """
+    Lists siblings of given tag, e.g. tags that were used in the same posts as
+    the given tag. `occurrences` field signifies how many times a given sibling
+    appears with given tag. Results are sorted by occurrences count and the list
+    is truncated to the first 50 elements. Doesn't use paging.
+
+    Errors:
+
+    - privileges are too low
+    """
     tag = tags.get_tag_by_name(tag_name)
     result = tags.get_tag_siblings(tag)
     serialized_siblings = []

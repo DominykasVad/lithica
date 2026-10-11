@@ -28,10 +28,13 @@ def create_temporary_file(
     data: RequestDataParam,
 ) -> Any:
     """
-    Store a file for a while and get a token for it. The token stands for
-    the file in a later request (`contentToken`, `thumbnailToken`,
-    `avatarToken`), so that a large file is sent once while its post is
-    still being edited.
+    Puts a file in temporary storage and assigns it a token that can be used in
+    other requests. The files uploaded that way are deleted after a short while
+    so clients shouldn't use it as a free upload service.
+
+    Errors:
+
+    - privileges are too low
     """
     content = data.get_file(
         "content",

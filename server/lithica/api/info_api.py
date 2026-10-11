@@ -78,8 +78,18 @@ _disk_usage = _DiskUsage()
 @router.get("/info", response_model=resources.Info, summary="Get global info")
 def get_info(user: CurrentUser) -> dict[str, Any]:
     """
-    Statistics and the settings a client needs: the name of the site, the
-    name rules and what each rank may do.
+    Retrieves simple statistics. `<featured-post>` is null if there is no
+    featured post yet. `<server-time>` is pretty much the same as the `Date`
+    HTTP field, only formatted in a manner consistent with other dates. Values
+    in `config` key are taken directly from the server config, with the
+    exception of privilege array keys being converted to lower camel case to
+    match the API convention.
+
+    `<disk-usage>` is the size of the data directory. It is measured in the
+    background and can be up to an hour old; it is null until the first
+    measurement after a server start has finished. When several server processes
+    run, each measures for itself, so two requests can briefly report different
+    sizes.
     """
     post_feature = posts.try_get_current_post_feature()
     ret: dict[str, Any] = {

@@ -23,7 +23,16 @@ def get_snapshots(
     auth_user: Annotated[model.User, Depends(require("snapshots:list"))],
     page: PageParams,
 ) -> Any:
-    """The history of changes to tags, posts, pools and their categories."""
+    """
+    Lists recent resource snapshots.
+
+    The tokens `query` understands are listed under "Snapshot search" in
+    doc/API.md.
+
+    Errors:
+
+    - privileges are too low
+    """
     return run_search(
         _search_executor,
         page,

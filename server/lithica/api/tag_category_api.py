@@ -47,6 +47,13 @@ def get_tag_categories(
     _user: Annotated[model.User, Depends(require("tag_categories:list"))],
     fields: Fields,
 ) -> Any:
+    """
+    Lists all tag categories. Doesn't use paging.
+
+    Errors:
+
+    - privileges are too low
+    """
     categories = tag_categories.get_all_categories()
     return {
         "results": [_serialize(category, fields) for category in categories],
@@ -64,6 +71,18 @@ def create_tag_category(
     fields: Fields,
     body: Annotated[TagCategoryCreate, Depends(read_body(TagCategoryCreate))],
 ) -> Any:
+    """
+    Creates a new tag category using specified parameters. Name must match
+    `tag_category_name_regex` from server's configuration. First category
+    created becomes the default category.
+
+    Errors:
+
+    - the name is used by an existing tag category (names are case insensitive)
+    - the name is invalid or missing
+    - the color is invalid or missing
+    - privileges are too low
+    """
     name = body.require("name")
     color = body.require("color")
     order = body.require("order")
@@ -85,6 +104,14 @@ def get_tag_category(
     _user: Annotated[model.User, Depends(require("tag_categories:view"))],
     fields: Fields,
 ) -> Any:
+    """
+    Retrieves information about an existing tag category.
+
+    Errors:
+
+    - the tag category does not exist
+    - privileges are too low
+    """
     category = tag_categories.get_category_by_name(category_name)
     return _serialize(category, fields)
 
@@ -101,7 +128,20 @@ def update_tag_category(
     fields: Fields,
     body: Annotated[TagCategoryUpdate, Depends(read_body(TagCategoryUpdate))],
 ) -> Any:
-    """Only the fields that are sent are changed."""
+    """
+    Updates an existing tag category using specified parameters. Name must match
+    `tag_category_name_regex` from server's configuration. All fields except the
+    `version` are optional - update concerns only provided fields.
+
+    Errors:
+
+    - the version is outdated
+    - the tag category does not exist
+    - the name is used by an existing tag category (names are case insensitive)
+    - the name is invalid
+    - the color is invalid
+    - privileges are too low
+    """
     category = tag_categories.get_category_by_name(category_name, lock=True)
     versions.verify_version(category, body.require("version"))
     versions.bump_version(category)
@@ -131,6 +171,18 @@ def delete_tag_category(
     auth_user: CurrentUser,
     body: Annotated[VersionOnly, Depends(read_body(VersionOnly))],
 ) -> Any:
+    """
+    Deletes existing tag category. The tag category to be deleted must have no
+    usages.
+
+    Errors:
+
+    - the version is outdated
+    - the tag category does not exist
+    - the tag category is used by some tags
+    - the tag category is the last tag category available
+    - privileges are too low
+    """
     category = tag_categories.get_category_by_name(category_name, lock=True)
     versions.verify_version(category, body.require("version"))
     auth.verify_privilege(auth_user, "tag_categories:delete")
@@ -150,6 +202,15 @@ def set_tag_category_as_default(
     auth_user: Annotated[model.User, Depends(require("tag_categories:set_default"))],
     fields: Fields,
 ) -> Any:
+    """
+    Sets given tag category as default. All new tags created manually or
+    automatically will have this category.
+
+    Errors:
+
+    - the tag category does not exist
+    - privileges are too low
+    """
     category = tag_categories.get_category_by_name(category_name, lock=True)
     tag_categories.set_default_category(category)
     db.session.flush()

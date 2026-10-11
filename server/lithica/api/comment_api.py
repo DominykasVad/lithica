@@ -66,6 +66,16 @@ def get_comments(
     fields: Fields,
     page: PageParams,
 ) -> Any:
+    """
+    Searches for comments.
+
+    The tokens `query` understands are listed under "Comment search" in
+    doc/API.md.
+
+    Errors:
+
+    - privileges are too low
+    """
     return run_search(
         _search_executor,
         page,
@@ -84,6 +94,15 @@ def create_comment(
     fields: Fields,
     body: Annotated[CommentCreate, Depends(read_body(CommentCreate))],
 ) -> Any:
+    """
+    Creates a new comment under given post.
+
+    Errors:
+
+    - the post does not exist
+    - comment text is empty
+    - privileges are too low
+    """
     text = body.require("text")
     post_id = body.require("post_id")
     post = posts.get_post_by_id(post_id)
@@ -103,6 +122,14 @@ def get_comment(
     auth_user: Annotated[model.User, Depends(require("comments:view"))],
     fields: Fields,
 ) -> Any:
+    """
+    Retrieves information about an existing comment.
+
+    Errors:
+
+    - the comment does not exist
+    - privileges are too low
+    """
     comment = _get_comment(comment_id)
     return _serialize(comment, auth_user, fields)
 
@@ -119,6 +146,16 @@ def update_comment(
     fields: Fields,
     body: Annotated[CommentUpdate, Depends(read_body(CommentUpdate))],
 ) -> Any:
+    """
+    Updates an existing comment text.
+
+    Errors:
+
+    - the version is outdated
+    - the comment does not exist
+    - new comment text is empty
+    - privileges are too low
+    """
     comment = _get_comment(comment_id)
     versions.verify_version(comment, body.require("version"))
     versions.bump_version(comment)
@@ -142,6 +179,15 @@ def delete_comment(
     auth_user: CurrentUser,
     body: Annotated[VersionOnly, Depends(read_body(VersionOnly))],
 ) -> Any:
+    """
+    Deletes existing comment.
+
+    Errors:
+
+    - the version is outdated
+    - the comment does not exist
+    - privileges are too low
+    """
     comment = _get_comment(comment_id)
     versions.verify_version(comment, body.require("version"))
     infix = "own" if auth_user.user_id == comment.user_id else "any"
@@ -163,7 +209,16 @@ def set_comment_score(
     fields: Fields,
     body: Annotated[ScoreUpdate, Depends(read_body(ScoreUpdate))],
 ) -> Any:
-    """`score` is 1 (like), -1 (dislike) or 0 (take the rating back)."""
+    """
+    Updates score of authenticated user for given comment. Valid scores are -1,
+    0 and 1.
+
+    Errors:
+
+    - comment does not exist
+    - score is invalid
+    - privileges are too low
+    """
     score = body.require("score")
     comment = _get_comment(comment_id)
     scores.set_score(comment, auth_user, score)
@@ -181,6 +236,15 @@ def delete_comment_score(
     auth_user: Annotated[model.User, Depends(require("comments:score"))],
     fields: Fields,
 ) -> Any:
+    """
+    Removes the requester's rating of the comment, as rating it with a score
+    of 0 does.
+
+    Errors:
+
+    - the comment does not exist
+    - privileges are too low
+    """
     comment = _get_comment(comment_id)
     scores.delete_score(comment, auth_user)
     db.session.commit()

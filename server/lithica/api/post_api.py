@@ -129,6 +129,15 @@ def get_posts(
     fields: Fields,
     page: PageParams,
 ) -> Any:
+    """
+    Searches for posts.
+
+    The tokens `query` understands are listed under "Post search" in doc/API.md.
+
+    Errors:
+
+    - privileges are too low
+    """
     _search_executor_config.user = auth_user
     return run_search(
         _search_executor, page, lambda post: _serialize_post(post, auth_user, fields)
@@ -148,8 +157,24 @@ def create_post(
     body: Annotated[PostCreate, Depends(read_body(PostCreate))],
 ) -> Any:
     """
-    The content is the `content` part of a multipart request, or
-    `contentUrl`, or `contentToken`. Tags that do not exist yet are created.
+    Creates a new post. If specified tags do not exist yet, they will be
+    automatically created. Tags created automatically have no implications, no
+    suggestions, one name and their category is set to the first tag category
+    found. Safety must be any of `"safe"`, `"sketchy"` or `"unsafe"`. Relations
+    must contain valid post IDs. If `<flag>` is omitted, they will be defined by
+    default (`"loop"` will be set for all video posts, and `"sound"` will be
+    auto-detected). Sending empty `thumbnail` will cause the post to use default
+    thumbnail. If `anonymous` is set to truthy value, the uploader name won't be
+    recorded (privilege verification still applies; it's possible to disallow
+    anonymous uploads completely from config.) For details on how to pass
+    `content` and `thumbnail`, see file uploads.
+
+    Errors:
+
+    - tags have invalid names
+    - safety, notes or flags are invalid
+    - relations refer to non-existing posts
+    - privileges are too low
     """
     if body.anonymous:
         auth.verify_privilege(auth_user, "posts:create:anonymous")
@@ -202,6 +227,13 @@ def get_posts_by_image(
     fields: Fields,
     data: RequestDataParam,
 ) -> Any:
+    """
+    Retrieves posts that look like the input image.
+
+    Errors:
+
+    - privileges are too low
+    """
     content = data.get_file("content")
 
     try:
@@ -229,6 +261,14 @@ def get_post(
     auth_user: Annotated[model.User, Depends(require("posts:view"))],
     fields: Fields,
 ) -> Any:
+    """
+    Retrieves information about an existing post.
+
+    Errors:
+
+    - the post does not exist
+    - privileges are too low
+    """
     post = _get_post(post_id)
     return _serialize_post(post, auth_user, fields)
 
@@ -246,7 +286,25 @@ def update_post(
     data: RequestDataParam,
     body: Annotated[PostUpdate, Depends(read_body(PostUpdate))],
 ) -> Any:
-    """Only the fields that are sent are changed."""
+    """
+    Updates existing post. If specified tags do not exist yet, they will be
+    automatically created. Tags created automatically have no implications, no
+    suggestions, one name and their category is set to the first tag category
+    found. Safety must be any of `"safe"`, `"sketchy"` or `"unsafe"`. Relations
+    must contain valid post IDs. `<flag>` can be either `"loop"` to enable
+    looping for video posts or `"sound"` to indicate sound. Sending empty
+    `thumbnail` will reset the post thumbnail to default. For details how to
+    pass `content` and `thumbnail`, see file uploads. All fields except the
+    `version` are optional - update concerns only provided fields.
+
+    Errors:
+
+    - the version is outdated
+    - tags have invalid names
+    - safety, notes or flags are invalid
+    - relations refer to non-existing posts
+    - privileges are too low
+    """
     post = _get_post(post_id)
     versions.verify_version(post, body.require("version"))
     versions.bump_version(post)
@@ -307,6 +365,15 @@ def delete_post(
     auth_user: Annotated[model.User, Depends(require("posts:delete"))],
     body: Annotated[VersionOnly, Depends(read_body(VersionOnly))],
 ) -> Any:
+    """
+    Deletes existing post. Related posts and tags are kept.
+
+    Errors:
+
+    - the version is outdated
+    - the post does not exist
+    - privileges are too low
+    """
     post = _get_post(post_id)
     versions.verify_version(post, body.require("version"))
     snapshots.delete(post, auth_user)
@@ -327,9 +394,19 @@ def merge_posts(
     body: Annotated[PostMerge, Depends(read_body(PostMerge))],
 ) -> Any:
     """
-    Remove the post `remove` and give its tags, relations, scores, favorites
-    and comments to the post `mergeTo`, which is returned. With
-    `replaceContent` the kept post also takes over the removed one's file.
+    Removes source post and merges all of its tags, relations, scores, favorites
+    and comments to the target post. If `replaceContent` is set to true, content
+    of the target post is replaced using the content of the source post;
+    otherwise it remains unchanged. Source post properties such as its safety,
+    source, whether to loop the video and other scalar values do not get
+    transferred and are discarded.
+
+    Errors:
+
+    - the version of either post is outdated
+    - the source or target post does not exist
+    - the source post is the same as the target post
+    - privileges are too low
     """
     source_post_id = body.require("remove")
     target_post_id = body.require("merge_to")
@@ -355,7 +432,16 @@ def get_featured_post(
     auth_user: Annotated[model.User, Depends(require("posts:view:featured"))],
     fields: Fields,
 ) -> Any:
-    """`null` when no post has been featured yet."""
+    """
+    Retrieves the post that is currently featured on the main page in web
+    client. If no post is featured, `<post>` is null. Note that this method
+    exists mostly for compatibility with setting featured post - most of times,
+    you'd want to use query global info which contains more information.
+
+    Errors:
+
+    - privileges are too low
+    """
     post = posts.try_get_featured_post()
     return _serialize_post(post, auth_user, fields)
 
@@ -371,6 +457,14 @@ def set_featured_post(
     fields: Fields,
     body: Annotated[PostFeature, Depends(read_body(PostFeature))],
 ) -> Any:
+    """
+    Features a post on the main page in web client.
+
+    Errors:
+
+    - privileges are too low
+    - trying to feature a post that is currently featured
+    """
     post_id = body.require("id")
     post = posts.get_post_by_id(post_id)
     featured_post = posts.try_get_featured_post()
@@ -394,7 +488,16 @@ def set_post_score(
     fields: Fields,
     body: Annotated[ScoreUpdate, Depends(read_body(ScoreUpdate))],
 ) -> Any:
-    """`score` is 1 (like), -1 (dislike) or 0 (take the rating back)."""
+    """
+    Updates score of authenticated user for given post. Valid scores are -1, 0
+    and 1.
+
+    Errors:
+
+    - post does not exist
+    - score is invalid
+    - privileges are too low
+    """
     post = _get_post(post_id)
     score = body.require("score")
     scores.set_score(post, auth_user, score)
@@ -412,6 +515,15 @@ def delete_post_score(
     auth_user: Annotated[model.User, Depends(require("posts:score"))],
     fields: Fields,
 ) -> Any:
+    """
+    Removes the requester's rating of the post, as rating it with a score of
+    0 does.
+
+    Errors:
+
+    - the post does not exist
+    - privileges are too low
+    """
     post = _get_post(post_id)
     scores.delete_score(post, auth_user)
     db.session.commit()
@@ -428,6 +540,14 @@ def add_post_to_favorites(
     auth_user: Annotated[model.User, Depends(require("posts:favorite"))],
     fields: Fields,
 ) -> Any:
+    """
+    Marks the post as favorite for authenticated user.
+
+    Errors:
+
+    - post does not exist
+    - privileges are too low
+    """
     post = _get_post(post_id)
     favorites.set_favorite(post, auth_user)
     db.session.commit()
@@ -444,6 +564,14 @@ def delete_post_from_favorites(
     auth_user: Annotated[model.User, Depends(require("posts:favorite"))],
     fields: Fields,
 ) -> Any:
+    """
+    Unmarks the post as favorite for authenticated user.
+
+    Errors:
+
+    - post does not exist
+    - privileges are too low
+    """
     post = _get_post(post_id)
     favorites.unset_favorite(post, auth_user)
     db.session.commit()
@@ -463,6 +591,14 @@ def get_posts_around(
         str, Query(description="The search the post was found with.")
     ] = "",
 ) -> Any:
+    """
+    Retrieves information about posts that are before or after an existing post.
+
+    Errors:
+
+    - the post does not exist
+    - privileges are too low
+    """
     _search_executor_config.user = auth_user
     around = _search_executor.get_around(query, _get_post_id(post_id))
     # the post search yields posts; either neighbour may be missing

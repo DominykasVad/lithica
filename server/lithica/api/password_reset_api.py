@@ -30,8 +30,19 @@ class PasswordResetConfirmation(RequestModel):
 )
 def start_password_reset(user_name: str) -> Any:
     """
-    Mail a reset link to the user, who is named by user name or e-mail
-    address. The link carries a token that works once and expires.
+    Sends a confirmation email to given user. The email contains link containing
+    a token. The token cannot be guessed, thus using such link proves that the
+    person who requested to reset the password also owns the mailbox, which is a
+    strong indication they are the rightful owner of the account.
+
+    The token is random, works once and expires after the time set in
+    `password_reset_token_lifetime` (one hour by default). Requesting another
+    email makes the previous token stop working.
+
+    Errors:
+
+    - the user does not exist
+    - the user hasn't provided an email address
     """
     user = users.get_user_by_name_or_email(user_name)
     if not user.email:
@@ -72,7 +83,16 @@ def finish_password_reset(
         PasswordResetConfirmation, Depends(read_body(PasswordResetConfirmation))
     ],
 ) -> Any:
-    """Trade the token from the mail for a new, generated password."""
+    """
+    Generates a new password for given user. Password is sent as plain-text, so
+    it is recommended to connect through HTTPS.
+
+    Errors:
+
+    - the token is missing
+    - the token is invalid, expired or already used
+    - the user does not exist
+    """
     user = users.get_user_by_name_or_email(user_name)
     token = body.require("token")
     password_reset.consume_token(user, token)

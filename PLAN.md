@@ -149,7 +149,7 @@ then rewrite that resource's `tests/api/` tests to go through FastAPI's
 - [ ] `python -m lithica.openapi` prints the spec; commit `doc/openapi.json`.
 - [ ] CI fails if the generated spec differs from the committed one.
 - [ ] Swagger/ReDoc: enabled in development; in production behind a config flag (default off) or admin-only.
-- [ ] Move narrative parts of `doc/API.md` (search syntax, resource concepts, error model, auth) to `doc/`; retire the endpoint reference.
+- [x] Move narrative parts of `doc/API.md` (search syntax, resource concepts, error model, auth) to `doc/`; retire the endpoint reference.
 - [ ] Spot-check wire compatibility: the legacy client smoke test passes.
 
 **Exit criteria:** no `rest/` code left; all tests green through HTTP;

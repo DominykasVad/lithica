@@ -46,6 +46,13 @@ def _serialize(
     summary="List the login tokens of a user",
 )
 def get_user_tokens(user_name: str, auth_user: CurrentUser, fields: Fields) -> Any:
+    """
+    Searches for user tokens for the given user.
+
+    Errors:
+
+    - privileges are too low
+    """
     user = users.get_user_by_name(user_name)
     infix = "self" if auth_user.user_id == user.user_id else "any"
     auth.verify_privilege(auth_user, "user_tokens:list:%s" % infix)
@@ -67,6 +74,14 @@ def create_user_token(
     fields: Fields,
     body: Annotated[UserTokenCreate, Depends(read_body(UserTokenCreate))],
 ) -> Any:
+    """
+    Creates a new user token that can be used for authentication of API
+    endpoints instead of a password.
+
+    Errors:
+
+    - privileges are too low
+    """
     user = users.get_user_by_name(user_name)
     infix = "self" if auth_user.user_id == user.user_id else "any"
     auth.verify_privilege(auth_user, "user_tokens:create:%s" % infix)
@@ -93,6 +108,16 @@ def update_user_token(
     fields: Fields,
     body: Annotated[UserTokenUpdate, Depends(read_body(UserTokenUpdate))],
 ) -> Any:
+    """
+    Updates an existing user token using specified parameters. All fields except
+    the `version` are optional - update concerns only provided fields.
+
+    Errors:
+
+    - the version is outdated
+    - the user token does not exist
+    - privileges are too low
+    """
     user = users.get_user_by_name(user_name)
     infix = "self" if auth_user.user_id == user.user_id else "any"
     auth.verify_privilege(auth_user, "user_tokens:edit:%s" % infix)
@@ -119,6 +144,14 @@ def update_user_token(
     summary="Delete a login token",
 )
 def delete_user_token(user_name: str, user_token: str, auth_user: CurrentUser) -> Any:
+    """
+    Deletes existing user token.
+
+    Errors:
+
+    - the token does not exist
+    - privileges are too low
+    """
     user = users.get_user_by_name(user_name)
     infix = "self" if auth_user.user_id == user.user_id else "any"
     auth.verify_privilege(auth_user, "user_tokens:delete:%s" % infix)

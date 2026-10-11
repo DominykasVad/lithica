@@ -45,6 +45,13 @@ def get_pool_categories(
     _user: Annotated[model.User, Depends(require("pool_categories:list"))],
     fields: Fields,
 ) -> Any:
+    """
+    Lists all pool categories. Doesn't use paging.
+
+    Errors:
+
+    - privileges are too low
+    """
     categories = pool_categories.get_all_categories()
     return {
         "results": [_serialize(category, fields) for category in categories],
@@ -62,6 +69,18 @@ def create_pool_category(
     fields: Fields,
     body: Annotated[PoolCategoryCreate, Depends(read_body(PoolCategoryCreate))],
 ) -> Any:
+    """
+    Creates a new pool category using specified parameters. Name must match
+    `pool_category_name_regex` from server's configuration. First category
+    created becomes the default category.
+
+    Errors:
+
+    - the name is used by an existing pool category (names are case insensitive)
+    - the name is invalid or missing
+    - the color is invalid or missing
+    - privileges are too low
+    """
     name = body.require("name")
     color = body.require("color")
     category = pool_categories.create_category(name, color)
@@ -82,6 +101,14 @@ def get_pool_category(
     _user: Annotated[model.User, Depends(require("pool_categories:view"))],
     fields: Fields,
 ) -> Any:
+    """
+    Retrieves information about an existing pool category.
+
+    Errors:
+
+    - the pool category does not exist
+    - privileges are too low
+    """
     category = pool_categories.get_category_by_name(category_name)
     return _serialize(category, fields)
 
@@ -98,7 +125,20 @@ def update_pool_category(
     fields: Fields,
     body: Annotated[PoolCategoryUpdate, Depends(read_body(PoolCategoryUpdate))],
 ) -> Any:
-    """Only the fields that are sent are changed."""
+    """
+    Updates an existing pool category using specified parameters. Name must
+    match `pool_category_name_regex` from server's configuration. All fields
+    except the `version` are optional - update concerns only provided fields.
+
+    Errors:
+
+    - the version is outdated
+    - the pool category does not exist
+    - the name is used by an existing pool category (names are case insensitive)
+    - the name is invalid
+    - the color is invalid
+    - privileges are too low
+    """
     category = pool_categories.get_category_by_name(category_name, lock=True)
     versions.verify_version(category, body.require("version"))
     versions.bump_version(category)
@@ -125,6 +165,18 @@ def delete_pool_category(
     auth_user: CurrentUser,
     body: Annotated[VersionOnly, Depends(read_body(VersionOnly))],
 ) -> Any:
+    """
+    Deletes existing pool category. The pool category to be deleted must have no
+    usages.
+
+    Errors:
+
+    - the version is outdated
+    - the pool category does not exist
+    - the pool category is used by some pools
+    - the pool category is the last pool category available
+    - privileges are too low
+    """
     category = pool_categories.get_category_by_name(category_name, lock=True)
     versions.verify_version(category, body.require("version"))
     auth.verify_privilege(auth_user, "pool_categories:delete")
@@ -144,6 +196,15 @@ def set_pool_category_as_default(
     auth_user: Annotated[model.User, Depends(require("pool_categories:set_default"))],
     fields: Fields,
 ) -> Any:
+    """
+    Sets given pool category as default. All new pools created manually or
+    automatically will have this category.
+
+    Errors:
+
+    - the pool category does not exist
+    - privileges are too low
+    """
     category = pool_categories.get_category_by_name(category_name, lock=True)
     pool_categories.set_default_category(category)
     db.session.flush()

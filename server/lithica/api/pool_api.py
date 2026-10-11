@@ -74,6 +74,15 @@ def get_pools(
     fields: Fields,
     page: PageParams,
 ) -> Any:
+    """
+    Searches for pools.
+
+    The tokens `query` understands are listed under "Pool search" in doc/API.md.
+
+    Errors:
+
+    - privileges are too low
+    """
     return run_search(_search_executor, page, lambda pool: _serialize(pool, fields))
 
 
@@ -88,6 +97,22 @@ def create_pool(
     fields: Fields,
     body: Annotated[PoolCreate, Depends(read_body(PoolCreate))],
 ) -> Any:
+    """
+    Creates a new pool using specified parameters. Names, suggestions and
+    implications must match `pool_name_regex` from server's configuration.
+    Category must exist and is the same as `name` field within `<pool-category>`
+    resource. `posts` is an optional list of integer post IDs. If the specified
+    posts do not exist, an error will be thrown.
+
+    Errors:
+
+    - any name is invalid
+    - category is invalid
+    - no name was specified
+    - there is at least one duplicate post
+    - at least one post ID does not exist
+    - privileges are too low
+    """
     names = body.require("names")
     category = body.require("category")
 
@@ -107,6 +132,14 @@ def get_pool(
     _user: Annotated[model.User, Depends(require("pools:view"))],
     fields: Fields,
 ) -> Any:
+    """
+    Retrieves information about an existing pool.
+
+    Errors:
+
+    - the pool does not exist
+    - privileges are too low
+    """
     pool = _get_pool(pool_id)
     return _serialize(pool, fields)
 
@@ -123,7 +156,27 @@ def update_pool(
     fields: Fields,
     body: Annotated[PoolUpdate, Depends(read_body(PoolUpdate))],
 ) -> Any:
-    """Only the fields that are sent are changed."""
+    """
+    Updates an existing pool using specified parameters. Names, suggestions and
+    implications must match `pool_name_regex` from server's configuration.
+    Category must exist and is the same as `name` field within `<pool-category>`
+    resource. `posts` is an optional list of integer post IDs. If the specified
+    posts do not exist yet, an error will be thrown. The full list of post IDs
+    must be provided if they are being updated, and the previous list of posts
+    will be replaced with the new one. All fields except the `version` are
+    optional - update concerns only provided fields.
+
+    Errors:
+
+    - the version is outdated
+    - the pool does not exist
+    - any name is invalid
+    - category is invalid
+    - no name was specified
+    - there is at least one duplicate post
+    - at least one post ID does not exist
+    - privileges are too low
+    """
     pool = _get_pool(pool_id)
     versions.verify_version(pool, body.require("version"))
     versions.bump_version(pool)
@@ -157,6 +210,16 @@ def delete_pool(
     auth_user: CurrentUser,
     body: Annotated[VersionOnly, Depends(read_body(VersionOnly))],
 ) -> Any:
+    """
+    Deletes existing pool. All posts in the pool will only have their relation
+    to the pool removed.
+
+    Errors:
+
+    - the version is outdated
+    - the pool does not exist
+    - privileges are too low
+    """
     pool = _get_pool(pool_id)
     versions.verify_version(pool, body.require("version"))
     auth.verify_privilege(auth_user, "pools:delete")
@@ -178,8 +241,16 @@ def merge_pools(
     body: Annotated[PoolMerge, Depends(read_body(PoolMerge))],
 ) -> Any:
     """
-    Remove the pool `remove` and add its posts to the pool `mergeTo`, which
-    is returned.
+    Removes source pool and merges all of its posts with the target pool. Other
+    pool properties such as category and aliases do not get transferred and are
+    discarded.
+
+    Errors:
+
+    - the version of either pool is outdated
+    - the source or target pool does not exist
+    - the source pool is the same as the target pool
+    - privileges are too low
     """
     source_pool_id = body.require("remove")
     target_pool_id = body.require("merge_to")
