@@ -4,5 +4,6 @@ cd /opt/app
 
 alembic upgrade head
 
-echo "Starting Lithica API on port ${PORT} - ${WORKERS} process(es), ${THREADS} threads each"
-exec uvicorn lithica.app:app --host 0.0.0.0 --port "${PORT}" --no-access-log --workers "${WORKERS}"
+echo "Starting Lithica API on ${HOST:-::} port ${PORT} - ${WORKERS} process(es), ${THREADS} threads each"
+# uvicorn serving lithica.app:app; reads HOST, PORT and WORKERS
+exec python -m lithica.serve
