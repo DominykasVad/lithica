@@ -32,6 +32,7 @@ from lithica.api import (
     snapshot_api,
     tag_api,
     tag_category_api,
+    upload_api,
     user_api,
     user_token_api,
 )
@@ -232,6 +233,7 @@ def create_app() -> FastAPI:
         pool_api,
         comment_api,
         snapshot_api,
+        upload_api,
     ]:
         application.include_router(ported.router)
 
