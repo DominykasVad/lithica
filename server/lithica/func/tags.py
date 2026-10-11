@@ -47,6 +47,15 @@ def _verify_name_validity(name: str) -> None:
         raise InvalidTagNameError(f"Tag `{name}` is not allowed.")
 
 
+def is_valid_name(name: str) -> bool:
+    """Whether a tag may have this name, for names nobody typed in."""
+    try:
+        _verify_name_validity(name)
+    except InvalidTagNameError:
+        return False
+    return True
+
+
 def _get_names(tag: model.Tag) -> list[str]:
     assert tag
     return [tag_name.name for tag_name in tag.names]

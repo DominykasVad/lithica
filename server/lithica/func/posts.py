@@ -1,3 +1,4 @@
+import functools
 import hmac
 import logging
 from collections.abc import Callable
@@ -7,16 +8,19 @@ import sqlalchemy as sa
 import sqlalchemy.event as sa_event
 import sqlalchemy.orm as sa_orm
 
-from lithica import config, db, errors, model
+from lithica import config, db, errors, model, registry
 from lithica.func import (
+    auth,
     comments,
     files,
     image_hash,
     images,
     mime,
     pools,
+    post_content,
     scores,
     serialization,
+    tag_categories,
     tags,
     users,
     util,
@@ -167,6 +171,13 @@ class PostSerializer(serialization.BaseSerializer):
         self.auth_user = auth_user
 
     def _serializers(self) -> dict[str, Callable[[], Any]]:
+        serializers = self._engine_serializers()
+        # the fields the loaded modules add to a post
+        for name, serialize in registry.post_fields().items():
+            serializers[name] = functools.partial(serialize, self.post, self.auth_user)
+        return serializers
+
+    def _engine_serializers(self) -> dict[str, Callable[[], Any]]:
         return {
             "id": self.serialize_id,
             "version": self.serialize_version,
@@ -202,6 +213,7 @@ class PostSerializer(serialization.BaseSerializer):
             "notes": self.serialize_notes,
             "comments": self.serialize_comments,
             "pools": self.serialize_pools,
+            "contentKinds": self.serialize_content_kinds,
         }
 
     def serialize_id(self) -> Any:
@@ -345,6 +357,9 @@ class PostSerializer(serialization.BaseSerializer):
             for pool in sorted(self.post.pools, key=lambda pool: pool.creation_time)
         ]
 
+    def serialize_content_kinds(self) -> Any:
+        return post_content.get_content_kinds(self.post)
+
 
 def serialize_post(
     post: model.Post | None, auth_user: model.User, options: list[str] | None = None
@@ -362,6 +377,28 @@ def serialize_micro_post(
     # the two fields of a micro post do not depend on who is asking
     serializer = PostSerializer(post, cast(model.User, auth_user))
     return serializer.serialize(["id", "thumbnailUrl"])
+
+
+PRIVATE_CONTENT_PRIVILEGE = "posts:view:content:private"
+
+
+def serialize_post_contents(
+    post: model.Post, auth_user: model.User
+) -> list[dict[str, Any]]:
+    """
+    The content extracted from the post's file, as this user may see it:
+    without the fields modules marked as private, unless the user has the
+    privilege for them.
+    """
+    show_private = auth.has_privilege(auth_user, PRIVATE_CONTENT_PRIVILEGE)
+    return post_content.serialize_post_contents(post, show_private)
+
+
+def get_engine_post_field_names() -> set[str]:
+    """The fields of a post that are the engine's own; a module may not take them."""
+    # only the names are read: no post is needed to list them
+    serializer = PostSerializer(cast(model.Post, None), cast(model.User, None))
+    return set(serializer._engine_serializers())
 
 
 def get_post_count() -> int:
@@ -661,6 +698,47 @@ def update_all_md5_checksums() -> tuple[int, int]:
     return _backfill(_query_posts_without_md5_checksum, fill, "MD5")
 
 
+def _query_posts_to_reextract(kinds: list[str] | None) -> sa_orm.Query:
+    """
+    The posts a re-extraction has to look at: those of a type an extractor
+    reads, and those that have rows of the kinds in question, which may be
+    stale.
+    """
+    target_kinds = list(registry.content_kinds()) if kinds is None else kinds
+    with_rows = sa.select(model.PostContent.post_id).where(
+        model.PostContent.kind.in_(target_kinds)
+    )
+    return db.session.query(model.Post).filter(
+        model.Post.mime_type.in_(post_content.get_extracted_mime_types(kinds))
+        | model.Post.post_id.in_(with_rows)
+    )
+
+
+def count_posts_to_reextract(kinds: list[str] | None = None) -> int:
+    return _query_posts_to_reextract(kinds).count()
+
+
+def reextract_all_post_contents(kinds: list[str] | None = None) -> tuple[int, int]:
+    """
+    Run the extractors of the loaded modules over the files of the existing
+    posts again, for all kinds or for the given ones, a batch of posts at a
+    time. For when a module is switched on, or its extractor has changed.
+    Only the extracted content is touched: not the tags, not the version.
+    Returns how many posts were done and how many were not.
+    """
+
+    def fill(post: model.Post) -> bool:
+        content = files.get(get_post_content_path(post))
+        if content is None:
+            logger.warning("Post %d has no content file", post.post_id)
+            return False
+        return post_content.reextract_post_contents(post, content, kinds)
+
+    return _backfill(
+        lambda: _query_posts_to_reextract(kinds), fill, "extracted content"
+    )
+
+
 def warn_about_pending_backfills() -> None:
     """
     Tell the administrator, in the log, that posts wait for a backfill. The
@@ -748,7 +826,49 @@ def update_post_content(post: model.Post, content: ContentLike | None) -> None:
         else:
             post.canvas_width = None
             post.canvas_height = None
+    post_content.update_post_contents(post, content)
     setattr(post, "__content", content)
+
+
+def update_post_auto_tags(post: model.Post) -> list[model.Tag]:
+    """
+    Add the tags the loaded modules derive from what was extracted from the
+    post's file (see lithica.registry.Module.auto_tag). Tags the post has
+    stay; a tag that does not exist yet is created in the category the
+    module names, or in the default one if the site has no such category.
+    Returns the tags created.
+
+    Call it once the post has its tags and before the session is flushed.
+    It never fails the request: a module's wish for a tag is not worth an
+    upload.
+    """
+    wanted = post_content.get_auto_tags(post)
+    if not wanted:
+        return []
+    present = {name.name.lower() for tag in post.tags for name in tag.names}
+    new_tags: list[model.Tag] = []
+    try:
+        for category_name, name in wanted:
+            if name.lower() in present:
+                continue
+            existing_tags, created_tags = tags.get_or_create_tags_by_names([name])
+            for tag in created_tags:
+                if tag_categories.try_get_category_by_name(category_name):
+                    tags.update_tag_category_name(tag, category_name)
+                else:
+                    logger.warning(
+                        "No tag category %r: an automatic tag was put in the "
+                        "default category.",
+                        category_name,
+                    )
+            for tag in existing_tags + created_tags:
+                post.tags.append(tag)
+                present |= {tag_name.name.lower() for tag_name in tag.names}
+            new_tags += created_tags
+    except errors.BaseError as ex:
+        # for one: a site without any tag category cannot create a tag
+        logger.warning("Automatic tags were not all added: %s", ex)
+    return new_tags
 
 
 def update_post_thumbnail(post: model.Post, content: ContentLike | None = None) -> None:

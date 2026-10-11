@@ -204,6 +204,23 @@ class Post(Resource):
     notes: list[Note]
     comments: list[Comment]
     pools: list[MicroPool]
+    content_kinds: list[str] = Field(
+        description="The kinds of content extracted from the post's file by the "
+        "modules of this installation. Empty without modules."
+    )
+
+
+class PostContent(Resource):
+    """One piece of content a module read out of a post's file."""
+
+    kind: str = Field(description="What the content is; names the module's format.")
+    schema_version: int = Field(
+        description="The version of that format the content was extracted with."
+    )
+    extracted_at: datetime
+    content: Any = Field(
+        description="The content, in the shape the module that owns the kind gives it."
+    )
 
 
 class PostsAround(Resource):

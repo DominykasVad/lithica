@@ -13,8 +13,11 @@ remote, do not cherry-pick, do not open PRs against `rr-/szurubooru`.
 
 - **Engine** (`Lithica`): generic booru — posts, tags, pools, users, comments,
   search, snapshots. Must stay usable as a plain image booru.
-- **Modules**: optional features layered on the engine, switched on in config.
-  No real module exists yet; phase 3 builds the module system itself.
+- **Modules**: optional features layered on the engine, switched on in config
+  (`modules`). No real module exists yet. The module system is
+  `lithica/registry.py` (what a module can add) and `lithica/func/post_content.py`
+  (the embedded-content pipeline); `lithica/tests/fixtures/modules/dummy` is
+  the example module to copy.
 - The GitHub repo is `DominykasVad/lithica`. Use the new names everywhere in
   code and docs.
 
@@ -38,8 +41,10 @@ server/
     model/              SQLAlchemy models
     search/             query language
     migrations/         Alembic
-    modules/            optional modules (phase 3+); engine code never imports from here
+    modules/            optional modules; engine code never imports from here
+    registry.py         the module interface and the loaded modules
     tests/
+      fixtures/modules/ modules that exist for the tests (the dummy module)
   lithica-admin         admin CLI (was szuru-admin)
 legacy/client/          old vanilla-JS client + nginx config — FROZEN, see below
 doc/
@@ -62,6 +67,7 @@ directory in the "Run from" column.
 | Lint | `server/` | `uv run ruff check .` |
 | Format | `server/` | `uv run ruff format .` |
 | Type check | `server/` | `uv run pyright` |
+| Module boundary | `server/` | `uv run lint-imports` (also part of the test suite) |
 | Test database | `server/` | `docker compose -f docker-compose.test.yml up -d` (PostgreSQL 17 on `localhost:5433`) |
 | Tests (local) | `server/` | `uv run pytest -n auto` — uses `LITHICA_TEST_DATABASE_URL`, default `postgresql://postgres:postgres@localhost:5433/postgres` |
 | New migration | `server/` | `uv run alembic revision --autogenerate -m "<what>"`, then review by hand — needs `database:` and `data_dir:` set in a local `server/config.yaml` (git-ignored) |
@@ -148,6 +154,13 @@ and uv; do not assume a specific OS, CPU architecture or machine.
 - The engine must never import from `lithica.modules.*`. Modules register
   themselves through the module registry. `import-linter` enforces this in CI.
 - A module may import engine code, never another module.
+- A module is the package `lithica/modules/<name>/` with a `registry.Module`
+  object named `module`. It adds to the engine and never replaces anything of
+  it. New modules, and the files listed under `strict` in `pyproject.toml`,
+  are type-checked in pyright's strict mode.
+- Everything an extractor reads comes from an uploaded file: untrusted. A
+  failing extractor or hook must never fail an upload (the pipeline catches
+  it), and payloads are never logged.
 - Module tables are created by normal Alembic migrations regardless of
   whether the module is enabled; the config switch only enables behaviour.
 

@@ -276,6 +276,7 @@ def test_serialize_post(
             "hasCustomThumbnail": True,
             "mimeType": "image/jpeg",
             "comments": ["commenter1", "commenter2"],
+            "contentKinds": [],
         }
 
 

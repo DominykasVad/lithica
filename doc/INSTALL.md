@@ -1,14 +1,42 @@
-This assumes that you have Docker (version 19.03 or greater)
-and the Docker Compose CLI (version 1.27.0 or greater) already installed.
+# Installing Lithica
 
-### Prepare things
+Lithica runs as three containers: the **server** (the API, Python 3.13 on
+Debian), the **client** (nginx serving the web client and passing `/api/` on
+to the server) and **PostgreSQL 17**. Uploaded files live in one directory on
+the host, the database in another.
 
-1. Download the Lithica source:
+Coming from szurubooru? Read [UPGRADING.md](UPGRADING.md) instead; it starts
+from your existing data.
+
+- [Requirements](#requirements)
+- [Install](#install)
+- [Using published images](#using-published-images)
+- [Configuration](#configuration)
+- [Modules](#modules)
+- [Administration from the command line](#administration-from-the-command-line)
+- [Deployment notes](#deployment-notes)
+- [Updating](#updating)
+- [Running the server from source](#running-the-server-from-source)
+
+## Requirements
+
+- Docker Engine with the Compose plugin (`docker compose`, Compose v2), or
+  compatible tooling.
+- A 64-bit host: images are published for `linux/amd64` and `linux/arm64`.
+  32-bit ARM is not supported.
+- Disk space for the uploads, plus room for the uploads that are in flight:
+  a file is written to the data directory while it arrives.
+
+## Install
+
+1. Get the source of the release you want. It holds the compose file and the
+   configuration template, also when you run published images:
 
     ```console
-    user@host:~$ git clone https://github.com/DominykasVad/lithica.git lithica
+    user@host:~$ git clone --branch v0.1.0 https://github.com/DominykasVad/lithica.git lithica
     user@host:~$ cd lithica
     ```
+
 2. Configure the application:
 
     ```console
@@ -16,15 +44,13 @@ and the Docker Compose CLI (version 1.27.0 or greater) already installed.
     user@host:lithica$ edit server/config.yaml
     ```
 
-    Pay extra attention to these fields:
+    You can delete every line whose default suits you; see
+    [Configuration](#configuration). One setting has no usable default:
 
-    - `secret`: the server refuses to start while it has the default value.
-      Set it to your own long random string, for example the output of
-      `openssl rand -hex 32`, and keep it: changing it later invalidates
-      every password.
-    - the `smtp` section.
-
-    You can omit lines when you want to use the defaults of that field.
+    - `secret`: the server refuses to start while it has the value from the
+      template. Set it to your own long random string, for example the
+      output of `openssl rand -hex 32`, and keep it safe. Changing it later
+      invalidates every password and the names of all stored files.
 
 3. Configure Docker Compose:
 
@@ -33,180 +59,263 @@ and the Docker Compose CLI (version 1.27.0 or greater) already installed.
     user@host:lithica$ edit .env
     ```
 
-    Change the values of the variables in `.env` as needed.
-    Read the comments to guide you. Note that `.env` should be in the root
-    directory of this repository.
+    `.env` must be in the root of the repository. Set at least
+    `POSTGRES_PASSWORD`, and `MOUNT_DATA` and `MOUNT_SQL`, the two host
+    directories for the uploads and the database. The server runs as user
+    and group 1000 inside its container and must be able to write to
+    `MOUNT_DATA`.
 
-4. Build the containers:
+4. Build the images:
 
     ```console
     user@host:lithica$ docker compose build
     ```
 
-    This builds the server and the client from the source you downloaded.
-    You can name `server` or `client` to build only one. If your changes are
-    not taking effect in your builds, consider building with `--no-cache`.
+    To run the published release images instead of building, see
+    [Using published images](#using-published-images).
 
-    To run published release images instead of building, see
-    [**Using published images**](#using-published-images).
+5. Start it. The first time, start the database on its own and give it a
+   moment to initialise:
 
-5. Run it!
-
-    For first run, it is recommended to start the database separately:
     ```console
     user@host:lithica$ docker compose up -d sql
-    ```
-
-    To start all containers:
-    ```console
     user@host:lithica$ docker compose up -d
     ```
 
-    To view/monitor the application logs:
+    The server creates and updates its database tables by itself every time
+    it starts. Watch the log with:
+
     ```console
     user@host:lithica$ docker compose logs -f
-    # (CTRL+C to exit)
     ```
 
-### Using published images
+6. Open `http://<host>:<PORT>/` and register. **The first account that is
+   registered becomes the administrator.**
+
+## Using published images
 
 Release images are published to the GitHub Container Registry when a release
-is made, tagged with the release version. To use them, edit
-`docker-compose.yml`: comment out the `build` section of the `server` and
-`client` services and uncomment the `image` line below it, setting the
-release tag you want. Then pull instead of building:
+is made, tagged with the release version:
+
+- `ghcr.io/dominykasvad/lithica-server:<version>`
+- `ghcr.io/dominykasvad/lithica-client-legacy:<version>`
+
+`latest` points at the newest release that is not a pre-release. To use the
+images, edit `docker-compose.yml`: in the `server` and `client` services,
+comment out the `build` section and uncomment the `image` line below it,
+setting the version you want. Then pull instead of building:
 
 ```console
 user@host:lithica$ docker compose pull
+user@host:lithica$ docker compose up -d
 ```
 
+Use the same version for both images, and the `docker-compose.yml` and
+`server/config.yaml.dist` of that version's source.
 
-### Additional Features
+## Configuration
 
-1. **CLI-level administrative tools**
+There are two places to configure things.
 
-    You can use the included `lithica-admin` script to perform various
-    administrative tasks such as changing or resetting a user password. To
-    run from docker:
+**`server/config.yaml`** holds the settings of the application. It is laid
+over `server/config.yaml.dist`, which documents every setting and holds the
+defaults, so your file only needs the settings you change. The ones most
+sites touch:
 
-    ```console
-    user@host:lithica$ docker compose run server ./lithica-admin --help
+| Setting | What it is |
+|---|---|
+| `secret` | Required. See [Install](#install). |
+| `name` | The name of the site, shown in the client and in mails. |
+| `domain` | The public address of the site, e.g. `https://booru.example.com`. Required when `smtp` is set: password reset mails link to it. |
+| `smtp` | The mail server for password reset mails. Without it, users are shown `contact_email` instead. |
+| `privileges` | Which rank may do what; `default_rank` is the rank of a new account. |
+| `max_upload_size` | The largest request, 1 GiB by default. The nginx of the client image allows the same; a reverse proxy in front must allow it too. |
+| `cors_origins` | Other websites that may call the API from a browser. Leave empty when you use the bundled client. |
+| `allow_private_downloads` | Whether "upload from URL" may fetch from private network addresses. Off by default. |
+| `modules` | The optional modules to switch on. See [Modules](#modules). |
+| `api_docs` | Serves the API's OpenAPI document and browsable documentation under `/api/docs`. Off by default. |
+
+In the containers, `data_dir`, `data_url` and `database` are set from the
+environment and anything you write for them in `config.yaml` is ignored.
+
+**`.env`** holds what Docker Compose needs:
+
+| Variable | What it is |
+|---|---|
+| `POSTGRES_USER`, `POSTGRES_PASSWORD` | Database credentials. The database is created with them on first start. |
+| `MOUNT_DATA`, `MOUNT_SQL` | Host directories for the uploads and for the database files. |
+| `PORT` | Where the client listens, e.g. `8080`, or `127.0.0.1:8080` behind a reverse proxy. |
+| `BASE_URL` | The path the site is served under, `/` by default. See [Deployment notes](#deployment-notes). |
+| `THREADS` | How many requests one server process works on at once. Default 4. |
+| `WORKERS` | How many server processes to start. Leave at 1: running several has not been verified yet. |
+| `BUILD_INFO` | A text shown on the home page when you build the client yourself. |
+
+Further variables can be set on the `server` service in `docker-compose.yml`:
+`POSTGRES_HOST`, `POSTGRES_PORT` and `POSTGRES_DB` for a database elsewhere,
+`DATA_URL`, `HOST`, `LOG_SQL=1` for SQL in the log and `API_DOCS=1`.
+
+After changing either file, restart: `docker compose up -d`.
+
+## Modules
+
+The engine is a plain image board. Optional features are **modules**:
+packages that are part of the server and do nothing until they are switched
+on. A module can read content embedded in uploaded files (PNG text chunks,
+EXIF, video metadata), tag posts from it, add search tokens, fields and
+routes to the API, and bring its own `lithica-admin` commands.
+
+Lithica 0.1.0 ships the module system and **no module**. When there are
+modules, you switch them on by name in `server/config.yaml`:
+
+```yaml
+modules: [some_module]
+```
+
+and restart the server. Things to know:
+
+- A name that is not a module is a configuration error, and the server does
+  not start. The log names the module.
+- Switching a module on does not touch the posts that are already there.
+  To have it read their files too, run
+  `docker compose run --rm server ./lithica-admin reextract`
+  ([see below](#administration-from-the-command-line)).
+- Switching a module off hides what it added. What it extracted from files is
+  kept in the database and is back when the module is switched on again;
+  tags it added to posts are ordinary tags and stay.
+- A module may mark parts of what it extracts as private. Those are shown
+  only to ranks that have the `posts:view:content:private` privilege
+  (moderators and up, by default).
+- Every module's database tables exist whether the module is on or not, so
+  switching modules never needs a database change.
+
+## Administration from the command line
+
+`lithica-admin` does what cannot be done from the web client. Run it in a
+one-off server container:
+
+```console
+user@host:lithica$ docker compose run --rm server ./lithica-admin --help
+```
+
+| Command | What it does |
+|---|---|
+| `--change-password <user>` | Sets a new password for a user, e.g. when mail is not set up. |
+| `backfill signatures`, `backfill md5`, `backfill all` | Computes data that older posts lack: image signatures for the similar-image search, MD5 checksums. |
+| `reextract [--kind <kind>]` | Has the modules that are switched on read the files of the existing posts again. For after switching a module on or updating it. |
+| `--regenerate-thumbnails` | Recreates missing thumbnail files. |
+| `--check-all-audio` | Reports videos whose sound flag does not match the file. Changes nothing. |
+| `--reset-filenames` | Renames the stored files after `secret` was changed. |
+
+`backfill` and `reextract` can be repeated and can run while the server is
+up. The server never rewrites existing posts on its own: when posts wait for
+a backfill, it says so in its log at startup and names the command.
+
+## Deployment notes
+
+1. **Behind a reverse proxy.** For anything public, put a reverse proxy with
+   TLS in front. Make the client listen on localhost only by setting
+   `PORT=127.0.0.1:8080` in `.env` and pass everything on to it. With nginx:
+
+    ```nginx
+    server {
+        server_name booru.example.com;
+        listen 443 ssl;
+        # ssl_certificate and ssl_certificate_key go here
+
+        # as large as max_upload_size in config.yaml
+        client_max_body_size 1G;
+
+        location / {
+            proxy_http_version 1.1;
+            proxy_pass http://127.0.0.1:8080;
+            proxy_set_header Host              $http_host;
+            proxy_set_header X-Real-IP         $remote_addr;
+            proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+    }
     ```
 
-    will give you a breakdown on all available commands.
+    Set `domain` in `config.yaml` to the public address.
 
-    The server never rewrites existing posts on its own. When posts lack
-    data that a newer version computes (image signatures for the
-    similar-image search, MD5 checksums), the server says so in its log at
-    startup, and you create the data with:
-
-    ```console
-    user@host:lithica$ docker compose run server ./lithica-admin backfill all
-    ```
-
-    It can be repeated and can run while the server is up.
-
-2. **Using a seperate domain to host static files (image content)**
-
-    If you want to host your website on, (`http://example.com/`) but want
-    to serve the images on a different domain, (`http://static.example.com/`)
-    then you can run the backend container with an additional environment
-    variable `DATA_URL=http://static.example.com/`. Make sure that this
-    additional host has access contents to the `/data` volume mounted in the
-    backend.
-
-3. **Hosts with IPv6 disabled**
-
-    The backend container listens on `::`, which is every address of the
-    container, IPv4 and IPv6. On a host where IPv6 is disabled this fails
-    and the server does not start (`Cannot listen on :: ...`). Run the
-    backend container with the environment variable `HOST=0.0.0.0` there,
-    to listen on IPv4 only.
-
-4. **Setting a specific base URI for proxying**
-
-    Some users may wish to access the service at a different base URI, such
-    as `http://example.com/lithica/`, commonly when sharing multiple HTTP
-    services on one domain using a reverse proxy. In this case, simply set
-    `BASE_URL="/lithica/"` in your `.env` file.
-
-    Note that this will require a reverse proxy to function. You should set
-    your reverse proxy to proxy `http(s)://example.com/lithica` to
-    `http://<internal IP or hostname of frontend container>/`. For an NGINX
-    reverse proxy, that will appear as:
+2. **Under a path instead of a domain of its own.** To serve the site at
+   `https://example.com/lithica/`, set `BASE_URL=/lithica/` in `.env` and
+   have the reverse proxy pass that path on:
 
     ```nginx
     location /lithica {
         proxy_http_version 1.1;
-        proxy_pass http://<internal IP or hostname of frontend container>/;
-
+        proxy_pass http://127.0.0.1:8080/;
         proxy_set_header Host              $http_host;
-        proxy_set_header Upgrade           $http_upgrade;
-        proxy_set_header Connection        "upgrade";
-        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
-        proxy_set_header X-Scheme          $scheme;
         proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-Script-Name     /lithica;
     }
     ```
 
-5. **Preparing for production**
+3. **Uploads on another domain.** To serve the site at `http://example.com/`
+   and the uploaded files from `http://static.example.com/`, run the server
+   container with the environment variable
+   `DATA_URL=http://static.example.com/` and have that host serve the
+   contents of `MOUNT_DATA`.
 
-    If you plan on using Lithica in a production setting, you may opt to
-    use a reverse proxy for added security and caching capabilities. Start
-    by having the client docker listen only on localhost by changing `PORT`
-    in your `.env` file to `127.0.0.1:8080` instead of simply `:8080`. Then
-    configure NGINX (or your caching/reverse proxy server of your choice)
-    to proxy_pass `http://127.0.0.1:8080`. An example config is shown below:
+4. **Hosts with IPv6 disabled.** The server container listens on `::`, which
+   is every address of the container, IPv4 and IPv6. On a host where IPv6 is
+   disabled this fails and the server does not start (`Cannot listen on ::
+   ...`). Run the server container with the environment variable
+   `HOST=0.0.0.0` there, to listen on IPv4 only.
 
-    ```nginx
-    # ideally, use ssl termination + cdn with a provider such as cloudflare.
-    # modify as needed!
+5. **Backups.** Everything that matters is in three places: the directory
+   `MOUNT_DATA`, the database (`docker compose exec -T sql pg_dump -U
+   "$POSTGRES_USER" -Fc "$POSTGRES_USER" > lithica.dump`), and
+   `server/config.yaml`, whose `secret` the first two are useless without.
 
-    # rate limiting zone
-    # poor man's ddos protection, essentially
-    limit_req_zone $binary_remote_addr zone=throttle:10m rate=25r/s;
+## Updating
 
-    # www -> non-www
-    server {
-      listen 80;
-      listen [::]:80;
-      server_tokens off;
-      server_name www.example.com
-      return 301 http://example.com$request_uri;
-    }
+To move to a newer release, read its notes in [UPGRADING.md](UPGRADING.md)
+first, then:
 
-    server {
-      server_name example.com;
-      client_max_body_size 100M;
-      client_body_timeout 30s;
-      server_tokens off;
-      location / {
-        limit_req zone=throttle burst=5 delay=3;
-        proxy_http_version 1.1;
-        proxy_pass http://127.0.0.1:8080;
-        proxy_set_header Host $http_host;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Scheme $scheme;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header X-Script-Name /lithica;
-        error_page 500 501 502 504 505 506 507 508 509 510 511 @err;
-        error_page 503 @throttle;
-      }
+```console
+user@host:lithica$ git fetch --tags && git checkout <version>
+user@host:lithica$ docker compose build     # or: docker compose pull
+user@host:lithica$ docker compose up -d
+```
 
-      location @err {
-        return 500 "server error. please try again later.";
-        default_type text/plain;
-      }
-      location @throttle {
-        return 503 "we've detected abuse on your ip. please wait and try again later.";
-        default_type text/plain;
-      }
-      listen 80;
-      listen [::]:80;
-    }
-    ```
+The server brings the database up to date when it starts. Back up first:
+the database changes are not undone by going back to an older image.
+
+## Running the server from source
+
+For development, or to run without Docker. You need
+[uv](https://docs.astral.sh/uv/), `ffmpeg` on the `PATH`, and a PostgreSQL 17
+database. uv installs Python 3.13 and the dependencies, pinned by `uv.lock`;
+do not use `pip`.
+
+```console
+user@host:lithica$ cd server
+user@host:server$ uv sync --no-dev
+user@host:server$ cp config.yaml.dist config.yaml
+user@host:server$ edit config.yaml
+```
+
+Besides `secret`, set the three settings at the end of the file, which the
+containers otherwise set for you: `database`
+(`postgresql://user:password@host:5432/name`), `data_dir` (an absolute path
+the server can write to) and `data_url` (where a web server serves that
+directory). Then create the tables and start:
+
+```console
+user@host:server$ uv run alembic upgrade head
+user@host:server$ uv run python -m lithica.serve
+```
+
+The API listens on port 6666 (`PORT`). It serves no web pages and no
+uploaded files: a web server in front does that, as the client image's
+`legacy/client/nginx.conf.docker` shows.
+
+A development stack with live reload, the test suite and the rules of the
+code base are described in [AGENTS.md](../AGENTS.md):
+`docker compose -f docker-compose.dev.yml up` starts the stack, and
+`uv run pytest -n auto` in `server/` runs the tests against the database of
+`server/docker-compose.test.yml`.

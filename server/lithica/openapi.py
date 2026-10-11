@@ -60,9 +60,11 @@ def build() -> dict[str, Any]:
     if not config.config.get("database"):
         config.config["database"] = "postgresql://unused@localhost/unused"
 
-    from lithica.app import app
+    from lithica.app import create_app
 
-    return app.openapi()
+    # the contract is the engine's API: the routes of whatever modules this
+    # installation has switched on are not part of it
+    return create_app(modules=[]).openapi()
 
 
 def allow_anonymous(document: dict[str, Any]) -> None:

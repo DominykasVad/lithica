@@ -28,6 +28,11 @@ thumbnails:
 # off by default; the development image switches it on
 api_docs: false
 
+# optional modules to switch on, by name: features layered on the engine.
+# a name that is not a module is an error and the server does not start.
+# a module's routes are served under modules/<name>/
+modules: [] # example: [some_module]
+
 # the largest request the server accepts, in bytes: an upload with everything
 # sent along with it. a larger one is refused with 413. the web server in
 # front must allow as much: the nginx of the client image has
@@ -130,6 +135,8 @@ privileges:
     'posts:reverse_search':         regular
     'posts:view':                   anonymous
     'posts:view:featured':          anonymous
+    # fields of extracted content that a module marks as private
+    'posts:view:content:private':   moderator
     'posts:edit:content':           power
     'posts:edit:flags':             regular
     'posts:edit:notes':             regular
@@ -205,5 +212,6 @@ privileges:
 #data_url: /data/
 #data_dir: /var/www/data
 ## usage: schema://user:password@host:port/database_name
-## example: postgres://lithica:dog@localhost:5432/lithica_test
+## example: postgresql://lithica:dog@localhost:5432/lithica_test
+## (the scheme is postgresql, not postgres)
 #database:

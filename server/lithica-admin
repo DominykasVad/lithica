@@ -12,7 +12,7 @@ from argparse import ArgumentParser
 from getpass import getpass
 from sys import stderr
 
-from lithica import config, db, errors, model
+from lithica import config, db, errors, model, registry
 from lithica.func import files, images
 from lithica.func import posts as postfuncs
 from lithica.func import users as userfuncs
@@ -133,7 +133,51 @@ def backfill(what: str) -> bool:
     return success
 
 
+def reextract(kind: str | None) -> bool:
+    """
+    Run the extractors of the loaded modules over the existing posts.
+    Returns False if a post failed or the kind is not known.
+    """
+    known_kinds = sorted(registry.content_kinds())
+    if not known_kinds:
+        print("reextract: no loaded module extracts content; nothing to do")
+        return True
+    if kind is not None and kind not in known_kinds:
+        print(
+            "reextract: no loaded module has the content kind %r. Known kinds: %s"
+            % (kind, ", ".join(known_kinds)),
+            file=sys.stderr,
+        )
+        return False
+    kinds = None if kind is None else [kind]
+    pending = postfuncs.count_posts_to_reextract(kinds)
+    print(
+        "reextract: %d posts to process (%s)"
+        % (pending, "kind " + kind if kind else "kinds " + ", ".join(known_kinds))
+    )
+    if not pending:
+        return True
+    done, failed = postfuncs.reextract_all_post_contents(kinds)
+    print("reextract: %d done, %d failed" % (done, failed))
+    if failed:
+        print(
+            "reextract: the failed posts are listed in the log above; their "
+            "files are missing or an extractor failed on them. What had been "
+            "extracted from them before was kept",
+            file=sys.stderr,
+        )
+    return not failed
+
+
 def main(args: list[str] | None = None) -> int:
+    # the modules of this installation bring their own commands
+    try:
+        registry.load_configured()
+    except errors.ConfigError as e:
+        print(e, file=sys.stderr)
+        return 1
+    module_commands = {command.name: command for command in registry.admin_commands()}
+
     parser_top = ArgumentParser(
         description="Collection of CLI commands for an administrator to use",
         epilog="Look at README.md for more info",
@@ -154,6 +198,27 @@ def main(args: list[str] | None = None) -> int:
         )
         + "; all: every backfill",
     )
+    parser_reextract = subparsers.add_parser(
+        "reextract",
+        help="read the content embedded in the files of existing posts again",
+        description="Run the extractors of the modules that are switched on "
+        "over the files of the existing posts and replace what was extracted "
+        "before. For when a module has been switched on or updated. Safe to "
+        "repeat. Tags are not changed.",
+    )
+    parser_reextract.add_argument(
+        "--kind",
+        metavar="<kind>",
+        help="only extract content of this kind, and leave the rest as it is",
+    )
+    for module_command in module_commands.values():
+        parser_module = subparsers.add_parser(
+            module_command.name,
+            help=module_command.help,
+            description=module_command.help,
+        )
+        if module_command.configure:
+            module_command.configure(parser_module)
     parser = parser_top.add_mutually_exclusive_group()
     parser.add_argument(
         "--change-password",
@@ -194,6 +259,12 @@ def main(args: list[str] | None = None) -> int:
                 logging.basicConfig(level=logging.INFO, format="%(message)s")
                 if not backfill(command.what):
                     return 1
+            elif command.subcommand == "reextract":
+                logging.basicConfig(level=logging.INFO, format="%(message)s")
+                if not reextract(command.kind):
+                    return 1
+            elif command.subcommand in module_commands:
+                return module_commands[command.subcommand].run(command)
             elif command.change_password:
                 reset_password(command.change_password)
             elif command.check_all_audio:

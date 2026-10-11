@@ -2,7 +2,8 @@
 
 Lithica is a self-hosted image board ("booru") engine for small and medium
 communities, in the style of Danbooru, Gelbooru and Moebooru. Optional
-features are planned as modules layered on top of the generic engine.
+features are modules layered on top of the generic engine and switched on
+in the configuration.
 
 > **This is a modified fork of [szurubooru](https://github.com/rr-/szurubooru).**
 > Lithica was forked from szurubooru at upstream commit `10ac850` (tagged
@@ -10,8 +11,9 @@ features are planned as modules layered on top of the generic engine.
 > independently and does not track upstream. The original work is copyright
 > its authors and, like this fork, is licensed under the GPLv3.
 
-Lithica is under active restructuring (see [PLAN.md](PLAN.md)); there is no
-stable release yet.
+The first release is `v0.1.0`: the engine, modernised, and the module system,
+with no module yet. Versions are `v0.x` until the project is called stable;
+[PLAN.md](PLAN.md) has the roadmap.
 
 ## Features
 
@@ -19,7 +21,8 @@ stable release yet.
 - Ability to retrieve web video content using [yt-dlp](https://github.com/yt-dlp/yt-dlp)
 - Post comments
 - Post notes / annotations, including arbitrary polygons
-- Rich JSON REST API ([see documentation](doc/API.md))
+- Rich JSON REST API ([see documentation](doc/API.md)), with an OpenAPI contract ([doc/openapi.json](doc/openapi.json))
+- Optional modules that read content embedded in uploaded files, tag posts from it and extend the search and the API
 - Token based authentication for clients
 - Rich search system
 - Rich privilege system
@@ -38,7 +41,8 @@ stable release yet.
 ## Installation
 
 It is recommended that you use Docker for deployment.
-[See installation instructions.](doc/INSTALL.md)
+[See installation instructions.](doc/INSTALL.md) To move an existing
+szurubooru site to Lithica, see [UPGRADING.md](doc/UPGRADING.md).
 
 The [upstream szurubooru wiki](https://github.com/rr-/szurubooru/wiki) has
 more installation resources and related projects; they were written for

@@ -7,7 +7,7 @@
       "name": "GPL-3.0-only",
       "identifier": "GPL-3.0-only"
     },
-    "version": "0.1.0.dev0"
+    "version": "0.1.0"
   },
   "servers": [
     {
@@ -5127,6 +5127,70 @@
         }
       }
     },
+    "/post/{post_id}/content": {
+      "get": {
+        "tags": [
+          "Posts"
+        ],
+        "summary": "Get the content extracted from a post's file",
+        "description": "Retrieves what the modules of this installation read out of the post's\nfile: metadata embedded in it, such as PNG text chunks or EXIF. There is\none result per piece of content found, and a post may have several of\none kind. What `content` holds depends on the kind and is described by\nthe module that owns it. The kinds a post has are listed in the\n`contentKinds` field of the post.\n\nWithout modules, and for a post in which nothing was found, the list is\nempty. A module can mark parts of its content as private; those are left\nout unless the requester has the `posts:view:content:private` privilege.\n\nErrors:\n\n- the post does not exist\n- privileges are too low",
+        "operationId": "get_post_content",
+        "security": [
+          {
+            "basicAuth": []
+          },
+          {
+            "tokenAuth": []
+          },
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "post_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Post Id"
+            }
+          },
+          {
+            "name": "bump-login",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Record this request as a login of the authenticated user.",
+              "default": false,
+              "title": "Bump-Login"
+            },
+            "description": "Record this request as a login of the authenticated user."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Unpaged_PostContent_"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "The request was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/post-merge": {
       "post": {
         "tags": [
@@ -6713,11 +6777,46 @@
             },
             "type": "array",
             "title": "Pools"
+          },
+          "contentKinds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Contentkinds",
+            "description": "The kinds of content extracted from the post's file by the modules of this installation. Empty without modules."
           }
         },
         "additionalProperties": false,
         "type": "object",
         "title": "Post"
+      },
+      "PostContent": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "description": "What the content is; names the module's format."
+          },
+          "schemaVersion": {
+            "type": "integer",
+            "title": "Schemaversion",
+            "description": "The version of that format the content was extracted with."
+          },
+          "extractedAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Extractedat"
+          },
+          "content": {
+            "title": "Content",
+            "description": "The content, in the shape the module that owns the kind gives it."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "PostContent",
+        "description": "One piece of content a module read out of a post's file."
       },
       "PostsAround": {
         "properties": {
@@ -6932,6 +7031,20 @@
         "additionalProperties": false,
         "type": "object",
         "title": "Unpaged[PoolCategory]"
+      },
+      "Unpaged_PostContent_": {
+        "properties": {
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/PostContent"
+            },
+            "type": "array",
+            "title": "Results"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Unpaged[PostContent]"
       },
       "Unpaged_TagCategory_": {
         "properties": {

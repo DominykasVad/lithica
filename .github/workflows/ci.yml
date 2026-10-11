@@ -68,6 +68,12 @@ jobs:
       - name: Database portability gate
         run: uv run pytest --color=yes lithica/tests/test_portability.py
 
+      # The engine never imports a module and modules never import each other
+      # (AGENTS.md, "Modules"). Also part of the suite; run first so that the
+      # offending import is shown.
+      - name: Module boundary
+        run: uv run lint-imports
+
       # The tests build their tables from the models; a real database is built
       # by the migrations. This fails when the two describe different schemas.
       # It migrates the service's own "postgres" database, which nothing else

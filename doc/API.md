@@ -24,6 +24,7 @@ with the client image in front, that is `/api/`.
    - [Error handling](#error-handling)
    - [Field selecting](#field-selecting)
    - [Versioning](#versioning)
+   - [Modules](#modules)
    - [Webhooks](#webhooks)
 2. [Resources](#resources)
 
@@ -34,6 +35,7 @@ with the client image in front, that is `/api/`.
    - [Tag](#tag)
    - [Micro tag](#micro-tag)
    - [Post](#post)
+   - [Extracted content](#extracted-content)
    - [Micro post](#micro-post)
    - [Note](#note)
    - [Pool category](#pool-category)
@@ -230,6 +232,21 @@ parameter. If someone has edited the post in the mean time, the server will
 reject the request as well, in which case the client is encouraged to notify
 the user about the situation.
 
+
+## Modules
+
+A site can switch on optional modules (the `modules` setting of the server).
+What a module adds to the API is its own and is not part of
+`doc/openapi.json`, which describes the engine:
+
+- routes under `modules/<name>/`;
+- [extracted content](#extracted-content) of the kinds it owns;
+- named tokens of the [post search](#post-search);
+- extra fields of the [post resource](#post).
+
+A module never changes or removes a route, token or field of the engine.
+With `api_docs` on, the served `openapi.json` includes the routes of the
+modules of that site.
 
 ## Webhooks
 
@@ -463,7 +480,8 @@ One file together with its metadata posted to the site.
         <pool>,
         <pool>,
         <pool>
-    ]
+    ],
+    "contentKinds":       <content-kinds>
 }
 ```
 
@@ -528,6 +546,47 @@ One file together with its metadata posted to the site.
   useful for `<video>` tags for instance.
 - `<comment>`: a [comment resource](#comment) for given post.
 - `<pool>`: a [micro pool resource](#micro-pool) in which the post is a member of.
+- `<content-kinds>`: the kinds of [extracted content](#extracted-content) the
+  post has, as a list of strings. Always empty on a site without modules.
+
+## Extracted content
+**Description**
+
+Many files carry more than a picture: PNG text chunks, EXIF, the metadata of a
+video. The engine itself does not read any of it. The optional
+[modules](#modules) of a site do: when a post gets its file, they extract what
+they understand, and the site keeps it with the post.
+
+`GET /post/<id>/content` returns it as an [unpaged search
+result](#unpaged-search-result) of the following resource. A post can have any
+number of them, also several of one kind.
+
+**Structure**
+
+```json5
+{
+    "kind":          <kind>,
+    "schemaVersion": <schema-version>,
+    "extractedAt":   <extracted-at>,
+    "content":       <content>
+}
+```
+
+**Field meaning**
+
+- `<kind>`: what the content is, for example `"dummy_v1"`. Every kind belongs
+  to one module.
+- `<schema-version>`: the version of the kind's format the content was
+  extracted with.
+- `<extracted-at>`: when it was extracted, formatted as per RFC 3339.
+- `<content>`: the content itself. Its shape depends on the kind and is
+  documented by the module the kind belongs to.
+
+Content of a kind whose module is switched off is kept, but not returned.
+
+A module can mark fields of its content as private. Those are left out unless
+the requester has the `posts:view:content:private` privilege (moderators, by
+default).
 
 ## Micro post
 **Description**

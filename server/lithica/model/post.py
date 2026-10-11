@@ -8,6 +8,7 @@ from sqlalchemy.ext.hybrid import hybrid_property
 
 from lithica.model.base import Base
 from lithica.model.comment import Comment
+from lithica.model.types import json_type
 
 
 class PostFeature(Base):
@@ -245,6 +246,44 @@ class PostSignature(Base):
         ]
 
 
+class PostContent(Base):
+    """
+    Content that was embedded in a post's file and read out of it by the
+    extractor of a module: one row per thing found. `kind` says what the
+    payload is and which module owns it (see lithica.registry.ContentKind);
+    a post may have several rows, also of the same kind. The engine stores
+    and returns the payload and does not look inside it.
+    """
+
+    __tablename__ = "post_content"
+
+    post_content_id: sa_orm.Mapped[int] = sa_orm.mapped_column(
+        "id", sa.Integer, primary_key=True
+    )
+    post_id: sa_orm.Mapped[int] = sa_orm.mapped_column(
+        "post_id",
+        sa.Integer,
+        sa.ForeignKey("post.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    kind: sa_orm.Mapped[str] = sa_orm.mapped_column(
+        "kind", sa.Unicode(64), nullable=False
+    )
+    schema_version: sa_orm.Mapped[int] = sa_orm.mapped_column(
+        "schema_version", sa.Integer, nullable=False
+    )
+    payload: sa_orm.Mapped[Any] = sa_orm.mapped_column(
+        "payload", json_type(), nullable=False
+    )
+    extracted_at: sa_orm.Mapped[datetime] = sa_orm.mapped_column(
+        "extracted_at", sa.DateTime, nullable=False
+    )
+
+    post = sa_orm.relationship("Post", back_populates="contents")
+
+    __table_args__ = (sa.Index("ix_post_content_post_id_kind", "post_id", "kind"),)
+
+
 class Post(Base):
     __tablename__ = "post"
 
@@ -349,6 +388,14 @@ class Post(Base):
     )
     comments = sa_orm.relationship(
         "Comment", cascade="all, delete-orphan", back_populates="post"
+    )
+    contents = sa_orm.relationship(
+        "PostContent",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        lazy="select",
+        order_by="PostContent.post_content_id",
+        back_populates="post",
     )
     _pools = sa_orm.relationship(
         "PoolPost",

@@ -202,6 +202,8 @@ def create_post(
     posts.update_post_flags(post, flags)
     if data.has_file("thumbnail"):
         posts.update_post_thumbnail(post, data.get_file("thumbnail"))
+    # tags the modules add are not the uploader's: no privilege is asked
+    new_tags = new_tags + posts.update_post_auto_tags(post)
     db.session.add(post)
     db.session.flush()
     create_snapshots_for_post(post, new_tags, None if body.anonymous else auth_user)
@@ -273,6 +275,36 @@ def get_post(
     return _serialize_post(post, auth_user, fields)
 
 
+@router.get(
+    "/post/{post_id}/content",
+    response_model=resources.Unpaged[resources.PostContent],
+    summary="Get the content extracted from a post's file",
+)
+def get_post_content(
+    post_id: str,
+    auth_user: Annotated[model.User, Depends(require("posts:view"))],
+) -> Any:
+    """
+    Retrieves what the modules of this installation read out of the post's
+    file: metadata embedded in it, such as PNG text chunks or EXIF. There is
+    one result per piece of content found, and a post may have several of
+    one kind. What `content` holds depends on the kind and is described by
+    the module that owns it. The kinds a post has are listed in the
+    `contentKinds` field of the post.
+
+    Without modules, and for a post in which nothing was found, the list is
+    empty. A module can mark parts of its content as private; those are left
+    out unless the requester has the `posts:view:content:private` privilege.
+
+    Errors:
+
+    - the post does not exist
+    - privileges are too low
+    """
+    post = _get_post(post_id)
+    return {"results": posts.serialize_post_contents(post, auth_user)}
+
+
 @router.put(
     "/post/{post_id}",
     response_model=resources.Post,
@@ -308,7 +340,8 @@ def update_post(
     post = _get_post(post_id)
     versions.verify_version(post, body.require("version"))
     versions.bump_version(post)
-    if data.has_file("content"):
+    content_changed = data.has_file("content")
+    if content_changed:
         auth.verify_privilege(auth_user, "posts:edit:content")
         posts.update_post_content(
             post,
@@ -347,8 +380,13 @@ def update_post(
     if data.has_file("thumbnail"):
         auth.verify_privilege(auth_user, "posts:edit:thumbnail")
         posts.update_post_thumbnail(post, data.get_file("thumbnail"))
+    # new content may bring new tags from the modules; as on creation, no
+    # privilege is asked for those
+    auto_tags = posts.update_post_auto_tags(post) if content_changed else []
     post.last_edit_time = util.utcnow()
     db.session.flush()
+    for tag in auto_tags:
+        snapshots.create(tag, auth_user)
     snapshots.modify(post, auth_user)
     db.session.commit()
     return _serialize_post(post, auth_user, fields)

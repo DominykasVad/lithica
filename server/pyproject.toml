@@ -1,6 +1,6 @@
 [project]
 name = "lithica"
-version = "0.1.0.dev0"
+version = "0.1.0"
 description = "Self-hosted image board (booru) engine; a fork of szurubooru"
 readme = "../README.md"
 license = "GPL-3.0-only"
@@ -73,6 +73,16 @@ include = ["lithica"]
 exclude = ["lithica/migrations/versions"]
 pythonVersion = "3.13"
 typeCheckingMode = "basic"
+# Raised to strict module by module (PLAN.md, "Type checking"). The module
+# system starts there: the modules, what they are written against, and the
+# example module they are copied from.
+strict = [
+    "lithica/modules",
+    "lithica/registry.py",
+    "lithica/func/post_content.py",
+    "lithica/model/types.py",
+    "lithica/tests/fixtures/modules",
+]
 
 [dependency-groups]
 dev = [
@@ -85,3 +95,35 @@ dev = [
     "pytest-xdist>=3.8.0",
     "ruff>=0.17.0",
 ]
+
+# The module boundary (AGENTS.md, "Modules"). Checked by `uv run lint-imports`
+# in CI and by lithica/tests/test_module_boundary.py.
+[tool.importlinter]
+root_package = "lithica"
+
+[[tool.importlinter.contracts]]
+name = "The engine does not import modules"
+type = "forbidden"
+# every part of the engine; the test checks that none is missing.
+# lithica/migrations is not a package (Alembic runs its files as scripts)
+# and lithica.tests is not engine code
+source_modules = [
+    "lithica.api",
+    "lithica.app",
+    "lithica.config",
+    "lithica.db",
+    "lithica.errors",
+    "lithica.func",
+    "lithica.model",
+    "lithica.openapi",
+    "lithica.registry",
+    "lithica.search",
+    "lithica.serve",
+    "lithica.version",
+]
+forbidden_modules = ["lithica.modules"]
+
+[[tool.importlinter.contracts]]
+name = "Modules do not import each other"
+type = "independence"
+modules = ["lithica.modules.*"]

@@ -66,8 +66,8 @@ def test_document_describes_the_whole_api(document):
     assert document["info"]["version"] == get_version()
     assert document["info"]["license"]["identifier"] == "GPL-3.0-only"
     operations = list(_operations(document))
-    assert len(operations) == 60
-    assert len(document["paths"]) == 34
+    assert len(operations) == 61
+    assert len(document["paths"]) == 35
     # the documentation routes themselves are not part of the API
     assert "/docs" not in document["paths"]
     assert "/openapi.json" not in document["paths"]

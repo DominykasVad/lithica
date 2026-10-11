@@ -4,6 +4,7 @@ from lithica.model.pool import Pool, PoolName, PoolPost
 from lithica.model.pool_category import PoolCategory
 from lithica.model.post import (
     Post,
+    PostContent,
     PostFavorite,
     PostFeature,
     PostNote,

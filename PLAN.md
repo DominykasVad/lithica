@@ -71,11 +71,17 @@ with `doc/openapi.json` since phase 2.
    404 for pools) and a JSON body that is not an object (400).
 6. An unknown path is 404 whatever the `Accept` header (it was 406 without
    `Accept: application/json`); a wrong method lists the allowed methods.
+7. Additions for modules, nothing removed: posts have `contentKinds`,
+   `GET /post/<id>/content` returns a post's extracted content, and a site's
+   modules may add routes under `modules/<name>/`, post search tokens and
+   post fields of their own.
 
 ### Allowed dialect exceptions
 
 - `sa.ARRAY` in migrations `8f3a1c2d4e5b` and `b7d2e9a4c1f3` only: they read and (on downgrade) restore the old
   `post_signature.words` array column. No engine code uses it.
+- `JSONB` as the PostgreSQL variant of a JSON column: imported in `lithica/model/types.py` (`json_type()`) and in
+  migration `e2b8d4f6a1c3` only. The portability gate allows that one import line in those two files.
 
 ### Decision log
 
@@ -83,6 +89,20 @@ Rules: only real decisions (a choice between alternatives that later work must
 respect). One line each, max ~120 characters: `date — task — decision (reason)`.
 No status notes, no "left untouched", no results — those go in commit messages.
 When a phase is merged, its entries are folded into the tables above or deleted.
+
+- 2026-10-11 — 3.1 — a module is package `lithica.modules.<name>` exposing a `registry.Module` named `module` (one object to check)
+- 2026-10-11 — 3.1 — modules load when `lithica.app` is imported, not in the lifespan (their routes are part of the application)
+- 2026-10-11 — 3.1 — module routes live under `/modules/<name>/` and stay out of `doc/openapi.json` (the contract is the engine's)
+- 2026-10-11 — 3.2 — `post_content.kind` is 64 characters; a kind belongs to exactly one module (`registry.ContentKind`)
+- 2026-10-11 — 3.2 — an extractor returns at most 64 results of at most 1 MiB of JSON each; beyond that it counts as failed
+- 2026-10-11 — 3.2 — one bad result drops all results of that extractor for the file (no telling which to trust)
+- 2026-10-11 — 3.2 — new content replaces every `post_content` row of the post, also rows of kinds no loaded module owns
+- 2026-10-11 — 3.2 — auto-tags are added on create and on content change, never removed, and need no `tags:create` privilege
+- 2026-10-11 — 3.2 — an auto-tag's category is used only when the tag is created; a missing category means the default one
+- 2026-10-11 — 3.2 — `reextract` replaces only rows of kinds loaded modules own, keeps old rows where an extractor fails, never tags
+- 2026-10-11 — 3.2 — `GET /post/<id>/content` needs `posts:view`; rows of kinds no loaded module owns are stored but never shown
+- 2026-10-11 — 3.2 — private payload fields: top-level keys per kind, one privilege `posts:view:content:private` (default moderator)
+- 2026-10-11 — 3.1 — a module may add search tokens, post fields and commands but never replace the engine's (startup error)
 
 ---
 
@@ -133,31 +153,31 @@ Goal: the engine can host optional modules; nothing module-specific exists
 yet beyond a test fixture module. Tag `v0.1.0`.
 
 ### 3.1 Module registry
-- [ ] Config `modules: []` (list of module names). Registry loads `lithica.modules.<name>` dynamically at startup; unknown names fail fast.
-- [ ] Module interface (a small protocol/dataclass), each part optional:
+- [x] Config `modules: []` (list of module names). Registry loads `lithica.modules.<name>` dynamically at startup; unknown names fail fast.
+- [x] Module interface (a small protocol/dataclass), each part optional:
   - routers to mount (under the module's own path prefix),
   - content extractors (see 3.2),
   - auto-tag hook (extracted content → tag names, per category),
   - search field contributions (named tokens added to the post search config),
   - serializer extras (extra fields on post responses),
   - admin CLI subcommands.
-- [ ] `import-linter` contract in CI: `lithica` (engine) must not import `lithica.modules`; modules must not import each other.
+- [x] `import-linter` contract in CI: `lithica` (engine) must not import `lithica.modules`; modules must not import each other.
 
 ### 3.2 Embedded-content pipeline (engine side)
-- [ ] Table `post_content`: id, post id (FK, cascade delete), `kind` (string, e.g. `dummy_v1`), `schema_version`, `payload` (`JSON` / `JSONB` variant), `extracted_at`. Index on (`post_id`, `kind`). Multiple rows per post allowed.
-- [ ] Extractor contract: given MIME type and a readable file, return zero or more `(kind, payload)` results. Extractors are registered by modules and keyed by MIME type (PNG text chunks, WebP EXIF, video metadata — not PNG-only).
-- [ ] Run extractors on post create and on content update (replace the post's rows); errors in one extractor are logged and do not fail the upload.
-- [ ] `lithica-admin reextract [--kind K]` re-runs extractors over existing posts in batches.
-- [ ] Post API exposes content kinds present (`contentKinds: [...]`) and an endpoint to fetch a post's extracted content; modules decide the public shape.
-- [ ] Redaction hook: a module can mark payload fields as private (not returned to users without a privilege).
+- [x] Table `post_content`: id, post id (FK, cascade delete), `kind` (string, e.g. `dummy_v1`), `schema_version`, `payload` (`JSON` / `JSONB` variant), `extracted_at`. Index on (`post_id`, `kind`). Multiple rows per post allowed.
+- [x] Extractor contract: given MIME type and a readable file, return zero or more `(kind, payload)` results. Extractors are registered by modules and keyed by MIME type (PNG text chunks, WebP EXIF, video metadata — not PNG-only).
+- [x] Run extractors on post create and on content update (replace the post's rows); errors in one extractor are logged and do not fail the upload.
+- [x] `lithica-admin reextract [--kind K]` re-runs extractors over existing posts in batches.
+- [x] Post API exposes content kinds present (`contentKinds: [...]`) and an endpoint to fetch a post's extracted content; modules decide the public shape.
+- [x] Redaction hook: a module can mark payload fields as private (not returned to users without a privilege).
 
 ### 3.3 Proof module (tests only)
-- [ ] `tests/fixtures/modules/dummy`: registers one extractor (reads a PNG `tEXt` chunk), one auto-tag, one search token, one route. Tests cover enable/disable, extraction on upload, re-extraction, search and the import boundary.
+- [x] `tests/fixtures/modules/dummy`: registers one extractor (reads a PNG `tEXt` chunk), one auto-tag, one search token, one route. Tests cover enable/disable, extraction on upload, re-extraction, search and the import boundary.
 
 ### 3.4 Release
-- [ ] `doc/INSTALL.md` rewritten for Lithica (uv, Debian image, Postgres 17, GHCR images, config, modules).
-- [ ] `doc/UPGRADING.md` covers szurubooru → Lithica 0.1.0 (data volume, config renames, DB upgrade).
-- [ ] pyright `strict` enabled at least for `lithica/modules/` and the new pipeline code.
+- [x] `doc/INSTALL.md` rewritten for Lithica (uv, Debian image, Postgres 17, GHCR images, config, modules).
+- [x] `doc/UPGRADING.md` covers szurubooru → Lithica 0.1.0 (data volume, config renames, DB upgrade).
+- [x] pyright `strict` enabled at least for `lithica/modules/` and the new pipeline code.
 - [ ] Publish GitHub release `v0.1.0`; verify the GHCR image builds and `docker compose up` works from the published images.
 
 **Exit criteria:** release `v0.1.0` published; images on GHCR; module system

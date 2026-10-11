@@ -1,16 +1,19 @@
 """
 The ASGI application. Run it with `uvicorn lithica.app:app`.
 
-Importing this module has no side effects beyond building the application
-object: the configuration is checked and the background work is started when
-the server starts the application (the lifespan), not at import.
+Importing this module builds the application object, and for that imports
+the modules the `modules` setting lists: their routes are part of the
+application. A module that does not exist is a configuration error raised
+here, so the server does not start. Everything else waits until the server
+starts the application (the lifespan): the rest of the configuration is
+checked and the background work is started then, not at import.
 """
 
 import contextlib
 import logging
 import os
 import threading
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 from typing import Any
 
 import anyio
@@ -23,7 +26,7 @@ from starlette.datastructures import Headers, MutableHeaders
 from starlette.responses import Response
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from lithica import config, db, openapi
+from lithica import config, db, openapi, registry
 from lithica.api import (
     comment_api,
     docs_api,
@@ -229,7 +232,17 @@ def _operation_id(route: APIRoute) -> str:
     return route.name
 
 
-def create_app() -> FastAPI:
+# every route of a module is under this path, then the module's name
+MODULE_PATH_PREFIX = "/modules"
+
+
+def create_app(modules: Sequence[registry.Module] | None = None) -> FastAPI:
+    """
+    Build the application: the engine's routes and those of the modules,
+    which are the loaded ones unless given.
+    """
+    if modules is None:
+        modules = registry.modules()
     # A trailing slash is answered by the routes themselves, never by a
     # redirect. FastAPI's own documentation routes are off: they are served
     # by lithica.api.docs_api, only when the api_docs setting allows it.
@@ -289,7 +302,14 @@ def create_app() -> FastAPI:
     ]:
         application.include_router(ported.router)
 
+    for module in modules:
+        if module.router is not None:
+            application.include_router(
+                module.router, prefix="%s/%s" % (MODULE_PATH_PREFIX, module.name)
+            )
+
     return application
 
 
+registry.load_configured()
 app = create_app()

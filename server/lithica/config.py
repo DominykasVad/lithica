@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+from typing import Any
 
 import yaml
 
@@ -189,4 +190,5 @@ def _read_config() -> dict:
     return _merge(ret, _environment_overrides())
 
 
-config = _read_config()
+# Any: the settings are whatever the YAML files hold
+config: dict[str, Any] = _read_config()
