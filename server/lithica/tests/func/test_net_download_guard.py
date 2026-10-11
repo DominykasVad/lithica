@@ -28,6 +28,7 @@ class _WebServer(http.server.ThreadingHTTPServer):
     def __init__(self) -> None:
         super().__init__(("127.0.0.1", 0), _Handler)
         self.routes: dict[str, Reply | Callable[[], Reply]] = {}
+        self.raw_routes: dict[str, Callable[[_Handler], None]] = {}
         self.requests: list[tuple[str | None, str]] = []
         self.port: int = self.server_address[1]
 
@@ -37,6 +38,10 @@ class _Handler(http.server.BaseHTTPRequestHandler):
         server = self.server
         assert isinstance(server, _WebServer)
         server.requests.append((self.headers.get("Host"), self.path))
+        if self.path in server.raw_routes:
+            # the route writes its own response, at its own pace
+            server.raw_routes[self.path](self)
+            return
         action = server.routes.get(self.path, (404, {}, b"not found"))
         status, headers, body = action() if callable(action) else action
         self.send_response(status)
@@ -558,3 +563,171 @@ def test_video_downloader_returning_non_public_host(network, returned_url):
             net.download("http://public.example/watch", True)
     _assert_generic_error(excinfo)
     assert network.connections == []
+
+
+# ---------------------------------------------------------------------------
+# the limit on the whole download (DOWNLOAD_TOTAL_TIMEOUT)
+
+
+def test_total_timeout_is_five_minutes():
+    assert net.DOWNLOAD_TOTAL_TIMEOUT == 300
+
+
+@pytest.fixture
+def total_timeout(monkeypatch):
+    """Shrink the limit on the whole download, so that the tests are quick."""
+
+    def set_limit(seconds: float) -> None:
+        monkeypatch.setattr(net, "DOWNLOAD_TOTAL_TIMEOUT", seconds)
+
+    return set_limit
+
+
+def _trickle(pause: float, count: int, sent: list[int]) -> Callable[[_Handler], None]:
+    """A response body that arrives one byte at a time, `pause` apart."""
+
+    def respond(handler: _Handler) -> None:
+        handler.send_response(200)
+        handler.send_header("Content-Length", str(count))
+        handler.end_headers()
+        try:
+            for _ in range(count):
+                handler.wfile.write(b"x")
+                handler.wfile.flush()
+                sent.append(1)
+                time.sleep(pause)
+        except OSError:
+            # the downloader hung up
+            pass
+
+    return respond
+
+
+def test_trickling_server_is_cut_off_after_the_total_timeout(
+    web, network, total_timeout, caplog
+):
+    # A byte every 50 ms, for 30 s if nobody stops it. No single read waits
+    # anywhere near DOWNLOAD_TIMEOUT (30 s), so only the limit on the whole
+    # download can end this.
+    network.hosts = {"public.example": [PUBLIC_IP]}
+    sent: list[int] = []
+    web.raw_routes["/trickle"] = _trickle(0.05, 600, sent)
+    total_timeout(0.5)
+    started = time.monotonic()
+    with pytest.raises(net.DownloadError) as ex:
+        net.download("http://public.example/trickle")
+    elapsed = time.monotonic() - started
+    _assert_generic_error(ex)
+    assert 0.4 < elapsed < 3
+    # the server was still sending: it was the downloader that gave up
+    assert 0 < len(sent) < 100
+    # the reason is in the log, not in the answer
+    assert "took longer than 0.5 seconds in all" in caplog.text
+    assert "took longer" not in str(ex.value)
+
+
+def test_slow_headers_are_cut_off_after_the_total_timeout(
+    web, network, total_timeout, caplog
+):
+    # the same trick before the body: a header that never finishes
+    network.hosts = {"public.example": [PUBLIC_IP]}
+
+    def slow_headers(handler: _Handler) -> None:
+        try:
+            handler.wfile.write(b"HTTP/1.1 200 OK\r\nX-Slow: ")
+            for _ in range(600):
+                handler.wfile.write(b"x")
+                handler.wfile.flush()
+                time.sleep(0.05)
+        except OSError:
+            pass
+
+    web.raw_routes["/slow-headers"] = slow_headers
+    total_timeout(0.5)
+    started = time.monotonic()
+    with pytest.raises(net.DownloadError) as ex:
+        net.download("http://public.example/slow-headers")
+    _assert_generic_error(ex)
+    assert time.monotonic() - started < 3
+    assert "took longer than 0.5 seconds in all" in caplog.text
+
+
+def test_total_timeout_covers_the_redirects(web, network, total_timeout, caplog):
+    # four hops of 0.2 s each: none is slow, together they are too slow
+    network.hosts = {"public.example": [PUBLIC_IP]}
+
+    def hop(number: int) -> Callable[[], Reply]:
+        def reply() -> Reply:
+            time.sleep(0.2)
+            if number == 4:
+                return (200, {}, b"content")
+            return (302, {"Location": "/hop%d" % (number + 1)}, b"")
+
+        return reply
+
+    for number in range(5):
+        web.routes["/hop%d" % number] = hop(number)
+    total_timeout(0.5)
+    with pytest.raises(net.DownloadError) as ex:
+        net.download("http://public.example/hop0")
+    _assert_generic_error(ex)
+    assert "took longer than 0.5 seconds in all" in caplog.text
+    # it stopped part of the way
+    assert len(web.requests) < 5
+
+
+def test_slow_download_within_the_total_timeout_succeeds(web, network, total_timeout):
+    network.hosts = {"public.example": [PUBLIC_IP]}
+    sent: list[int] = []
+    web.raw_routes["/trickle"] = _trickle(0.02, 10, sent)
+    total_timeout(5)
+    assert net.download("http://public.example/trickle") == b"x" * 10
+
+
+def test_no_step_is_given_more_time_than_is_left(network, total_timeout):
+    # a connection attempt late in a download may only take what remains
+    network.hosts = {"public.example": [PUBLIC_IP]}
+    total_timeout(4)
+    with patch(
+        "lithica.func.net.socket.create_connection", side_effect=TimeoutError()
+    ) as connect:
+        with pytest.raises(net.DownloadError):
+            net.download("http://public.example/file.png")
+    timeout = connect.call_args[0][1]
+    assert 3 < timeout <= 4
+
+
+def test_deadline_refuses_a_step_after_it_has_passed():
+    deadline = net._Deadline(0.05)
+    try:
+        assert 0 < deadline.step_timeout() <= 0.05
+        time.sleep(0.15)
+        assert deadline.expired
+        with pytest.raises(net._DownloadTimedOutError):
+            deadline.check()
+        with pytest.raises(net._DownloadTimedOutError):
+            deadline.step_timeout()
+        # a connection made too late is closed, not used
+        late = socket.socket()
+        with pytest.raises(net._DownloadTimedOutError):
+            deadline.track(late)
+        assert late.fileno() == -1
+    finally:
+        deadline.finish()
+
+
+def test_finished_download_leaves_no_timer_running(web, network):
+    network.hosts = {"public.example": [PUBLIC_IP]}
+    web.routes["/file.png"] = (200, {}, b"content")
+
+    def timers() -> int:
+        return sum(isinstance(t, threading.Timer) for t in threading.enumerate())
+
+    before = timers()
+    assert net.download("http://public.example/file.png") == b"content"
+    with pytest.raises(net.DownloadError):
+        net.download("http://public.example/missing")
+    deadline = time.monotonic() + 2
+    while timers() > before and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert timers() == before
