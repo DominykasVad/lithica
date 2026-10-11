@@ -678,6 +678,47 @@ def update_all_md5_checksums() -> tuple[int, int]:
     return _backfill(_query_posts_without_md5_checksum, fill, "MD5")
 
 
+def _query_posts_to_reextract(kinds: list[str] | None) -> sa_orm.Query:
+    """
+    The posts a re-extraction has to look at: those of a type an extractor
+    reads, and those that have rows of the kinds in question, which may be
+    stale.
+    """
+    target_kinds = list(registry.content_kinds()) if kinds is None else kinds
+    with_rows = sa.select(model.PostContent.post_id).where(
+        model.PostContent.kind.in_(target_kinds)
+    )
+    return db.session.query(model.Post).filter(
+        model.Post.mime_type.in_(post_content.get_extracted_mime_types(kinds))
+        | model.Post.post_id.in_(with_rows)
+    )
+
+
+def count_posts_to_reextract(kinds: list[str] | None = None) -> int:
+    return _query_posts_to_reextract(kinds).count()
+
+
+def reextract_all_post_contents(kinds: list[str] | None = None) -> tuple[int, int]:
+    """
+    Run the extractors of the loaded modules over the files of the existing
+    posts again, for all kinds or for the given ones, a batch of posts at a
+    time. For when a module is switched on, or its extractor has changed.
+    Only the extracted content is touched: not the tags, not the version.
+    Returns how many posts were done and how many were not.
+    """
+
+    def fill(post: model.Post) -> bool:
+        content = files.get(get_post_content_path(post))
+        if content is None:
+            logger.warning("Post %d has no content file", post.post_id)
+            return False
+        return post_content.reextract_post_contents(post, content, kinds)
+
+    return _backfill(
+        lambda: _query_posts_to_reextract(kinds), fill, "extracted content"
+    )
+
+
 def warn_about_pending_backfills() -> None:
     """
     Tell the administrator, in the log, that posts wait for a backfill. The

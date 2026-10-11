@@ -1,7 +1,5 @@
 """The module registry: loading modules and what the engine does with them."""
 
-import sys
-import textwrap
 from importlib.machinery import SourceFileLoader
 from importlib.util import module_from_spec, spec_from_loader
 from pathlib import Path
@@ -16,24 +14,6 @@ from lithica.tests.api.http import assert_error, ok
 from lithica.tests.conftest import ApiClient
 
 ADMIN_PATH = Path(__file__).resolve().parent.parent.parent / "lithica-admin"
-
-
-@pytest.fixture
-def module_package(tmp_path, monkeypatch):
-    """A package of modules, written for the test; returns how to add one."""
-    package = tmp_path / "some_modules"
-    package.mkdir()
-    (package / "__init__.py").write_text("")
-    monkeypatch.syspath_prepend(str(tmp_path))
-    monkeypatch.setattr(registry, "MODULE_PACKAGE", "some_modules")
-
-    def add(name: str, source: str) -> None:
-        (package / name).mkdir()
-        (package / name / "__init__.py").write_text(textwrap.dedent(source))
-
-    yield add
-    for loaded in [name for name in sys.modules if name.startswith("some_modules")]:
-        del sys.modules[loaded]
 
 
 @pytest.fixture

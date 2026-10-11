@@ -3,6 +3,8 @@ import json
 import os
 import random
 import string
+import sys
+import textwrap
 from datetime import datetime
 from typing import Any
 from unittest.mock import Mock, patch
@@ -307,6 +309,24 @@ def no_modules():
     registry.use([])
     yield
     registry.use([])
+
+
+@pytest.fixture
+def module_package(tmp_path, monkeypatch):
+    """A package of modules, written for the test; returns how to add one."""
+    package = tmp_path / "some_modules"
+    package.mkdir()
+    (package / "__init__.py").write_text("")
+    monkeypatch.syspath_prepend(str(tmp_path))
+    monkeypatch.setattr(registry, "MODULE_PACKAGE", "some_modules")
+
+    def add(name: str, source: str) -> None:
+        (package / name).mkdir()
+        (package / name / "__init__.py").write_text(textwrap.dedent(source))
+
+    yield add
+    for loaded in [name for name in sys.modules if name.startswith("some_modules")]:
+        del sys.modules[loaded]
 
 
 @pytest.fixture

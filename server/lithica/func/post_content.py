@@ -245,3 +245,37 @@ def get_auto_tags(post: model.Post) -> list[tuple[str, str]]:
                     seen.add(name.lower())
                     auto_tags.append((category, name))
     return auto_tags
+
+
+def reextract_post_contents(
+    post: model.Post, content: ContentLike, kinds: Collection[str] | None = None
+) -> bool:
+    """
+    Run the extractors over the file the post already has and replace the
+    rows of the kinds the loaded modules own (or of `kinds` only) with what
+    they find now. Rows of other kinds are left alone: they belong to
+    modules that are switched off, and whoever switches one back on will
+    want them.
+
+    Where an extractor fails, the rows of its module's kinds are kept as
+    they are, since old content is better than none. Returns whether every
+    extractor worked.
+    """
+    targets = set(registry.content_kinds() if kinds is None else kinds)
+    extraction = extract(post.mime_type, content, kinds)
+    replaced = targets - extraction.failed_kinds
+    kept = [row for row in post.contents if row.kind not in replaced]
+    found = [content for content in extraction.contents if content.kind in replaced]
+    post.contents = kept + _rows(found)
+    return not extraction.failed_kinds
+
+
+def get_extracted_mime_types(kinds: Collection[str] | None = None) -> set[str]:
+    """The MIME types the extractors behind these kinds (or all) read."""
+    mime_types: set[str] = set()
+    for module in registry.modules():
+        owned_kinds = {kind.name for kind in module.content_kinds}
+        if kinds is None or owned_kinds & set(kinds):
+            for extractor in module.extractors:
+                mime_types |= extractor.mime_types
+    return mime_types

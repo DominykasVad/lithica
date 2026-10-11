@@ -40,7 +40,7 @@ KIND_PATTERN = re.compile(r"[a-z][a-z0-9_]*")
 KIND_MAX_LENGTH = 64
 
 # the admin CLI's own commands, which a module may not take
-ENGINE_ADMIN_COMMANDS = frozenset({"backfill"})
+ENGINE_ADMIN_COMMANDS = frozenset({"backfill", "reextract"})
 
 # what is stored for one piece of extracted content: a JSON object
 Payload = dict[str, Any]
