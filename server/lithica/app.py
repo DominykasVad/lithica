@@ -17,7 +17,9 @@ import coloredlogs
 from a2wsgi import WSGIMiddleware
 from fastapi import FastAPI
 from starlette.concurrency import run_in_threadpool
-from starlette.types import ASGIApp, Receive, Scope, Send
+from starlette.datastructures import Headers, MutableHeaders
+from starlette.responses import Response
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from lithica import config, db, facade, rest
 from lithica.api import error_handlers
@@ -25,6 +27,59 @@ from lithica.api.dependencies import LOG_USER_KEY
 from lithica.func import file_uploads, posts
 
 logger = logging.getLogger(__name__)
+
+
+CORS_ALLOWED_METHODS = "GET, POST, PUT, DELETE, OPTIONS"
+CORS_ALLOWED_HEADERS = "Authorization, Content-Type"
+
+
+class CorsMiddleware:
+    """
+    Answer cross-origin requests from the origins listed in the cors_origins
+    setting, and only from those. With the default empty list no header is
+    sent and browsers allow same-origin requests only.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        allowed_origins = config.config.get("cors_origins") or []
+        if scope["type"] != "http" or not allowed_origins:
+            await self.app(scope, receive, send)
+            return
+
+        request_headers = Headers(scope=scope)
+        origin = request_headers.get("origin")
+        # the response differs by origin, so shared caches must key on it
+        cors_headers = {"Vary": "Origin"}
+        if origin is not None and origin in allowed_origins:
+            cors_headers["Access-Control-Allow-Origin"] = origin
+
+        is_allowed_preflight = (
+            scope["method"] == "OPTIONS"
+            and "access-control-request-method" in request_headers
+            and origin in allowed_origins
+        )
+        if is_allowed_preflight:
+            response = Response(
+                status_code=200,
+                headers={
+                    "Access-Control-Allow-Methods": CORS_ALLOWED_METHODS,
+                    "Access-Control-Allow-Headers": CORS_ALLOWED_HEADERS,
+                    **cors_headers,
+                },
+            )
+            await response(scope, receive, send)
+            return
+
+        async def send_with_cors(message: Message) -> None:
+            # on error responses too, or the client could not read the error
+            if message["type"] == "http.response.start":
+                MutableHeaders(scope=message).update(cors_headers)
+            await send(message)
+
+        await self.app(scope, receive, send_with_cors)
 
 
 class SessionScopeMiddleware:
@@ -150,6 +205,8 @@ def create_app() -> FastAPI:
     )
 
     application.add_middleware(SessionScopeMiddleware)
+    # added last, so outermost: also answers for responses made further in
+    application.add_middleware(CorsMiddleware)
     error_handlers.install(application)
 
     # Routes that are not ported to FastAPI yet are answered by the old WSGI
