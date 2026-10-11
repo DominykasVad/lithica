@@ -90,6 +90,8 @@ When a phase is merged, its entries are folded into the tables above or deleted.
 - 2026-10-11 — 3.1 — modules load when `lithica.app` is imported, not in the lifespan (their routes are part of the application)
 - 2026-10-11 — 3.1 — module routes live under `/modules/<name>/` and stay out of `doc/openapi.json` (the contract is the engine's)
 - 2026-10-11 — 3.2 — `post_content.kind` is 64 characters; a kind belongs to exactly one module (`registry.ContentKind`)
+- 2026-10-11 — 3.2 — an extractor returns at most 64 results of at most 1 MiB of JSON each; beyond that it counts as failed
+- 2026-10-11 — 3.2 — one bad result drops all results of that extractor for the file (no telling which to trust)
 - 2026-10-11 — 3.1 — a module may add search tokens, post fields and commands but never replace the engine's (startup error)
 
 ---
@@ -153,7 +155,7 @@ yet beyond a test fixture module. Tag `v0.1.0`.
 
 ### 3.2 Embedded-content pipeline (engine side)
 - [x] Table `post_content`: id, post id (FK, cascade delete), `kind` (string, e.g. `dummy_v1`), `schema_version`, `payload` (`JSON` / `JSONB` variant), `extracted_at`. Index on (`post_id`, `kind`). Multiple rows per post allowed.
-- [ ] Extractor contract: given MIME type and a readable file, return zero or more `(kind, payload)` results. Extractors are registered by modules and keyed by MIME type (PNG text chunks, WebP EXIF, video metadata — not PNG-only).
+- [x] Extractor contract: given MIME type and a readable file, return zero or more `(kind, payload)` results. Extractors are registered by modules and keyed by MIME type (PNG text chunks, WebP EXIF, video metadata — not PNG-only).
 - [ ] Run extractors on post create and on content update (replace the post's rows); errors in one extractor are logged and do not fail the upload.
 - [ ] `lithica-admin reextract [--kind K]` re-runs extractors over existing posts in batches.
 - [ ] Post API exposes content kinds present (`contentKinds: [...]`) and an endpoint to fetch a post's extracted content; modules decide the public shape.
