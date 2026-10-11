@@ -15,17 +15,26 @@ def ok(response: httpx2.Response) -> Any:
     return response.json()
 
 
+def _names_of(error_class: type[Exception]) -> set[str]:
+    """The class and its subclasses: an error is also an error of its parents."""
+    names = {error_class.__name__}
+    for subclass in error_class.__subclasses__():
+        names |= _names_of(subclass)
+    return names
+
+
 def assert_error(
     response: httpx2.Response,
     error_class: type[Exception],
     description: str | None = None,
 ) -> dict[str, Any]:
     """
-    Assert that the request was refused with this business error: its name,
-    and the status and title of its kind. Returns the error body.
+    Assert that the request was refused with this business error (or one
+    derived from it, as `pytest.raises` would accept): its name, and the
+    status and title of its kind. Returns the error body.
     """
     body = response.json()
-    assert body["name"] == error_class.__name__, response.text
+    assert body["name"] in _names_of(error_class), response.text
     for kind, status_code, title in ERROR_KINDS:
         if issubclass(error_class, kind):
             assert response.status_code == status_code, response.text

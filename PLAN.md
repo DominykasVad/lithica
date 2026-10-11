@@ -127,7 +127,7 @@ then rewrite that resource's `tests/api/` tests to go through FastAPI's
 
 - [x] info
 - [x] users, user tokens
-- [ ] password reset
+- [x] password reset
 - [ ] tag categories, tags
 - [ ] pool categories, pools
 - [ ] comments

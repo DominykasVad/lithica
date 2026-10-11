@@ -22,7 +22,13 @@ from starlette.responses import Response
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from lithica import config, db, facade, rest
-from lithica.api import error_handlers, info_api, user_api, user_token_api
+from lithica.api import (
+    error_handlers,
+    info_api,
+    password_reset_api,
+    user_api,
+    user_token_api,
+)
 from lithica.api.dependencies import LOG_USER_KEY
 from lithica.func import file_uploads, posts
 
@@ -209,7 +215,7 @@ def create_app() -> FastAPI:
     application.add_middleware(CorsMiddleware)
     error_handlers.install(application)
 
-    for ported in [info_api, user_api, user_token_api]:
+    for ported in [info_api, user_api, user_token_api, password_reset_api]:
         application.include_router(ported.router)
 
     # Routes that are not ported to FastAPI yet are answered by the old WSGI

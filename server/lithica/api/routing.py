@@ -4,7 +4,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends
 
-from lithica.api.dependencies import require_json_accept
+from lithica.api.dependencies import get_user, require_json_accept
 from lithica.api.responses import JsonResponse
 from lithica.api.schemas import ErrorResponse
 
@@ -26,11 +26,15 @@ class ApiRouter(APIRouter):
     - every path is also served with a trailing slash, as the old routes
       were, without a redirect. Paths that end in a `:path` parameter are
       the exception: there the slash is part of the value;
-    - a request must accept JSON.
+    - a request must accept JSON, and is authenticated.
     """
 
     def __init__(self, **kwargs: Any) -> None:
-        kwargs.setdefault("dependencies", [Depends(require_json_accept)])
+        # every request is authenticated, whether or not its endpoint asks
+        # who the user is: wrong credentials are refused everywhere
+        kwargs.setdefault(
+            "dependencies", [Depends(require_json_accept), Depends(get_user)]
+        )
         kwargs.setdefault("responses", ERROR_RESPONSES)
         super().__init__(**kwargs)
 
