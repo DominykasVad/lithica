@@ -17,6 +17,7 @@ from lithica.api.schemas import (
     Int,
     RequestModel,
     Str,
+    VersionOnly,
     optional,
     request_body,
     required,
@@ -48,10 +49,6 @@ class UserUpdate(RequestModel):
     avatar_style: Str = optional()
     avatar_url: Str = optional()
     avatar_token: Str = optional()
-
-
-class VersionOnly(RequestModel):
-    version: Int = required()
 
 
 # Any: the serializer's output, which the response model describes

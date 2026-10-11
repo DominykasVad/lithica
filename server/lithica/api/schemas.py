@@ -149,6 +149,12 @@ class RequestModel(BaseModel):
         return getattr(self, field)
 
 
+class VersionOnly(RequestModel):
+    """Body of the requests that delete a resource."""
+
+    version: Int = required()
+
+
 def request_body(model: type[RequestModel], *files: str) -> dict[str, Any]:
     """
     Describe an endpoint's request body for the OpenAPI document; pass the

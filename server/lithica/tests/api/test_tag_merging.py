@@ -2,8 +2,9 @@ from unittest.mock import patch
 
 import pytest
 
-from lithica import api, db, errors, model
+from lithica import db, errors, model
 from lithica.func import snapshots, tags
+from lithica.tests.api.http import assert_error, ok
 
 
 @pytest.fixture(autouse=True)
@@ -11,7 +12,7 @@ def inject_config(config_injector):
     config_injector({"privileges": {"tags:merge": model.User.RANK_REGULAR}})
 
 
-def test_merging(user_factory, tag_factory, context_factory, post_factory):
+def test_merging(user_factory, tag_factory, client, post_factory):
     auth_user = user_factory(rank=model.User.RANK_REGULAR)
     source_tag = tag_factory(names=["source"])
     target_tag = tag_factory(names=["target"])
@@ -30,15 +31,16 @@ def test_merging(user_factory, tag_factory, context_factory, post_factory):
         patch("lithica.func.tags.merge_tags"),
         patch("lithica.func.snapshots.merge"),
     ):
-        api.tag_api.merge_tags(
-            context_factory(
-                params={
+        ok(
+            client.post(
+                "/tag-merge",
+                user=auth_user,
+                body={
                     "removeVersion": 1,
                     "mergeToVersion": 1,
                     "remove": "source",
                     "mergeTo": "target",
                 },
-                user=auth_user,
             )
         )
         tags.merge_tags.assert_called_once_with(source_tag, target_tag)
@@ -48,9 +50,7 @@ def test_merging(user_factory, tag_factory, context_factory, post_factory):
 @pytest.mark.parametrize(
     "field", ["remove", "mergeTo", "removeVersion", "mergeToVersion"]
 )
-def test_trying_to_omit_mandatory_field(
-    user_factory, tag_factory, context_factory, field
-):
+def test_trying_to_omit_mandatory_field(user_factory, tag_factory, client, field):
     db.session.add_all(
         [
             tag_factory(names=["source"]),
@@ -65,34 +65,36 @@ def test_trying_to_omit_mandatory_field(
         "mergeTo": "target",
     }
     del params[field]
-    with pytest.raises(errors.ValidationError):
-        api.tag_api.merge_tags(
-            context_factory(
-                params=params, user=user_factory(rank=model.User.RANK_REGULAR)
-            )
-        )
+    assert_error(
+        client.post(
+            "/tag-merge", user=user_factory(rank=model.User.RANK_REGULAR), body=params
+        ),
+        errors.ValidationError,
+    )
 
 
-def test_trying_to_merge_non_existing(user_factory, tag_factory, context_factory):
+def test_trying_to_merge_non_existing(user_factory, tag_factory, client):
     db.session.add(tag_factory(names=["good"]))
     db.session.commit()
-    with pytest.raises(tags.TagNotFoundError):
-        api.tag_api.merge_tags(
-            context_factory(
-                params={"remove": "good", "mergeTo": "bad"},
-                user=user_factory(rank=model.User.RANK_REGULAR),
-            )
-        )
-    with pytest.raises(tags.TagNotFoundError):
-        api.tag_api.merge_tags(
-            context_factory(
-                params={"remove": "bad", "mergeTo": "good"},
-                user=user_factory(rank=model.User.RANK_REGULAR),
-            )
-        )
+    assert_error(
+        client.post(
+            "/tag-merge",
+            user=user_factory(rank=model.User.RANK_REGULAR),
+            body={"remove": "good", "mergeTo": "bad"},
+        ),
+        tags.TagNotFoundError,
+    )
+    assert_error(
+        client.post(
+            "/tag-merge",
+            user=user_factory(rank=model.User.RANK_REGULAR),
+            body={"remove": "bad", "mergeTo": "good"},
+        ),
+        tags.TagNotFoundError,
+    )
 
 
-def test_trying_to_merge_without_privileges(user_factory, tag_factory, context_factory):
+def test_trying_to_merge_without_privileges(user_factory, tag_factory, client):
     db.session.add_all(
         [
             tag_factory(names=["source"]),
@@ -100,15 +102,16 @@ def test_trying_to_merge_without_privileges(user_factory, tag_factory, context_f
         ]
     )
     db.session.commit()
-    with pytest.raises(errors.AuthError):
-        api.tag_api.merge_tags(
-            context_factory(
-                params={
-                    "removeVersion": 1,
-                    "mergeToVersion": 1,
-                    "remove": "source",
-                    "mergeTo": "target",
-                },
-                user=user_factory(rank=model.User.RANK_ANONYMOUS),
-            )
-        )
+    assert_error(
+        client.post(
+            "/tag-merge",
+            user=user_factory(rank=model.User.RANK_ANONYMOUS),
+            body={
+                "removeVersion": 1,
+                "mergeToVersion": 1,
+                "remove": "source",
+                "mergeTo": "target",
+            },
+        ),
+        errors.AuthError,
+    )
