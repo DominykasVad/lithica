@@ -172,7 +172,7 @@ yet beyond a test fixture module. Tag `v0.1.0`.
 - [x] Redaction hook: a module can mark payload fields as private (not returned to users without a privilege).
 
 ### 3.3 Proof module (tests only)
-- [ ] `tests/fixtures/modules/dummy`: registers one extractor (reads a PNG `tEXt` chunk), one auto-tag, one search token, one route. Tests cover enable/disable, extraction on upload, re-extraction, search and the import boundary.
+- [x] `tests/fixtures/modules/dummy`: registers one extractor (reads a PNG `tEXt` chunk), one auto-tag, one search token, one route. Tests cover enable/disable, extraction on upload, re-extraction, search and the import boundary.
 
 ### 3.4 Release
 - [ ] `doc/INSTALL.md` rewritten for Lithica (uv, Debian image, Postgres 17, GHCR images, config, modules).
