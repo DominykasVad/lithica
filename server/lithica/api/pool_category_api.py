@@ -1,94 +1,152 @@
-from lithica import model, rest
-from lithica.func import (
-    auth,
-    pool_categories,
-    serialization,
-    snapshots,
-    versions,
+from typing import Annotated, Any
+
+from fastapi import Depends
+
+from lithica import db, model
+from lithica.api import resources
+from lithica.api.dependencies import CurrentUser, Fields, read_body, require
+from lithica.api.routing import ApiRouter
+from lithica.api.schemas import (
+    Int,
+    RequestModel,
+    Str,
+    VersionOnly,
+    optional,
+    request_body,
+    required,
 )
+from lithica.func import auth, pool_categories, snapshots, versions
+
+router = ApiRouter(tags=["Pool categories"])
 
 
-def _serialize(ctx: rest.Context, category: model.PoolCategory) -> rest.Response:
-    return pool_categories.serialize_category(
-        category, options=serialization.get_serialization_options(ctx)
-    )
+class PoolCategoryCreate(RequestModel):
+    name: Str = required()
+    color: Str = required()
 
 
-@rest.routes.get("/pool-categories/?")
+class PoolCategoryUpdate(RequestModel):
+    version: Int = required()
+    name: Str = optional()
+    color: Str = optional()
+
+
+# Any: the serializer's output, which the response model describes
+def _serialize(category: model.PoolCategory, fields: list[str]) -> Any:
+    return pool_categories.serialize_category(category, options=fields)
+
+
+@router.get(
+    "/pool-categories",
+    response_model=resources.Unpaged[resources.PoolCategory],
+    summary="List pool categories",
+)
 def get_pool_categories(
-    ctx: rest.Context, _params: dict[str, str] | None = None
-) -> rest.Response:
-    if _params is None:
-        _params = {}
-    auth.verify_privilege(ctx.user, "pool_categories:list")
+    _user: Annotated[model.User, Depends(require("pool_categories:list"))],
+    fields: Fields,
+) -> Any:
     categories = pool_categories.get_all_categories()
     return {
-        "results": [_serialize(ctx, category) for category in categories],
+        "results": [_serialize(category, fields) for category in categories],
     }
 
 
-@rest.routes.post("/pool-categories/?")
+@router.post(
+    "/pool-categories",
+    response_model=resources.PoolCategory,
+    summary="Create a pool category",
+    openapi_extra=request_body(PoolCategoryCreate),
+)
 def create_pool_category(
-    ctx: rest.Context, _params: dict[str, str] | None = None
-) -> rest.Response:
-    if _params is None:
-        _params = {}
-    auth.verify_privilege(ctx.user, "pool_categories:create")
-    name = ctx.get_param_as_string("name")
-    color = ctx.get_param_as_string("color")
+    auth_user: Annotated[model.User, Depends(require("pool_categories:create"))],
+    fields: Fields,
+    body: Annotated[PoolCategoryCreate, Depends(read_body(PoolCategoryCreate))],
+) -> Any:
+    name = body.require("name")
+    color = body.require("color")
     category = pool_categories.create_category(name, color)
-    ctx.session.add(category)
-    ctx.session.flush()
-    snapshots.create(category, ctx.user)
-    ctx.session.commit()
-    return _serialize(ctx, category)
+    db.session.add(category)
+    db.session.flush()
+    snapshots.create(category, auth_user)
+    db.session.commit()
+    return _serialize(category, fields)
 
 
-@rest.routes.get("/pool-category/(?P<category_name>[^/]+)/?")
-def get_pool_category(ctx: rest.Context, params: dict[str, str]) -> rest.Response:
-    auth.verify_privilege(ctx.user, "pool_categories:view")
-    category = pool_categories.get_category_by_name(params["category_name"])
-    return _serialize(ctx, category)
+@router.get(
+    "/pool-category/{category_name}",
+    response_model=resources.PoolCategory,
+    summary="Get a pool category",
+)
+def get_pool_category(
+    category_name: str,
+    _user: Annotated[model.User, Depends(require("pool_categories:view"))],
+    fields: Fields,
+) -> Any:
+    category = pool_categories.get_category_by_name(category_name)
+    return _serialize(category, fields)
 
 
-@rest.routes.put("/pool-category/(?P<category_name>[^/]+)/?")
-def update_pool_category(ctx: rest.Context, params: dict[str, str]) -> rest.Response:
-    category = pool_categories.get_category_by_name(params["category_name"], lock=True)
-    versions.verify_version(category, ctx)
+@router.put(
+    "/pool-category/{category_name}",
+    response_model=resources.PoolCategory,
+    summary="Update a pool category",
+    openapi_extra=request_body(PoolCategoryUpdate),
+)
+def update_pool_category(
+    category_name: str,
+    auth_user: CurrentUser,
+    fields: Fields,
+    body: Annotated[PoolCategoryUpdate, Depends(read_body(PoolCategoryUpdate))],
+) -> Any:
+    """Only the fields that are sent are changed."""
+    category = pool_categories.get_category_by_name(category_name, lock=True)
+    versions.verify_version(category, body.require("version"))
     versions.bump_version(category)
-    if ctx.has_param("name"):
-        auth.verify_privilege(ctx.user, "pool_categories:edit:name")
-        pool_categories.update_category_name(category, ctx.get_param_as_string("name"))
-    if ctx.has_param("color"):
-        auth.verify_privilege(ctx.user, "pool_categories:edit:color")
-        pool_categories.update_category_color(
-            category, ctx.get_param_as_string("color")
-        )
-    ctx.session.flush()
-    snapshots.modify(category, ctx.user)
-    ctx.session.commit()
-    return _serialize(ctx, category)
+    if body.has("name"):
+        auth.verify_privilege(auth_user, "pool_categories:edit:name")
+        pool_categories.update_category_name(category, body.name)
+    if body.has("color"):
+        auth.verify_privilege(auth_user, "pool_categories:edit:color")
+        pool_categories.update_category_color(category, body.color)
+    db.session.flush()
+    snapshots.modify(category, auth_user)
+    db.session.commit()
+    return _serialize(category, fields)
 
 
-@rest.routes.delete("/pool-category/(?P<category_name>[^/]+)/?")
-def delete_pool_category(ctx: rest.Context, params: dict[str, str]) -> rest.Response:
-    category = pool_categories.get_category_by_name(params["category_name"], lock=True)
-    versions.verify_version(category, ctx)
-    auth.verify_privilege(ctx.user, "pool_categories:delete")
+@router.delete(
+    "/pool-category/{category_name}",
+    response_model=resources.Empty,
+    summary="Delete a pool category",
+    openapi_extra=request_body(VersionOnly),
+)
+def delete_pool_category(
+    category_name: str,
+    auth_user: CurrentUser,
+    body: Annotated[VersionOnly, Depends(read_body(VersionOnly))],
+) -> Any:
+    category = pool_categories.get_category_by_name(category_name, lock=True)
+    versions.verify_version(category, body.require("version"))
+    auth.verify_privilege(auth_user, "pool_categories:delete")
     pool_categories.delete_category(category)
-    snapshots.delete(category, ctx.user)
-    ctx.session.commit()
+    snapshots.delete(category, auth_user)
+    db.session.commit()
     return {}
 
 
-@rest.routes.put("/pool-category/(?P<category_name>[^/]+)/default/?")
+@router.put(
+    "/pool-category/{category_name}/default",
+    response_model=resources.PoolCategory,
+    summary="Make a pool category the default one",
+)
 def set_pool_category_as_default(
-    ctx: rest.Context, params: dict[str, str]
-) -> rest.Response:
-    auth.verify_privilege(ctx.user, "pool_categories:set_default")
-    category = pool_categories.get_category_by_name(params["category_name"], lock=True)
+    category_name: str,
+    auth_user: Annotated[model.User, Depends(require("pool_categories:set_default"))],
+    fields: Fields,
+) -> Any:
+    category = pool_categories.get_category_by_name(category_name, lock=True)
     pool_categories.set_default_category(category)
-    ctx.session.flush()
-    snapshots.modify(category, ctx.user)
-    ctx.session.commit()
-    return _serialize(ctx, category)
+    db.session.flush()
+    snapshots.modify(category, auth_user)
+    db.session.commit()
+    return _serialize(category, fields)

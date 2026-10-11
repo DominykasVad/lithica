@@ -1,112 +1,195 @@
-from lithica import model, rest, search
-from lithica.func import auth, pools, serialization, snapshots, util, versions
+from typing import Annotated, Any
+
+from fastapi import Depends
+
+from lithica import db, model, search
+from lithica.api import resources
+from lithica.api.dependencies import (
+    CurrentUser,
+    Fields,
+    PageParams,
+    read_body,
+    require,
+)
+from lithica.api.dependencies import search as run_search
+from lithica.api.routing import ApiRouter
+from lithica.api.schemas import (
+    Int,
+    IntList,
+    RequestModel,
+    Str,
+    StrList,
+    VersionOnly,
+    optional,
+    request_body,
+    required,
+)
+from lithica.func import auth, pools, snapshots, util, versions
+
+router = ApiRouter(tags=["Pools"])
 
 _search_executor = search.Executor(search.configs.PoolSearchConfig())
 
 
-def _serialize(ctx: rest.Context, pool: model.Pool) -> rest.Response:
-    return pools.serialize_pool(
-        pool, options=serialization.get_serialization_options(ctx)
-    )
+class PoolCreate(RequestModel):
+    names: StrList = required()
+    category: Str = required()
+    description: Str = ""
+    posts: IntList = []
 
 
-def _get_pool(params: dict[str, str]) -> model.Pool:
-    return pools.get_pool_by_id(int(params["pool_id"]))
+class PoolUpdate(RequestModel):
+    version: Int = required()
+    names: StrList = optional()
+    category: Str = optional()
+    description: Str = optional()
+    posts: IntList = optional()
 
 
-@rest.routes.get("/pools/?")
+class PoolMerge(RequestModel):
+    remove: Int = required()
+    merge_to: Int = required()
+    remove_version: Int = required()
+    merge_to_version: Int = required()
+
+
+# Any: the serializer's output, which the response model describes
+def _serialize(pool: model.Pool, fields: list[str]) -> Any:
+    return pools.serialize_pool(pool, options=fields)
+
+
+def _get_pool(pool_id: str) -> model.Pool:
+    try:
+        return pools.get_pool_by_id(int(pool_id))
+    except ValueError:
+        # not a number, so not the id of any pool
+        raise pools.PoolNotFoundError("Pool %r not found." % pool_id) from None
+
+
+@router.get(
+    "/pools", response_model=resources.Paged[resources.Pool], summary="List pools"
+)
 def get_pools(
-    ctx: rest.Context, _params: dict[str, str] | None = None
-) -> rest.Response:
-    if _params is None:
-        _params = {}
-    auth.verify_privilege(ctx.user, "pools:list")
-    return _search_executor.execute_and_serialize(
-        ctx, lambda pool: _serialize(ctx, pool)
-    )
+    _user: Annotated[model.User, Depends(require("pools:list"))],
+    fields: Fields,
+    page: PageParams,
+) -> Any:
+    return run_search(_search_executor, page, lambda pool: _serialize(pool, fields))
 
 
-@rest.routes.post("/pool/?")
+@router.post(
+    "/pool",
+    response_model=resources.Pool,
+    summary="Create a pool",
+    openapi_extra=request_body(PoolCreate),
+)
 def create_pool(
-    ctx: rest.Context, _params: dict[str, str] | None = None
-) -> rest.Response:
-    if _params is None:
-        _params = {}
-    auth.verify_privilege(ctx.user, "pools:create")
+    auth_user: Annotated[model.User, Depends(require("pools:create"))],
+    fields: Fields,
+    body: Annotated[PoolCreate, Depends(read_body(PoolCreate))],
+) -> Any:
+    names = body.require("names")
+    category = body.require("category")
 
-    names = ctx.get_param_as_string_list("names")
-    category = ctx.get_param_as_string("category")
-    description = ctx.get_param_as_string("description", default="")
-    posts = ctx.get_param_as_int_list("posts", default=[])
-
-    pool = pools.create_pool(names, category, posts)
+    pool = pools.create_pool(names, category, body.posts)
     pool.last_edit_time = util.utcnow()
-    pools.update_pool_description(pool, description)
-    ctx.session.add(pool)
-    ctx.session.flush()
-    snapshots.create(pool, ctx.user)
-    ctx.session.commit()
-    return _serialize(ctx, pool)
+    pools.update_pool_description(pool, body.description)
+    db.session.add(pool)
+    db.session.flush()
+    snapshots.create(pool, auth_user)
+    db.session.commit()
+    return _serialize(pool, fields)
 
 
-@rest.routes.get("/pool/(?P<pool_id>[^/]+)/?")
-def get_pool(ctx: rest.Context, params: dict[str, str]) -> rest.Response:
-    auth.verify_privilege(ctx.user, "pools:view")
-    pool = _get_pool(params)
-    return _serialize(ctx, pool)
+@router.get("/pool/{pool_id}", response_model=resources.Pool, summary="Get a pool")
+def get_pool(
+    pool_id: str,
+    _user: Annotated[model.User, Depends(require("pools:view"))],
+    fields: Fields,
+) -> Any:
+    pool = _get_pool(pool_id)
+    return _serialize(pool, fields)
 
 
-@rest.routes.put("/pool/(?P<pool_id>[^/]+)/?")
-def update_pool(ctx: rest.Context, params: dict[str, str]) -> rest.Response:
-    pool = _get_pool(params)
-    versions.verify_version(pool, ctx)
+@router.put(
+    "/pool/{pool_id}",
+    response_model=resources.Pool,
+    summary="Update a pool",
+    openapi_extra=request_body(PoolUpdate),
+)
+def update_pool(
+    pool_id: str,
+    auth_user: CurrentUser,
+    fields: Fields,
+    body: Annotated[PoolUpdate, Depends(read_body(PoolUpdate))],
+) -> Any:
+    """Only the fields that are sent are changed."""
+    pool = _get_pool(pool_id)
+    versions.verify_version(pool, body.require("version"))
     versions.bump_version(pool)
-    if ctx.has_param("names"):
-        auth.verify_privilege(ctx.user, "pools:edit:names")
-        pools.update_pool_names(pool, ctx.get_param_as_string_list("names"))
-    if ctx.has_param("category"):
-        auth.verify_privilege(ctx.user, "pools:edit:category")
-        pools.update_pool_category_name(pool, ctx.get_param_as_string("category"))
-    if ctx.has_param("description"):
-        auth.verify_privilege(ctx.user, "pools:edit:description")
-        pools.update_pool_description(pool, ctx.get_param_as_string("description"))
-    if ctx.has_param("posts"):
-        auth.verify_privilege(ctx.user, "pools:edit:posts")
-        posts = ctx.get_param_as_int_list("posts")
-        pools.update_pool_posts(pool, posts)
+    if body.has("names"):
+        auth.verify_privilege(auth_user, "pools:edit:names")
+        pools.update_pool_names(pool, body.names)
+    if body.has("category"):
+        auth.verify_privilege(auth_user, "pools:edit:category")
+        pools.update_pool_category_name(pool, body.category)
+    if body.has("description"):
+        auth.verify_privilege(auth_user, "pools:edit:description")
+        pools.update_pool_description(pool, body.description)
+    if body.has("posts"):
+        auth.verify_privilege(auth_user, "pools:edit:posts")
+        pools.update_pool_posts(pool, body.posts)
     pool.last_edit_time = util.utcnow()
-    ctx.session.flush()
-    snapshots.modify(pool, ctx.user)
-    ctx.session.commit()
-    return _serialize(ctx, pool)
+    db.session.flush()
+    snapshots.modify(pool, auth_user)
+    db.session.commit()
+    return _serialize(pool, fields)
 
 
-@rest.routes.delete("/pool/(?P<pool_id>[^/]+)/?")
-def delete_pool(ctx: rest.Context, params: dict[str, str]) -> rest.Response:
-    pool = _get_pool(params)
-    versions.verify_version(pool, ctx)
-    auth.verify_privilege(ctx.user, "pools:delete")
-    snapshots.delete(pool, ctx.user)
+@router.delete(
+    "/pool/{pool_id}",
+    response_model=resources.Empty,
+    summary="Delete a pool",
+    openapi_extra=request_body(VersionOnly),
+)
+def delete_pool(
+    pool_id: str,
+    auth_user: CurrentUser,
+    body: Annotated[VersionOnly, Depends(read_body(VersionOnly))],
+) -> Any:
+    pool = _get_pool(pool_id)
+    versions.verify_version(pool, body.require("version"))
+    auth.verify_privilege(auth_user, "pools:delete")
+    snapshots.delete(pool, auth_user)
     pools.delete(pool)
-    ctx.session.commit()
+    db.session.commit()
     return {}
 
 
-@rest.routes.post("/pool-merge/?")
+@router.post(
+    "/pool-merge",
+    response_model=resources.Pool,
+    summary="Merge one pool into another",
+    openapi_extra=request_body(PoolMerge),
+)
 def merge_pools(
-    ctx: rest.Context, _params: dict[str, str] | None = None
-) -> rest.Response:
-    if _params is None:
-        _params = {}
-    source_pool_id = ctx.get_param_as_int("remove")
-    target_pool_id = ctx.get_param_as_int("mergeTo")
+    auth_user: CurrentUser,
+    fields: Fields,
+    body: Annotated[PoolMerge, Depends(read_body(PoolMerge))],
+) -> Any:
+    """
+    Remove the pool `remove` and add its posts to the pool `mergeTo`, which
+    is returned.
+    """
+    source_pool_id = body.require("remove")
+    target_pool_id = body.require("merge_to")
     source_pool = pools.get_pool_by_id(source_pool_id)
     target_pool = pools.get_pool_by_id(target_pool_id)
-    versions.verify_version(source_pool, ctx, "removeVersion")
-    versions.verify_version(target_pool, ctx, "mergeToVersion")
+    versions.verify_version(source_pool, body.require("remove_version"))
+    versions.verify_version(target_pool, body.require("merge_to_version"))
     versions.bump_version(target_pool)
-    auth.verify_privilege(ctx.user, "pools:merge")
+    auth.verify_privilege(auth_user, "pools:merge")
     pools.merge_pools(source_pool, target_pool)
-    snapshots.merge(source_pool, target_pool, ctx.user)
-    ctx.session.commit()
-    return _serialize(ctx, target_pool)
+    snapshots.merge(source_pool, target_pool, auth_user)
+    db.session.commit()
+    return _serialize(target_pool, fields)

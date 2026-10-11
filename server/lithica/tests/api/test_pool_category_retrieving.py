@@ -1,7 +1,8 @@
 import pytest
 
-from lithica import api, db, errors, model
+from lithica import db, errors, model
 from lithica.func import pool_categories
+from lithica.tests.api.http import assert_error, ok
 
 
 @pytest.fixture(autouse=True)
@@ -16,7 +17,7 @@ def inject_config(config_injector):
     )
 
 
-def test_retrieving_multiple(user_factory, pool_category_factory, context_factory):
+def test_retrieving_multiple(user_factory, pool_category_factory, client):
     db.session.add_all(
         [
             pool_category_factory(name="c1"),
@@ -24,19 +25,20 @@ def test_retrieving_multiple(user_factory, pool_category_factory, context_factor
         ]
     )
     db.session.flush()
-    result = api.pool_category_api.get_pool_categories(
-        context_factory(user=user_factory(rank=model.User.RANK_REGULAR))
+    result = ok(
+        client.get("/pool-categories", user=user_factory(rank=model.User.RANK_REGULAR))
     )
     assert result is not None
     assert [cat["name"] for cat in result["results"]] == ["c1", "c2"]
 
 
-def test_retrieving_single(user_factory, pool_category_factory, context_factory):
+def test_retrieving_single(user_factory, pool_category_factory, client):
     db.session.add(pool_category_factory(name="cat"))
     db.session.flush()
-    result = api.pool_category_api.get_pool_category(
-        context_factory(user=user_factory(rank=model.User.RANK_REGULAR)),
-        {"category_name": "cat"},
+    result = ok(
+        client.get(
+            "/pool-category/cat", user=user_factory(rank=model.User.RANK_REGULAR)
+        )
     )
     assert result == {
         "name": "cat",
@@ -47,17 +49,17 @@ def test_retrieving_single(user_factory, pool_category_factory, context_factory)
     }
 
 
-def test_trying_to_retrieve_single_non_existing(user_factory, context_factory):
-    with pytest.raises(pool_categories.PoolCategoryNotFoundError):
-        api.pool_category_api.get_pool_category(
-            context_factory(user=user_factory(rank=model.User.RANK_REGULAR)),
-            {"category_name": "-"},
-        )
+def test_trying_to_retrieve_single_non_existing(user_factory, client):
+    assert_error(
+        client.get("/pool-category/-", user=user_factory(rank=model.User.RANK_REGULAR)),
+        pool_categories.PoolCategoryNotFoundError,
+    )
 
 
-def test_trying_to_retrieve_single_without_privileges(user_factory, context_factory):
-    with pytest.raises(errors.AuthError):
-        api.pool_category_api.get_pool_category(
-            context_factory(user=user_factory(rank=model.User.RANK_ANONYMOUS)),
-            {"category_name": "-"},
-        )
+def test_trying_to_retrieve_single_without_privileges(user_factory, client):
+    assert_error(
+        client.get(
+            "/pool-category/-", user=user_factory(rank=model.User.RANK_ANONYMOUS)
+        ),
+        errors.AuthError,
+    )

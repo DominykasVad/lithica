@@ -2,8 +2,9 @@ from unittest.mock import patch
 
 import pytest
 
-from lithica import api, db, errors, model
+from lithica import db, errors, model
 from lithica.func import pool_categories, snapshots
+from lithica.tests.api.http import assert_error, ok
 
 
 def _update_category_name(category, name):
@@ -19,7 +20,7 @@ def inject_config(config_injector):
     )
 
 
-def test_creating_category(pool_category_factory, user_factory, context_factory):
+def test_creating_category(pool_category_factory, user_factory, client):
     auth_user = user_factory(rank=model.User.RANK_REGULAR)
     category = pool_category_factory(name="meta")
     db.session.add(category)
@@ -33,8 +34,12 @@ def test_creating_category(pool_category_factory, user_factory, context_factory)
         pool_categories.create_category.return_value = category
         pool_categories.update_category_name.side_effect = _update_category_name
         pool_categories.serialize_category.return_value = "serialized category"
-        result = api.pool_category_api.create_pool_category(
-            context_factory(params={"name": "meta", "color": "black"}, user=auth_user)
+        result = ok(
+            client.post(
+                "/pool-categories",
+                user=auth_user,
+                body={"name": "meta", "color": "black"},
+            )
         )
         assert result == "serialized category"
         pool_categories.create_category.assert_called_once_with("meta", "black")
@@ -42,25 +47,28 @@ def test_creating_category(pool_category_factory, user_factory, context_factory)
 
 
 @pytest.mark.parametrize("field", ["name", "color"])
-def test_trying_to_omit_mandatory_field(user_factory, context_factory, field):
+def test_trying_to_omit_mandatory_field(user_factory, client, field):
     params = {
         "name": "meta",
         "color": "black",
     }
     del params[field]
-    with pytest.raises(errors.ValidationError):
-        api.pool_category_api.create_pool_category(
-            context_factory(
-                params=params, user=user_factory(rank=model.User.RANK_REGULAR)
-            )
-        )
+    assert_error(
+        client.post(
+            "/pool-categories",
+            user=user_factory(rank=model.User.RANK_REGULAR),
+            body=params,
+        ),
+        errors.ValidationError,
+    )
 
 
-def test_trying_to_create_without_privileges(user_factory, context_factory):
-    with pytest.raises(errors.AuthError):
-        api.pool_category_api.create_pool_category(
-            context_factory(
-                params={"name": "meta", "color": "black"},
-                user=user_factory(rank=model.User.RANK_ANONYMOUS),
-            )
-        )
+def test_trying_to_create_without_privileges(user_factory, client):
+    assert_error(
+        client.post(
+            "/pool-categories",
+            user=user_factory(rank=model.User.RANK_ANONYMOUS),
+            body={"name": "meta", "color": "black"},
+        ),
+        errors.AuthError,
+    )
