@@ -16,6 +16,7 @@ from starlette.concurrency import run_in_threadpool
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from lithica import db, facade, rest
+from lithica.api import error_handlers
 
 
 class SessionScopeMiddleware:
@@ -70,6 +71,7 @@ def create_app() -> FastAPI:
     )
 
     application.add_middleware(SessionScopeMiddleware)
+    error_handlers.install(application)
 
     # Routes that are not ported to FastAPI yet are answered by the old WSGI
     # application. It must stay the last route: a mount at "/" matches
