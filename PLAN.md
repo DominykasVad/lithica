@@ -146,8 +146,8 @@ then rewrite that resource's `tests/api/` tests to go through FastAPI's
 - [x] Entry point everywhere is `lithica.app:app`.
 
 ### 2.5 OpenAPI contract
-- [ ] `python -m lithica.openapi` prints the spec; commit `doc/openapi.json`.
-- [ ] CI fails if the generated spec differs from the committed one.
+- [x] `python -m lithica.openapi` prints the spec; commit `doc/openapi.json`.
+- [x] CI fails if the generated spec differs from the committed one.
 - [ ] Swagger/ReDoc: enabled in development; in production behind a config flag (default off) or admin-only.
 - [x] Move narrative parts of `doc/API.md` (search syntax, resource concepts, error model, auth) to `doc/`; retire the endpoint reference.
 - [ ] Spot-check wire compatibility: the legacy client smoke test passes.

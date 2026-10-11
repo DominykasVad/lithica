@@ -80,5 +80,10 @@ jobs:
           uv run alembic check
           rm config.yaml
 
+      # doc/openapi.json is generated from the code and is the API contract.
+      # Also part of the suite; run first so that the difference is shown.
+      - name: OpenAPI contract is up to date
+        run: uv run python -m lithica.openapi | diff -u ../doc/openapi.json -
+
       - name: Test
         run: uv run pytest -n auto --color=yes

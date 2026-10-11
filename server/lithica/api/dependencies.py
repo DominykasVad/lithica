@@ -24,7 +24,7 @@ from starlette.requests import ClientDisconnect
 
 from lithica import config, db, errors, model
 from lithica.api.error_handlers import HttpError
-from lithica.api.schemas import Bool, Int, RequestModel
+from lithica.api.schemas import READ_AS_INT, Bool, RequestModel
 from lithica.func import auth, file_uploads, net, user_tokens, users
 from lithica.func.content import Content, ContentLike
 from lithica.search.executor import Executor
@@ -186,9 +186,13 @@ def get_page(
     query: Annotated[
         str, Query(description="Search query; see the search syntax.")
     ] = "",
-    offset: Annotated[Int, Query(ge=0, description="How many results to skip.")] = 0,
+    offset: Annotated[
+        int, Query(ge=0, description="How many results to skip."), READ_AS_INT
+    ] = 0,
     limit: Annotated[
-        Int, Query(ge=1, le=100, description="How many results to return.")
+        int,
+        Query(ge=1, le=100, description="How many results to return."),
+        READ_AS_INT,
     ] = 100,
 ) -> Page:
     return Page(query, offset, limit)

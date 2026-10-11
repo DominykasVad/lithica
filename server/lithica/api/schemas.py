@@ -80,8 +80,12 @@ def _to_int_list(value: Any) -> list[int]:
     return items
 
 
+# on its own for parameters that add limits: a limit has to be declared
+# before the reading rule to end up in the schema, see dependencies.get_page
+READ_AS_INT = BeforeValidator(_to_int)
+
 Str = Annotated[str, BeforeValidator(_to_str)]
-Int = Annotated[int, BeforeValidator(_to_int)]
+Int = Annotated[int, READ_AS_INT]
 Bool = Annotated[bool, BeforeValidator(_to_bool)]
 # Any: the items are passed on as they came (post notes are objects)
 AnyList = Annotated[list[Any], BeforeValidator(_to_list)]

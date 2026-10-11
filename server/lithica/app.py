@@ -11,16 +11,19 @@ import logging
 import os
 import threading
 from collections.abc import AsyncIterator
+from typing import Any
 
 import anyio
 import coloredlogs
 from fastapi import FastAPI
+from fastapi.openapi.utils import get_openapi
+from fastapi.routing import APIRoute
 from starlette.concurrency import run_in_threadpool
 from starlette.datastructures import Headers, MutableHeaders
 from starlette.responses import Response
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from lithica import config, db
+from lithica import config, db, openapi
 from lithica.api import (
     comment_api,
     error_handlers,
@@ -38,6 +41,7 @@ from lithica.api import (
 )
 from lithica.api.dependencies import LOG_USER_KEY
 from lithica.func import file_uploads, posts
+from lithica.version import get_version
 
 logger = logging.getLogger(__name__)
 
@@ -205,12 +209,23 @@ async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
         stop_purging.set()
 
 
+def _operation_id(route: APIRoute) -> str:
+    # the handler's name: short, stable, and what a generated client calls
+    # the operation
+    return route.name
+
+
 def create_app() -> FastAPI:
-    # The interactive documentation and the OpenAPI document stay off until
-    # the contract is in place (PLAN.md 2.5). A trailing slash is answered
-    # by the routes themselves, never by a redirect.
+    # A trailing slash is answered by the routes themselves, never by a
+    # redirect. The documentation routes are off (see PLAN.md 2.5).
     application = FastAPI(
         title="Lithica",
+        version=get_version(),
+        description=openapi.DESCRIPTION,
+        license_info={"name": "GPL-3.0-only", "identifier": "GPL-3.0-only"},
+        openapi_tags=openapi.TAGS,
+        servers=openapi.SERVERS,
+        generate_unique_id_function=_operation_id,
         lifespan=_lifespan,
         docs_url=None,
         redoc_url=None,
@@ -222,6 +237,25 @@ def create_app() -> FastAPI:
     # added last, so outermost: also answers for responses made further in
     application.add_middleware(CorsMiddleware)
     error_handlers.install(application)
+
+    def describe() -> dict[str, Any]:
+        # built once, then kept, as FastAPI's own openapi() does
+        if application.openapi_schema is None:
+            document = get_openapi(
+                title=application.title,
+                version=application.version,
+                description=application.description,
+                license_info=application.license_info,
+                tags=application.openapi_tags,
+                servers=application.servers,
+                routes=application.routes,
+            )
+            openapi.allow_anonymous(document)
+            application.openapi_schema = document
+        return application.openapi_schema
+
+    # FastAPI's documented way to adjust the generated document
+    application.openapi = describe  # type: ignore[method-assign]
 
     for ported in [
         info_api,
