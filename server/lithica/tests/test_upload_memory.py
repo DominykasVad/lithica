@@ -121,6 +121,9 @@ def test_large_upload_does_not_grow_the_server_by_its_size(server, tmpdir):
     assert result["token"] == sha1
     stored = os.path.join(str(tmpdir), "temporary-uploads", sha1 + ".dat")
     assert os.path.getsize(stored) == size
+    # it was written once, into the data directory, and renamed into place:
+    # the folder for temporary files is empty again
+    assert os.listdir(os.path.join(str(tmpdir), "temporary-uploads", ".tmp")) == []
 
     # and the server needed a small fraction of it in memory
     growth = after - before
@@ -142,4 +145,7 @@ def test_request_larger_than_the_limit_is_refused_by_a_real_server(server, tmpdi
     assert response.status == 413
     assert json.loads(response.read())["name"] == "RequestTooLargeError"
     connection.close()
-    assert not os.path.exists(os.path.join(str(tmpdir), "temporary-uploads"))
+    # nothing was stored, and nothing is left in the folder for temporary files
+    uploads = os.path.join(str(tmpdir), "temporary-uploads")
+    assert os.listdir(uploads) == [".tmp"]
+    assert os.listdir(os.path.join(uploads, ".tmp")) == []

@@ -24,6 +24,7 @@ services:
       #POSTGRES_PORT: 5432
       #LOG_SQL: 0 (1 for verbose SQL logs)
       THREADS:
+      #HOST: "::" (IPv4 and IPv6; "0.0.0.0" where IPv6 is disabled)
     volumes:
       - "data:/data"
       - "./server/:/opt/app/"

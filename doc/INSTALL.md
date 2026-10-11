@@ -115,7 +115,15 @@ user@host:lithica$ docker compose pull
     additional host has access contents to the `/data` volume mounted in the
     backend.
 
-3. **Setting a specific base URI for proxying**
+3. **Hosts with IPv6 disabled**
+
+    The backend container listens on `::`, which is every address of the
+    container, IPv4 and IPv6. On a host where IPv6 is disabled this fails
+    and the server does not start (`Cannot listen on :: ...`). Run the
+    backend container with the environment variable `HOST=0.0.0.0` there,
+    to listen on IPv4 only.
+
+4. **Setting a specific base URI for proxying**
 
     Some users may wish to access the service at a different base URI, such
     as `http://example.com/lithica/`, commonly when sharing multiple HTTP
@@ -143,7 +151,7 @@ user@host:lithica$ docker compose pull
     }
     ```
 
-4. **Preparing for production**
+5. **Preparing for production**
 
     If you plan on using Lithica in a production setting, you may opt to
     use a reverse proxy for added security and caching capabilities. Start

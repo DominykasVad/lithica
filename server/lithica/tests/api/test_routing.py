@@ -481,7 +481,18 @@ def _streamed(body: bytes, piece: int = 65536):
 
 
 @pytest.fixture
-def upload_dirs(monkeypatch):
+def temporary_dir(config_injector, tmpdir):
+    """A data directory for the test; gives its folder for temporary files."""
+    config_injector({"data_dir": str(tmpdir.mkdir("data"))})
+    return content_module.temporary_dir()
+
+
+def _left_behind(temporary_dir: str) -> list[str]:
+    return os.listdir(temporary_dir)
+
+
+@pytest.fixture
+def upload_dirs(monkeypatch, temporary_dir):
     """The directories made for the uploads of the requests in this test."""
     made: list[str] = []
     real_mkdtemp = tempfile.mkdtemp
@@ -511,7 +522,9 @@ def test_small_upload_is_kept_in_memory(client):
     }
 
 
-def test_large_upload_is_written_to_disk_and_removed_afterwards(client, upload_dirs):
+def test_large_upload_is_written_to_disk_and_removed_afterwards(
+    client, upload_dirs, temporary_dir
+):
     payload = os.urandom(3 * 1024 * 1024 + 17)
     response = client.post(
         "/where/content",
@@ -525,16 +538,23 @@ def test_large_upload_is_written_to_disk_and_removed_afterwards(client, upload_d
     result = response.json()
     assert result["size"] == len(payload)
     assert result["sha1"] == hashlib.sha1(payload).hexdigest()
-    # it was a file in a directory of its own while the request ran ...
-    assert os.path.basename(os.path.dirname(result["path"])).startswith(
-        "lithica-upload-"
+    # it was a file in a directory of its own while the request ran, inside
+    # the data directory's folder for temporary files ...
+    upload_dir = os.path.dirname(result["path"])
+    assert os.path.basename(upload_dir).startswith("upload-")
+    assert os.path.dirname(upload_dir) == temporary_dir
+    assert temporary_dir == os.path.join(
+        dependencies.config.config["data_dir"], "temporary-uploads", ".tmp"
     )
     # ... and neither is left once the request is over
     assert not os.path.exists(result["path"])
     assert _all_removed(upload_dirs)
+    assert _left_behind(temporary_dir) == []
 
 
-def test_upload_directory_is_removed_when_the_endpoint_fails(client, upload_dirs):
+def test_upload_directory_is_removed_when_the_endpoint_fails(
+    client, upload_dirs, temporary_dir
+):
     payload = os.urandom(2 * 1024 * 1024)
     response = client.post(
         "/echo/missing", **_multipart([("content", "big.bin", None, payload)])
@@ -542,9 +562,12 @@ def test_upload_directory_is_removed_when_the_endpoint_fails(client, upload_dirs
     assert response.status_code == 400
     assert response.json()["name"] == "MissingRequiredFileError"
     assert _all_removed(upload_dirs)
+    assert _left_behind(temporary_dir) == []
 
 
-def test_upload_directory_is_removed_when_the_body_is_malformed(client, upload_dirs):
+def test_upload_directory_is_removed_when_the_body_is_malformed(
+    client, upload_dirs, temporary_dir
+):
     body = _multipart([("content", "big.bin", None, os.urandom(2 * 1024 * 1024))])
     # cut the body off in the middle of the file
     response = client.post(
@@ -554,10 +577,12 @@ def test_upload_directory_is_removed_when_the_body_is_malformed(client, upload_d
     )
     assert response.status_code == 400
     assert _all_removed(upload_dirs)
+    assert _left_behind(temporary_dir) == []
 
 
-def test_downloaded_file_is_removed_afterwards(client, tmpdir):
+def test_downloaded_file_is_removed_afterwards(client, temporary_dir):
     downloaded = content_module.Content.create_temporary()
+    assert os.path.dirname(downloaded.path) == temporary_dir
     with downloaded.open_for_writing() as handle:
         handle.write(b"downloaded content")
     with patch("lithica.func.net.download", return_value=downloaded):
@@ -567,6 +592,7 @@ def test_downloaded_file_is_removed_afterwards(client, tmpdir):
     assert response.json()["path"] == downloaded.path
     assert response.json()["size"] == 18
     assert not os.path.exists(downloaded.path)
+    assert _left_behind(temporary_dir) == []
 
 
 @pytest.fixture
@@ -593,7 +619,7 @@ def test_request_up_to_the_limit_is_accepted(client, upload_limit):
 
 
 def test_request_over_the_limit_is_refused_by_its_declared_length(
-    client, upload_limit, upload_dirs
+    client, upload_limit, upload_dirs, temporary_dir
 ):
     upload_limit(100000)
     body = _multipart([("content", "f.bin", None, b"x" * 100000)])
@@ -601,10 +627,11 @@ def test_request_over_the_limit_is_refused_by_its_declared_length(
     assert response.status_code == 413
     assert response.json() == TOO_LARGE
     assert _all_removed(upload_dirs)
+    assert _left_behind(temporary_dir) == []
 
 
 def test_request_over_the_limit_is_refused_while_it_arrives(
-    client, upload_limit, upload_dirs
+    client, upload_limit, upload_dirs, temporary_dir
 ):
     upload_limit(100000)
     body = _multipart([("content", "f.bin", None, os.urandom(5 * 1024 * 1024))])
@@ -616,6 +643,7 @@ def test_request_over_the_limit_is_refused_while_it_arrives(
     assert response.status_code == 413
     assert response.json() == TOO_LARGE
     assert _all_removed(upload_dirs)
+    assert _left_behind(temporary_dir) == []
 
 
 def test_json_body_over_the_limit_is_refused(client, upload_limit):
@@ -638,7 +666,9 @@ def test_default_limit_applies_without_the_setting(client, config_injector):
     assert client.post("/things", json={"safety": "safe"}).status_code == 200
 
 
-def test_client_that_leaves_in_the_middle_of_its_request(client, upload_dirs):
+def test_client_that_leaves_in_the_middle_of_its_request(
+    client, upload_dirs, temporary_dir
+):
     """The request ends as a refused one: no server error, nothing left on disk."""
     import asyncio
 
@@ -678,3 +708,4 @@ def test_client_that_leaves_in_the_middle_of_its_request(client, upload_dirs):
     assert sent[0]["type"] == "http.response.start"
     assert sent[0]["status"] == 400
     assert _all_removed(upload_dirs)
+    assert _left_behind(temporary_dir) == []

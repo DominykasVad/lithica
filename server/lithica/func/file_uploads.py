@@ -23,6 +23,10 @@ def purge_old_uploads() -> None:
     now = util.utcnow()
     for file in files.scan("temporary-uploads"):
         try:
+            if not file.is_file():
+                # the folder for temporary files; it has its own cleanup,
+                # see lithica.func.content
+                continue
             changed_at = file.stat().st_ctime
         except FileNotFoundError:
             continue

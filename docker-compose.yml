@@ -25,6 +25,7 @@ services:
       #LOG_SQL: 0 (1 for verbose SQL logs)
       THREADS:
       WORKERS:
+      #HOST: "::" (IPv4 and IPv6; "0.0.0.0" where IPv6 is disabled)
     volumes:
       - "${MOUNT_DATA}:/data"
       - "./server/config.yaml:/opt/app/config.yaml"

@@ -26,6 +26,7 @@ from lithica import config, db, errors, model
 from lithica.api.error_handlers import HttpError
 from lithica.api.schemas import READ_AS_INT, Bool, RequestModel
 from lithica.func import auth, file_uploads, net, user_tokens, users
+from lithica.func import content as content_module
 from lithica.func.content import Content, ContentLike
 from lithica.search.executor import Executor
 
@@ -237,7 +238,8 @@ class RequestData:
 
     A large file is not in memory: it is a `Content` in a temporary
     directory that belongs to the request and is removed by `close()`, as
-    is every file downloaded for it.
+    is every file downloaded for it. (A file that was stored in the
+    meantime was renamed out of there and stays.)
     """
 
     def __init__(
@@ -375,7 +377,8 @@ async def _read_multipart(
         else:
             assert file.actual_file_name is not None
             file.file_object.flush()
-            files[name] = Content(os.fsdecode(file.actual_file_name))
+            # it exists to be stored: saving it may rename it into place
+            files[name] = Content(os.fsdecode(file.actual_file_name), movable=True)
 
     headers = {
         "Content-Type": request.headers.get("Content-Type", "").encode("latin-1")
@@ -438,6 +441,10 @@ async def _read_request(request: Request, upload_dir: str | None) -> RequestData
     return RequestData(params, files, upload_dir)
 
 
+def _make_upload_dir() -> str:
+    return tempfile.mkdtemp(prefix="upload-", dir=content_module.temporary_dir())
+
+
 # async because it awaits the request body; the disk work is on the pool
 async def read_request(request: Request) -> AsyncIterator[RequestData]:
     """
@@ -448,7 +455,7 @@ async def read_request(request: Request) -> AsyncIterator[RequestData]:
     if "multipart" in request.headers.get("Content-Type", ""):
         # the uploads of one request go to a directory of their own, so
         # that all of them, finished or not, can be removed together
-        upload_dir = await run_in_threadpool(tempfile.mkdtemp, prefix="lithica-upload-")
+        upload_dir = await run_in_threadpool(_make_upload_dir)
     data = None
     try:
         data = await _read_request(request, upload_dir)

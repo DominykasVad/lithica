@@ -4,6 +4,8 @@ import json
 import logging
 import socket
 import subprocess
+import threading
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -20,6 +22,9 @@ _dl_chunk_size = 2**15
 YT_DLP_TIMEOUT = 60
 # seconds a download may take to connect, and to deliver each chunk
 DOWNLOAD_TIMEOUT = 30
+# seconds a download may take in all, redirects included. The limit above
+# is per step, and a server that sends a byte now and then never exceeds it.
+DOWNLOAD_TOTAL_TIMEOUT = 300
 # redirects followed for one download
 MAX_REDIRECTS = 5
 ALLOWED_SCHEMES = ("http", "https")
@@ -40,6 +45,72 @@ class InvalidDownloadUrlError(errors.ValidationError):
 
 class _RefusedDownloadError(OSError):
     """The server must not fetch this: wrong address, scheme or hop count."""
+
+
+class _DownloadTimedOutError(OSError):
+    """The download as a whole took longer than DOWNLOAD_TOTAL_TIMEOUT."""
+
+
+class _Deadline:
+    """
+    The moment by which one download has to be finished, redirects and all.
+
+    Two things enforce it. Every step that is about to start (a connection,
+    a read) is refused once the time is up and is given no more time than
+    is left. And a step that is already waiting, for a slow header or the
+    next trickle of bytes, is cut short: when the time is up a timer shuts
+    the download's connections down, which ends the wait.
+    """
+
+    def __init__(self, seconds: float) -> None:
+        self.seconds = seconds
+        self._ends = time.monotonic() + seconds
+        self._lock = threading.Lock()
+        self._sockets: list[socket.socket] = []
+        self.expired = False
+        self._timer = threading.Timer(seconds, self._expire)
+        self._timer.daemon = True
+        self._timer.start()
+
+    def is_over(self) -> bool:
+        return self.expired or time.monotonic() >= self._ends
+
+    def check(self) -> None:
+        if self.is_over():
+            raise _DownloadTimedOutError(
+                "the download took longer than %g seconds in all" % self.seconds
+            )
+
+    def step_timeout(self) -> float:
+        """How long the next step may take: the usual limit, or what is left."""
+        self.check()
+        return max(min(DOWNLOAD_TIMEOUT, self._ends - time.monotonic()), 0.001)
+
+    def track(self, connection: socket.socket) -> None:
+        """Remember a connection of this download, to cut it when time is up."""
+        with self._lock:
+            if not self.expired:
+                self._sockets.append(connection)
+                return
+        connection.close()
+        self.check()
+
+    def _expire(self) -> None:
+        with self._lock:
+            self.expired = True
+            connections, self._sockets = self._sockets, []
+        for connection in connections:
+            try:
+                connection.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                # closed in the meantime
+                pass
+
+    def finish(self) -> None:
+        """The download is over, one way or another: stop the timer."""
+        self._timer.cancel()
+        with self._lock:
+            self._sockets = []
 
 
 def _verify_url_scheme(url: str) -> urllib.parse.SplitResult:
@@ -112,26 +183,76 @@ def _create_guarded_connection(
     raise last_error
 
 
-class _GuardedHTTPConnection(http.client.HTTPConnection):
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
-        self._create_connection = _create_guarded_connection
+class _GuardedConnection(http.client.HTTPConnection):
+    """
+    A connection that is made to a checked address (see
+    _create_guarded_connection) and, when it belongs to a download with a
+    deadline, within the time that is left.
+    """
+
+    _deadline: _Deadline | None = None
+
+    def _guard(self, deadline: _Deadline | None) -> None:
+        self._deadline = deadline
+        self._create_connection = self._create_guarded_connection
+
+    def _create_guarded_connection(
+        self,
+        address: tuple[str, int],
+        timeout: Any = DOWNLOAD_TIMEOUT,
+        source_address: Any = None,
+        **_kwargs: Any,
+    ) -> socket.socket:
+        if self._deadline is not None:
+            timeout = self._deadline.step_timeout()
+        return _create_guarded_connection(address, timeout, source_address)
+
+    def connect(self) -> None:
+        super().connect()
+        # after connect() the socket is the final one: for https, the
+        # encrypted one
+        if self._deadline is not None:
+            self._deadline.track(self.sock)
 
 
-class _GuardedHTTPSConnection(http.client.HTTPSConnection):
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
+class _GuardedHTTPConnection(_GuardedConnection):
+    def __init__(
+        self, *args: Any, deadline: _Deadline | None = None, **kwargs: Any
+    ) -> None:
         super().__init__(*args, **kwargs)
-        self._create_connection = _create_guarded_connection
+        self._guard(deadline)
+
+
+class _GuardedHTTPSConnection(_GuardedConnection, http.client.HTTPSConnection):
+    def __init__(
+        self, *args: Any, deadline: _Deadline | None = None, **kwargs: Any
+    ) -> None:
+        super().__init__(*args, **kwargs)
+        self._guard(deadline)
 
 
 class _GuardedHTTPHandler(urllib.request.HTTPHandler):
+    def __init__(self, deadline: _Deadline | None = None) -> None:
+        super().__init__()
+        self._deadline = deadline
+
     def http_open(self, req: urllib.request.Request) -> http.client.HTTPResponse:
-        return self.do_open(_GuardedHTTPConnection, req)
+        def connection(host: str, **kwargs: Any) -> _GuardedHTTPConnection:
+            return _GuardedHTTPConnection(host, deadline=self._deadline, **kwargs)
+
+        return self.do_open(connection, req)
 
 
 class _GuardedHTTPSHandler(urllib.request.HTTPSHandler):
+    def __init__(self, deadline: _Deadline | None = None) -> None:
+        super().__init__()
+        self._deadline = deadline
+
     def https_open(self, req: urllib.request.Request) -> http.client.HTTPResponse:
-        return self.do_open(_GuardedHTTPSConnection, req)
+        def connection(host: str, **kwargs: Any) -> _GuardedHTTPSConnection:
+            return _GuardedHTTPSConnection(host, deadline=self._deadline, **kwargs)
+
+        return self.do_open(connection, req)
 
 
 class _GuardedRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -160,7 +281,9 @@ class _GuardedRedirectHandler(urllib.request.HTTPRedirectHandler):
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
-def _build_opener() -> urllib.request.OpenerDirector:
+def _build_opener(
+    deadline: _Deadline | None = None,
+) -> urllib.request.OpenerDirector:
     """
     An opener with nothing but guarded http and https. There is no file,
     ftp or data handler, and no proxy handler: through a proxy the server
@@ -169,8 +292,8 @@ def _build_opener() -> urllib.request.OpenerDirector:
     opener = urllib.request.OpenerDirector()
     for handler in (
         urllib.request.UnknownHandler(),
-        _GuardedHTTPHandler(),
-        _GuardedHTTPSHandler(),
+        _GuardedHTTPHandler(deadline),
+        _GuardedHTTPSHandler(deadline),
         urllib.request.HTTPDefaultErrorHandler(),
         _GuardedRedirectHandler(),
         urllib.request.HTTPErrorProcessor(),
@@ -225,8 +348,9 @@ def download(url: str, use_video_downloader: bool = False) -> Content:
     request.add_header("Referer", url)
 
     downloaded = Content.create_temporary()
+    deadline = _Deadline(DOWNLOAD_TOTAL_TIMEOUT)
     try:
-        _download_into(downloaded, request, url)
+        _download_into(downloaded, request, url, deadline)
         if (
             yt_dlp_error
             and mime.get_mime_type(downloaded) == "application/octet-stream"
@@ -235,17 +359,27 @@ def download(url: str, use_video_downloader: bool = False) -> Content:
     except BaseException:
         downloaded.delete()
         raise
+    finally:
+        deadline.finish()
     return downloaded
 
 
-def _download_into(target: Content, request: urllib.request.Request, url: str) -> None:
+def _download_into(
+    target: Content, request: urllib.request.Request, url: str, deadline: _Deadline
+) -> None:
     length_tally = 0
     try:
         with (
-            _build_opener().open(request, timeout=DOWNLOAD_TIMEOUT) as handle,
+            _build_opener(deadline).open(request, timeout=DOWNLOAD_TIMEOUT) as handle,
             target.open_for_writing() as output,
         ):
-            while chunk := handle.read(_dl_chunk_size):
+            while True:
+                deadline.check()
+                # read1 returns what has arrived instead of waiting for a
+                # full chunk, so a slow server cannot hold one read for long
+                chunk = handle.read1(_dl_chunk_size)
+                if not chunk:
+                    break
                 length_tally += len(chunk)
                 if length_tally > config.config["max_dl_filesize"]:
                     raise DownloadTooLargeError(
@@ -254,6 +388,8 @@ def _download_into(target: Content, request: urllib.request.Request, url: str) -
                         extra_fields={"URL": url},
                     )
                 output.write(chunk)
+            # a connection cut at the deadline looks like the end of the file
+            deadline.check()
     except urllib.error.HTTPError as ex:
         if 300 <= ex.code < 400:
             # a redirect that was not followed: too many hops, or a loop
@@ -264,7 +400,15 @@ def _download_into(target: Content, request: urllib.request.Request, url: str) -
         ) from ex
     except (OSError, http.client.HTTPException, ValueError) as ex:
         # URLError and timeouts are OSErrors
-        raise _generic_download_error(url, ex) from None
+        reason: object = ex
+        if deadline.is_over() and not isinstance(ex, _DownloadTimedOutError):
+            # whatever the cut connection, or a step that was given only
+            # the time that was left, made of it: this is the cause
+            reason = "the download took longer than %g seconds in all (%s)" % (
+                deadline.seconds,
+                ex,
+            )
+        raise _generic_download_error(url, reason) from None
 
 
 def _get_yt_dlp_content_url(url: str) -> str:

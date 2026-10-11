@@ -41,7 +41,7 @@ from lithica.api import (
     user_token_api,
 )
 from lithica.api.dependencies import LOG_USER_KEY
-from lithica.func import file_uploads, posts
+from lithica.func import content, file_uploads, posts
 from lithica.version import get_version
 
 logger = logging.getLogger(__name__)
@@ -174,6 +174,16 @@ def _purge_old_uploads_until(stop: threading.Event) -> None:
             return
 
 
+def _prepare_temporary_files() -> None:
+    try:
+        content.temporary_dir()
+        content.remove_stale_temporary_files()
+    except OSError as ex:
+        # a data directory that cannot be written to will fail loudly
+        # enough at the first upload
+        logger.exception(ex)
+
+
 def _warn_about_pending_backfills() -> None:
     # the startup work is its own unit of work, with its own session
     with db.session_scope():
@@ -196,6 +206,9 @@ async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
     _limit_request_threads()
     # the check queries the database: off the event loop
     await run_in_threadpool(_warn_about_pending_backfills)
+    # make the folder for temporary files and clear out what processes
+    # that are gone left in it
+    await run_in_threadpool(_prepare_temporary_files)
 
     stop_purging = threading.Event()
     threading.Thread(
