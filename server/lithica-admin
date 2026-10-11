@@ -187,21 +187,23 @@ def main(args: list[str] | None = None) -> int:
     if bool(command.subcommand) == any(options):
         parser_top.error("give one command or one option")
 
-    try:
-        if command.subcommand == "backfill":
-            logging.basicConfig(level=logging.INFO, format="%(message)s")
-            if not backfill(command.what):
-                return 1
-        elif command.change_password:
-            reset_password(command.change_password)
-        elif command.check_all_audio:
-            check_audio()
-        elif command.reset_filenames:
-            reset_filenames()
-        elif command.regenerate_thumbnails:
-            regenerate_thumbnails()
-    except errors.BaseError as e:
-        print(e, file=stderr)
+    # one command is one unit of work with its own database session
+    with db.session_scope():
+        try:
+            if command.subcommand == "backfill":
+                logging.basicConfig(level=logging.INFO, format="%(message)s")
+                if not backfill(command.what):
+                    return 1
+            elif command.change_password:
+                reset_password(command.change_password)
+            elif command.check_all_audio:
+                check_audio()
+            elif command.reset_filenames:
+                reset_filenames()
+            elif command.regenerate_thumbnails:
+                regenerate_thumbnails()
+        except errors.BaseError as e:
+            print(e, file=stderr)
     return 0
 
 

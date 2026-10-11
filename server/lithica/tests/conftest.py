@@ -57,6 +57,26 @@ def _pg_engine(_pg_database_url):
     engine.dispose()
 
 
+# the scoped session lithica.db builds; the session fixtures put their own
+# session in its place
+REAL_DB_SESSION = db.session
+
+
+class _TestSession(sa_orm.Session):
+    """
+    The session the tests put in place of lithica.db.session. The engine
+    code treats that object as a scoped session: it calls it to get the
+    session and calls remove() when a unit of work ends. A test's session
+    outlives the units of work it is used for, so both do nothing here.
+    """
+
+    def __call__(self) -> "_TestSession":
+        return self
+
+    def remove(self) -> None:
+        pass
+
+
 class _TransactedTestDB:
     """Test DB fixture that rolls back the entire transaction on reset_db().
 
@@ -111,7 +131,7 @@ def transacted_postgresql_db(_pg_engine):
     # The session works in savepoints of the outer transaction: commit()
     # releases one and rollback() rolls one back, so neither touches the
     # tables the test created, and the outer rollback still undoes it all.
-    session = sa_orm.Session(bind=conn, join_transaction_mode="create_savepoint")
+    session = _TestSession(bind=conn, join_transaction_mode="create_savepoint")
 
     try:
         yield _TransactedTestDB(conn, session, trans)
@@ -125,7 +145,7 @@ def transacted_postgresql_db(_pg_engine):
 @pytest.fixture
 def postgresql_db(_pg_engine):
     """Database fixture; the name is kept from pytest_pgsql, which it replaced."""
-    session = sa_orm.Session(_pg_engine)
+    session = _TestSession(_pg_engine)
     try:
         yield _CommittingTestDB(session, _pg_engine)
     finally:
@@ -185,6 +205,14 @@ def nontransacted_session(query_logger, postgresql_db):
     finally:
         postgresql_db.reset_db()
         db.session = old_db_session
+
+
+@pytest.fixture
+def scoped_db_session(session):
+    """Put the real, scope-bound lithica.db.session back for one test."""
+    db.session = REAL_DB_SESSION
+    yield REAL_DB_SESSION
+    db.session = session
 
 
 @pytest.fixture

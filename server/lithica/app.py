@@ -9,10 +9,45 @@ the server starts the application (the lifespan), not at import.
 import contextlib
 from collections.abc import AsyncIterator
 
+import anyio
 from a2wsgi import WSGIMiddleware
 from fastapi import FastAPI
+from starlette.concurrency import run_in_threadpool
+from starlette.types import ASGIApp, Receive, Scope, Send
 
-from lithica import facade, rest
+from lithica import db, facade, rest
+
+
+class SessionScopeMiddleware:
+    """
+    Give every request its own database session scope (see lithica.db) and
+    close the session when the response is out.
+
+    Opening the scope here, before anything else runs, is what lets the
+    dependencies and the endpoint of one request share a session although
+    they run on different threads, and keeps two requests apart although
+    they may run on the same thread one after the other.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        token = db.begin_scope()
+        try:
+            await self.app(scope, receive, send)
+        finally:
+            try:
+                # Closing rolls back and returns the connection: blocking
+                # work, so off the event loop. Shielded, because a request
+                # cancelled half-way must still give its connection back.
+                with anyio.CancelScope(shield=True):
+                    await run_in_threadpool(db.close_session)
+            finally:
+                db.end_scope(token)
 
 
 @contextlib.asynccontextmanager
@@ -33,6 +68,8 @@ def create_app() -> FastAPI:
         openapi_url=None,
         redirect_slashes=False,
     )
+
+    application.add_middleware(SessionScopeMiddleware)
 
     # Routes that are not ported to FastAPI yet are answered by the old WSGI
     # application. It must stay the last route: a mount at "/" matches

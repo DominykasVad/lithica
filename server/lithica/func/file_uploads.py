@@ -32,16 +32,15 @@ def purge_old_uploads() -> None:
 
 def purge_old_uploads_once() -> None:
     """
-    One purge run for the background thread: never raises, and closes any
-    database session the run opened in this thread before returning, so
-    nothing is shared with the request threads.
+    One purge run for the background thread: never raises, and runs in a
+    session scope of its own, so any database session the run opens is
+    closed before returning and nothing is shared with the requests.
     """
-    try:
-        purge_old_uploads()
-    except Exception as ex:
-        logger.exception(ex)
-    finally:
-        db.session.remove()
+    with db.session_scope():
+        try:
+            purge_old_uploads()
+        except Exception as ex:
+            logger.exception(ex)
 
 
 def get(checksum: str) -> bytes | None:

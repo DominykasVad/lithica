@@ -163,10 +163,9 @@ def start() -> None:
 
     threading.Thread(target=purge_old_uploads_daemon, daemon=True).start()
 
-    try:
-        warn_about_pending_backfills()
-    except Exception as ex:
-        # a missing backfill is no reason to stay down
-        logger.exception(ex)
-    finally:
-        db.session.remove()
+    with db.session_scope():
+        try:
+            warn_about_pending_backfills()
+        except Exception as ex:
+            # a missing backfill is no reason to stay down
+            logger.exception(ex)

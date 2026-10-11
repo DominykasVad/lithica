@@ -132,7 +132,8 @@ def test_background_run_closes_its_session(fake_datetime):
     with fake_datetime(_later(file_uploads.MAX_MINUTES + 1)):
         with patch("lithica.func.file_uploads.db") as db:
             file_uploads.purge_old_uploads_once()
-    db.session.remove.assert_called_once_with()
+    db.session_scope.assert_called_once_with()
+    db.session_scope.return_value.__exit__.assert_called_once()
     assert file_uploads.get(token) is None
 
 
@@ -143,4 +144,5 @@ def test_background_run_survives_errors():
             side_effect=OSError("disk gone"),
         ):
             file_uploads.purge_old_uploads_once()
-    db.session.remove.assert_called_once_with()
+    db.session_scope.assert_called_once_with()
+    db.session_scope.return_value.__exit__.assert_called_once()
