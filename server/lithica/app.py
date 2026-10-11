@@ -26,6 +26,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from lithica import config, db, openapi
 from lithica.api import (
     comment_api,
+    docs_api,
     error_handlers,
     info_api,
     password_reset_api,
@@ -217,7 +218,8 @@ def _operation_id(route: APIRoute) -> str:
 
 def create_app() -> FastAPI:
     # A trailing slash is answered by the routes themselves, never by a
-    # redirect. The documentation routes are off (see PLAN.md 2.5).
+    # redirect. FastAPI's own documentation routes are off: they are served
+    # by lithica.api.docs_api, only when the api_docs setting allows it.
     application = FastAPI(
         title="Lithica",
         version=get_version(),
@@ -258,6 +260,7 @@ def create_app() -> FastAPI:
     application.openapi = describe  # type: ignore[method-assign]
 
     for ported in [
+        docs_api,
         info_api,
         user_api,
         user_token_api,

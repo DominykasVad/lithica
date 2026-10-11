@@ -66,6 +66,9 @@ FROM base AS development
 COPY --from=deps-dev /opt/venv /opt/venv
 COPY --chown=app:app ./ /opt/app/
 
+# the API documentation (docs, redoc, openapi.json) is on in development
+ENV API_DOCS=1
+
 USER app
 CMD ["/opt/app/docker-start-dev.sh"]
 

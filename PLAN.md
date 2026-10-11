@@ -78,6 +78,7 @@ When a phase is merged, its entries are folded into the tables above or deleted.
 - 2026-10-11 — 2.1 — `THREADS` sizes the request thread pool, `WORKERS` (default 1) the uvicorn processes (keeps the old knob).
 - 2026-10-11 — 2.3 — Uploads, downloads and stored files are file-backed `Content`; server-made data stays `bytes`; code takes either.
 - 2026-10-11 — 2.3 — A request over `max_upload_size` (default 1 GiB, nginx's limit) gets 413 `RequestTooLargeError` (new status).
+- 2026-10-11 — 2.5 — API docs (`docs`, `redoc`, `openapi.json`) need `api_docs` (default off, dev image on); pages use a CDN.
 
 ---
 
@@ -148,7 +149,7 @@ then rewrite that resource's `tests/api/` tests to go through FastAPI's
 ### 2.5 OpenAPI contract
 - [x] `python -m lithica.openapi` prints the spec; commit `doc/openapi.json`.
 - [x] CI fails if the generated spec differs from the committed one.
-- [ ] Swagger/ReDoc: enabled in development; in production behind a config flag (default off) or admin-only.
+- [x] Swagger/ReDoc: enabled in development; in production behind a config flag (default off) or admin-only.
 - [x] Move narrative parts of `doc/API.md` (search syntax, resource concepts, error model, auth) to `doc/`; retire the endpoint reference.
 - [ ] Spot-check wire compatibility: the legacy client smoke test passes.
 

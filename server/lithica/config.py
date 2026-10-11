@@ -42,6 +42,14 @@ def _container_config() -> dict:
     }
 
 
+def _environment_overrides() -> dict:
+    """Settings an image or a compose file switches on through the environment."""
+    overrides: dict = {}
+    if os.getenv("API_DOCS"):
+        overrides["api_docs"] = os.getenv("API_DOCS") not in ("0", "false", "no")
+    return overrides
+
+
 def _file_config(filename: str) -> dict:
     with open(filename) as handle:
         return yaml.load(handle.read(), Loader=yaml.SafeLoader) or {}
@@ -178,7 +186,7 @@ def _read_config() -> dict:
         logger.warning("'config.yaml' should be a file, not a directory, skipping")
     if _running_inside_container():
         ret = _merge(ret, _container_config())
-    return ret
+    return _merge(ret, _environment_overrides())
 
 
 config = _read_config()
