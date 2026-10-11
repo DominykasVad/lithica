@@ -30,7 +30,7 @@ Settled with the owner on 2026-10-10.
 | Base image | Debian slim + uv (replaces Alpine system packages). Images run the source from `/opt/app` via `PYTHONPATH`; the environment is in `/opt/venv`; the package itself is not installed. |
 | Registry / CI | GitHub Actions. Images to GHCR, built **only on published GitHub releases**, image tag = release tag. Docker Hub workflow removed. |
 | Old client | Moved to `legacy/client/`, frozen, kept for reference and as the API smoke test. |
-| Module data model | One engine-owned generic table: post id + content kind + JSON payload. Modules provide extractors, auto-tagging, search fields, routes and client panels. |
+| Module data model | One engine-owned generic table, `post_content`: post id + content kind + schema version + JSON payload. A module is the package `lithica.modules.<name>` exposing one `registry.Module` named `module`; it provides extractors, auto-tagging, search tokens, post fields, routes and admin commands, and never replaces anything of the engine (a clash is a startup error). |
 
 ### Further defaults
 
@@ -53,6 +53,12 @@ Confirmed by the owner on 2026-10-10.
 - Uploads, downloads and stored files are file-backed `Content` (`lithica.func.content`); data the server makes itself stays `bytes`; code takes either. Temporary files live in `<data_dir>/temporary-uploads/.tmp/` and become stored files by rename.
 - The largest request is `max_upload_size` (default 1 GiB, the limit of the client image's nginx; change both together).
 - The database session is scoped per request by a ContextVar; work outside a request opens `db.session_scope()`.
+- Modules load when `lithica.app` is imported (their routes are part of the application). Module routes live under `/modules/<name>/`. Until phase 4 they stay out of `doc/openapi.json`; from phase 4 on they are in it, tagged per module (task 4.3).
+- A content kind is at most 64 characters and belongs to exactly one module (`registry.ContentKind`).
+- An extractor returns at most 64 results of at most 1 MiB of JSON each. Beyond that, or with one bad result, it counts as failed and all its results for the file are dropped.
+- New content replaces every `post_content` row of the post, also rows of kinds no loaded module owns. `lithica-admin reextract` replaces only rows of kinds loaded modules own, keeps the old rows where an extractor fails, and never tags.
+- Auto-tags are added on post create and on content change, never removed, and need no `tags:create` privilege. Their category is used only when the tag is created; a category the site lacks means the default one.
+- `GET /post/<id>/content` needs `posts:view`. Rows of kinds no loaded module owns are stored but never shown. Private payload fields are top-level keys per kind, behind the one privilege `posts:view:content:private` (default moderator).
 
 ### Intentional API changes (phases 0–3)
 
@@ -76,6 +82,18 @@ with `doc/openapi.json` since phase 2.
    modules may add routes under `modules/<name>/`, post search tokens and
    post fields of their own.
 
+### Intentional API changes (phase 4)
+
+Additions only; nothing existing changes shape.
+
+1. `GET /info` lists the enabled modules (`modules: [...]`). The server says
+   what it exposes; branding and presentation are entirely the client's.
+2. Modules may register file types of their own. A post of such a type has a
+   module-owned `type` value and `mimeType`; clients that do not know the type
+   must be able to ignore it (the legacy client is not required to show it).
+3. Module routes appear in `doc/openapi.json`, tagged per module.
+4. The `cards` module adds its routes, search tokens and post fields.
+
 ### Allowed dialect exceptions
 
 - `sa.ARRAY` in migrations `8f3a1c2d4e5b` and `b7d2e9a4c1f3` only: they read and (on downgrade) restore the old
@@ -88,21 +106,9 @@ with `doc/openapi.json` since phase 2.
 Rules: only real decisions (a choice between alternatives that later work must
 respect). One line each, max ~120 characters: `date — task — decision (reason)`.
 No status notes, no "left untouched", no results — those go in commit messages.
-When a phase is merged, its entries are folded into the tables above or deleted.
+When a whole phase is finished (its last sub-phase merged), its entries are folded into the tables above or deleted.
 
-- 2026-10-11 — 3.1 — a module is package `lithica.modules.<name>` exposing a `registry.Module` named `module` (one object to check)
-- 2026-10-11 — 3.1 — modules load when `lithica.app` is imported, not in the lifespan (their routes are part of the application)
-- 2026-10-11 — 3.1 — module routes live under `/modules/<name>/` and stay out of `doc/openapi.json` (the contract is the engine's)
-- 2026-10-11 — 3.2 — `post_content.kind` is 64 characters; a kind belongs to exactly one module (`registry.ContentKind`)
-- 2026-10-11 — 3.2 — an extractor returns at most 64 results of at most 1 MiB of JSON each; beyond that it counts as failed
-- 2026-10-11 — 3.2 — one bad result drops all results of that extractor for the file (no telling which to trust)
-- 2026-10-11 — 3.2 — new content replaces every `post_content` row of the post, also rows of kinds no loaded module owns
-- 2026-10-11 — 3.2 — auto-tags are added on create and on content change, never removed, and need no `tags:create` privilege
-- 2026-10-11 — 3.2 — an auto-tag's category is used only when the tag is created; a missing category means the default one
-- 2026-10-11 — 3.2 — `reextract` replaces only rows of kinds loaded modules own, keeps old rows where an extractor fails, never tags
-- 2026-10-11 — 3.2 — `GET /post/<id>/content` needs `posts:view`; rows of kinds no loaded module owns are stored but never shown
-- 2026-10-11 — 3.2 — private payload fields: top-level keys per kind, one privilege `posts:view:content:private` (default moderator)
-- 2026-10-11 — 3.1 — a module may add search tokens, post fields and commands but never replace the engine's (startup error)
+- (empty: phases 0–3 are folded into the tables above)
 
 ---
 
@@ -147,44 +153,108 @@ old `rest/` framework removed, `doc/openapi.json` generated and enforced.
 
 ---
 
-## Phase 3 — Module system and baseline release
+## Phase 3 — done (merged in PR #7, released as `v0.1.0`)
 
-Goal: the engine can host optional modules; nothing module-specific exists
-yet beyond a test fixture module. Tag `v0.1.0`.
+The module system and the baseline release: the module registry, the
+embedded-content pipeline with the `post_content` table, `lithica-admin
+reextract`, the dummy module that proves the interface, `doc/INSTALL.md` and
+`doc/UPGRADING.md`, and release `v0.1.0` with its images on GHCR
+(`ghcr.io/dominykasvad/lithica-server` and `lithica-client-legacy`, tag
+`v0.1.0`, `linux/amd64` and `linux/arm64`).
 
-### 3.1 Module registry
-- [x] Config `modules: []` (list of module names). Registry loads `lithica.modules.<name>` dynamically at startup; unknown names fail fast.
-- [x] Module interface (a small protocol/dataclass), each part optional:
-  - routers to mount (under the module's own path prefix),
-  - content extractors (see 3.2),
-  - auto-tag hook (extracted content → tag names, per category),
-  - search field contributions (named tokens added to the post search config),
-  - serializer extras (extra fields on post responses),
-  - admin CLI subcommands.
-- [x] `import-linter` contract in CI: `lithica` (engine) must not import `lithica.modules`; modules must not import each other.
+- Migration head after phase 3: `e2b8d4f6a1c3`.
+- No real module exists yet. `lithica/tests/fixtures/modules/dummy` is the
+  example to copy; the tests load it through the `module_package` fixture.
+- `uv run lint-imports` checks the module boundary, as its own CI step and
+  as part of the test suite.
+- pyright `strict` covers `lithica/modules`, `lithica/registry.py`,
+  `lithica/func/post_content.py`, `lithica/model/types.py` and the dummy
+  module (the `strict` list in `server/pyproject.toml`).
 
-### 3.2 Embedded-content pipeline (engine side)
-- [x] Table `post_content`: id, post id (FK, cascade delete), `kind` (string, e.g. `dummy_v1`), `schema_version`, `payload` (`JSON` / `JSONB` variant), `extracted_at`. Index on (`post_id`, `kind`). Multiple rows per post allowed.
-- [x] Extractor contract: given MIME type and a readable file, return zero or more `(kind, payload)` results. Extractors are registered by modules and keyed by MIME type (PNG text chunks, WebP EXIF, video metadata — not PNG-only).
-- [x] Run extractors on post create and on content update (replace the post's rows); errors in one extractor are logged and do not fail the upload.
-- [x] `lithica-admin reextract [--kind K]` re-runs extractors over existing posts in batches.
-- [x] Post API exposes content kinds present (`contentKinds: [...]`) and an endpoint to fetch a post's extracted content; modules decide the public shape.
-- [x] Redaction hook: a module can mark payload fields as private (not returned to users without a privilege).
+---
 
-### 3.3 Proof module (tests only)
-- [x] `tests/fixtures/modules/dummy`: registers one extractor (reads a PNG `tEXt` chunk), one auto-tag, one search token, one route. Tests cover enable/disable, extraction on upload, re-extraction, search and the import boundary.
+## Phase 4 — Server: module file types and the `cards` module
 
-### 3.4 Release
-- [x] `doc/INSTALL.md` rewritten for Lithica (uv, Debian image, Postgres 17, GHCR images, config, modules).
-- [x] `doc/UPGRADING.md` covers szurubooru → Lithica 0.1.0 (data volume, config renames, DB upgrade).
-- [x] pyright `strict` enabled at least for `lithica/modules/` and the new pipeline code.
-- [ ] Publish GitHub release `v0.1.0`; verify the GHCR image builds and `docker compose up` works from the published images.
+Goal: the server is a complete character-card booru backend, usable through
+the API alone. Client work (a new client, branding, link previews) is **out
+of scope**: it comes in later phases the owner will add. Ends in release
+`v0.2.0`.
 
-**Exit criteria:** release `v0.1.0` published; images on GHCR; module system
-proven by the test module; legacy client smoke test passes.
+Work in sub-phases: **one sub-phase = one branch (`phase-4.N`) = one PR**.
+Start a sub-phase only after the previous one is merged into `main`. Each PR
+ticks only its own boxes and states its "Done when" result.
+
+Card format references (read them; do not work from memory):
+- Character Card V2: https://github.com/malfoyslastname/character-card-spec-v2
+- Character Card V3 (incl. CHARX): https://github.com/kwaroran/character-card-spec-v3
+
+Where the specs and real files disagree, follow real files and say so in the
+commit body. If something here contradicts the specs, stop and ask.
+
+### 4.1 Modules in the environment and in `/info`
+- [ ] Env `MODULES` (comma-separated module names, empty = none) overrides `modules:` from the config files, in `_environment_overrides()`. Document it in `doc/INSTALL.md` and as a commented line in `docker-compose.yml` (`MODULES: cards`).
+- [ ] `GET /info` returns `modules`: the names of the enabled modules, in config order. Nothing else about modules (no branding, no display names). Regenerate `doc/openapi.json`.
+
+**Done when:** tests cover `MODULES` unset (file value kept), set (replaces it), whitespace and empty entries ignored, unknown name fails at startup; `/info` lists the dummy module when it is enabled.
+
+### 4.2 Module routes in the OpenAPI contract
+- [ ] `doc/openapi.json` includes module routes, each tagged with its module's name. The committed spec is generated with **every module in `lithica/modules/` enabled**, so it is the same on every machine; the CI drift check uses the same setting.
+- [ ] Update the "Further defaults" line about module routes and the "API compatibility" section of AGENTS.md accordingly.
+
+**Done when:** a route added by a module under `lithica/modules/` appears in the generated spec with its module tag (test with a temporary module), and the CI drift check passes.
+
+### 4.3 Module-registered file types (engine)
+- [ ] A module can register a file type: a detector (given the first bytes and a readable file, says yes/no), the MIME type and file extension it stores, a module-owned post `type` value (must not clash with `image`, `animation`, `video`, `flash` or another module's; a clash is a startup error), and a thumbnail hook (readable file → image bytes, or none for a placeholder).
+- [ ] The engine's own detection runs first; module detectors run only for content the engine would reject as `application/octet-stream`. A file no detector accepts is still rejected as today.
+- [ ] Posts of module types: no perceptual signature and no similar-image search unless the type provides a thumbnail, in which case the signature is made from the thumbnail. Flags such as sound/animation do not apply.
+- [ ] The stored file is kept byte for byte; downloads return it unchanged.
+- [ ] `post."mime-type"` is 32 characters; pick MIME types that fit or widen the column with a migration.
+
+**Done when:** the dummy test module registers a tiny made-up file type, and tests cover upload, thumbnail, placeholder fallback, byte-identical download, the type clash at startup, and refusal of that file when the module is disabled.
+
+### 4.4 `cards`: PNG cards
+Module `lithica.modules.cards`. Content kinds `card_v1`, `card_v2`, `card_v3`.
+- [ ] Read `tEXt` chunks `ccv3` (base64 JSON, V3) and `chara` (base64 JSON, V2 or V1). If both exist, `ccv3` wins and `chara` is ignored. Also check `iTXt`/`zTXt` if real files use them. A PNG without either chunk is an ordinary image.
+- [ ] `chara-ext-asset_:{path}` chunks (PNG-embedded assets) are not stored in the payload; record only their paths and sizes.
+- [ ] **Payload:** the card JSON as given, minus embedded binary data (base64 data URIs or asset blobs are replaced by their metadata: type, name, size). Lorebooks (`character_book`) stay inside the card payload.
+- [ ] Payloads must fit the engine limit of 1 MiB per result. Measure on real cards, including large lorebooks. If real cards exceed it, **stop and ask** before changing the limit.
+- [ ] Malformed card data (bad base64, bad JSON, wrong shape) means "no card": the file is still accepted as an ordinary image.
+
+**Done when:** fixtures for V1, V2, V3 and a PNG with both chunks (generated in code; no copyrighted card content in the repo) produce the right content kind and payload; malformed cards upload as plain images; `lithica-admin reextract --kind card_v2` works over existing posts.
+
+### 4.5 `cards`: CHARX and ZIP safety
+- [ ] CHARX is a ZIP with `card.json` (V3) at the root. Registered as a module file type (4.3); post `type` `charx`; content kind `card_v3`; same payload rules as 4.4.
+- [ ] Thumbnail from the asset of type `icon` named `main` (resolve the spec's asset URI forms, incl. its `embeded://` spelling); placeholder if missing or unreadable.
+- [ ] **ZIP safety** (hostile input): read entries directly from the archive, never extract to disk. Limits as module constants: max entries (e.g. 1000), max total uncompressed size (e.g. 512 MiB), max compression ratio per entry (e.g. 100:1), max size of `card.json` (e.g. 8 MiB). Reject: encrypted entries, absolute or `..` paths, nested archives used as the icon, anything malformed. Exceeding a limit rejects the upload with a validation error that names the limit.
+- [ ] A ZIP without a valid `card.json` is not a CHARX: rejected like any unknown file.
+
+**Done when:** CHARX fixtures with and without icon upload with the right thumbnail or placeholder and download byte-identical; hostile fixtures (zip bomb, path traversal, encrypted entry, too many entries, oversized `card.json`, broken archive) are each rejected with the named limit or a validation error, without writing extracted data to disk.
+
+### 4.6 `cards`: tags, search and API
+- [ ] **Auto-tags:** creator → category `creator`; the card's own `tags` → default category. Normalise names to the engine's tag rules (whitespace → `_`, lowercase, invalid names dropped). The site admin creates the `creator` category; the engine's existing "missing category = default" rule applies otherwise. Document this in the module's docstring.
+- [ ] **Search tokens** (names prefixed `card-` to stay clear of engine tokens): `card-creator:`, `card-spec:` (`v1`/`v2`/`v3`), `card-format:` (`png`/`charx`), `card-lorebook:` (`yes`/`no`), `card-greetings:` (count, ranges like the engine's numeric tokens). DB-agnostic, per AGENTS.md.
+- [ ] **Post field:** `card` summary on post responses when requested via `fields=` (name, creator, spec, format, greeting count, lorebook entry count) — small, for list views.
+- [ ] **Card endpoint:** `GET /modules/cards/post/<id>` returns the normalised card for a viewer: name, description, personality, scenario, first message, alternate greetings, example messages, creator notes, system prompt, post-history instructions, tags, creator, character version, and lorebook entries (keys, content, enabled, order, and the other per-entry fields of the spec). V1/V2/V3 and PNG/CHARX normalised to one shape; the raw payload stays available through the engine's `GET /post/<id>/content`. Needs `posts:view`. No private fields by default.
+- [ ] **Download:** `GET /modules/cards/post/<id>/download` returns the stored file unchanged, with `Content-Disposition: attachment` and a filename from the card name plus the stored extension (`.png` / `.charx`). Sanitise the name (no path separators, control characters or reserved device names; RFC 6266 `filename*` for non-ASCII; fallback `card-<id>`). Needs `posts:view`; 404 for posts without a card.
+
+**Done when:** tests cover each auto-tag rule, each search token (incl. ranges and negation), the post field, the normalised shape for V1/V2/V3 PNG and CHARX, the download filename rules, and the privilege checks; `doc/openapi.json` includes the new routes.
+
+### 4.7 Release `v0.2.0`
+- [ ] `doc/INSTALL.md`: enabling the cards module (config and `MODULES`), the `creator` category, CHARX uploads.
+- [ ] `doc/UPGRADING.md`: 0.1.0 → 0.2.0.
+- [ ] pyright `strict` for `lithica/modules/cards`.
+- [ ] Version `0.2.0`. The owner publishes the release.
+
+**Done when (phase 4 exit):** with `MODULES=cards` in the compose stack,
+through the API (Swagger UI is fine): upload a V2 PNG card, a V3 PNG card and
+a CHARX file; each gets its auto-tags, is found by the `card-*` tokens, and is
+returned by the card endpoint; downloads through the card download endpoint
+are byte-identical to the uploads and carry the card name as filename; the
+hostile ZIP fixtures are rejected. Plain image uploads behave as in `v0.1.0`
+and the legacy client smoke test still passes. State results in the PR.
 
 ---
 
 ## Open questions
 
-- None blocking phases 0–3.
+- None blocking phase 4.

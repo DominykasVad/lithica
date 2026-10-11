@@ -26,9 +26,10 @@ Never relicense, never strip headers or credits.
 
 ## Current phase
 
-Server modernisation (PLAN.md phases 0–3). Work only on tasks listed there,
-in order, unless the owner says otherwise. Anything not listed in PLAN.md is
-**out of scope**.
+Phase 4 of PLAN.md: module file types and the `cards` module, server only
+(baseline `v0.1.0` is released). Work only on tasks listed there, in order,
+unless the owner says otherwise. Anything not listed in PLAN.md — including
+any client work — is **out of scope**.
 
 ## Layout
 
@@ -36,7 +37,7 @@ in order, unless the owner says otherwise. Anything not listed in PLAN.md is
 server/
   pyproject.toml, uv.lock, .python-version
   lithica/              engine package (was szurubooru/)
-    api/                HTTP layer (FastAPI routers after phase 2)
+    api/                HTTP layer (FastAPI routers)
     func/               business logic
     model/              SQLAlchemy models
     search/             query language
@@ -101,9 +102,10 @@ and uv; do not assume a specific OS, CPU architecture or machine.
 - Working notes, scratch scripts and investigation output go in `scratch/`
   at the repo root (git-ignored; create it if missing). Never commit them and
   never leave such files elsewhere in the tree.
-- Branches: one branch per phase (`phase-0`, `phase-1`, …); later, one branch
-  per feature (`feat/<name>`). Never commit directly to `main`; the owner
-  merges. Keep commits small inside the branch.
+- Branches: phases are milestones split into sub-phases; **one sub-phase =
+  one branch (`phase-4.3`) = one PR**. Start the next sub-phase only after the
+  previous one is merged into `main`. Never commit directly to `main`; the
+  owner merges. Keep commits small inside the branch.
 - Do one PLAN.md task per change set. No drive-by refactors, renames or
   reformatting outside the task.
 - If a task needs a decision PLAN.md does not cover (a new dependency, a
