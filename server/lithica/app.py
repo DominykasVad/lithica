@@ -7,6 +7,7 @@ the server starts the application (the lifespan), not at import.
 """
 
 import contextlib
+import logging
 from collections.abc import AsyncIterator
 
 import anyio
@@ -17,6 +18,9 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from lithica import db, facade, rest
 from lithica.api import error_handlers
+from lithica.api.dependencies import LOG_USER_KEY
+
+logger = logging.getLogger(__name__)
 
 
 class SessionScopeMiddleware:
@@ -41,6 +45,16 @@ class SessionScopeMiddleware:
         try:
             await self.app(scope, receive, send)
         finally:
+            # One line per request. Only for the routes served here: the old
+            # application still writes its own line for the ones it serves.
+            if LOG_USER_KEY in scope:
+                logger.info(
+                    "%s %s (user=%s, queries=%d)",
+                    scope["method"],
+                    scope["path"],
+                    scope[LOG_USER_KEY],
+                    db.get_query_count(),
+                )
             try:
                 # Closing rolls back and returns the connection: blocking
                 # work, so off the event loop. Shielded, because a request

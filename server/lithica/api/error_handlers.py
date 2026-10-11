@@ -9,7 +9,7 @@ business error it is.
 
 from collections.abc import Sequence
 from http import HTTPStatus
-from typing import Any
+from typing import Any, LiteralString
 
 import sqlalchemy.orm as sa_orm
 from fastapi import FastAPI, Request
@@ -33,7 +33,7 @@ ERROR_KINDS: list[tuple[type[errors.BaseError], int, str]] = [
 
 # the type of the pydantic errors that lithica.api.schemas raises; their
 # message completes the sentence "Parameter 'x' ..."
-PARAMETER_ERROR = "lithica_parameter"
+PARAMETER_ERROR: LiteralString = "lithica_parameter"
 
 
 class HttpError(Exception):
