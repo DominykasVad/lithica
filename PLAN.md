@@ -177,7 +177,7 @@ yet beyond a test fixture module. Tag `v0.1.0`.
 ### 3.4 Release
 - [ ] `doc/INSTALL.md` rewritten for Lithica (uv, Debian image, Postgres 17, GHCR images, config, modules).
 - [ ] `doc/UPGRADING.md` covers szurubooru → Lithica 0.1.0 (data volume, config renames, DB upgrade).
-- [ ] pyright `strict` enabled at least for `lithica/modules/` and the new pipeline code.
+- [x] pyright `strict` enabled at least for `lithica/modules/` and the new pipeline code.
 - [ ] Publish GitHub release `v0.1.0`; verify the GHCR image builds and `docker compose up` works from the published images.
 
 **Exit criteria:** release `v0.1.0` published; images on GHCR; module system

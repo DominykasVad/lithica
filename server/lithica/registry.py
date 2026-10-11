@@ -19,7 +19,7 @@ import importlib
 import re
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, BinaryIO
+from typing import TYPE_CHECKING, Any, BinaryIO, cast
 
 from fastapi import APIRouter
 
@@ -252,10 +252,12 @@ def load(names: Sequence[str], package: str | None = None) -> None:
 
 def load_configured() -> None:
     """Load the modules the `modules` setting lists."""
-    names = config.config.get("modules") or []
+    # an object: the setting is whatever the YAML file holds
+    names: object = config.config.get("modules") or []
     if not isinstance(names, list):
         raise errors.ConfigError("'modules' must be a list of module names.")
-    load(names)  # pyright: ignore[reportUnknownArgumentType]  (checked name by name)
+    # each name is checked when it is imported
+    load(cast(list[str], names))
 
 
 def modules() -> tuple[Module, ...]:

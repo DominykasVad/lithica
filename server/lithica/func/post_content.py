@@ -74,7 +74,8 @@ def _verified(
             "returned content of kind %r, which module %r does not declare"
             % (result.kind, module.name)
         )
-    payload: object = result.payload
+    # declared as an object; a module may have put anything there
+    payload = cast(object, result.payload)
     if not isinstance(payload, dict):
         raise _InvalidResultError("returned a payload that is not an object")
     try:

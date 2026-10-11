@@ -73,6 +73,16 @@ include = ["lithica"]
 exclude = ["lithica/migrations/versions"]
 pythonVersion = "3.13"
 typeCheckingMode = "basic"
+# Raised to strict module by module (PLAN.md, "Type checking"). The module
+# system starts there: the modules, what they are written against, and the
+# example module they are copied from.
+strict = [
+    "lithica/modules",
+    "lithica/registry.py",
+    "lithica/func/post_content.py",
+    "lithica/model/types.py",
+    "lithica/tests/fixtures/modules",
+]
 
 [dependency-groups]
 dev = [
