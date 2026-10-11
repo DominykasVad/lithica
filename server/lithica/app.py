@@ -8,17 +8,20 @@ the server starts the application (the lifespan), not at import.
 
 import contextlib
 import logging
+import threading
 from collections.abc import AsyncIterator
 
 import anyio
+import coloredlogs
 from a2wsgi import WSGIMiddleware
 from fastapi import FastAPI
 from starlette.concurrency import run_in_threadpool
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from lithica import db, facade, rest
+from lithica import config, db, facade, rest
 from lithica.api import error_handlers
 from lithica.api.dependencies import LOG_USER_KEY
+from lithica.func import file_uploads, posts
 
 logger = logging.getLogger(__name__)
 
@@ -65,10 +68,58 @@ class SessionScopeMiddleware:
                 db.end_scope(token)
 
 
+# how often the temporary uploads are checked for files to delete
+UPLOAD_PURGE_INTERVAL = 60 * 5
+
+
+def _configure_logging() -> None:
+    coloredlogs.install(fmt="[%(asctime)-15s] %(name)s %(message)s")
+    if config.config["debug"]:
+        logging.getLogger("lithica").setLevel(logging.INFO)
+    if config.config["show_sql"]:
+        logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
+
+
+def _purge_old_uploads_until(stop: threading.Event) -> None:
+    while True:
+        file_uploads.purge_old_uploads_once()
+        if stop.wait(UPLOAD_PURGE_INTERVAL):
+            return
+
+
+def _warn_about_pending_backfills() -> None:
+    # the startup work is its own unit of work, with its own session
+    with db.session_scope():
+        try:
+            posts.warn_about_pending_backfills()
+        except Exception as ex:
+            # a missing backfill is no reason to stay down
+            logger.exception(ex)
+
+
 @contextlib.asynccontextmanager
 async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
-    facade.start()
-    yield
+    """
+    What the server does when it starts and stops the application. A
+    configuration error raised here stops the server before it listens.
+    Every server process runs this for itself.
+    """
+    config.validate()
+    _configure_logging()
+    # the check queries the database: off the event loop
+    await run_in_threadpool(_warn_about_pending_backfills)
+
+    stop_purging = threading.Event()
+    threading.Thread(
+        target=_purge_old_uploads_until,
+        args=(stop_purging,),
+        name="upload-purge",
+        daemon=True,
+    ).start()
+    try:
+        yield
+    finally:
+        stop_purging.set()
 
 
 def create_app() -> FastAPI:

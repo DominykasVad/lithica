@@ -113,7 +113,7 @@ generated, enforced OpenAPI contract; uploads stream to disk.
 - [x] Error handling: exception handlers that produce the existing error body (`name`, `title`, `description`, extra fields) and status codes, mirroring `facade.py`.
 - [x] Auth as a dependency (Basic, Token, anonymous), replacing `middleware/authenticator.py`. Privilege checks as a dependency factory, e.g. `Depends(require("posts:list"))`.
 - [x] Serialization: `fields=` query parameter keeps working; response models describe the full shape with all fields optional (document why in the model module).
-- [ ] Startup work (config validation, logging, purge thread) moves to the FastAPI lifespan.
+- [x] Startup work (config validation, logging, purge thread) moves to the FastAPI lifespan.
 - [ ] Dev: `uvicorn --reload` replaces hupper; release: uvicorn with `--workers` from env (default 1 until phase 1.4 is verified multi-process safe, then raise).
 
 ### 2.2 Port routes (one router per resource, one commit per router)
