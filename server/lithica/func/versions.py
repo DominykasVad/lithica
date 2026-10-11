@@ -12,9 +12,16 @@ class Versioned(Protocol):
 
 
 def verify_version(
-    entity: Versioned, context: rest.Context, field_name: str = "version"
+    entity: Versioned,
+    # the version the client edited; the old handlers pass their context and
+    # the parameter is read from it (removed with the old framework)
+    version: "int | rest.Context",
+    field_name: str = "version",
 ) -> None:
-    actual_version = context.get_param_as_int(field_name)
+    if isinstance(version, int):
+        actual_version = version
+    else:
+        actual_version = version.get_param_as_int(field_name)
     expected_version = entity.version
     if actual_version != expected_version:
         raise errors.IntegrityError(

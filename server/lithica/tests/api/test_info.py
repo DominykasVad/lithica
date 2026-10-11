@@ -3,7 +3,7 @@ import threading
 import pytest
 
 from lithica import api, db, model
-from lithica.tests.api.http import assert_fits, result
+from lithica.tests.api.http import assert_fits, ok
 
 
 class _ImmediateThread:
@@ -79,7 +79,7 @@ def test_info_api(
     }
 
     with fake_datetime("2016-01-01 13:00"):
-        assert result(client.get("/info", user=auth_user)) == {
+        assert ok(client.get("/info", user=auth_user)) == {
             "postCount": 2,
             "diskUsage": 3,
             "featuredPost": None,
@@ -90,7 +90,7 @@ def test_info_api(
         }
     directory.join("test2.txt").write("abc")
     with fake_datetime("2016-01-03 13:01"):
-        assert result(client.get("/info", user=auth_user)) == {
+        assert ok(client.get("/info", user=auth_user)) == {
             "postCount": 2,
             "diskUsage": 6,  # cache expired
             "featuredPost": None,
@@ -100,7 +100,7 @@ def test_info_api(
             "config": expected_config_key,
         }
     with fake_datetime("2016-01-03 13:01"):
-        assert result(client.get("/info", user=anon_user)) == {
+        assert ok(client.get("/info", user=anon_user)) == {
             "postCount": 2,
             "diskUsage": 6,  # cache expired
             "serverTime": "2016-01-03T13:01:00Z",
@@ -229,17 +229,17 @@ def test_info_fits_its_response_model(
     db.session.add_all([user, post, tag_category_factory(default=True)])
     db.session.flush()
 
-    anonymous = result(client.get("/info"))
+    anonymous = ok(client.get("/info"))
     assert "featuredPost" not in anonymous
     assert_fits(resources.Info, anonymous, complete=False)
 
-    nothing_featured = result(client.get("/info", user=user))
+    nothing_featured = ok(client.get("/info", user=user))
     assert nothing_featured["featuredPost"] is None
     assert_fits(resources.Info, nothing_featured)
 
     posts.feature_post(post, user)
     db.session.flush()
-    featured = result(client.get("/info", user=user))
+    featured = ok(client.get("/info", user=user))
     assert featured["featuredPost"]["id"] == post.post_id
     assert featured["featuringUser"]["name"] == user.name
     assert_fits(resources.Info, featured)
@@ -262,4 +262,4 @@ def test_info_with_a_trailing_slash(client, config_injector, tmpdir, monkeypatch
             "smtp": {"host": None},
         }
     )
-    assert result(client.get("/info/"))["postCount"] == 0
+    assert ok(client.get("/info/"))["postCount"] == 0

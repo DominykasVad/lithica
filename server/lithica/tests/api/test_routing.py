@@ -12,7 +12,7 @@ from lithica.api.dependencies import (
     Fields,
     PageParams,
     RequestDataParam,
-    body,
+    read_body,
 )
 from lithica.api.routing import ApiRouter
 from lithica.api.schemas import Int, RequestModel, ResponseModel, Str, request_body
@@ -71,7 +71,7 @@ def client():
     @router.post("/things", openapi_extra=request_body(_ThingParams, "content"))
     def create_thing(
         data: RequestDataParam,
-        params: Annotated[_ThingParams, Depends(body(_ThingParams))],
+        params: Annotated[_ThingParams, Depends(read_body(_ThingParams))],
     ) -> dict[str, Any]:
         return {
             "params": data.params,

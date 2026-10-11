@@ -320,7 +320,7 @@ async def read_request(request: Request) -> RequestData:
 RequestDataParam = Annotated[RequestData, Depends(read_request)]
 
 
-def body[M: RequestModel](
+def read_body[M: RequestModel](
     model: type[M],
 ) -> Callable[[RequestData], Awaitable[M]]:
     """

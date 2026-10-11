@@ -2,8 +2,10 @@ from unittest.mock import patch
 
 import pytest
 
-from lithica import api
+from lithica import db
+from lithica.api import resources
 from lithica.func import user_tokens, users
+from lithica.tests.api.http import assert_fits, ok
 
 
 @pytest.fixture(autouse=True)
@@ -11,7 +13,7 @@ def inject_config(config_injector):
     config_injector({"privileges": {"user_tokens:list:self": "regular"}})
 
 
-def test_retrieving_user_tokens(user_token_factory, context_factory, fake_datetime):
+def test_retrieving_user_tokens(user_token_factory, client, fake_datetime):
     user_token1 = user_token_factory()
     user_token2 = user_token_factory(user=user_token1.user)
     user_token3 = user_token_factory(user=user_token1.user)
@@ -28,9 +30,27 @@ def test_retrieving_user_tokens(user_token_factory, context_factory, fake_dateti
             user_token2,
             user_token3,
         ]
-        result = api.user_token_api.get_user_tokens(
-            context_factory(user=user_token1.user),
-            {"user_name": user_token1.user.name},
+        result = ok(
+            client.get("/user-tokens/%s" % user_token1.user.name, user=user_token1.user)
         )
         assert result == {"results": ["serialized user token"] * 3}
         user_tokens.get_user_tokens.assert_called_once_with(user_token1.user)
+
+
+def test_user_token_fits_its_response_model(
+    user_token_factory, client, config_injector
+):
+    config_injector(
+        {
+            "thumbnails": {"avatar_width": 30, "avatar_height": 30},
+            "privileges": {"user_tokens:list:self": "regular"},
+        }
+    )
+    user_token = user_token_factory()
+    db.session.add(user_token)
+    db.session.flush()
+    listed = ok(
+        client.get("/user-tokens/%s" % user_token.user.name, user=user_token.user)
+    )
+    assert [token["token"] for token in listed["results"]] == [user_token.token]
+    assert_fits(resources.Unpaged[resources.UserToken], listed)

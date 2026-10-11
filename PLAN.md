@@ -126,7 +126,7 @@ then rewrite that resource's `tests/api/` tests to go through FastAPI's
 `TestClient` (HTTP level). Keep every existing assertion.
 
 - [x] info
-- [ ] users, user tokens
+- [x] users, user tokens
 - [ ] password reset
 - [ ] tag categories, tags
 - [ ] pool categories, pools

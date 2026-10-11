@@ -5,6 +5,7 @@ import random
 import string
 from datetime import datetime
 from typing import Any
+from unittest.mock import Mock, patch
 
 import freezegun
 import pytest
@@ -27,7 +28,7 @@ import httpx2  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
 from lithica import db, model, rest  # noqa: E402
-from lithica.api import dependencies  # noqa: E402
+from lithica.api import dependencies, responses  # noqa: E402
 from lithica.app import app as lithica_app  # noqa: E402
 
 
@@ -222,6 +223,20 @@ def scoped_db_session(session):
     db.session = session
 
 
+_serialize_default = responses._serialize_default
+
+
+def _serialize_with_mocks(obj: Any) -> str:
+    """
+    Many tests replace a serializer with a mock and do not care what the
+    endpoint returns. A mock in a response is written as text instead of
+    failing the request.
+    """
+    if isinstance(obj, Mock):
+        return repr(obj)
+    return _serialize_default(obj)
+
+
 class ApiClient:
     """
     Calls the API over HTTP, in the application's own process.
@@ -261,7 +276,8 @@ class ApiClient:
         if user is not None:
             overrides[dependencies.get_user] = lambda: user
         try:
-            return self._client.request(method, path, **kwargs)
+            with patch.object(responses, "_serialize_default", _serialize_with_mocks):
+                return self._client.request(method, path, **kwargs)
         finally:
             overrides.pop(dependencies.get_user, None)
 

@@ -110,6 +110,15 @@ def required() -> Any:
     return Field(default=None, json_schema_extra={REQUIRED_MARK: True})
 
 
+def optional() -> Any:
+    """
+    Default of a request field that may be left out and has no default
+    value: the endpoint acts on it only when it was sent. Read it after
+    checking `RequestModel.has()`.
+    """
+    return Field(default=None)
+
+
 class RequestModel(BaseModel):
     """
     Base of the request bodies. Field names are camelCase on the wire.
@@ -144,7 +153,7 @@ def request_body(model: type[RequestModel], *files: str) -> dict[str, Any]:
     """
     Describe an endpoint's request body for the OpenAPI document; pass the
     result as `openapi_extra`. The body itself is read by
-    `dependencies.body()`, not by FastAPI, because the API takes its JSON
+    `dependencies.read_body()`, not by FastAPI, because the API takes its JSON
     either as the body or as the `metadata` part of a multipart request
     whose other parts (`files`) are uploads.
     """

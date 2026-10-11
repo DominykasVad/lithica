@@ -8,7 +8,7 @@ import pydantic
 from lithica.api.error_handlers import ERROR_KINDS
 
 
-def result(response: httpx2.Response) -> Any:
+def ok(response: httpx2.Response) -> Any:
     """The body of a successful response."""
     assert response.status_code == 200, response.text
     assert response.headers["content-type"] == "application/json"

@@ -2,8 +2,9 @@ from unittest.mock import patch
 
 import pytest
 
-from lithica import api, db
+from lithica import db
 from lithica.func import user_tokens, users
+from lithica.tests.api.http import assert_error, ok
 
 
 @pytest.fixture(autouse=True)
@@ -11,7 +12,7 @@ def inject_config(config_injector):
     config_injector({"privileges": {"user_tokens:edit:self": "regular"}})
 
 
-def test_edit_user_token(user_token_factory, context_factory, fake_datetime):
+def test_edit_user_token(user_token_factory, client, fake_datetime):
     user_token = user_token_factory()
     db.session.add(user_token)
     db.session.commit()
@@ -26,18 +27,15 @@ def test_edit_user_token(user_token_factory, context_factory, fake_datetime):
         users.get_user_by_name.return_value = user_token.user
         user_tokens.serialize_user_token.return_value = "serialized user token"
         user_tokens.get_by_user_and_token.return_value = user_token
-        result = api.user_token_api.update_user_token(
-            context_factory(
-                params={
+        result = ok(
+            client.put(
+                "/user-token/%s/%s" % (user_token.user.name, user_token.token),
+                user=user_token.user,
+                body={
                     "version": user_token.version,
                     "enabled": False,
                 },
-                user=user_token.user,
-            ),
-            {
-                "user_name": user_token.user.name,
-                "user_token": user_token.token,
-            },
+            )
         )
         assert result == "serialized user token"
         user_tokens.get_by_user_and_token.assert_called_once_with(
@@ -47,12 +45,15 @@ def test_edit_user_token(user_token_factory, context_factory, fake_datetime):
         user_tokens.update_user_token_edit_time.assert_called_once_with(user_token)
 
 
-def test_edit_unknown_user_token(user_token_factory, context_factory):
+def test_edit_unknown_user_token(user_token_factory, client):
     user_token = user_token_factory()
     db.session.add(user_token)
     db.session.commit()
-    with pytest.raises(user_tokens.UserTokenNotFoundError):
-        api.user_token_api.update_user_token(
-            context_factory(params={"version": 1}, user=user_token.user),
-            {"user_name": user_token.user.name, "user_token": "no-such-token"},
-        )
+    assert_error(
+        client.put(
+            "/user-token/%s/%s" % (user_token.user.name, "no-such-token"),
+            user=user_token.user,
+            body={"version": 1},
+        ),
+        user_tokens.UserTokenNotFoundError,
+    )
