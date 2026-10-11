@@ -270,7 +270,7 @@ def test_no_allow_origin_without_origin_header(config_injector):
 def test_preflight_for_listed_origin(config_injector):
     config_injector({"cors_origins": ["https://app.example.com"]})
     status, headers, body = _call(_preflight_env("https://app.example.com"))
-    assert status == "200"
+    assert status == "200 OK"
     assert body == b""
     assert headers["Access-Control-Allow-Origin"] == "https://app.example.com"
     assert headers["Access-Control-Allow-Methods"] == (

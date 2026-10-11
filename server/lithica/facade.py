@@ -3,8 +3,6 @@ import os
 import re
 import threading
 import time
-from collections.abc import Callable
-from typing import Any
 
 import coloredlogs
 import sqlalchemy.orm as sa_orm
@@ -143,8 +141,19 @@ def purge_old_uploads_daemon() -> None:
         time.sleep(60 * 5)
 
 
-def create_app() -> Callable[[Any, Any], Any]:
-    """Create a WSGI compatible App object."""
+def register_error_handlers() -> None:
+    rest.errors.handle(errors.AuthError, _on_auth_error)
+    rest.errors.handle(errors.ValidationError, _on_validation_error)
+    rest.errors.handle(errors.SearchError, _on_search_error)
+    rest.errors.handle(errors.IntegrityError, _on_integrity_error)
+    rest.errors.handle(errors.NotFoundError, _on_not_found_error)
+    rest.errors.handle(errors.ProcessingError, _on_processing_error)
+    rest.errors.handle(errors.ThirdPartyError, _on_third_party_error)
+    rest.errors.handle(sa_orm.exc.StaleDataError, _on_stale_data_error)
+
+
+def start() -> None:
+    """Check the configuration and start the background work."""
     validate_config()
     coloredlogs.install(fmt="[%(asctime)-15s] %(name)s %(message)s")
     if config.config["debug"]:
@@ -161,17 +170,3 @@ def create_app() -> Callable[[Any, Any], Any]:
         logger.exception(ex)
     finally:
         db.session.remove()
-
-    rest.errors.handle(errors.AuthError, _on_auth_error)
-    rest.errors.handle(errors.ValidationError, _on_validation_error)
-    rest.errors.handle(errors.SearchError, _on_search_error)
-    rest.errors.handle(errors.IntegrityError, _on_integrity_error)
-    rest.errors.handle(errors.NotFoundError, _on_not_found_error)
-    rest.errors.handle(errors.ProcessingError, _on_processing_error)
-    rest.errors.handle(errors.ThirdPartyError, _on_third_party_error)
-    rest.errors.handle(sa_orm.exc.StaleDataError, _on_stale_data_error)
-
-    return rest.application
-
-
-app = create_app()

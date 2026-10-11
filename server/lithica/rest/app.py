@@ -150,7 +150,7 @@ def application(
 
     if _is_allowed_preflight(env):
         start_response_with_cors(
-            "200",
+            "200 OK",
             [
                 ("Access-Control-Allow-Methods", CORS_ALLOWED_METHODS),
                 ("Access-Control-Allow-Headers", CORS_ALLOWED_HEADERS),
@@ -208,7 +208,7 @@ def _handle_request(
             finally:
                 db.session.remove()
 
-            start_response("200", [("content-type", "application/json")])
+            start_response("200 OK", [("content-type", "application/json")])
             return (_dump_json(response).encode("utf-8"),)
 
         except Exception as ex:

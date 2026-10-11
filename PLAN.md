@@ -108,7 +108,7 @@ generated, enforced OpenAPI contract; uploads stream to disk.
 - [x] One Alembic migration that brings the migrated schema in line with the models (foreign keys on `comment` and `pool_post`, missing indexes, `pool_name.name` length). Add a CI check that `alembic check` (autogenerate finds no differences) passes on a database migrated from empty.
 
 ### 2.1 Skeleton
-- [ ] `lithica/app.py`: FastAPI app, run by uvicorn. Mount the existing WSGI app with `a2wsgi` as the fallback, so unported routes keep working.
+- [x] `lithica/app.py`: FastAPI app, run by uvicorn. Mount the existing WSGI app with `a2wsgi` as the fallback, so unported routes keep working.
 - [ ] Session scoping: replace thread-local `scoped_session` with a `ContextVar`-scoped one, set and cleared by middleware per request. Background threads set their own scope. Add tests that two concurrent requests never share a session.
 - [ ] Error handling: exception handlers that produce the existing error body (`name`, `title`, `description`, extra fields) and status codes, mirroring `facade.py`.
 - [ ] Auth as a dependency (Basic, Token, anonymous), replacing `middleware/authenticator.py`. Privilege checks as a dependency factory, e.g. `Depends(require("posts:list"))`.
