@@ -8,6 +8,7 @@ the server starts the application (the lifespan), not at import.
 
 import contextlib
 import logging
+import os
 import threading
 from collections.abc import AsyncIterator
 
@@ -80,6 +81,18 @@ def _configure_logging() -> None:
         logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
 
 
+def _limit_request_threads() -> None:
+    """
+    Endpoints and their dependencies are synchronous and run on a pool of
+    threads; its size is how many requests are worked on at once. THREADS
+    sets it, as it set the thread count of the server used before. Without
+    it the pool keeps the library's default size.
+    """
+    threads = os.environ.get("THREADS")
+    if threads:
+        anyio.to_thread.current_default_thread_limiter().total_tokens = int(threads)
+
+
 def _purge_old_uploads_until(stop: threading.Event) -> None:
     while True:
         file_uploads.purge_old_uploads_once()
@@ -106,6 +119,7 @@ async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
     """
     config.validate()
     _configure_logging()
+    _limit_request_threads()
     # the check queries the database: off the event loop
     await run_in_threadpool(_warn_about_pending_backfills)
 

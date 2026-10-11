@@ -73,6 +73,10 @@ respect). One line each, max ~120 characters: `date — task — decision (reaso
 No status notes, no "left untouched", no results — those go in commit messages.
 When a phase is merged, its entries are folded into the tables above or deleted.
 
+- 2026-10-11 — 2.1 — Endpoints return serializer output through `JsonResponse`; response models only document it (no wire drift).
+- 2026-10-11 — 2.1 — Request bodies are read by our own dependency, not FastAPI's (JSON may be the `metadata` multipart part).
+- 2026-10-11 — 2.1 — `THREADS` sizes the request thread pool, `WORKERS` (default 1) the uvicorn processes (keeps the old knob).
+
 ---
 
 ## Phase 0 — done (merged in PR #1)
@@ -114,7 +118,7 @@ generated, enforced OpenAPI contract; uploads stream to disk.
 - [x] Auth as a dependency (Basic, Token, anonymous), replacing `middleware/authenticator.py`. Privilege checks as a dependency factory, e.g. `Depends(require("posts:list"))`.
 - [x] Serialization: `fields=` query parameter keeps working; response models describe the full shape with all fields optional (document why in the model module).
 - [x] Startup work (config validation, logging, purge thread) moves to the FastAPI lifespan.
-- [ ] Dev: `uvicorn --reload` replaces hupper; release: uvicorn with `--workers` from env (default 1 until phase 1.4 is verified multi-process safe, then raise).
+- [x] Dev: `uvicorn --reload` replaces hupper; release: uvicorn with `--workers` from env (default 1 until phase 1.4 is verified multi-process safe, then raise).
 
 ### 2.2 Port routes (one router per resource, one commit per router)
 For each: port handlers to sync `def` endpoints with Pydantic request models,

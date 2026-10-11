@@ -139,3 +139,32 @@ def test_warns_about_pending_backfills_at_startup(
         with TestClient(lithica_app.app):
             pass
     assert "lithica-admin backfill signatures" in caplog.text
+
+
+def _thread_limit_inside(monkeypatch, threads: str | None) -> float:
+    import anyio.to_thread
+
+    if threads is None:
+        monkeypatch.delenv("THREADS", raising=False)
+    else:
+        monkeypatch.setenv("THREADS", threads)
+    with patch("lithica.func.file_uploads.purge_old_uploads_once"):
+        with TestClient(lithica_app.app) as client:
+            assert client.portal is not None
+            return client.portal.call(
+                lambda: anyio.to_thread.current_default_thread_limiter().total_tokens
+            )
+
+
+def test_threads_setting_sizes_the_request_thread_pool(
+    valid_config, no_logging_setup, monkeypatch
+):
+    assert _thread_limit_inside(monkeypatch, "3") == 3
+    assert _thread_limit_inside(monkeypatch, "7") == 7
+
+
+def test_request_thread_pool_keeps_its_default_without_the_setting(
+    valid_config, no_logging_setup, monkeypatch
+):
+    assert _thread_limit_inside(monkeypatch, None) == 40
+    assert _thread_limit_inside(monkeypatch, "") == 40
