@@ -45,7 +45,6 @@ def main(port: int, data_dir: str) -> None:
         return PlainTextResponse(str(peak if sys.platform == "darwin" else peak * 1024))
 
     app.dependency_overrides[dependencies.get_user] = administrator
-    # in front of everything, the old application's mount included
     app.router.routes.insert(0, Route("/_peak_rss", peak_rss))
     # no lifespan: no configuration check, no background work
     uvicorn.run(app, host="127.0.0.1", port=port, log_level="warning", lifespan="off")

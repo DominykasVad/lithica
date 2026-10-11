@@ -151,7 +151,7 @@ then rewrite that resource's `tests/api/` tests to go through FastAPI's
 - [x] CI fails if the generated spec differs from the committed one.
 - [x] Swagger/ReDoc: enabled in development; in production behind a config flag (default off) or admin-only.
 - [x] Move narrative parts of `doc/API.md` (search syntax, resource concepts, error model, auth) to `doc/`; retire the endpoint reference.
-- [ ] Spot-check wire compatibility: the legacy client smoke test passes.
+- [x] Spot-check wire compatibility: the legacy client smoke test passes.
 
 **Exit criteria:** no `rest/` code left; all tests green through HTTP;
 OpenAPI committed and enforced; streaming uploads verified; legacy client
