@@ -142,7 +142,12 @@ client's are added to CI in phase 5.
 - Commit as often as is useful, but push the branch once, when the sub-phase
   is ready for review, and open the PR then. Push again only for review
   fixes. CI runs on pull requests and on `main`, not on a branch that is
-  merely pushed, and only the workflow whose paths the change touches
+  merely pushed. `.github/workflows/ci-general.yml` runs on every pull
+  request and checks the workflows themselves, file hygiene (valid YAML,
+  JSON and TOML, no merge-conflict markers, final newline, no trailing
+  whitespace), that no file over 5 MiB is added, the commits for secrets,
+  and the links between the Markdown files. A component's workflow runs
+  only when the change touches its paths
   (`.github/workflows/ci-server.yml` for the server).
 - Do one PLAN.md task per change set. No drive-by refactors, renames or
   reformatting outside the task.
