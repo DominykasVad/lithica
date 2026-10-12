@@ -276,8 +276,8 @@ Module `lithica.modules.cards`. Content kinds `card_v1`, `card_v2`, `card_v3`.
 ### 4.7 Release `v0.2.0`
 - [x] `doc/INSTALL.md`: enabling the cards module (config and `MODULES`), the `creator` category, CHARX uploads.
 - [x] `doc/UPGRADING.md`: 0.1.0 → 0.2.0.
-- [ ] pyright `strict` for `lithica/modules/cards`.
-- [ ] Version `0.2.0`. The owner publishes the release.
+- [x] pyright `strict` for `lithica/modules/cards`.
+- [x] Version `0.2.0`. The owner publishes the release.
 
 **Done when (phase 4 exit):** with `MODULES=cards` in the compose stack,
 through the API (Swagger UI is fine): upload a V2 PNG card, a V3 PNG card and

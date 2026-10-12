@@ -1,6 +1,6 @@
 [project]
 name = "lithica"
-version = "0.1.0"
+version = "0.2.0"
 description = "Self-hosted image board (booru) engine; a fork of szurubooru"
 readme = "../README.md"
 license = "GPL-3.0-only"
