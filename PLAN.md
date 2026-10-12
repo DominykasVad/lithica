@@ -124,6 +124,13 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 - 2026-10-12 — 4.4 — `zTXt` and `iTXt` are read like `tEXt` (PNG libraries may write them; the seven real files seen use `tEXt`)
 - 2026-10-12 — 4.4 — NUL characters and lone surrogates are taken out of card texts (PostgreSQL cannot store them)
 - 2026-10-12 — 4.4 — limits: 32 MiB of card text per chunk, 1000 embedded assets listed; beyond that the picture has no card
+- 2026-10-12 — 4.5 — CHARX is stored as `application/x-charx` with extension `charx` (no registered MIME type exists)
+- 2026-10-12 — 4.5 — only a ZIP with a root `card.json` is judged by the limits; any other archive is refused as an unknown file
+- 2026-10-12 — 4.5 — limits: 1000 entries, 512 MiB unpacked, 100:1 per entry, `card.json` 8 MiB, table of contents 1 MiB, icon 16 MiB
+- 2026-10-12 — 4.5 — entries must be stored or deflated; other compression methods are refused (less code exposed to uploads)
+- 2026-10-12 — 4.5 — the thumbnail is the icon named `main`, else the first icon; an icon elsewhere (`https:`) is never fetched
+- 2026-10-12 — 4.5 — icon URIs read: `embeded://`, `embedded://`, `__asset:` and base64 `data:`; an archive as the icon is refused
+- 2026-10-12 — 4.5 — a CHARX payload has `chunk: null`, and `assets` lists the archive's entries besides `card.json`
 
 ---
 
@@ -238,10 +245,10 @@ Module `lithica.modules.cards`. Content kinds `card_v1`, `card_v2`, `card_v3`.
 **Done when:** fixtures for V1, V2, V3 and a PNG with both chunks (generated in code; no copyrighted card content in the repo) produce the right content kind and payload; malformed cards upload as plain images; `lithica-admin reextract --kind card_v2` works over existing posts.
 
 ### 4.5 `cards`: CHARX and ZIP safety
-- [ ] CHARX is a ZIP with `card.json` (V3) at the root. Registered as a module file type (4.3); post `type` `charx`; content kind `card_v3`; same payload rules as 4.4.
-- [ ] Thumbnail from the asset of type `icon` named `main` (resolve the spec's asset URI forms, incl. its `embeded://` spelling); placeholder if missing or unreadable.
-- [ ] **ZIP safety** (hostile input): read entries directly from the archive, never extract to disk. Limits as module constants: max entries (e.g. 1000), max total uncompressed size (e.g. 512 MiB), max compression ratio per entry (e.g. 100:1), max size of `card.json` (e.g. 8 MiB). Reject: encrypted entries, absolute or `..` paths, nested archives used as the icon, anything malformed. Exceeding a limit rejects the upload with a validation error that names the limit.
-- [ ] A ZIP without a valid `card.json` is not a CHARX: rejected like any unknown file.
+- [x] CHARX is a ZIP with `card.json` (V3) at the root. Registered as a module file type (4.3); post `type` `charx`; content kind `card_v3`; same payload rules as 4.4.
+- [x] Thumbnail from the asset of type `icon` named `main` (resolve the spec's asset URI forms, incl. its `embeded://` spelling); placeholder if missing or unreadable.
+- [x] **ZIP safety** (hostile input): read entries directly from the archive, never extract to disk. Limits as module constants: max entries (e.g. 1000), max total uncompressed size (e.g. 512 MiB), max compression ratio per entry (e.g. 100:1), max size of `card.json` (e.g. 8 MiB). Reject: encrypted entries, absolute or `..` paths, nested archives used as the icon, anything malformed. Exceeding a limit rejects the upload with a validation error that names the limit.
+- [x] A ZIP without a valid `card.json` is not a CHARX: rejected like any unknown file.
 
 **Done when:** CHARX fixtures with and without icon upload with the right thumbnail or placeholder and download byte-identical; hostile fixtures (zip bomb, path traversal, encrypted entry, too many entries, oversized `card.json`, broken archive) are each rejected with the named limit or a validation error, without writing extracted data to disk.
 

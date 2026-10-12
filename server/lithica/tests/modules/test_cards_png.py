@@ -60,7 +60,10 @@ def test_module_describes_itself():
     (module,) = registry.modules()
     assert module.name == "cards"
     assert sorted(registry.content_kinds()) == ["card_v1", "card_v2", "card_v3"]
-    assert post_content.get_extracted_mime_types() == {"image/png"}
+    assert post_content.get_extracted_mime_types() == {
+        "image/png",
+        "application/x-charx",
+    }
 
 
 def test_v1_card():
