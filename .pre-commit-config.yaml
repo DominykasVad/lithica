@@ -3,9 +3,17 @@ repos:
 -   repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.4.0
     hooks:
+    # generated files are as their tools write them
     -   id: trailing-whitespace
+        exclude: &generated ^(doc/openapi\.json|.*/uv\.lock|.*/pnpm-lock\.yaml)$
     -   id: end-of-file-fixer
+        exclude: *generated
     -   id: check-yaml
+    -   id: check-json
+    -   id: check-toml
+    # also outside a merge: a marker that was committed is the one to find
+    -   id: check-merge-conflict
+        args: ['--assume-in-merge']
     -   id: mixed-line-ending
 
 

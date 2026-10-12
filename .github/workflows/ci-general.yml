@@ -1,0 +1,109 @@
+name: CI (general)
+
+# The checks every change gets, whatever it touches: no pull request goes
+# without one. They look at the repository as files, not as a program, and
+# are meant to take about a minute. What a component needs checked (ruff,
+# the tests, later the client's tools) is in the workflow of that component.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-general-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  general:
+    name: General (workflows, files, secrets, links)
+    # Not for a draft: it is checked when it is marked ready for review. A
+    # push to main has no pull request, so this is true for it.
+    if: github.event.pull_request.draft != true
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          # the whole history: the checks below compare commits
+          fetch-depth: 0
+
+      # What "the change" is. A pull request is checked out as its merge
+      # into the base branch, so the first parent of HEAD is the base and
+      # everything from there to HEAD is the pull request. On main it is
+      # what the push added.
+      - name: Range of the change
+        env:
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [ "$EVENT" = pull_request ]; then
+            from=$(git rev-parse HEAD^1)
+          elif git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            from=$BEFORE
+          else
+            from=$(git rev-parse HEAD^)
+          fi
+          {
+            echo "FROM=$from"
+            echo "TO=$(git rev-parse HEAD)"
+          } >> "$GITHUB_ENV"
+
+      - name: Workflows (actionlint)
+        run: docker run --rm -v "$PWD":/repo -w /repo rhysd/actionlint:1.7.12 -color
+
+      - name: Install uv
+        if: ${{ !cancelled() }}
+        uses: astral-sh/setup-uv@v10.3.0
+
+      # The hooks of .pre-commit-config.yaml that look at files as files:
+      # valid YAML, JSON and TOML, no merge-conflict markers, a final
+      # newline, no trailing whitespace, one kind of line ending. Which
+      # files are exempt (generated ones, legacy/) is said there. The
+      # hooks that belong to a component are left to its workflow.
+      - name: File hygiene of the changed files
+        if: ${{ !cancelled() }}
+        env:
+          SKIP: remove-tabs,ruff-check,ruff-format
+        run: >-
+          uvx --from pre-commit==4.6.2 pre-commit run
+          --from-ref "$FROM" --to-ref "$TO" --show-diff-on-failure --color always
+
+      - name: No file larger than 5 MiB added or changed
+        if: ${{ !cancelled() }}
+        run: |
+          limit=$((5 * 1024 * 1024))
+          failed=0
+          while IFS= read -r -d '' path; do
+            size=$(git cat-file -s "$TO:$path")
+            if [ "$size" -gt "$limit" ]; then
+              echo "::error file=$path::$path is $size bytes; the limit is $limit (5 MiB)."
+              failed=1
+            fi
+          done < <(git diff --name-only --diff-filter=AM -z "$FROM" "$TO")
+          exit "$failed"
+
+      # the commits of the change, every version of every file in them
+      - name: Secrets (gitleaks)
+        if: ${{ !cancelled() }}
+        run: >-
+          docker run --rm -v "$PWD":/repo -w /repo
+          -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0=/repo
+          ghcr.io/gitleaks/gitleaks:v8.30.1
+          git --log-opts="$FROM..$TO" --redact --no-banner --verbose .
+
+      # Links from one file of the repository to another, and to headings
+      # inside them. Offline: no address outside the repository is asked
+      # for. All Markdown files, not only the changed ones: a link breaks
+      # when its target moves. legacy/ is frozen and not ours to mend.
+      - name: Internal Markdown links (lychee, offline)
+        if: ${{ !cancelled() }}
+        run: |
+          git ls-files -z '*.md' ':!legacy/' | xargs -0 \
+            docker run --rm -v "$PWD":/input -w /input lycheeverse/lychee:0.24.2 \
+            --offline --include-fragments --no-progress
