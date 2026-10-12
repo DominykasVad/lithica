@@ -22,7 +22,7 @@
           "Info"
         ],
         "summary": "Get global info",
-        "description": "Retrieves simple statistics. `<featured-post>` is null if there is no\nfeatured post yet. `<server-time>` is pretty much the same as the `Date`\nHTTP field, only formatted in a manner consistent with other dates. Values\nin `config` key are taken directly from the server config, with the\nexception of privilege array keys being converted to lower camel case to\nmatch the API convention.\n\n`<disk-usage>` is the size of the data directory. It is measured in the\nbackground and can be up to an hour old; it is null until the first\nmeasurement after a server start has finished. When several server processes\nrun, each measures for itself, so two requests can briefly report different\nsizes.",
+        "description": "Retrieves simple statistics. `<featured-post>` is null if there is no\nfeatured post yet. `<server-time>` is pretty much the same as the `Date`\nHTTP field, only formatted in a manner consistent with other dates. Values\nin `config` key are taken directly from the server config, with the\nexception of privilege array keys being converted to lower camel case to\nmatch the API convention.\n\n`<modules>` are the names of the optional modules this server has switched\non, in the order of its configuration; empty on a plain installation. A\nmodule's routes are under `modules/<name>/`.\n\n`<disk-usage>` is the size of the data directory. It is measured in the\nbackground and can be up to an hour old; it is null until the first\nmeasurement after a server start has finished. When several server processes\nrun, each measures for itself, so two requests can briefly report different\nsizes.",
         "operationId": "get_info",
         "security": [
           {
@@ -6043,6 +6043,14 @@
             "type": "string",
             "format": "date-time",
             "title": "Servertime"
+          },
+          "modules": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Modules",
+            "description": "Names of the modules that are switched on, in config order."
           },
           "config": {
             "$ref": "#/components/schemas/InfoConfig"

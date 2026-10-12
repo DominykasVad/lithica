@@ -87,6 +87,7 @@ def test_info_api(
             "featuringTime": None,
             "featuringUser": None,
             "serverTime": "2016-01-01T13:00:00Z",
+            "modules": [],
             "config": expected_config_key,
         }
     directory.join("test2.txt").write("abc")
@@ -98,6 +99,7 @@ def test_info_api(
             "featuringTime": None,
             "featuringUser": None,
             "serverTime": "2016-01-03T13:01:00Z",
+            "modules": [],
             "config": expected_config_key,
         }
     with fake_datetime("2016-01-03 13:01"):
@@ -105,6 +107,7 @@ def test_info_api(
             "postCount": 2,
             "diskUsage": 6,  # cache expired
             "serverTime": "2016-01-03T13:01:00Z",
+            "modules": [],
             "config": expected_config_key,
         }
 

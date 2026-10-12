@@ -267,6 +267,9 @@ class Info(Resource):
         description="Bytes used by the data directory; `null` until measured."
     )
     server_time: datetime
+    modules: list[str] = Field(
+        description="Names of the modules that are switched on, in config order."
+    )
     config: InfoConfig
     featured_post: Post | None = Field(
         description="Present only if the requester may see the featured post."

@@ -192,8 +192,8 @@ Where the specs and real files disagree, follow real files and say so in the
 commit body. If something here contradicts the specs, stop and ask.
 
 ### 4.1 Modules in the environment and in `/info`
-- [ ] Env `MODULES` (comma-separated module names, empty = none) overrides `modules:` from the config files, in `_environment_overrides()`. Document it in `doc/INSTALL.md` and as a commented line in `docker-compose.yml` (`MODULES: cards`).
-- [ ] `GET /info` returns `modules`: the names of the enabled modules, in config order. Nothing else about modules (no branding, no display names). Regenerate `doc/openapi.json`.
+- [x] Env `MODULES` (comma-separated module names, empty = none) overrides `modules:` from the config files, in `_environment_overrides()`. Document it in `doc/INSTALL.md` and as a commented line in `docker-compose.yml` (`MODULES: cards`).
+- [x] `GET /info` returns `modules`: the names of the enabled modules, in config order. Nothing else about modules (no branding, no display names). Regenerate `doc/openapi.json`.
 
 **Done when:** tests cover `MODULES` unset (file value kept), set (replaces it), whitespace and empty entries ignored, unknown name fails at startup; `/info` lists the dummy module when it is enabled.
 

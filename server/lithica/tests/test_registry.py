@@ -1,5 +1,8 @@
 """The module registry: loading modules and what the engine does with them."""
 
+import os
+import subprocess
+import sys
 from importlib.machinery import SourceFileLoader
 from importlib.util import module_from_spec, spec_from_loader
 from pathlib import Path
@@ -73,6 +76,65 @@ def test_unknown_module_is_refused(inject_config, module_package):
 def test_unknown_module_in_the_real_package_is_refused():
     with pytest.raises(errors.ConfigError, match="Unknown module 'no_such_module'"):
         registry.load(["no_such_module"])
+
+
+def test_modules_variable_names_the_modules_to_load(
+    inject_config, module_package, monkeypatch
+):
+    from lithica import config
+
+    for name in ["alpha", "beta"]:
+        module_package(
+            name,
+            """
+            from lithica import registry
+            module = registry.Module(name=%r)
+            """
+            % name,
+        )
+    monkeypatch.setenv("MODULES", " beta, ,alpha ")
+    inject_config(config._environment_overrides()["modules"])
+    registry.load_configured()
+    assert [module.name for module in registry.modules()] == ["beta", "alpha"]
+
+
+def test_unknown_module_in_the_variable_is_refused(
+    inject_config, module_package, monkeypatch
+):
+    from lithica import config
+
+    monkeypatch.setenv("MODULES", "missing")
+    inject_config(config._environment_overrides()["modules"])
+    with pytest.raises(errors.ConfigError, match="Unknown module 'missing'"):
+        registry.load_configured()
+
+
+@pytest.mark.parametrize("value,loads", [("no_such_module", False), (" , ", True)])
+def test_server_start_with_the_modules_variable(value, loads):
+    # the whole way, as a server process goes it: environment, configuration,
+    # registry. Importing the application is what loads the modules.
+    server_dir = Path(__file__).resolve().parent.parent.parent
+    # as lithica.openapi does it: importing the application builds a database
+    # engine, which connects to nothing but needs the setting to be there, and
+    # CI and a fresh checkout have none
+    program = (
+        "from lithica import config\n"
+        "if not config.config.get('database'):\n"
+        "    config.config['database'] = 'postgresql://unused@localhost/unused'\n"
+        "import lithica.app\n"
+    )
+    started = subprocess.run(
+        [sys.executable, "-c", program],
+        cwd=server_dir,
+        env={**os.environ, "MODULES": value},
+        capture_output=True,
+        timeout=120,
+    )
+    if loads:
+        assert started.returncode == 0, started.stderr.decode()
+    else:
+        assert started.returncode != 0
+        assert "Unknown module 'no_such_module'" in started.stderr.decode()
 
 
 @pytest.mark.parametrize(
