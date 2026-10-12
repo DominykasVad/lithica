@@ -274,7 +274,7 @@ Module `lithica.modules.cards`. Content kinds `card_v1`, `card_v2`, `card_v3`.
 **Done when:** tests cover each auto-tag rule, each search token (incl. ranges and negation), the post field, the normalised shape for V1/V2/V3 PNG and CHARX, the download filename rules, and the privilege checks; `doc/openapi.json` includes the new routes.
 
 ### 4.7 Release `v0.2.0`
-- [ ] `doc/INSTALL.md`: enabling the cards module (config and `MODULES`), the `creator` category, CHARX uploads.
+- [x] `doc/INSTALL.md`: enabling the cards module (config and `MODULES`), the `creator` category, CHARX uploads.
 - [ ] `doc/UPGRADING.md`: 0.1.0 → 0.2.0.
 - [ ] pyright `strict` for `lithica/modules/cards`.
 - [ ] Version `0.2.0`. The owner publishes the release.

@@ -11,9 +11,10 @@ in the configuration.
 > independently and does not track upstream. The original work is copyright
 > its authors and, like this fork, is licensed under the GPLv3.
 
-The first release is `v0.1.0`: the engine, modernised, and the module system,
-with no module yet. Versions are `v0.x` until the project is called stable;
-[PLAN.md](PLAN.md) has the roadmap.
+`v0.1.0` was the engine, modernised, and the module system. `v0.2.0` adds the
+first module, `cards`: character cards for AI chat programs as posts, from
+PNG pictures and CHARX files. Versions are `v0.x` until the project is called
+stable; [PLAN.md](PLAN.md) has the roadmap.
 
 ## Features
 
