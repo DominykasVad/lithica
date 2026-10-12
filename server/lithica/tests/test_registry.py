@@ -583,6 +583,63 @@ def test_post_field_of_a_module(
     assert everything["id"] == post.post_id
 
 
+def test_post_field_returned_only_on_request(
+    inject_config, client, post_factory, user_factory, tag_category_factory
+):
+    post = post_factory()
+    user = user_factory(rank=model.User.RANK_REGULAR)
+    db.session.add_all([post, user, tag_category_factory(default=True)])
+    db.session.flush()
+    calls = []
+
+    def costly(post, _user):
+        calls.append(post.post_id)
+        return "costly %d" % post.post_id
+
+    registry.use(
+        [
+            registry.Module(
+                name="a",
+                post_fields={"cheap": lambda post, user: "cheap"},
+                requested_post_fields={"costly": costly},
+            )
+        ]
+    )
+    # without a choice of fields it is left out, and not even computed
+    everything = ok(client.get("/posts", user=user))["results"][0]
+    assert everything["cheap"] == "cheap" and "costly" not in everything
+    assert calls == []
+    # asked for by name, it is there
+    chosen = ok(client.get("/posts", user=user, query={"fields": "id,costly"}))
+    assert chosen["results"] == [
+        {"id": post.post_id, "costly": "costly %d" % post.post_id}
+    ]
+    assert calls == [post.post_id]
+
+
+@pytest.mark.parametrize(
+    "modules",
+    [
+        [registry.Module(name="a", requested_post_fields={"tags": lambda p, u: 1})],
+        [
+            registry.Module(name="a", post_fields={"mine": lambda p, u: 1}),
+            registry.Module(name="b", requested_post_fields={"mine": lambda p, u: 1}),
+        ],
+        [
+            registry.Module(
+                name="a",
+                post_fields={"mine": lambda p, u: 1},
+                requested_post_fields={"mine": lambda p, u: 1},
+            )
+        ],
+    ],
+)
+def test_post_field_on_request_cannot_take_a_name_that_is_taken(modules):
+    with pytest.raises(errors.ConfigError, match="adds the post field"):
+        registry.use(modules)
+    assert registry.requested_post_fields() == {}
+
+
 def test_post_field_is_unknown_without_the_module(
     inject_config, client, post_factory, user_factory, tag_category_factory
 ):

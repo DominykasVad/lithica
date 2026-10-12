@@ -246,7 +246,8 @@ What a module adds to the API is its own:
   finds them by that type;
 - [extracted content](#extracted-content) of the kinds it owns;
 - named tokens of the [post search](#post-search);
-- extra fields of the [post resource](#post).
+- extra fields of the [post resource](#post). Some of them are returned
+  only when the request names them in `fields`; the module says which.
 
 A module never changes or removes a route, token or field of the engine.
 
