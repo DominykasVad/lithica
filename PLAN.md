@@ -220,6 +220,85 @@ field, card endpoint and download. Client work was out of scope.
 
 ---
 
+## Phase 5 — Sardonyx client and bulk import (current)
+
+Goal: a web client to browse, search, view, upload and tag cards, plus a way
+to bring an existing collection in. Ends in release `v0.3.0`.
+
+One sub-phase = one branch (`phase-5.N`) = one PR; start the next only after
+the previous one is merged. Client rules: AGENTS.md "Client" and "Licences".
+Tests: unit and component tests (Vitest, Testing Library); no end-to-end
+browser tests in this phase. Every client sub-phase ends with a manual check
+in the dev stack, its results stated in the PR.
+
+### 5.0 Bulk import (server)
+- [ ] `lithica-admin import <folder>`: an engine command, not a cards one. Creates a post per file (recursive, sorted), as a named user (`--user`, required) with an explicit `--safety safe|sketchy|unsafe` (required), optional `--tags a,b`. Runs the normal upload path, so modules extract and auto-tag as for an upload.
+- [ ] Exact duplicates (same checksum) are skipped, not errors. Files nobody accepts are reported, not fatal. Output: a summary (created, skipped, refused, failed) and a list of problems with file names; exit code non-zero if anything failed.
+- [ ] `--dry-run` reports what would happen without creating posts.
+- [ ] Safe to re-run: a second run over the same folder creates nothing.
+
+**Done when:** tests cover duplicates, refused files, the dry run and a re-run; importing `scratch/sample-cards/` locally gives one post per card with its card content and tags.
+
+### 5.1 Scaffold
+- [ ] `clients/sardonyx/`: Vite, React, TypeScript strict, Tailwind v4, shadcn/ui, Biome, Vitest; Node 26 and pnpm pinned as AGENTS.md says.
+- [ ] API types generated from `doc/openapi.json` (openapi-typescript) into a committed file; openapi-fetch client wrapper with the base URL and auth header. A pnpm script regenerates the types; CI fails when they are out of date.
+- [ ] CI job for the client: install with the frozen lockfile, Biome, typecheck, tests, build, type drift check.
+- [ ] Serving: a `clients/sardonyx/Dockerfile` that builds the client and serves it with nginx, with `/data/` (read-only, from the data volume) and `/api/` (proxy to the server) like the legacy image, written new. New image `lithica-client` in the release workflow.
+- [ ] Dev: `pnpm dev` with a proxy of `/api` and `/data` to a running dev stack; documented.
+- [ ] Fill in the client commands table in AGENTS.md.
+
+**Done when:** a blank app builds, is served by its image next to the legacy client in the dev stack, and calls `GET /info` through the typed client.
+
+### 5.2 App shell and login
+- [ ] Layout, navigation, light/dark theme, "Sardonyx" branding (name, colours, logo in the client).
+- [ ] `GET /info` on start; module detection (`modules`); card UI only when `cards` is listed.
+- [ ] Login with user name and password once, to create a user token (`POST /user-token/<user>`); the token then authenticates every request; the password is not kept. "Remember me" writes the token to localStorage; logout deletes the token on the server and locally.
+- [ ] API errors shown in a consistent way (the error body's `title` and `description`).
+
+**Done when:** log in (with and without "remember me"), reload, log out; a site without `cards` shows no card UI; an API error is shown readably.
+
+### 5.3 Post list and search
+- [ ] Grid of thumbnails with paging (the API's offset/limit), sized for large libraries.
+- [ ] Search box with the engine's query syntax and tag autocomplete.
+- [ ] When `cards` is enabled: filters for the `card-*` tokens (creator, spec, format, has lorebook, greeting count) that build the query text; the card summary (`fields=…,card`) on the tiles.
+- [ ] Search state lives in the URL (back button and links work).
+
+**Done when:** searching by tag, by text and by each card filter gives the expected posts; paging and the back button keep the search.
+
+### 5.4 Post page and card viewer
+- [ ] Post page: the picture (or thumbnail for CHARX), tags by category, safety, source, size, dates; previous/next within the current search.
+- [ ] Card viewer (cards enabled, post has a card): name, creator, version, description, personality, scenario, first message and alternate greetings (switchable), example messages, creator notes, system prompt, post-history instructions, tags.
+- [ ] Lorebook view for large lorebooks: entry list with filter by key/content, collapsed entries, virtualised so thousands of entries stay fast.
+- [ ] Download button (the cards download endpoint).
+- [ ] Text rendering per AGENTS.md (plain text or sanitised Markdown; macros like `{{char}}` shown as written).
+
+**Done when:** a V2 PNG, a V3 PNG and a CHARX card show every field; the 2500-entry lorebook sample opens, filters and scrolls without stalling; the download saves the original file under the card's name.
+
+### 5.5 Upload
+- [ ] Drag-and-drop of one or many files (PNG, CHARX, other images), safety per batch, optional tags; progress per file.
+- [ ] Results per file: created (link), duplicate (link to the existing post), refused (the server's reason, e.g. a ZIP limit).
+- [ ] No card preview before upload: the server reads the card; the client shows what it found afterwards.
+
+**Done when:** a mixed batch (cards, a plain image, a duplicate, a hostile ZIP fixture) uploads with the right result for each file.
+
+### 5.6 Editing
+- [ ] Edit a post's tags (autocomplete), safety and source; optimistic locking via the post's `version` (a 409 is shown as "changed meanwhile, reload").
+- [ ] Tag list page with categories; create the `creator` category from the UI if missing (admin).
+- [ ] Delete a post (with confirmation; only with the privilege).
+- [ ] Out of scope in phase 5: pools, comments, users and admin screens beyond the above.
+
+**Done when:** editing, the 409 case and deleting work; actions the user lacks the privilege for are not offered.
+
+### 5.7 Release `v0.3.0`
+- [ ] `doc/INSTALL.md`: running Sardonyx (compose service, image, dev mode).
+- [ ] `docker-compose.yml`: Sardonyx is the default client; the legacy client stays available as an optional service.
+- [ ] `doc/UPGRADING.md`: 0.2.0 → 0.3.0.
+- [ ] Version `0.3.0`; images `lithica-server`, `lithica-client` (Sardonyx), `lithica-client-legacy`.
+
+**Done when (phase 5 exit):** in the compose stack with `MODULES=cards`: import `scratch/sample-cards/`; log in; search with text and card filters; open a V2 PNG, a V3 PNG and a CHARX card and read greetings and a large lorebook; download; upload new files and see results incl. a refused hostile ZIP; edit tags; log out. Results per step in the PR.
+
+---
+
 ## Open questions
 
 - None.
