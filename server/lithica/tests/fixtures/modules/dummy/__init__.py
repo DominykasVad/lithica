@@ -6,6 +6,10 @@ when writing a real one.
 It reads the text chunks (`tEXt`) of PNG files. Each chunk is a keyword and
 a text; the module keeps them as content of the kind `dummy_v1`, tags posts
 from them, makes the text searchable and counts the posts that have any.
+
+It also has a file type of its own, a made-up one: the line `LITHICA-DUMMY`
+and after it, optionally, a picture, which is the thumbnail of the post.
+Posts of such files have the type `dummyfile`.
 """
 
 import struct
@@ -62,6 +66,49 @@ def _text_chunks(handle: BinaryIO) -> Iterator[tuple[str, str]]:
             )
 
 
+# the made-up file type: this line, then nothing or a picture
+FILE_MAGIC = b"LITHICA-DUMMY\n"
+FILE_MIME_TYPE = "application/x-lithica-dummy"
+FILE_POST_TYPE = "dummyfile"
+FILE_EXTENSION = "dummy"
+
+# A file of the type whose rest starts with this is refused, the way a real
+# module refuses a file of its type that breaks one of its limits.
+FILE_FORBIDDEN = b"FORBIDDEN"
+
+# the longest picture read out of a file: it is held in memory
+MAX_PICTURE_SIZE = 1024 * 1024
+
+
+def detect_file(head: bytes, _handle: BinaryIO) -> bool:
+    if not head.startswith(FILE_MAGIC):
+        return False
+    if head[len(FILE_MAGIC) :].startswith(FILE_FORBIDDEN):
+        raise registry.FileRejected(
+            "A dummy file must not start with %s." % FILE_FORBIDDEN.decode()
+        )
+    return True
+
+
+def file_thumbnail(handle: BinaryIO) -> bytes | None:
+    handle.seek(len(FILE_MAGIC))
+    picture = handle.read(MAX_PICTURE_SIZE + 1)
+    if not picture or len(picture) > MAX_PICTURE_SIZE:
+        return None
+    return picture
+
+
+def extract_file(
+    _mime_type: str, handle: BinaryIO
+) -> Iterator[registry.ExtractedContent]:
+    """A file of the made-up type yields one text: how long its picture is."""
+    handle.seek(0, 2)
+    size = handle.tell() - len(FILE_MAGIC)
+    yield registry.ExtractedContent(
+        KIND, {"keyword": "Picture", "text": "%d bytes" % size}
+    )
+
+
 def extract(_mime_type: str, handle: BinaryIO) -> Iterator[registry.ExtractedContent]:
     for keyword, text in _text_chunks(handle):
         yield registry.ExtractedContent(KIND, {"keyword": keyword, "text": text})
@@ -115,7 +162,20 @@ module = registry.Module(
     name="dummy",
     router=router,
     content_kinds=[registry.ContentKind(KIND)],
-    extractors=[registry.Extractor(frozenset({"image/png"}), extract)],
+    file_types=[
+        registry.FileType(
+            post_type=FILE_POST_TYPE,
+            mime_type=FILE_MIME_TYPE,
+            extension=FILE_EXTENSION,
+            detect=detect_file,
+            thumbnail=file_thumbnail,
+        )
+    ],
+    extractors=[
+        registry.Extractor(frozenset({"image/png"}), extract),
+        # extractors are keyed by MIME type, a module's own included
+        registry.Extractor(frozenset({FILE_MIME_TYPE}), extract_file),
+    ],
     auto_tag=auto_tag,
     search_filters={
         # dummy-text:<pattern> finds posts by the text of their chunks

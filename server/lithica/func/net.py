@@ -13,7 +13,7 @@ from threading import Thread
 from typing import Any
 
 from lithica import config, errors
-from lithica.func import mime
+from lithica.func import file_types
 from lithica.func.content import Content
 
 logger = logging.getLogger(__name__)
@@ -353,7 +353,8 @@ def download(url: str, use_video_downloader: bool = False) -> Content:
         _download_into(downloaded, request, url, deadline)
         if (
             yt_dlp_error
-            and mime.get_mime_type(downloaded) == "application/octet-stream"
+            # what neither the engine nor a module knows
+            and file_types.get_mime_type(downloaded) == "application/octet-stream"
         ):
             raise yt_dlp_error
     except BaseException:

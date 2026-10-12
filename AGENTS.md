@@ -167,6 +167,11 @@ and uv; do not assume a specific OS, CPU architecture or machine.
 - Everything an extractor reads comes from an uploaded file: untrusted. A
   failing extractor or hook must never fail an upload (the pipeline catches
   it), and payloads are never logged.
+- A module's file types (`registry.FileType`) are asked only about files the
+  engine itself does not know. A detector refuses a file of its type by
+  raising `registry.FileRejected` with a message for the uploader; anything
+  else it raises counts as "not mine". The stored file is the upload, byte
+  for byte. A MIME type is at most 32 characters (the column's size).
 - Module tables are created by normal Alembic migrations regardless of
   whether the module is enabled; the config switch only enables behaviour.
 

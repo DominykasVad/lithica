@@ -109,6 +109,13 @@ No status notes, no "left untouched", no results — those go in commit messages
 When a whole phase is finished (its last sub-phase merged), its entries are folded into the tables above or deleted.
 
 - 2026-10-12 — 4.2 — a module's routes carry one tag, its name; a router with tags of its own is a startup error (one group per module)
+- 2026-10-12 — 4.3 — a module MIME type must fit the 32 characters of `post."mime-type"`; checked at startup, no migration
+- 2026-10-12 — 4.3 — a module post type may not be an engine type nor one of its `type:` search aliases (`gif`, `webm`, ...)
+- 2026-10-12 — 4.3 — a detector refuses a file of its type with `registry.FileRejected`; any other error counts as "not mine"
+- 2026-10-12 — 4.3 — module file posts: no canvas size, no default flags; the `type:` token finds them by their post type
+- 2026-10-12 — 4.3 — a thumbnail hook's picture must be an engine image type of at most 32 MiB, else the placeholder
+- 2026-10-12 — 4.3 — the placeholder thumbnail is the engine's existing empty one (`EMPTY_PIXEL`); no new artwork
+- 2026-10-12 — 4.3 — with its module off a post keeps its type and file, but its file name falls back to `.dat` (URL broken)
 
 ---
 
@@ -204,11 +211,11 @@ commit body. If something here contradicts the specs, stop and ask.
 **Done when:** a route added by a module under `lithica/modules/` appears in the generated spec with its module tag (test with a temporary module), and the CI drift check passes.
 
 ### 4.3 Module-registered file types (engine)
-- [ ] A module can register a file type: a detector (given the first bytes and a readable file, says yes/no), the MIME type and file extension it stores, a module-owned post `type` value (must not clash with `image`, `animation`, `video`, `flash` or another module's; a clash is a startup error), and a thumbnail hook (readable file → image bytes, or none for a placeholder).
-- [ ] The engine's own detection runs first; module detectors run only for content the engine would reject as `application/octet-stream`. A file no detector accepts is still rejected as today.
-- [ ] Posts of module types: no perceptual signature and no similar-image search unless the type provides a thumbnail, in which case the signature is made from the thumbnail. Flags such as sound/animation do not apply.
-- [ ] The stored file is kept byte for byte; downloads return it unchanged.
-- [ ] `post."mime-type"` is 32 characters; pick MIME types that fit or widen the column with a migration.
+- [x] A module can register a file type: a detector (given the first bytes and a readable file, says yes/no), the MIME type and file extension it stores, a module-owned post `type` value (must not clash with `image`, `animation`, `video`, `flash` or another module's; a clash is a startup error), and a thumbnail hook (readable file → image bytes, or none for a placeholder).
+- [x] The engine's own detection runs first; module detectors run only for content the engine would reject as `application/octet-stream`. A file no detector accepts is still rejected as today.
+- [x] Posts of module types: no perceptual signature and no similar-image search unless the type provides a thumbnail, in which case the signature is made from the thumbnail. Flags such as sound/animation do not apply.
+- [x] The stored file is kept byte for byte; downloads return it unchanged.
+- [x] `post."mime-type"` is 32 characters; pick MIME types that fit or widen the column with a migration.
 
 **Done when:** the dummy test module registers a tiny made-up file type, and tests cover upload, thumbnail, placeholder fallback, byte-identical download, the type clash at startup, and refusal of that file when the module is disabled.
 
