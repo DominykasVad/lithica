@@ -9,7 +9,7 @@ services:
       context: ./server
     ## To use a published release image instead of building, comment out
     ## "build" above and set a release tag here:
-    #image: ghcr.io/dominykasvad/lithica-server:v0.1.0
+    #image: ghcr.io/dominykasvad/lithica-server:v0.2.0
     depends_on:
       - sql
     environment:
@@ -39,7 +39,7 @@ services:
       args:
         BUILD_INFO: ${BUILD_INFO:-latest}
     ## Published release image, as for the server:
-    #image: ghcr.io/dominykasvad/lithica-client-legacy:v0.1.0
+    #image: ghcr.io/dominykasvad/lithica-client-legacy:v0.2.0
     depends_on:
       - server
     environment:

@@ -1,9 +1,11 @@
 """The cards module: tags, search and API (PLAN.md 4.6)."""
 
 import os
+import re
 
 import pytest
 import sqlalchemy as sa
+import sqlalchemy.event as sa_event
 
 from lithica import config, db, errors, model, registry
 from lithica.func import posts, tag_categories
@@ -719,6 +721,60 @@ def test_download_does_not_ask_for_json(site, user):
     missing = _download(client, user, 999, headers={"Accept": "*/*"})
     assert missing.status_code == 404
     assert missing.json()["name"] == "PostNotFoundError"
+
+
+def test_download_does_not_read_the_card(site, user, monkeypatch):
+    client = site(["cards"])
+    uploaded = cards.png_card(cards.v2_card(description="D" * 100000))
+    created = _upload(client, user, uploaded)
+    db.session.commit()
+    db.session.expire_all()
+
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("the card was read for a download")
+
+    # neither the card's row nor the view of the card is made for it
+    monkeypatch.setattr(api, "_card_row", forbidden)
+    monkeypatch.setattr(api.view, "normalised", forbidden)
+    statements = []
+
+    def record(_connection, _cursor, statement, *_rest):
+        statements.append(" ".join(statement.split()))
+
+    sa_event.listen(sa.engine.Engine, "before_cursor_execute", record)
+    try:
+        response = _download(client, user, created["id"])
+    finally:
+        sa_event.remove(sa.engine.Engine, "before_cursor_execute", record)
+    assert response.content == uploaded
+    assert response.headers["content-disposition"] == 'attachment; filename="Ada.png"'
+    # The database was asked for values inside the payload, and never for
+    # the payload itself.
+    asked = [statement for statement in statements if "post_content" in statement]
+    assert asked
+    for statement in asked:
+        selected = statement[: statement.index(" FROM ")]
+        # every mention of the column goes on into the payload (`#>>` is how
+        # PostgreSQL writes "the value at this path")
+        assert not re.search(r"post_content\.payload(?! #>| ->)", selected), selected
+
+
+def test_download_of_a_card_stored_before_there_were_summaries(site, user):
+    client = site(["cards"])
+    ids = {}
+    for name, data in [
+        ("Old Two", cards.png_card(cards.v2_card(name="Old Two"), shade=1)),
+        ("Old One", cards.png_card({**cards.V1_CARD, "name": "Old One"}, shade=2)),
+    ]:
+        ids[name] = _upload(client, user, data)["id"]
+    for row in db.session.query(model.PostContent).all():
+        row.payload = {k: v for k, v in row.payload.items() if k != "summary"}
+        row.schema_version = 1
+    db.session.flush()
+    # the name is found where the version of the card keeps it
+    for name, post_id in ids.items():
+        header = _download(client, user, post_id).headers["content-disposition"]
+        assert header == 'attachment; filename="%s.png"' % name
 
 
 def test_download_named_after_a_character_with_another_alphabet(site, user):

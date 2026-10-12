@@ -33,7 +33,7 @@ from your existing data.
    configuration template, also when you run published images:
 
     ```console
-    user@host:~$ git clone --branch v0.1.0 https://github.com/DominykasVad/lithica.git lithica
+    user@host:~$ git clone --branch v0.2.0 https://github.com/DominykasVad/lithica.git lithica
     user@host:~$ cd lithica
     ```
 
@@ -166,11 +166,11 @@ EXIF, video metadata), tag posts from it, accept kinds of files the engine
 does not know, add search tokens, fields and routes to the API, and bring its
 own `lithica-admin` commands.
 
-Lithica 0.1.0 ships the module system and **no module**. When there are
-modules, you switch them on by name in `server/config.yaml`:
+Lithica ships one module, [`cards`](#the-cards-module), for character cards.
+You switch modules on by name in `server/config.yaml`:
 
 ```yaml
-modules: [some_module]
+modules: [cards]
 ```
 
 and restart the server. In the containers you can name them in the
@@ -179,7 +179,7 @@ environment instead, comma-separated, on the `server` service in
 
 ```yaml
     environment:
-      MODULES: some_module,another_module
+      MODULES: cards
 ```
 
 When `MODULES` is set, it replaces the `modules` setting of the config files
@@ -206,6 +206,65 @@ altogether; set to nothing (`MODULES: ""`), it switches every module off.
   (moderators and up, by default).
 - Every module's database tables exist whether the module is on or not, so
   switching modules never needs a database change.
+
+### The cards module
+
+`cards` turns the site into a library of character cards for AI chat
+programs. With it on:
+
+- **Card pictures.** A PNG picture that carries a card (Character Card V1,
+  V2 or V3) is still an ordinary picture post; the card in it is read and
+  kept with the post.
+- **CHARX files** can be uploaded, which the plain engine refuses. A post
+  made of one has the type `charx` and the card's main icon as its
+  thumbnail. A CHARX file is a ZIP archive and is read with limits: at most
+  1000 entries, 512 MiB unpacked, a `card.json` of 8 MiB, no encrypted
+  entries; one that breaks a limit is refused with a message that says
+  which. It is never unpacked to disk.
+- **Tags.** A post gets its card's creator and the card's own tags as tags.
+- **Search.** `card-creator:`, `card-spec:`, `card-format:`,
+  `card-lorebook:` and `card-greetings:` find posts by their card.
+- **Download.** `api/modules/cards/post/<id>/download` hands out the stored
+  file under the character's name.
+
+A card may be 16 MiB of text once the pictures embedded in it are taken
+out; a larger one is refused. The API of the module is described in
+[API.md](API.md#the-cards-module).
+
+To switch it on:
+
+1. **Create the tag category `creator`** on the tag categories page of the
+   web client, with the colour you like. Creators of cards are tagged in
+   it. If the category is not there when a card is uploaded, its creator is
+   created in your default category instead and stays there until you move
+   the tag.
+
+2. **Switch the module on:** `modules: [cards]` in `server/config.yaml`, or
+   `MODULES: cards` on the `server` service in `docker-compose.yml`. Then
+   `docker compose up -d`.
+
+3. **Have it read the posts that are already there**, if there are any:
+
+    ```console
+    user@host:lithica$ docker compose run --rm server ./lithica-admin reextract
+    ```
+
+    This reads the file of every post that can hold a card and stores the
+    cards it finds. Without it, cards uploaded before the module was on are
+    plain pictures to the site: they are not found by the `card-` search
+    tokens and have no card to show. It can run while the server is up and
+    can be repeated. To read one kind only, name it:
+    `./lithica-admin reextract --kind card_v2` (the kinds are `card_v1`,
+    `card_v2` and `card_v3`; one per run). Re-extraction does not tag: the
+    tags of a card are added when its file is uploaded or replaced.
+
+    Run it too after an update of the server, when the notes in
+    [UPGRADING.md](UPGRADING.md) say that the module stores more than it
+    did.
+
+Uploads of CHARX files are as large as any upload may be (`max_upload_size`,
+and the limit of a reverse proxy in front). The files are stored with the
+extension `.charx` in the uploads directory, beside the pictures.
 
 ## Administration from the command line
 
