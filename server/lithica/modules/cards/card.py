@@ -19,6 +19,18 @@ KIND_V1 = "card_v1"
 KIND_V2 = "card_v2"
 KIND_V3 = "card_v3"
 
+KINDS = (KIND_V1, KIND_V2, KIND_V3)
+
+# what a kind is called where people see it: `card-spec:v2`, `"spec": "v2"`
+SPEC_NAMES = {KIND_V1: "v1", KIND_V2: "v2", KIND_V3: "v3"}
+
+# how much of a name is kept in the summary of a card
+MAX_SUMMARY_TEXT = 200
+
+# how many tags of a card become tags of its post: the engine takes at most
+# a hundred from one module, and the creator is one of them
+MAX_CARD_TAGS = 99
+
 # the value of `spec` and the kind it means
 _SPECS = {"chara_card_v2": KIND_V2, "chara_card_v3": KIND_V3}
 
@@ -191,3 +203,86 @@ def stored(card: object) -> dict[str, Any] | None:
     if not isinstance(stripped, dict):
         return None
     return cast(dict[str, Any], stripped)
+
+
+def fields_of(kind: str, card: dict[str, Any]) -> dict[str, Any]:
+    """
+    The fields of a card, wherever its version keeps them: a V1 card is its
+    fields, later versions keep them in `data`.
+    """
+    if kind == KIND_V1:
+        return card
+    data = card.get("data")
+    return cast(dict[str, Any], data) if isinstance(data, dict) else {}
+
+
+def as_text(value: object) -> str:
+    """The value if it is a text, else the empty text: a card is not trusted."""
+    return value if isinstance(value, str) else ""
+
+
+def as_texts(value: object) -> list[str]:
+    """The texts in a list; anything else in it, or instead of it, is left out."""
+    if not isinstance(value, list):
+        return []
+    return [item for item in cast(list[object], value) if isinstance(item, str)]
+
+
+def lorebook_entries(fields: dict[str, Any]) -> list[dict[str, Any]]:
+    """The entries of the card's lorebook that are entries at all."""
+    book = fields.get("character_book")
+    if not isinstance(book, dict):
+        return []
+    entries = cast(dict[str, object], book).get("entries")
+    if not isinstance(entries, list):
+        return []
+    return [
+        cast(dict[str, Any], entry)
+        for entry in cast(list[object], entries)
+        if isinstance(entry, dict)
+    ]
+
+
+def greeting_count(fields: dict[str, Any]) -> int:
+    """How many openings a card has: its first message, if any, and the alternates."""
+    first = 1 if as_text(fields.get("first_mes")).strip() else 0
+    return first + len(as_texts(fields.get("alternate_greetings")))
+
+
+def summary(kind: str, card: dict[str, Any]) -> dict[str, Any]:
+    """
+    The few things about a card that lists and the search need, kept beside
+    the card so that neither has to read the card itself.
+    """
+    fields = fields_of(kind, card)
+    return {
+        "name": as_text(fields.get("name"))[:MAX_SUMMARY_TEXT],
+        "creator": as_text(fields.get("creator"))[:MAX_SUMMARY_TEXT],
+        "greetings": greeting_count(fields),
+        "lorebookEntries": len(lorebook_entries(fields)),
+    }
+
+
+def tag_name(name: str) -> str:
+    """
+    A text as a tag name: lower case, and every run of whitespace an
+    underscore. Whether the site takes the result as a tag is the site's
+    rule, which the engine applies.
+    """
+    return "_".join(name.split()).lower()
+
+
+def creator_tag(kind: str, card: dict[str, Any]) -> str:
+    return tag_name(as_text(fields_of(kind, card).get("creator")))
+
+
+def card_tags(kind: str, card: dict[str, Any]) -> list[str]:
+    """The card's own tags as tag names, each once, in the card's order."""
+    names: list[str] = []
+    for name in as_texts(fields_of(kind, card).get("tags")):
+        normalised = tag_name(name)
+        if normalised and normalised not in names:
+            names.append(normalised)
+            if len(names) == MAX_CARD_TAGS:
+                break
+    return names

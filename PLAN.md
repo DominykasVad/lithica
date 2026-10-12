@@ -135,6 +135,14 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 - 2026-10-12 — 4.5 — a card over its limit refuses the upload, PNG and CHARX alike; never a card post without its card (owner)
 - 2026-10-12 — 4.5 — an extractor may refuse a file with `registry.FileRejected`; on `reextract` that counts as a failure, rows kept
 - 2026-10-12 — 4.5 — extraction runs before a post's signature is made, so a refused file leaves nothing in the session
+- 2026-10-12 — 4.6 — a card payload carries `summary` (name, creator, greetings, lorebookEntries); schema version 2; search reads only it
+- 2026-10-12 — 4.6 — `Module.requested_post_fields`: post fields returned only when named in `fields`; `card` is one (costs a query)
+- 2026-10-12 — 4.6 — `post_content.payload` is a deferred column: rows load without it (a card may be 16 MiB)
+- 2026-10-12 — 4.6 — greetings = the first message, if not empty, plus the alternate greetings; group-only greetings do not count
+- 2026-10-12 — 4.6 — `card-lorebook:yes` means at least one entry; `card-creator:` matches the creator as the card has it, not the tag
+- 2026-10-12 — 4.6 — a post gets the creator and at most 99 of the card's tags (the engine takes 100 tags from one module)
+- 2026-10-12 — 4.6 — the download is a plain route, not an `ApiRouter` one: it needs no `Accept: application/json`; errors are JSON
+- 2026-10-12 — 4.6 — download names: at most 100 characters, NFC, no control or format characters; ASCII `filename` plus `filename*`
 
 ---
 
@@ -257,11 +265,11 @@ Module `lithica.modules.cards`. Content kinds `card_v1`, `card_v2`, `card_v3`.
 **Done when:** CHARX fixtures with and without icon upload with the right thumbnail or placeholder and download byte-identical; hostile fixtures (zip bomb, path traversal, encrypted entry, too many entries, oversized `card.json`, broken archive) are each rejected with the named limit or a validation error, without writing extracted data to disk.
 
 ### 4.6 `cards`: tags, search and API
-- [ ] **Auto-tags:** creator → category `creator`; the card's own `tags` → default category. Normalise names to the engine's tag rules (whitespace → `_`, lowercase, invalid names dropped). The site admin creates the `creator` category; the engine's existing "missing category = default" rule applies otherwise. Document this in the module's docstring.
-- [ ] **Search tokens** (names prefixed `card-` to stay clear of engine tokens): `card-creator:`, `card-spec:` (`v1`/`v2`/`v3`), `card-format:` (`png`/`charx`), `card-lorebook:` (`yes`/`no`), `card-greetings:` (count, ranges like the engine's numeric tokens). DB-agnostic, per AGENTS.md.
-- [ ] **Post field:** `card` summary on post responses when requested via `fields=` (name, creator, spec, format, greeting count, lorebook entry count) — small, for list views.
-- [ ] **Card endpoint:** `GET /modules/cards/post/<id>` returns the normalised card for a viewer: name, description, personality, scenario, first message, alternate greetings, example messages, creator notes, system prompt, post-history instructions, tags, creator, character version, and lorebook entries (keys, content, enabled, order, and the other per-entry fields of the spec). V1/V2/V3 and PNG/CHARX normalised to one shape; the raw payload stays available through the engine's `GET /post/<id>/content`. Needs `posts:view`. No private fields by default.
-- [ ] **Download:** `GET /modules/cards/post/<id>/download` returns the stored file unchanged, with `Content-Disposition: attachment` and a filename from the card name plus the stored extension (`.png` / `.charx`). Sanitise the name (no path separators, control characters or reserved device names; RFC 6266 `filename*` for non-ASCII; fallback `card-<id>`). Needs `posts:view`; 404 for posts without a card.
+- [x] **Auto-tags:** creator → category `creator`; the card's own `tags` → default category. Normalise names to the engine's tag rules (whitespace → `_`, lowercase, invalid names dropped). The site admin creates the `creator` category; the engine's existing "missing category = default" rule applies otherwise. Document this in the module's docstring.
+- [x] **Search tokens** (names prefixed `card-` to stay clear of engine tokens): `card-creator:`, `card-spec:` (`v1`/`v2`/`v3`), `card-format:` (`png`/`charx`), `card-lorebook:` (`yes`/`no`), `card-greetings:` (count, ranges like the engine's numeric tokens). DB-agnostic, per AGENTS.md.
+- [x] **Post field:** `card` summary on post responses when requested via `fields=` (name, creator, spec, format, greeting count, lorebook entry count) — small, for list views.
+- [x] **Card endpoint:** `GET /modules/cards/post/<id>` returns the normalised card for a viewer: name, description, personality, scenario, first message, alternate greetings, example messages, creator notes, system prompt, post-history instructions, tags, creator, character version, and lorebook entries (keys, content, enabled, order, and the other per-entry fields of the spec). V1/V2/V3 and PNG/CHARX normalised to one shape; the raw payload stays available through the engine's `GET /post/<id>/content`. Needs `posts:view`. No private fields by default.
+- [x] **Download:** `GET /modules/cards/post/<id>/download` returns the stored file unchanged, with `Content-Disposition: attachment` and a filename from the card name plus the stored extension (`.png` / `.charx`). Sanitise the name (no path separators, control characters or reserved device names; RFC 6266 `filename*` for non-ASCII; fallback `card-<id>`). Needs `posts:view`; 404 for posts without a card.
 
 **Done when:** tests cover each auto-tag rule, each search token (incl. ranges and negation), the post field, the normalised shape for V1/V2/V3 PNG and CHARX, the download filename rules, and the privilege checks; `doc/openapi.json` includes the new routes.
 

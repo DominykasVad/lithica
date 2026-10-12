@@ -138,6 +138,12 @@ def test_upload_with_an_icon(site, user):
             {"path": cards.ICON_PATH, "size": len(icon)},
             {"path": "assets/other/readme.txt", "size": 5},
         ],
+        "summary": {
+            "name": "Ada",
+            "creator": "somebody",
+            "greetings": 3,
+            "lorebookEntries": 2,
+        },
     }
     # the icon makes it findable by picture
     assert db.session.query(model.PostSignature).count() == 1

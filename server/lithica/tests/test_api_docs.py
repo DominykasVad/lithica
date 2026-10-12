@@ -28,7 +28,16 @@ def test_documentation_is_served_when_switched_on(client, config_injector):
     config_injector({"api_docs": True})
     served = client.get("/openapi.json")
     assert served.status_code == 200
-    assert served.json() == openapi.build()
+    # a site serves the description of what it has: the contract, less the
+    # routes of the modules that are not switched on here
+    contract = openapi.build()
+    assert served.json()["info"] == contract["info"]
+    assert served.json()["paths"] == {
+        path: operations
+        for path, operations in contract["paths"].items()
+        if not path.startswith("/modules/")
+    }
+    assert served.json()["tags"] == openapi.TAGS
 
     # no Accept: application/json needed, a browser opens these
     client.headers.pop("Accept")

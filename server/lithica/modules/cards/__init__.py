@@ -30,20 +30,50 @@ What is stored for a card (the payload):
     assets   the files that came with the card: path and size of each, never
              their data. For a picture, its `chara-ext-asset_:` chunks; for
              a CHARX file, the entries of the archive besides the card
+    summary  name, creator, number of greetings and of lorebook entries: what
+             lists and the search need, so that they need not read the card
+
+Tags. A post gets tags from its card when the card is uploaded:
+
+- the card's creator, in the tag category `creator`;
+- the card's own tags, in the site's default category.
+
+Names are made to fit: lower case, whitespace as `_`; a name the site's
+rule for tag names still refuses is left out. The module does not create
+the `creator` category: the site's administrator does, once, with the
+colour and order the site wants. Until then the engine's rule for a
+missing category applies and creators are created in the default category,
+where they stay until someone moves them. As with every automatic tag,
+tags are added when the file is uploaded or replaced and never taken away,
+and `lithica-admin reextract` does not tag.
+
+Search. `card-creator:<pattern>`, `card-spec:v1|v2|v3`,
+`card-format:png|charx`, `card-lorebook:yes|no` and
+`card-greetings:<number or range>` find posts by their card.
+
+API. The post field `card` (only when asked for in `fields`) is the
+summary of a post's card. `GET modules/cards/post/<id>` is the card read
+for a viewer, and `GET modules/cards/post/<id>/download` the file.
 """
 
 import json
-from collections.abc import Iterator
-from typing import BinaryIO
+from collections.abc import Iterator, Mapping, Sequence
+from typing import BinaryIO, cast
 
 from lithica import registry
+from lithica.func import tag_categories
+from lithica.modules.cards import api, charx, png, search
 from lithica.modules.cards import card as card_format
-from lithica.modules.cards import charx, png
 
 NAME = "cards"
 
-# raised when the shape of the payload changes
-SCHEMA_VERSION = 1
+# Raised when the shape of the payload changes. 2: `summary` was added; rows
+# of version 1 lack it until `lithica-admin reextract` has read their files
+# again.
+SCHEMA_VERSION = 2
+
+# the tag category the creator of a card is put in
+CREATOR_CATEGORY = "creator"
 
 # How large a stored card may be, as JSON, once the binary data embedded in
 # it is taken out. Cards with lorebooks of thousands of entries are several
@@ -67,6 +97,46 @@ def _content(kind: str, payload: registry.Payload) -> registry.ExtractedContent:
             "embedded in it." % _megabytes(MAX_PAYLOAD_SIZE)
         )
     return registry.ExtractedContent(kind, payload)
+
+
+def _payload(
+    kind: str,
+    file_format: str,
+    chunk: str | None,
+    card: dict[str, object],
+    assets: list[dict[str, object]],
+) -> registry.Payload:
+    return {
+        "format": file_format,
+        "chunk": chunk,
+        "card": card,
+        "assets": assets,
+        "summary": card_format.summary(kind, card),
+    }
+
+
+def auto_tag(contents: Sequence[registry.ExtractedContent]) -> Mapping[str, list[str]]:
+    """The tags a post gets from its card; see the module's description."""
+    for content in contents:
+        card = content.payload.get("card")
+        if content.kind in card_format.KINDS and isinstance(card, dict):
+            break
+    else:
+        return {}
+    card = cast(dict[str, object], card)
+    try:
+        default_category = tag_categories.get_default_category_name()
+    except tag_categories.TagCategoryNotFoundError:
+        # a site without categories cannot have tags; the engine says so
+        default_category = "default"
+    tags: dict[str, list[str]] = {}
+    creator = card_format.creator_tag(content.kind, card)
+    if creator:
+        tags[CREATOR_CATEGORY] = [creator]
+    own = card_format.card_tags(content.kind, card)
+    if own:
+        tags.setdefault(default_category, []).extend(own)
+    return tags
 
 
 def extract_png(
@@ -100,17 +170,12 @@ def extract_png(
         stored = card_format.stored(card)
         if stored is None:
             continue
+        assets: list[dict[str, object]] = [
+            {"path": asset.path.replace("\x00", ""), "size": asset.size}
+            for asset in embedded.assets
+        ]
         yield _content(
-            kind,
-            {
-                "format": "png",
-                "chunk": keyword.decode("ascii"),
-                "card": stored,
-                "assets": [
-                    {"path": asset.path.replace("\x00", ""), "size": asset.size}
-                    for asset in embedded.assets
-                ],
-            },
+            kind, _payload(kind, "png", keyword.decode("ascii"), stored, assets)
         )
         return
 
@@ -123,14 +188,14 @@ def _charx_content(opened: charx.Charx) -> registry.ExtractedContent:
     stored = card_format.stored(opened.card)
     if stored is None:
         raise charx.NotCharx
-    assets = [
+    assets: list[dict[str, object]] = [
         {"path": entry.filename, "size": entry.file_size}
         for entry in opened.entries
         if entry.filename != charx.CARD_NAME and not entry.is_dir()
     ]
     return _content(
         card_format.KIND_V3,
-        {"format": "charx", "chunk": None, "card": stored, "assets": assets},
+        _payload(card_format.KIND_V3, "charx", None, stored, assets),
     )
 
 
@@ -179,6 +244,10 @@ def charx_thumbnail(handle: BinaryIO) -> bytes | None:
 
 module = registry.Module(
     name=NAME,
+    router=api.router,
+    auto_tag=auto_tag,
+    search_filters=search.FILTERS,
+    requested_post_fields={"card": api.card_field},
     content_kinds=[
         registry.ContentKind(kind, SCHEMA_VERSION, max_payload_size=MAX_PAYLOAD_SIZE)
         for kind in (card_format.KIND_V1, card_format.KIND_V2, card_format.KIND_V3)

@@ -5900,10 +5900,229 @@
           }
         }
       }
+    },
+    "/modules/cards/post/{post_id}": {
+      "get": {
+        "tags": [
+          "cards"
+        ],
+        "summary": "Get the character card of a post",
+        "description": "Returns the character card of a post, read for a viewer: the same fields\nfor every version of the card format (V1, V2, V3) and for both files a\ncard comes in (PNG, CHARX). Every field is present; a text the card does\nnot have is empty, and a lorebook it does not have is `null`.\n\nThe card as its file had it is the post's extracted content,\n`GET /post/<id>/content`.\n\nErrors:\n\n- the post does not exist\n- the post has no character card\n- privileges are too low",
+        "operationId": "get_card",
+        "security": [
+          {
+            "basicAuth": []
+          },
+          {
+            "tokenAuth": []
+          },
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "post_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Post Id"
+            }
+          },
+          {
+            "name": "bump-login",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Record this request as a login of the authenticated user.",
+              "default": false,
+              "title": "Bump-Login"
+            },
+            "description": "Record this request as a login of the authenticated user."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Card"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "The request was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/modules/cards/post/{post_id}/download": {
+      "get": {
+        "tags": [
+          "cards"
+        ],
+        "summary": "Download the character card of a post",
+        "description": "Returns the file of a post that has a character card, unchanged: the PNG\npicture or the CHARX file that was uploaded. It is sent as an attachment\nnamed after the character, with the extension of the stored file\n(`Content-Disposition`, with `filename*` for a name that is not ASCII),\nor `card-<post id>` where the card's name cannot be a file name.\n\nUnlike the rest of the API, this route answers with the file, so a\nrequest does not have to accept JSON; its errors are JSON all the same.\n\nErrors:\n\n- the post does not exist\n- the post has no character card, or its file is missing\n- privileges are too low",
+        "operationId": "download_card",
+        "security": [
+          {
+            "basicAuth": []
+          },
+          {
+            "tokenAuth": []
+          },
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "post_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Post Id"
+            }
+          },
+          {
+            "name": "bump-login",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Record this request as a login of the authenticated user.",
+              "default": false,
+              "title": "Bump-Login"
+            },
+            "description": "Record this request as a login of the authenticated user."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The stored file, as it was uploaded.",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "The request was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "Card": {
+        "properties": {
+          "postId": {
+            "type": "integer",
+            "title": "Postid"
+          },
+          "spec": {
+            "type": "string",
+            "title": "Spec",
+            "description": "The version of the card format: v1, v2 or v3."
+          },
+          "format": {
+            "type": "string",
+            "title": "Format",
+            "description": "The file the card came in: png or charx."
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "personality": {
+            "type": "string",
+            "title": "Personality"
+          },
+          "scenario": {
+            "type": "string",
+            "title": "Scenario"
+          },
+          "firstMessage": {
+            "type": "string",
+            "title": "Firstmessage"
+          },
+          "alternateGreetings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Alternategreetings"
+          },
+          "exampleMessages": {
+            "type": "string",
+            "title": "Examplemessages"
+          },
+          "creatorNotes": {
+            "type": "string",
+            "title": "Creatornotes"
+          },
+          "systemPrompt": {
+            "type": "string",
+            "title": "Systemprompt"
+          },
+          "postHistoryInstructions": {
+            "type": "string",
+            "title": "Posthistoryinstructions"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags"
+          },
+          "creator": {
+            "type": "string",
+            "title": "Creator"
+          },
+          "characterVersion": {
+            "type": "string",
+            "title": "Characterversion"
+          },
+          "lorebook": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Lorebook"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "`null` for a card without one."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Card"
+      },
       "Comment": {
         "properties": {
           "version": {
@@ -6149,6 +6368,207 @@
         "additionalProperties": false,
         "type": "object",
         "title": "InfoConfig"
+      },
+      "Lorebook": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "scanDepth": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scandepth"
+          },
+          "tokenBudget": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tokenbudget"
+          },
+          "recursiveScanning": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recursivescanning"
+          },
+          "extensions": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Extensions"
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/LorebookEntry"
+            },
+            "type": "array",
+            "title": "Entries"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Lorebook"
+      },
+      "LorebookEntry": {
+        "properties": {
+          "keys": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Keys"
+          },
+          "secondaryKeys": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Secondarykeys"
+          },
+          "content": {
+            "type": "string",
+            "title": "Content"
+          },
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "order": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order",
+            "description": "`insertion_order` of the card."
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "comment": {
+            "type": "string",
+            "title": "Comment"
+          },
+          "constant": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Constant"
+          },
+          "selective": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selective"
+          },
+          "caseSensitive": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Casesensitive"
+          },
+          "useRegex": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Useregex"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position"
+          },
+          "priority": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Priority"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "extensions": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Extensions"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "LorebookEntry"
       },
       "MicroPool": {
         "properties": {
@@ -7339,6 +7759,10 @@
     {
       "name": "Uploads",
       "description": "Files uploaded ahead of the request that uses them."
+    },
+    {
+      "name": "cards",
+      "description": "Routes of the optional module `cards`, under `modules/cards/`. They exist only where the module is switched on: see `modules` of `GET /info`."
     }
   ]
 }
