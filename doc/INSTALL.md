@@ -188,6 +188,7 @@ altogether; set to nothing (`MODULES: ""`), it switches every module off.
 
 - A name that is not a module is a configuration error, and the server does
   not start. The log names the module.
+- `GET /api/info` lists the modules that are switched on (`modules`).
 - Switching a module on does not touch the posts that are already there.
   To have it read their files too, run
   `docker compose run --rm server ./lithica-admin reextract`

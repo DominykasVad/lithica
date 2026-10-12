@@ -3,7 +3,7 @@ import threading
 from datetime import datetime, timedelta
 from typing import Any
 
-from lithica import config
+from lithica import config, registry
 from lithica.api import resources
 from lithica.api.dependencies import CurrentUser
 from lithica.api.routing import ApiRouter
@@ -85,6 +85,10 @@ def get_info(user: CurrentUser) -> dict[str, Any]:
     exception of privilege array keys being converted to lower camel case to
     match the API convention.
 
+    `<modules>` are the names of the optional modules this server has switched
+    on, in the order of its configuration; empty on a plain installation. A
+    module's routes are under `modules/<name>/`.
+
     `<disk-usage>` is the size of the data directory. It is measured in the
     background and can be up to an hour old; it is null until the first
     measurement after a server start has finished. When several server processes
@@ -96,6 +100,7 @@ def get_info(user: CurrentUser) -> dict[str, Any]:
         "postCount": posts.get_post_count(),
         "diskUsage": _disk_usage.get(),
         "serverTime": util.utcnow(),
+        "modules": [module.name for module in registry.modules()],
         "config": {
             "name": config.config["name"],
             "userNameRegex": config.config["user_name_regex"],

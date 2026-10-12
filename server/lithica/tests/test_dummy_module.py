@@ -157,6 +157,30 @@ def test_site_without_the_module(site, user, admin):
         admin.main(["dummy-count"])
 
 
+def test_info_lists_the_module(site, user, monkeypatch):
+    from lithica import config
+    from lithica.api import info_api
+
+    # what the info endpoint reads besides the modules
+    config.config.update(
+        {
+            "name": "test installation",
+            "contact_email": None,
+            "enable_safety": True,
+            "user_name_regex": "1",
+            "password_regex": "2",
+            "tag_category_name_regex": "3",
+            "default_rank": "regular",
+            "smtp": {"host": None},
+        }
+    )
+    config.config["privileges"]["posts:view:featured"] = model.User.RANK_POWER
+    monkeypatch.setattr(info_api, "_disk_usage", info_api._DiskUsage())
+    monkeypatch.setattr(info_api._DiskUsage, "_start_measuring", lambda self: None)
+    assert ok(site([]).get("/info", user=user))["modules"] == []
+    assert ok(site(["dummy"]).get("/info", user=user))["modules"] == ["dummy"]
+
+
 def test_extraction_on_upload(site, user):
     client = site(["dummy"])
     created = _upload(client, user, _png(CAT), tags=["by_hand"])

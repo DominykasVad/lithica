@@ -236,6 +236,8 @@ the user about the situation.
 ## Modules
 
 A site can switch on optional modules (the `modules` setting of the server).
+`GET /info` names the ones that are on, in its `modules` field, so a client
+can tell what the site offers before using it.
 What a module adds to the API is its own and is not part of
 `doc/openapi.json`, which describes the engine:
 
