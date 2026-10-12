@@ -1,19 +1,30 @@
 repos:
 
 -   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.4.0
+    rev: v6.0.0
     hooks:
+    # generated files are as their tools write them
     -   id: trailing-whitespace
+        exclude: &generated ^(doc/openapi\.json|.*/uv\.lock|.*/pnpm-lock\.yaml)$
     -   id: end-of-file-fixer
+        exclude: *generated
     -   id: check-yaml
+    -   id: check-json
+    -   id: check-toml
+    # also outside a merge: a marker that was committed is the one to find
+    -   id: check-merge-conflict
+        args: ['--assume-in-merge']
     -   id: mixed-line-ending
 
 
 -   repo: https://github.com/Lucas-C/pre-commit-hooks
-    rev: v1.4.2
+    rev: v1.5.6
     hooks:
     -   id: remove-tabs
 
+# Not for `pre-commit autoupdate`: the rev is the version of ruff in
+# server/uv.lock, so that the hook and `uv run ruff` agree. Change the two
+# together.
 -   repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.17.0
     hooks:
@@ -23,6 +34,5 @@ repos:
     -   id: ruff-format
         files: server/
 
-fail_fast: true
 # legacy/ is frozen: hooks must not rewrite it
 exclude: ^(LICENSE\.md|legacy/)
