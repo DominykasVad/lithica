@@ -122,6 +122,32 @@ def card_field(post: model.Post, _user: model.User) -> dict[str, Any] | None:
     }
 
 
+def _card_name(post: model.Post) -> str:
+    """
+    The name of the character of a post's card, without reading the card:
+    out of the summary, or for a card stored before there were summaries,
+    out of the place in the card where its version keeps the name. The
+    database picks the one value out of the payload.
+
+    Raises CardNotFoundError for a post without a card.
+    """
+    payload = model.PostContent.payload
+    row = (
+        db.session.query(
+            payload[("summary", "name")].as_string(),
+            payload[("card", "data", "name")].as_string(),
+            payload[("card", "name")].as_string(),
+        )
+        .filter(model.PostContent.post_id == post.post_id)
+        .filter(model.PostContent.kind.in_(card_format.KINDS))
+        .order_by(model.PostContent.post_content_id)
+        .first()
+    )
+    if row is None:
+        raise CardNotFoundError("Post %d has no character card." % post.post_id)
+    return next((name for name in row if isinstance(name, str)), "")
+
+
 cards = ApiRouter()
 
 
@@ -195,11 +221,11 @@ def download_card(
     - privileges are too low
     """
     post = _post(post_id)
-    row = _card_row(post)
+    # only the name: the card may be megabytes, and the file is what is sent
+    name = _card_name(post)
     stored = files.get(posts.get_post_content_path(post))
     if stored is None:
         raise CardNotFoundError("The file of post %d is missing." % post.post_id)
-    name = view.normalised(post.post_id, row.kind, row.payload)["name"]
     extension = file_types.get_extension(post.mime_type) or "dat"
     return FileResponse(
         stored.path,
