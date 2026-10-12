@@ -53,12 +53,33 @@ Confirmed by the owner on 2026-10-10.
 - Uploads, downloads and stored files are file-backed `Content` (`lithica.func.content`); data the server makes itself stays `bytes`; code takes either. Temporary files live in `<data_dir>/temporary-uploads/.tmp/` and become stored files by rename.
 - The largest request is `max_upload_size` (default 1 GiB, the limit of the client image's nginx; change both together).
 - The database session is scoped per request by a ContextVar; work outside a request opens `db.session_scope()`.
-- Modules load when `lithica.app` is imported (their routes are part of the application). Module routes live under `/modules/<name>/` and are in `doc/openapi.json`, each tagged with its module's name and nothing else. The contract is generated with every module in `lithica/modules/` enabled (`registry.available()`), whatever the settings; the document a site serves under `api_docs` has the modules of that site.
+- Modules load when `lithica.app` is imported (their routes are part of the application). Module routes live under `/modules/<name>/` and are in `doc/openapi.json`, each tagged with its module's name and nothing else: a module router that sets tags of its own is a startup error. The contract is generated with every module in `lithica/modules/` enabled (`registry.available()`), whatever the settings; the document a site serves under `api_docs` has the modules of that site.
 - A content kind is at most 64 characters and belongs to exactly one module (`registry.ContentKind`).
-- An extractor returns at most 64 results, each at most as large as its kind allows (1 MiB of JSON by default, see the Decision log). Beyond that, or with one bad result, it counts as failed and all its results for the file are dropped.
+- An extractor returns at most 64 results. A payload may be 1 MiB of JSON unless its kind asks for more (`ContentKind.max_payload_size`, hard cap 32 MiB; more is a startup error). Beyond a limit, or with one bad result, the extractor counts as failed and all its results for the file are dropped.
+- An extractor or a detector refuses a file on purpose by raising `registry.FileRejected`: the upload is refused with its message. Anything else a detector raises counts as "not mine", and anything else an extractor raises is logged and skipped. On `reextract` a refusal counts as a failure and the rows are kept. Extraction runs before a post's signature is made, so a refused file leaves nothing in the session.
+- `post_content.payload` is a deferred column: rows load without it, and it is fetched when read (a payload may be megabytes).
+- `MODULES` (comma-separated, in the environment) replaces `modules` of the config files when set; empty means none.
+- Module file types (`registry.FileType`): asked only about files the engine refuses as `application/octet-stream`, in config order. The post type may not be an engine type nor one of its `type:` search aliases (`gif`, `webm`, ...); the MIME type must fit the 32 characters of `post."mime-type"` (checked at startup, no migration) and may not be the engine's. The stored file is the upload, byte for byte.
+- Posts of a module file type: no canvas size, no default flags; found by `type:<post type>`. The thumbnail is the picture the module's hook returns, which must be an engine image type of at most 32 MiB; otherwise the engine's existing empty thumbnail (`EMPTY_PIXEL`). A signature, and so similar-image search, exists only with such a picture.
+- A stored file's extension is asked of every module in `lithica/modules/`, switched on or not (read once per process); `dat` only if none knows the MIME type. Where a stored file is never depends on the settings.
+- `Module.requested_post_fields`: post fields returned only when the request names them in `fields`. `Module.post_fields` are part of the default set.
 - New content replaces every `post_content` row of the post, also rows of kinds no loaded module owns. `lithica-admin reextract` replaces only rows of kinds loaded modules own, keeps the old rows where an extractor fails, and never tags.
 - Auto-tags are added on post create and on content change, never removed, and need no `tags:create` privilege. Their category is used only when the tag is created; a category the site lacks means the default one.
 - `GET /post/<id>/content` needs `posts:view`. Rows of kinds no loaded module owns are stored but never shown. Private payload fields are top-level keys per kind, behind the one privilege `posts:view:content:private` (default moderator).
+
+### The cards module
+
+Settled during phase 4 (owner decisions marked).
+
+- **Formats.** PNG: `tEXt` chunks `ccv3` (V3) and `chara` (V2, V1); `zTXt` and `iTXt` are read the same way. `ccv3` wins when both are readable; an unreadable `ccv3` makes way for a readable `chara` (owner). `ccv3` holds V3 cards only; a card in `chara` is of the version its `spec` says (no `spec`: V1). CHARX: a ZIP with a V3 `card.json` at the root, stored as `application/x-charx`, extension `charx`, post type `charx`.
+- **What a card is.** A card needs a name (V1: and one more V1 field); other missing fields are fine, as real cards leave them out. Malformed card data in a picture means no card, and the picture is an ordinary picture.
+- **Payload** (schema version 2): `{format, chunk, card, assets, summary}`. `card` is the JSON as given, minus embedded binary data: a base64 data URI becomes `{"embedded": {type, name, size}}`, and inside a longer text it is cut out and marked. NUL characters and lone surrogates are removed (PostgreSQL cannot store them). `assets` lists paths and sizes only (PNG: `chara-ext-asset_:` chunks, at most 1000; CHARX: the archive's entries besides `card.json`). `chunk` is null for CHARX. `summary` is name, creator, greetings and lorebookEntries; search and the `card` post field read only it.
+- **Size** (owner). The card kinds ask for 16 MiB of payload. A card over that refuses the upload, PNG and CHARX alike, and so does a card chunk over the 32 MiB that are read of one. A CHARX post is never stored without its card.
+- **ZIP safety.** Entries are read from the archive into memory, never extracted. Limits: 1000 entries, 512 MiB unpacked, 100:1 per entry, `card.json` 8 MiB, table of contents 1 MiB, icon 16 MiB; stored and deflate only; no encrypted entries, no absolute or `..` paths, no archive as the icon. Only a ZIP with a root `card.json` is judged by the limits; any other archive is refused as an unknown file.
+- **Thumbnail of a CHARX post.** The icon named `main`, else the first icon, from `embeded://`, `embedded://`, `__asset:` or a base64 `data:` URI. An icon elsewhere (`https:`) is never fetched.
+- **Tags.** Creator → category `creator` (made by the site's admin; else the engine's missing-category rule), the card's own tags → the default category; lower case, whitespace as `_`. A post gets the creator and at most 99 of the card's tags, because the engine takes 100 tags from one module.
+- **Search.** Greetings = the first message, if not empty, plus the alternate greetings; group-only greetings do not count. `card-lorebook:yes` means at least one entry. `card-creator:` matches the creator as the card has it, not the tag. The tokens are unindexed JSON lookups: fine for a personal library, no index for now.
+- **Download.** A plain route, not an `ApiRouter` one: it needs no `Accept: application/json`, and its errors are JSON. Names: at most 100 characters, NFC, no control or format characters, no path or Windows-reserved characters; ASCII `filename` plus `filename*`; fallback `card-<id>`. The name comes from the summary; the card is not read for a download.
 
 ### Intentional API changes (phases 0–3)
 
@@ -108,41 +129,7 @@ respect). One line each, max ~120 characters: `date — task — decision (reaso
 No status notes, no "left untouched", no results — those go in commit messages.
 When a whole phase is finished (its last sub-phase merged), its entries are folded into the tables above or deleted.
 
-- 2026-10-12 — 4.2 — a module's routes carry one tag, its name; a router with tags of its own is a startup error (one group per module)
-- 2026-10-12 — 4.3 — a module MIME type must fit the 32 characters of `post."mime-type"`; checked at startup, no migration
-- 2026-10-12 — 4.3 — a module post type may not be an engine type nor one of its `type:` search aliases (`gif`, `webm`, ...)
-- 2026-10-12 — 4.3 — a detector refuses a file of its type with `registry.FileRejected`; any other error counts as "not mine"
-- 2026-10-12 — 4.3 — module file posts: no canvas size, no default flags; the `type:` token finds them by their post type
-- 2026-10-12 — 4.3 — a thumbnail hook's picture must be an engine image type of at most 32 MiB, else the placeholder
-- 2026-10-12 — 4.3 — the placeholder thumbnail is the engine's existing empty one (`EMPTY_PIXEL`); no new artwork
-- 2026-10-12 — 4.3 — a stored file's extension is asked of every module in `lithica/modules/`, on or off (cached); `dat` if none knows
-- 2026-10-12 — 4.4 — card payload is `{format, chunk, card, assets}`: the card JSON sits under `card`, facts about the file beside it
-- 2026-10-12 — 4.4 — an embedded data URI becomes `{"embedded": {type, name, size}}`; inside a longer text it is cut out and marked
-- 2026-10-12 — 4.4 — `ccv3` wins when both chunks are readable; an unreadable `ccv3` makes way for a readable `chara` (owner)
-- 2026-10-12 — 4.4 — `ccv3` holds V3 cards only; a card in `chara` is of the version its `spec` says (no `spec`: V1)
-- 2026-10-12 — 4.4 — a card needs a name (V1: and one more V1 field); other missing fields are fine (real cards leave them out)
-- 2026-10-12 — 4.4 — `zTXt` and `iTXt` are read like `tEXt` (PNG libraries may write them; the seven real files seen use `tEXt`)
-- 2026-10-12 — 4.4 — NUL characters and lone surrogates are taken out of card texts (PostgreSQL cannot store them)
-- 2026-10-12 — 4.4 — limits: 32 MiB of card text per chunk (more refuses the upload), 1000 embedded assets listed
-- 2026-10-12 — 4.5 — CHARX is stored as `application/x-charx` with extension `charx` (no registered MIME type exists)
-- 2026-10-12 — 4.5 — only a ZIP with a root `card.json` is judged by the limits; any other archive is refused as an unknown file
-- 2026-10-12 — 4.5 — limits: 1000 entries, 512 MiB unpacked, 100:1 per entry, `card.json` 8 MiB, table of contents 1 MiB, icon 16 MiB
-- 2026-10-12 — 4.5 — entries must be stored or deflated; other compression methods are refused (less code exposed to uploads)
-- 2026-10-12 — 4.5 — the thumbnail is the icon named `main`, else the first icon; an icon elsewhere (`https:`) is never fetched
-- 2026-10-12 — 4.5 — icon URIs read: `embeded://`, `embedded://`, `__asset:` and base64 `data:`; an archive as the icon is refused
-- 2026-10-12 — 4.5 — a CHARX payload has `chunk: null`, and `assets` lists the archive's entries besides `card.json`
-- 2026-10-12 — 4.5 — payload limit is per kind (`ContentKind.max_payload_size`, default 1 MiB, hard cap 32 MiB); cards ask 16 MiB (owner)
-- 2026-10-12 — 4.5 — a card over its limit refuses the upload, PNG and CHARX alike; never a card post without its card (owner)
-- 2026-10-12 — 4.5 — an extractor may refuse a file with `registry.FileRejected`; on `reextract` that counts as a failure, rows kept
-- 2026-10-12 — 4.5 — extraction runs before a post's signature is made, so a refused file leaves nothing in the session
-- 2026-10-12 — 4.6 — a card payload carries `summary` (name, creator, greetings, lorebookEntries); schema version 2; search reads only it
-- 2026-10-12 — 4.6 — `Module.requested_post_fields`: post fields returned only when named in `fields`; `card` is one (costs a query)
-- 2026-10-12 — 4.6 — `post_content.payload` is a deferred column: rows load without it (a card may be 16 MiB)
-- 2026-10-12 — 4.6 — greetings = the first message, if not empty, plus the alternate greetings; group-only greetings do not count
-- 2026-10-12 — 4.6 — `card-lorebook:yes` means at least one entry; `card-creator:` matches the creator as the card has it, not the tag
-- 2026-10-12 — 4.6 — a post gets the creator and at most 99 of the card's tags (the engine takes 100 tags from one module)
-- 2026-10-12 — 4.6 — the download is a plain route, not an `ApiRouter` one: it needs no `Accept: application/json`; errors are JSON
-- 2026-10-12 — 4.6 — download names: at most 100 characters, NFC, no control or format characters; ASCII `filename` plus `filename*`
+- (empty: phases 0–4 are folded into the tables above)
 
 ---
 
@@ -207,88 +194,32 @@ reextract`, the dummy module that proves the interface, `doc/INSTALL.md` and
 
 ---
 
-## Phase 4 — Server: module file types and the `cards` module
+## Phase 4 — done (PRs #8, #10, #11, #13, #14, #15 and #16; fixes in #9 and #12; release `v0.2.0`)
 
-Goal: the server is a complete character-card booru backend, usable through
-the API alone. Client work (a new client, branding, link previews) is **out
-of scope**: it comes in later phases the owner will add. Ends in release
-`v0.2.0`.
+Module file types and the `cards` module, server only: `MODULES` and the
+enabled modules in `/info`, module routes in the API contract, file types a
+module registers, character cards read from PNG pictures and CHARX files
+with the ZIP safety that takes, and the cards' tags, search tokens, post
+field, card endpoint and download. Client work was out of scope.
 
-Work in sub-phases: **one sub-phase = one branch (`phase-4.N`) = one PR**.
-Start a sub-phase only after the previous one is merged into `main`. Each PR
-ticks only its own boxes and states its "Done when" result.
-
-Card format references (read them; do not work from memory):
-- Character Card V2: https://github.com/malfoyslastname/character-card-spec-v2
-- Character Card V3 (incl. CHARX): https://github.com/kwaroran/character-card-spec-v3
-
-Where the specs and real files disagree, follow real files and say so in the
-commit body. If something here contradicts the specs, stop and ask.
-
-### 4.1 Modules in the environment and in `/info`
-- [x] Env `MODULES` (comma-separated module names, empty = none) overrides `modules:` from the config files, in `_environment_overrides()`. Document it in `doc/INSTALL.md` and as a commented line in `docker-compose.yml` (`MODULES: cards`).
-- [x] `GET /info` returns `modules`: the names of the enabled modules, in config order. Nothing else about modules (no branding, no display names). Regenerate `doc/openapi.json`.
-
-**Done when:** tests cover `MODULES` unset (file value kept), set (replaces it), whitespace and empty entries ignored, unknown name fails at startup; `/info` lists the dummy module when it is enabled.
-
-### 4.2 Module routes in the OpenAPI contract
-- [x] `doc/openapi.json` includes module routes, each tagged with its module's name. The committed spec is generated with **every module in `lithica/modules/` enabled**, so it is the same on every machine; the CI drift check uses the same setting.
-- [x] Update the "Further defaults" line about module routes and the "API compatibility" section of AGENTS.md accordingly.
-
-**Done when:** a route added by a module under `lithica/modules/` appears in the generated spec with its module tag (test with a temporary module), and the CI drift check passes.
-
-### 4.3 Module-registered file types (engine)
-- [x] A module can register a file type: a detector (given the first bytes and a readable file, says yes/no), the MIME type and file extension it stores, a module-owned post `type` value (must not clash with `image`, `animation`, `video`, `flash` or another module's; a clash is a startup error), and a thumbnail hook (readable file → image bytes, or none for a placeholder).
-- [x] The engine's own detection runs first; module detectors run only for content the engine would reject as `application/octet-stream`. A file no detector accepts is still rejected as today.
-- [x] Posts of module types: no perceptual signature and no similar-image search unless the type provides a thumbnail, in which case the signature is made from the thumbnail. Flags such as sound/animation do not apply.
-- [x] The stored file is kept byte for byte; downloads return it unchanged.
-- [x] `post."mime-type"` is 32 characters; pick MIME types that fit or widen the column with a migration.
-
-**Done when:** the dummy test module registers a tiny made-up file type, and tests cover upload, thumbnail, placeholder fallback, byte-identical download, the type clash at startup, and refusal of that file when the module is disabled.
-
-### 4.4 `cards`: PNG cards
-Module `lithica.modules.cards`. Content kinds `card_v1`, `card_v2`, `card_v3`.
-- [x] Read `tEXt` chunks `ccv3` (base64 JSON, V3) and `chara` (base64 JSON, V2 or V1). If both exist, `ccv3` wins and `chara` is ignored. Also check `iTXt`/`zTXt` if real files use them. A PNG without either chunk is an ordinary image.
-- [x] `chara-ext-asset_:{path}` chunks (PNG-embedded assets) are not stored in the payload; record only their paths and sizes.
-- [x] **Payload:** the card JSON as given, minus embedded binary data (base64 data URIs or asset blobs are replaced by their metadata: type, name, size). Lorebooks (`character_book`) stay inside the card payload.
-- [x] Payloads must fit the engine limit of 1 MiB per result. Measure on real cards, including large lorebooks. If real cards exceed it, **stop and ask** before changing the limit.
-- [x] Malformed card data (bad base64, bad JSON, wrong shape) means "no card": the file is still accepted as an ordinary image.
-
-**Done when:** fixtures for V1, V2, V3 and a PNG with both chunks (generated in code; no copyrighted card content in the repo) produce the right content kind and payload; malformed cards upload as plain images; `lithica-admin reextract --kind card_v2` works over existing posts.
-
-### 4.5 `cards`: CHARX and ZIP safety
-- [x] CHARX is a ZIP with `card.json` (V3) at the root. Registered as a module file type (4.3); post `type` `charx`; content kind `card_v3`; same payload rules as 4.4.
-- [x] Thumbnail from the asset of type `icon` named `main` (resolve the spec's asset URI forms, incl. its `embeded://` spelling); placeholder if missing or unreadable.
-- [x] **ZIP safety** (hostile input): read entries directly from the archive, never extract to disk. Limits as module constants: max entries (e.g. 1000), max total uncompressed size (e.g. 512 MiB), max compression ratio per entry (e.g. 100:1), max size of `card.json` (e.g. 8 MiB). Reject: encrypted entries, absolute or `..` paths, nested archives used as the icon, anything malformed. Exceeding a limit rejects the upload with a validation error that names the limit.
-- [x] A ZIP without a valid `card.json` is not a CHARX: rejected like any unknown file.
-
-**Done when:** CHARX fixtures with and without icon upload with the right thumbnail or placeholder and download byte-identical; hostile fixtures (zip bomb, path traversal, encrypted entry, too many entries, oversized `card.json`, broken archive) are each rejected with the named limit or a validation error, without writing extracted data to disk.
-
-### 4.6 `cards`: tags, search and API
-- [x] **Auto-tags:** creator → category `creator`; the card's own `tags` → default category. Normalise names to the engine's tag rules (whitespace → `_`, lowercase, invalid names dropped). The site admin creates the `creator` category; the engine's existing "missing category = default" rule applies otherwise. Document this in the module's docstring.
-- [x] **Search tokens** (names prefixed `card-` to stay clear of engine tokens): `card-creator:`, `card-spec:` (`v1`/`v2`/`v3`), `card-format:` (`png`/`charx`), `card-lorebook:` (`yes`/`no`), `card-greetings:` (count, ranges like the engine's numeric tokens). DB-agnostic, per AGENTS.md.
-- [x] **Post field:** `card` summary on post responses when requested via `fields=` (name, creator, spec, format, greeting count, lorebook entry count) — small, for list views.
-- [x] **Card endpoint:** `GET /modules/cards/post/<id>` returns the normalised card for a viewer: name, description, personality, scenario, first message, alternate greetings, example messages, creator notes, system prompt, post-history instructions, tags, creator, character version, and lorebook entries (keys, content, enabled, order, and the other per-entry fields of the spec). V1/V2/V3 and PNG/CHARX normalised to one shape; the raw payload stays available through the engine's `GET /post/<id>/content`. Needs `posts:view`. No private fields by default.
-- [x] **Download:** `GET /modules/cards/post/<id>/download` returns the stored file unchanged, with `Content-Disposition: attachment` and a filename from the card name plus the stored extension (`.png` / `.charx`). Sanitise the name (no path separators, control characters or reserved device names; RFC 6266 `filename*` for non-ASCII; fallback `card-<id>`). Needs `posts:view`; 404 for posts without a card.
-
-**Done when:** tests cover each auto-tag rule, each search token (incl. ranges and negation), the post field, the normalised shape for V1/V2/V3 PNG and CHARX, the download filename rules, and the privilege checks; `doc/openapi.json` includes the new routes.
-
-### 4.7 Release `v0.2.0`
-- [x] `doc/INSTALL.md`: enabling the cards module (config and `MODULES`), the `creator` category, CHARX uploads.
-- [x] `doc/UPGRADING.md`: 0.1.0 → 0.2.0.
-- [x] pyright `strict` for `lithica/modules/cards`.
-- [x] Version `0.2.0`. The owner publishes the release.
-
-**Done when (phase 4 exit):** with `MODULES=cards` in the compose stack,
-through the API (Swagger UI is fine): upload a V2 PNG card, a V3 PNG card and
-a CHARX file; each gets its auto-tags, is found by the `card-*` tokens, and is
-returned by the card endpoint; downloads through the card download endpoint
-are byte-identical to the uploads and carry the card name as filename; the
-hostile ZIP fixtures are rejected. Plain image uploads behave as in `v0.1.0`
-and the legacy client smoke test still passes. State results in the PR.
+- No migration: the head is still `e2b8d4f6a1c3`.
+- The module is `lithica/modules/cards`; its docstring is the description of
+  what it stores and how tags work. Its tests are `lithica/tests/modules/`,
+  with card fixtures made in code (`lithica/tests/modules/cards.py`). No
+  published card is in the repository.
+- `lithica/tests/modules/test_cards_png.py` reads every card in
+  `scratch/sample-cards/` when that folder exists (local, git-ignored) and is
+  skipped otherwise.
+- After changing what a card's payload holds, raise `SCHEMA_VERSION` in the
+  module and say in `doc/UPGRADING.md` that `lithica-admin reextract` is
+  needed.
+- Card format references: Character Card V2
+  (https://github.com/malfoyslastname/character-card-spec-v2) and V3 with
+  CHARX (https://github.com/kwaroran/character-card-spec-v3). Where the
+  specifications and real files disagree, real files are followed.
 
 ---
 
 ## Open questions
 
-- None blocking phase 4.
+- None.
