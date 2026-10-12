@@ -1,6 +1,89 @@
 # Upgrading
 
+- [From 0.1.0 to 0.2.0](#from-010-to-020)
 - [From szurubooru to Lithica 0.1.0](#from-szurubooru-to-lithica-010)
+
+## From 0.1.0 to 0.2.0
+
+0.2.0 adds the first module, `cards`, for character cards: see
+[The cards module](INSTALL.md#the-cards-module). The engine without modules
+behaves as in 0.1.0. Nothing needs your hands unless you switch the module
+on.
+
+Coming from szurubooru? Do the [upgrade to 0.1.0](#from-szurubooru-to-lithica-010)
+below with `v0.2.0` in the place of `v0.1.0`; it is the same procedure.
+
+### Steps
+
+1. **Back up** the uploads directory, the database and `server/config.yaml`.
+
+2. **Get the release:**
+
+    ```console
+    user@host:lithica$ git fetch --tags && git checkout v0.2.0
+    user@host:lithica$ docker compose build     # or: docker compose pull
+    user@host:lithica$ docker compose up -d
+    ```
+
+    If you run the published images, set the tag in `docker-compose.yml` to
+    `v0.2.0` for both the server and the client first.
+
+That is all for a site without modules. The database has no change to make:
+its tables are those of 0.1.0.
+
+### What is new
+
+- **`MODULES`**: an environment variable of the server that names the
+  modules to switch on, comma-separated. When set, it replaces `modules` of
+  `config.yaml`. See [Modules](INSTALL.md#modules).
+- **The `cards` module**, off by default.
+- **The API** gained, and lost nothing: `GET /info` lists the enabled
+  modules (`modules`); a module may add kinds of files, whose posts have a
+  `type` of their own; the routes of modules are part of `doc/openapi.json`.
+  A client written for 0.1.0 keeps working. One that shows posts should
+  expect a post `type` it does not know on a site with modules, and treat
+  such a post as a file to download.
+
+No setting was renamed or removed, and `server/config.yaml.dist` has no new
+setting.
+
+### Switching the cards module on
+
+On a site that already has posts, follow the three steps under
+[The cards module](INSTALL.md#the-cards-module): create the tag category
+`creator`, switch the module on, and then have it read the existing posts:
+
+```console
+user@host:lithica$ docker compose run --rm server ./lithica-admin reextract
+```
+
+Until that has run, cards that were uploaded as pictures before the module
+was on are not found by the `card-` search tokens and have no card to show.
+The command takes one kind per run if you want to limit it:
+`./lithica-admin reextract --kind card_v2` (`card_v1`, `card_v2`,
+`card_v3`).
+
+Posts that were uploaded before the module was on do not get the tags of
+their cards: tags are added when a file is uploaded or replaced.
+
+### If you ran a development build of 0.2.0
+
+A site that had the `cards` module on with a build from before the release
+(the `phase-4.4` or `phase-4.5` branches) holds cards without the summary
+that the search and the `card` post field read. They show as cards, but the
+`card-creator:`, `card-lorebook:` and `card-greetings:` tokens do not find
+them, and their `card` field has no name. Run the same command once:
+
+```console
+user@host:lithica$ docker compose run --rm server ./lithica-admin reextract
+```
+
+### Going back to 0.1.0
+
+Check out `v0.1.0` and start it. The database is the same. Posts made of
+CHARX files stay in it, and 0.1.0 does not know their type: it fails on
+every request that returns such a post, a page of the post list included.
+Delete those posts while still on 0.2.0 if you mean to go back.
 
 ## From szurubooru to Lithica 0.1.0
 
