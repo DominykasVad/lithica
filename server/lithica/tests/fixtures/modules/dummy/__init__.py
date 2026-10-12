@@ -92,7 +92,7 @@ def _print_count(_arguments: Any) -> int:
     return 0
 
 
-router = ApiRouter(tags=["Dummy"])
+router = ApiRouter()
 
 
 @router.get("/stats", summary="Count the posts that have text chunks")

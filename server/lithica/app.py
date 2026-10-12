@@ -274,7 +274,7 @@ def create_app(modules: Sequence[registry.Module] | None = None) -> FastAPI:
                 version=application.version,
                 description=application.description,
                 license_info=application.license_info,
-                tags=application.openapi_tags,
+                tags=[*openapi.TAGS, *openapi.module_tags(modules)],
                 servers=application.servers,
                 routes=application.routes,
             )
@@ -304,8 +304,11 @@ def create_app(modules: Sequence[registry.Module] | None = None) -> FastAPI:
 
     for module in modules:
         if module.router is not None:
+            # the tag is what groups the module's routes in the API document
             application.include_router(
-                module.router, prefix="%s/%s" % (MODULE_PATH_PREFIX, module.name)
+                module.router,
+                prefix="%s/%s" % (MODULE_PATH_PREFIX, module.name),
+                tags=[module.name],
             )
 
     return application

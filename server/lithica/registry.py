@@ -16,12 +16,14 @@ from __future__ import annotations
 
 import argparse
 import importlib
+import pkgutil
 import re
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, BinaryIO, cast
 
 from fastapi import APIRouter
+from fastapi.routing import APIRoute
 
 from lithica import config, errors
 
@@ -121,7 +123,9 @@ class Module:
     """
     What a module adds to the engine. Every part is optional.
 
-    router          routes, served under `/modules/<name>/`
+    router          routes, served under `/modules/<name>/` and tagged with
+                    the module's name in the API document; they set no tags
+                    of their own
     content_kinds   the kinds of extracted content the module owns
     extractors      readers of content embedded in uploaded files
     auto_tag        tags to add to a post, from what was extracted
@@ -180,6 +184,15 @@ def _verify(modules: Sequence[Module]) -> None:
         if module.name in names:
             raise _refuse(module, "is listed twice.")
         names.add(module.name)
+
+        if module.router is not None:
+            for route in module.router.routes:
+                if isinstance(route, APIRoute) and route.tags:
+                    raise _refuse(
+                        module,
+                        "tags its route %r: the routes of a module are tagged "
+                        "with its name, and with nothing else." % route.path,
+                    )
 
         for kind in module.content_kinds:
             if (
@@ -248,6 +261,21 @@ def load(names: Sequence[str], package: str | None = None) -> None:
     the configuration asks for.
     """
     use([_import(name, package or MODULE_PACKAGE) for name in names])
+
+
+def available() -> list[Module]:
+    """
+    Every module there is, switched on or not, in the order of their names.
+    It does not change which modules are loaded. For what describes the
+    code rather than one installation: the API contract.
+    """
+    package = importlib.import_module(MODULE_PACKAGE)
+    names = sorted(
+        info.name for info in pkgutil.iter_modules(package.__path__) if info.ispkg
+    )
+    found = [_import(name, MODULE_PACKAGE) for name in names]
+    _verify(found)
+    return found
 
 
 def load_configured() -> None:

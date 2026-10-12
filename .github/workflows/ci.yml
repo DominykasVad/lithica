@@ -87,6 +87,8 @@ jobs:
           rm config.yaml
 
       # doc/openapi.json is generated from the code and is the API contract.
+      # It has the routes of every module in lithica/modules, whatever is
+      # switched on here.
       # Also part of the suite; run first so that the difference is shown.
       - name: OpenAPI contract is up to date
         run: uv run python -m lithica.openapi | diff -u ../doc/openapi.json -

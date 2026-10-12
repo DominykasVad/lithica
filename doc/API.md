@@ -238,8 +238,7 @@ the user about the situation.
 A site can switch on optional modules (the `modules` setting of the server).
 `GET /info` names the ones that are on, in its `modules` field, so a client
 can tell what the site offers before using it.
-What a module adds to the API is its own and is not part of
-`doc/openapi.json`, which describes the engine:
+What a module adds to the API is its own:
 
 - routes under `modules/<name>/`;
 - [extracted content](#extracted-content) of the kinds it owns;
@@ -247,8 +246,12 @@ What a module adds to the API is its own and is not part of
 - extra fields of the [post resource](#post).
 
 A module never changes or removes a route, token or field of the engine.
-With `api_docs` on, the served `openapi.json` includes the routes of the
-modules of that site.
+
+`doc/openapi.json` describes the routes of every module, each under a tag
+that is the module's name. A route of a module exists only on a site that
+has the module switched on, and is 404 elsewhere: check `modules` of
+`GET /info`. With `api_docs` on, the `openapi.json` a site serves has the
+routes of that site's modules only.
 
 ## Webhooks
 

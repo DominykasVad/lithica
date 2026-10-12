@@ -256,7 +256,7 @@ def test_clashing_modules_are_refused(modules, problem):
 
 
 def _greeting_module() -> registry.Module:
-    router = ApiRouter(tags=["Greeting"])
+    router = ApiRouter()
 
     @router.get("/hello")
     def hello() -> dict[str, str]:
@@ -286,11 +286,102 @@ def test_application_without_modules_has_no_module_route(client):
     assert client.get("/modules/greeting/hello").status_code == 404
 
 
-def test_contract_leaves_module_routes_out():
-    registry.use([_greeting_module()])
-    assert not [path for path in openapi.build()["paths"] if "modules" in path]
+ROUTE_MODULE = """
+    from lithica import registry
+    from lithica.api.routing import ApiRouter
+
+    router = ApiRouter()
+
+    @router.get("/hello", summary="Say hello")
+    def %(name)s_hello() -> dict[str, str]:
+        "Returns a greeting, which is all this route is for."
+        return {"greeting": "hello"}
+
+    module = registry.Module(name="%(name)s", router=router)
+"""
+
+
+def test_available_modules_are_all_there_are(inject_config, module_package):
+    assert registry.available() == []
+    module_package("beta", ROUTE_MODULE % {"name": "beta"})
+    module_package("alpha", ROUTE_MODULE % {"name": "alpha"})
+    inject_config(["beta"])
+    registry.load_configured()
+    # by name, whatever is switched on, and without switching anything on
+    assert [module.name for module in registry.available()] == ["alpha", "beta"]
+    assert [module.name for module in registry.modules()] == ["beta"]
+
+
+def test_real_package_has_only_modules_that_load():
+    # what the committed contract is generated from
+    for module in registry.available():
+        assert isinstance(module, registry.Module)
+
+
+def test_package_that_is_not_a_module_is_refused(module_package):
+    module_package("alpha", "")
+    with pytest.raises(errors.ConfigError, match="has no 'module' object"):
+        registry.available()
+
+
+def test_contract_has_the_routes_of_every_module(inject_config, module_package):
+    engine_paths = set(openapi.build()["paths"])
+    module_package("beta", ROUTE_MODULE % {"name": "beta"})
+    module_package("alpha", ROUTE_MODULE % {"name": "alpha"})
+    module_package(
+        "quiet",
+        "from lithica import registry\nmodule = registry.Module(name='quiet')\n",
+    )
+    # none is switched on: the contract does not depend on the settings
+    inject_config([])
+    registry.load_configured()
+
+    document = openapi.build()
+    assert set(document["paths"]) - engine_paths == {
+        "/modules/alpha/hello",
+        "/modules/beta/hello",
+    }
+    for name in ["alpha", "beta"]:
+        operation = document["paths"]["/modules/%s/hello" % name]["get"]
+        assert operation["tags"] == [name]
+        assert operation["operationId"] == "%s_hello" % name
+    # a tag per module with routes, after the engine's, by name
+    tags = [tag["name"] for tag in document["tags"]]
+    assert tags == [tag["name"] for tag in openapi.TAGS] + ["alpha", "beta"]
+    assert all(tag["description"] for tag in document["tags"])
+    assert registry.modules() == ()
+
+
+def test_contract_is_the_same_whatever_is_switched_on(inject_config, module_package):
+    module_package("alpha", ROUTE_MODULE % {"name": "alpha"})
+    without = openapi.dump()
+    inject_config(["alpha"])
+    registry.load_configured()
+    assert openapi.dump() == without
+
+
+def test_served_document_has_the_modules_of_the_site(inject_config, module_package):
+    module_package("beta", ROUTE_MODULE % {"name": "beta"})
+    module_package("alpha", ROUTE_MODULE % {"name": "alpha"})
+    inject_config(["beta"])
+    registry.load_configured()
     served = create_app().openapi()
-    assert "/modules/greeting/hello" in served["paths"]
+    assert "/modules/beta/hello" in served["paths"]
+    assert "/modules/alpha/hello" not in served["paths"]
+    assert [tag["name"] for tag in served["tags"]][-1] == "beta"
+    assert served["paths"]["/modules/beta/hello"]["get"]["tags"] == ["beta"]
+
+
+def test_module_that_tags_its_routes_is_refused():
+    router = ApiRouter(tags=["Mine"])
+
+    @router.get("/hello")
+    def hello() -> dict[str, str]:
+        return {"greeting": "hello"}
+
+    with pytest.raises(errors.ConfigError, match="tags its route '/hello'"):
+        registry.use([registry.Module(name="greeting", router=router)])
+    assert registry.modules() == ()
 
 
 def test_search_token_of_a_module(inject_config, client, post_factory, user_factory):

@@ -108,7 +108,7 @@ respect). One line each, max ~120 characters: `date — task — decision (reaso
 No status notes, no "left untouched", no results — those go in commit messages.
 When a whole phase is finished (its last sub-phase merged), its entries are folded into the tables above or deleted.
 
-- (empty: phases 0–3 are folded into the tables above)
+- 2026-10-12 — 4.2 — a module's routes carry one tag, its name; a router with tags of its own is a startup error (one group per module)
 
 ---
 
@@ -198,7 +198,7 @@ commit body. If something here contradicts the specs, stop and ask.
 **Done when:** tests cover `MODULES` unset (file value kept), set (replaces it), whitespace and empty entries ignored, unknown name fails at startup; `/info` lists the dummy module when it is enabled.
 
 ### 4.2 Module routes in the OpenAPI contract
-- [ ] `doc/openapi.json` includes module routes, each tagged with its module's name. The committed spec is generated with **every module in `lithica/modules/` enabled**, so it is the same on every machine; the CI drift check uses the same setting.
+- [x] `doc/openapi.json` includes module routes, each tagged with its module's name. The committed spec is generated with **every module in `lithica/modules/` enabled**, so it is the same on every machine; the CI drift check uses the same setting.
 - [ ] Update the "Further defaults" line about module routes and the "API compatibility" section of AGENTS.md accordingly.
 
 **Done when:** a route added by a module under `lithica/modules/` appears in the generated spec with its module tag (test with a temporary module), and the CI drift check passes.
