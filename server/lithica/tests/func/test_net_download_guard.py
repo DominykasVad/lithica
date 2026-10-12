@@ -14,7 +14,7 @@ from unittest.mock import patch
 
 import pytest
 
-from lithica import errors
+from lithica import errors, registry
 from lithica.func import net
 
 PUBLIC_IP = "93.184.216.34"
@@ -512,6 +512,43 @@ def test_video_downloader_result_is_downloaded(web, network):
         content = net.download("http://public.example/watch", True)
     assert content == b"video"
     assert network.connections == [OTHER_PUBLIC_IP]
+
+
+def test_file_nobody_knows_is_the_video_downloader_s_failure(web, network):
+    network.hosts["public.example"] = [PUBLIC_IP]
+    web.routes["/file"] = (200, {}, b"unknown bytes")
+    with patch("subprocess.run") as run:
+        run.side_effect = subprocess.CalledProcessError(1, "yt-dlp")
+        with pytest.raises(errors.ThirdPartyError):
+            net.download("http://public.example/file", True)
+
+
+def test_file_of_a_module_is_downloaded_where_the_video_downloader_fails(web, network):
+    # the video downloader knows nothing of a module's files; that it found
+    # no video at the address does not make the file there unknown
+    registry.use(
+        [
+            registry.Module(
+                name="probe",
+                file_types=[
+                    registry.FileType(
+                        post_type="probefile",
+                        mime_type="application/x-probe",
+                        extension="probe",
+                        detect=lambda head, handle: head.startswith(b"PROBE"),
+                    )
+                ],
+            )
+        ]
+    )
+    network.hosts["public.example"] = [PUBLIC_IP]
+    web.routes["/file"] = (200, {}, b"PROBE and more")
+    web.routes["/other"] = (200, {}, b"unknown bytes")
+    with patch("subprocess.run") as run:
+        run.side_effect = subprocess.CalledProcessError(1, "yt-dlp")
+        assert net.download("http://public.example/file", True) == b"PROBE and more"
+        with pytest.raises(errors.ThirdPartyError):
+            net.download("http://public.example/other", True)
 
 
 @pytest.mark.parametrize(

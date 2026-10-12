@@ -241,6 +241,9 @@ can tell what the site offers before using it.
 What a module adds to the API is its own:
 
 - routes under `modules/<name>/`;
+- file types the engine does not know, with a post `type` and a `mimeType`
+  of their own (see the [post resource](#post)); the `type` search token
+  finds them by that type;
 - [extracted content](#extracted-content) of the kinds it owns;
 - named tokens of the [post search](#post-search);
 - extra fields of the [post resource](#post).
@@ -514,6 +517,12 @@ One file together with its metadata posted to the site.
     - `"video"` - WEBM video.
     - `"flash"` - Flash animation / game.
     - `"youtube"` - Youtube embed.
+
+    A [module](#modules) may add file types of its own. A post made from
+    such a file has a `<type>` the module names (never one of the above),
+    no canvas size, and a thumbnail the module takes from the file or the
+    placeholder. A client that does not know a type should treat the post
+    as a file to download.
 
 - `<checksum>`: the SHA1 file checksum. Used in snapshots to signify changes of the
   post content.
@@ -1129,7 +1138,7 @@ Same as `tag` token.
 | `note-text`          | having given note text (accepts wildcards)                                                                                              |
 | `relation-count`     | having given number of relations                                                                                                        |
 | `feature-count`      | having been featured given number of times                                                                                              |
-| `type`               | given type of posts. `<value>` can be either `image`, `animation` (or `animated` or `anim`), `flash` (or `swf`) or `video` (or `webm`). |
+| `type`               | given type of posts. `<value>` can be either `image`, `animation` (or `animated` or `anim`), `flash` (or `swf`) or `video` (or `webm`), or a type of a module that is switched on. |
 | `content-checksum`   | having given SHA1 checksum                                                                                                              |
 | `file-size`          | having given file size (in bytes)                                                                                                       |
 | `image-width`        | having given image width (where applicable)                                                                                             |

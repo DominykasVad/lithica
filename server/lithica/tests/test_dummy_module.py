@@ -4,7 +4,9 @@ lithica/tests/fixtures/modules: switched on and off through the `modules`
 setting, as a site would, and used through HTTP and the admin CLI.
 """
 
+import hashlib
 import io
+import os
 import struct
 import zlib
 from importlib.machinery import SourceFileLoader
@@ -17,7 +19,7 @@ from PIL import Image, PngImagePlugin
 
 from lithica import db, errors, model, registry
 from lithica.app import create_app
-from lithica.func import posts
+from lithica.func import file_types, posts
 from lithica.tests.api.http import assert_error, ok
 from lithica.tests.conftest import ApiClient
 from lithica.tests.fixtures.modules import dummy
@@ -80,6 +82,8 @@ def site(config_injector, tmpdir, monkeypatch, tag_category_factory, user_factor
             "posts:view": model.User.RANK_REGULAR,
             "posts:view:content:private": model.User.RANK_MODERATOR,
             "uploads:use_downloader": model.User.RANK_POWER,
+            "posts:reverse_search": model.User.RANK_REGULAR,
+            "posts:edit:content": model.User.RANK_REGULAR,
             "tags:create": model.User.RANK_REGULAR,
             "users:edit:any:email": model.User.RANK_MODERATOR,
         },
@@ -407,6 +411,353 @@ def test_hostile_text_is_stored_and_returned_as_text(site, user):
     assert {tag["names"][0] for tag in created["tags"]} == {"dummy_text"}
     assert _search(client, user, "dummy-text:*script*") == [created["id"]]
     assert db.session.query(model.Post).count() == 1
+
+
+def _middle_colour(image) -> tuple[int, int, int]:
+    colour = image.convert("RGB").getpixel((image.width // 2, image.height // 2))
+    assert isinstance(colour, tuple)
+    return colour[0], colour[1], colour[2]
+
+
+def _stored(url):
+    """The stored file behind a content or thumbnail URL of the test site."""
+    from lithica import config
+
+    assert url.startswith(config.config["data_url"])
+    relative = url[len(config.config["data_url"]) :]
+    with open(os.path.join(config.config["data_dir"], relative), "rb") as handle:
+        return handle.read()
+
+
+def _refused_upload(client, user, content, error_class=posts.InvalidPostContentError):
+    return assert_error(
+        client.post(
+            "/posts", user=user, body={"safety": "safe"}, files={"content": content}
+        ),
+        error_class,
+    )
+
+
+def test_upload_of_a_file_of_the_module(site, user):
+    client = site(["dummy"])
+    picture = _png(shade=5)
+    uploaded = dummy.FILE_MAGIC + picture
+    created = _upload(client, user, uploaded, tags=["by_hand"])
+
+    assert created["type"] == "dummyfile"
+    assert created["mimeType"] == "application/x-lithica-dummy"
+    assert created["contentUrl"].endswith(".dummy")
+    assert created["fileSize"] == len(uploaded)
+    assert created["checksum"] == hashlib.sha1(uploaded).hexdigest()
+    assert created["checksumMD5"] == hashlib.md5(uploaded).hexdigest()
+    # not a picture, and nothing that plays
+    assert created["canvasWidth"] is None and created["canvasHeight"] is None
+    assert created["flags"] == []
+    # the stored file is the upload, byte for byte
+    assert _stored(created["contentUrl"]) == uploaded
+    # its thumbnail is made of the picture the module took out of it
+    thumbnail = Image.open(io.BytesIO(_stored(created["thumbnailUrl"])))
+    assert thumbnail.format == "JPEG"
+    assert thumbnail.size == (300, 300)
+    red, green, blue = _middle_colour(thumbnail)
+    assert red < 40 and green < 80 and blue > 160
+    # extractors and auto-tags work on a module's type as on the engine's
+    assert _content(client, user, created["id"]) == [
+        ("dummy_v1", {"keyword": "Picture", "text": "%d bytes" % len(picture)})
+    ]
+    assert sorted(tag["names"][0] for tag in created["tags"]) == [
+        "by_hand",
+        "dummy_text",
+    ]
+    # and it is a post like any other
+    assert ok(client.get("/post/%d" % created["id"], user=user))["type"] == "dummyfile"
+
+
+@pytest.mark.parametrize(
+    "rest", [b"", b"not a picture at all", b"\x89PNG\r\n\x1a\n and then nothing"]
+)
+def test_file_without_a_usable_picture_gets_the_placeholder(site, user, rest):
+    client = site(["dummy"])
+    uploaded = dummy.FILE_MAGIC + rest
+    created = _upload(client, user, uploaded)
+    assert created["type"] == "dummyfile"
+    assert _stored(created["contentUrl"]) == uploaded
+    assert _stored(created["thumbnailUrl"]) == posts.EMPTY_PIXEL
+    # no picture, no part in the similar-image search
+    assert db.session.query(model.PostSignature).count() == 0
+
+
+def test_similar_image_search_works_on_the_thumbnail(site, user):
+    client = site(["dummy"])
+    picture = _png(shade=6)
+    with_picture = _upload(client, user, dummy.FILE_MAGIC + picture)["id"]
+    _upload(client, user, dummy.FILE_MAGIC)
+    assert db.session.query(model.PostSignature).count() == 1
+
+    found = ok(
+        client.post("/posts/reverse-search", user=user, files={"content": picture})
+    )
+    # the picture alone is not the file: no exact match, a similar one
+    assert found["exactPost"] is None
+    assert [hit["post"]["id"] for hit in found["similarPosts"]] == [with_picture]
+
+
+def test_search_by_the_type_of_the_module(site, user):
+    client = site(["dummy"])
+    picture = _upload(client, user, _png(shade=1))["id"]
+    file = _upload(client, user, dummy.FILE_MAGIC)["id"]
+    assert _search(client, user, "type:dummyfile") == [file]
+    assert _search(client, user, "-type:dummyfile") == [picture]
+    assert _search(client, user, "type:image") == [picture]
+    assert _search(client, user, "type:image,dummyfile") == [picture, file]
+
+
+def test_file_of_the_module_is_refused_without_the_module(site, user):
+    client = site([])
+    refused = _refused_upload(client, user, dummy.FILE_MAGIC + _png())
+    assert refused["description"] == "Unhandled file type: 'application/octet-stream'"
+    assert db.session.query(model.Post).count() == 0
+    assert_error(
+        client.get("/posts", user=user, query={"query": "type:dummyfile"}),
+        errors.SearchError,
+    )
+
+
+def test_file_nobody_knows_is_refused_with_the_module_too(site, user):
+    client = site(["dummy"])
+    refused = _refused_upload(client, user, b"LITHICA-DUMM\nnot quite")
+    assert refused["description"] == "Unhandled file type: 'application/octet-stream'"
+    refused = _refused_upload(client, user, b"PK\x03\x04 some archive")
+    assert refused["description"] == "Unhandled file type: 'application/octet-stream'"
+
+
+def test_module_refuses_a_file_of_its_type_with_its_reason(site, user):
+    client = site(["dummy"])
+    refused = _refused_upload(client, user, dummy.FILE_MAGIC + b"FORBIDDEN stuff")
+    assert refused["description"] == "A dummy file must not start with FORBIDDEN."
+    assert db.session.query(model.Post).count() == 0
+
+
+def test_replacing_a_picture_with_a_file_of_the_module_and_back(site, user):
+    client = site(["dummy"])
+    created = _upload(client, user, _png(CAT, shade=7))
+    assert db.session.query(model.PostSignature).count() == 1
+
+    def replace(version, content):
+        return ok(
+            client.put(
+                "/post/%d" % created["id"],
+                user=user,
+                body={"version": version},
+                files={"content": content},
+            )
+        )
+
+    # to a file without a picture: the signature of the old picture goes
+    replaced = replace(created["version"], dummy.FILE_MAGIC)
+    assert replaced["type"] == "dummyfile"
+    assert replaced["canvasWidth"] is None
+    assert _stored(replaced["contentUrl"]) == dummy.FILE_MAGIC
+    assert _stored(replaced["thumbnailUrl"]) == posts.EMPTY_PIXEL
+    assert db.session.query(model.PostSignature).count() == 0
+
+    # and back to a picture
+    picture = _png(shade=8)
+    replaced = replace(replaced["version"], picture)
+    assert replaced["type"] == "image"
+    assert replaced["mimeType"] == "image/png"
+    assert replaced["canvasWidth"] == 64
+    assert _stored(replaced["contentUrl"]) == picture
+    assert db.session.query(model.PostSignature).count() == 1
+
+
+def test_custom_thumbnail_wins_over_the_picture_of_the_module(site, user):
+    client = site(["dummy"])
+    created = ok(
+        client.post(
+            "/posts",
+            user=user,
+            body={"safety": "safe"},
+            files={
+                "content": dummy.FILE_MAGIC + _png(shade=5),
+                "thumbnail": _plain_png((200, 30, 30)),
+            },
+        )
+    )
+    thumbnail = Image.open(io.BytesIO(_stored(created["thumbnailUrl"])))
+    red, _green, blue = _middle_colour(thumbnail)
+    assert red > 160 and blue < 80
+
+
+def _plain_png(colour):
+    buffer = io.BytesIO()
+    Image.new("RGB", (64, 64), colour).save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
+def test_switching_the_module_off_keeps_its_posts(site, user, admin):
+    client = site(["dummy"])
+    created = _upload(client, user, dummy.FILE_MAGIC + _png(shade=5))
+    client = site([])
+    # the post is still there and says what it is
+    post = ok(client.get("/post/%d" % created["id"], user=user))
+    assert post["type"] == "dummyfile"
+    assert post["mimeType"] == "application/x-lithica-dummy"
+    assert _search(client, user, "") == [created["id"]]
+    # and with the module back, everything about it is as before
+    client = site(["dummy"])
+    post = ok(client.get("/post/%d" % created["id"], user=user))
+    assert post["contentUrl"] == created["contentUrl"]
+    assert _search(client, user, "type:dummyfile") == [created["id"]]
+
+
+def _module_with(detect, thumbnail=None, name="probe", post_type="probefile"):
+    return registry.Module(
+        name=name,
+        file_types=[
+            registry.FileType(
+                post_type=post_type,
+                mime_type="application/x-%s" % post_type,
+                extension=post_type,
+                detect=detect,
+                thumbnail=thumbnail,
+            )
+        ],
+    )
+
+
+def _site_with(site, modules):
+    site([])
+    registry.use(modules)
+    return ApiClient(create_app())
+
+
+def test_engine_looks_at_a_file_before_any_module(site, user, read_asset):
+    asked = []
+
+    def greedy(head, handle):
+        asked.append(head)
+        return True
+
+    client = _site_with(site, [_module_with(greedy)])
+    # every file the engine knows stays the engine's, whatever a module says
+    assert _upload(client, user, _png(shade=1))["type"] == "image"
+    assert _upload(client, user, read_asset("jpeg.jpg"))["type"] == "image"
+    assert _upload(client, user, read_asset("gif-animated.gif"))["type"] == "animation"
+    assert asked == []
+    # and what the engine does not know is shown to the module, from its start
+    unknown = b"something else" * 100
+    created = _upload(client, user, unknown)
+    assert created["type"] == "probefile"
+    assert created["contentUrl"].endswith(".probefile")
+    assert asked == [unknown[:512]]
+
+
+def test_detector_is_given_the_file_from_its_start(site, user):
+    seen = []
+
+    def reading(head, handle):
+        seen.append((handle.tell(), handle.read()))
+        return False
+
+    def accepting(head, handle):
+        seen.append((handle.tell(), handle.read()))
+        return True
+
+    client = _site_with(
+        site,
+        [
+            _module_with(reading, name="first", post_type="firstfile"),
+            _module_with(accepting, name="second", post_type="secondfile"),
+        ],
+    )
+    created = _upload(client, user, b"unknown bytes")
+    # the first module to say yes has it, in the order of the configuration
+    assert created["type"] == "secondfile"
+    assert seen == [(0, b"unknown bytes"), (0, b"unknown bytes")]
+
+
+@pytest.mark.parametrize("answer", [None, 1, "yes", [True]])
+def test_only_a_plain_yes_of_a_detector_counts(site, user, answer):
+    client = _site_with(site, [_module_with(lambda head, handle: answer)])
+    _refused_upload(client, user, b"unknown bytes")
+
+
+def test_failing_detector_counts_as_no(site, user, caplog):
+    def failing(head, handle):
+        raise RuntimeError("secret words from the file")
+
+    client = _site_with(
+        site,
+        [
+            _module_with(failing, name="first", post_type="firstfile"),
+            _module_with(lambda head, handle: True, name="second", post_type="second"),
+        ],
+    )
+    assert _upload(client, user, b"unknown bytes")["type"] == "second"
+    assert "The detector of module 'first' for 'firstfile' files failed" in caplog.text
+
+    client = _site_with(site, [_module_with(failing)])
+    refused = _refused_upload(client, user, b"other unknown bytes")
+    assert refused["description"] == "Unhandled file type: 'application/octet-stream'"
+
+
+@pytest.mark.parametrize(
+    "thumbnail",
+    [
+        lambda handle: None,
+        lambda handle: "a string",
+        lambda handle: b"",
+        lambda handle: b"not a picture",
+        lambda handle: (_ for _ in ()).throw(RuntimeError("broken")),
+        # a video is not a picture, however well the engine knows it
+        lambda handle: b"\x00\x00\x00\x18ftypmp42 and so on",
+    ],
+)
+def test_thumbnail_hook_that_gives_no_picture_means_the_placeholder(
+    site, user, thumbnail
+):
+    client = _site_with(site, [_module_with(lambda head, handle: True, thumbnail)])
+    created = _upload(client, user, b"unknown bytes")
+    assert created["type"] == "probefile"
+    assert _stored(created["thumbnailUrl"]) == posts.EMPTY_PIXEL
+    assert db.session.query(model.PostSignature).count() == 0
+
+
+def test_thumbnail_larger_than_the_limit_means_the_placeholder(site, user, monkeypatch):
+    picture = _png(shade=3)
+    monkeypatch.setattr(file_types, "MAX_THUMBNAIL_SIZE", len(picture) - 1)
+    client = _site_with(
+        site, [_module_with(lambda head, handle: True, lambda handle: picture)]
+    )
+    created = _upload(client, user, b"unknown bytes")
+    assert _stored(created["thumbnailUrl"]) == posts.EMPTY_PIXEL
+
+    monkeypatch.setattr(file_types, "MAX_THUMBNAIL_SIZE", len(picture))
+    created = _upload(client, user, b"other unknown bytes")
+    assert _stored(created["thumbnailUrl"]) != posts.EMPTY_PIXEL
+
+
+def test_file_without_a_thumbnail_hook_gets_the_placeholder(site, user):
+    client = _site_with(site, [_module_with(lambda head, handle: True)])
+    created = _upload(client, user, b"unknown bytes")
+    assert _stored(created["thumbnailUrl"]) == posts.EMPTY_PIXEL
+    assert _stored(created["contentUrl"]) == b"unknown bytes"
+
+
+def test_thumbnails_of_module_files_can_be_regenerated(site, user, admin):
+    client = site(["dummy"])
+    created = _upload(client, user, dummy.FILE_MAGIC + _png(shade=5))
+    before = _stored(created["thumbnailUrl"])
+    from lithica import config
+
+    path = os.path.join(
+        config.config["data_dir"],
+        created["thumbnailUrl"][len(config.config["data_url"]) :],
+    )
+    os.remove(path)
+    admin.regenerate_thumbnails()
+    assert _stored(created["thumbnailUrl"]) == before
 
 
 def test_proof_module_keeps_to_the_import_boundary(tmp_path, capsys):

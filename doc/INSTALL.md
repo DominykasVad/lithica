@@ -162,8 +162,9 @@ After changing either file, restart: `docker compose up -d`.
 The engine is a plain image board. Optional features are **modules**:
 packages that are part of the server and do nothing until they are switched
 on. A module can read content embedded in uploaded files (PNG text chunks,
-EXIF, video metadata), tag posts from it, add search tokens, fields and
-routes to the API, and bring its own `lithica-admin` commands.
+EXIF, video metadata), tag posts from it, accept kinds of files the engine
+does not know, add search tokens, fields and routes to the API, and bring its
+own `lithica-admin` commands.
 
 Lithica 0.1.0 ships the module system and **no module**. When there are
 modules, you switch them on by name in `server/config.yaml`:
@@ -196,6 +197,11 @@ altogether; set to nothing (`MODULES: ""`), it switches every module off.
 - Switching a module off hides what it added. What it extracted from files is
   kept in the database and is back when the module is switched on again;
   tags it added to posts are ordinary tags and stay.
+- A module's own kinds of files are accepted only while it is on. Posts made
+  from them stay when it is switched off, with their files on disk, but the
+  server no longer knows what their files are called: their content links
+  do not work until the module is on again. Do not delete such posts while
+  the module is off, or their files are left behind.
 - A module may mark parts of what it extracts as private. Those are shown
   only to ranks that have the `posts:view:content:private` privilege
   (moderators and up, by default).

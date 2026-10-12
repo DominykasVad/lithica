@@ -41,6 +41,17 @@ NAME_PATTERN = re.compile(r"[a-z][a-z0-9_]*")
 KIND_PATTERN = re.compile(r"[a-z][a-z0-9_]*")
 KIND_MAX_LENGTH = 64
 
+# a post type is stored with every post, and is a value of the `type:` token
+POST_TYPE_PATTERN = re.compile(r"[a-z][a-z0-9_]*")
+POST_TYPE_MAX_LENGTH = 32
+
+# the column `post."mime-type"` holds this many characters
+MIME_TYPE_PATTERN = re.compile(r"[a-z0-9][a-z0-9.+-]*/[a-z0-9][a-z0-9.+-]*")
+MIME_TYPE_MAX_LENGTH = 32
+
+# a file extension is part of the names of the stored files and of their URLs
+EXTENSION_PATTERN = re.compile(r"[a-z0-9]{1,16}")
+
 # the admin CLI's own commands, which a module may not take
 ENGINE_ADMIN_COMMANDS = frozenset({"backfill", "reextract"})
 
@@ -71,6 +82,45 @@ class Extractor:
 
     mime_types: frozenset[str]
     extract: Callable[[str, BinaryIO], Iterable[ExtractedContent]]
+
+
+class FileRejected(Exception):
+    """
+    Raised by a detector for a file that is of its type and must not be
+    stored: the upload is refused, and the message is shown to the uploader.
+    Say what is wrong and name the limit that was exceeded. A file that
+    simply is not of the type is not rejected; the detector returns False.
+    """
+
+
+@dataclass(frozen=True)
+class FileType:
+    """
+    A type of file the engine does not know and a module does.
+
+    `post_type` is the `type` of the posts made from such files, as the API
+    shows it and the `type:` search token finds it. `mime_type` and
+    `extension` (without the dot) are what the file is stored with.
+
+    `detect` is given the first bytes of an upload and the file, open for
+    reading in binary mode, and says whether it is of this type. It is
+    asked only about files the engine itself does not know. The file is
+    somebody's upload: untrusted. A detector that raises counts as "no";
+    to refuse a file of the type, it raises `FileRejected`.
+
+    `thumbnail` is given the stored file and returns a picture of it, in a
+    format the engine reads (PNG, JPEG, ...), or None. Without a picture the
+    post gets the engine's placeholder thumbnail and takes no part in the
+    similar-image search; with one, the search works on the picture.
+
+    The stored file is the upload, byte for byte.
+    """
+
+    post_type: str
+    mime_type: str
+    extension: str
+    detect: Callable[[bytes, BinaryIO], bool]
+    thumbnail: Callable[[BinaryIO], bytes | None] | None = None
 
 
 @dataclass(frozen=True)
@@ -127,6 +177,7 @@ class Module:
                     the module's name in the API document; they set no tags
                     of their own
     content_kinds   the kinds of extracted content the module owns
+    file_types      types of files the engine does not know
     extractors      readers of content embedded in uploaded files
     auto_tag        tags to add to a post, from what was extracted
     search_filters  named tokens of the post search, e.g. `dummy-text:...`
@@ -137,6 +188,7 @@ class Module:
     name: str
     router: APIRouter | None = None
     content_kinds: Sequence[ContentKind] = ()
+    file_types: Sequence[FileType] = ()
     extractors: Sequence[Extractor] = ()
     auto_tag: AutoTag | None = None
     search_filters: Mapping[str, Filter] = field(default_factory=dict[str, "Filter"])
@@ -165,6 +217,21 @@ def _engine_post_fields() -> set[str]:
     return posts.get_engine_post_field_names()
 
 
+def _engine_post_types() -> set[str]:
+    # every value the `type:` token knows: the engine's types and their
+    # other names. Imported here: the search configuration asks this
+    # registry in turn.
+    from lithica.search.configs.post_search_config import ENGINE_POST_TYPES
+
+    return set(ENGINE_POST_TYPES)
+
+
+def _is_engine_mime_type(mime_type: str) -> bool:
+    from lithica.func import mime
+
+    return mime.get_extension(mime_type) is not None or mime.is_video(mime_type)
+
+
 def _verify(modules: Sequence[Module]) -> None:
     """
     Refuse modules that could not work together or with the engine: two
@@ -176,6 +243,8 @@ def _verify(modules: Sequence[Module]) -> None:
     search_filters = _engine_search_filters()
     post_fields = _engine_post_fields()
     admin_commands = set(ENGINE_ADMIN_COMMANDS)
+    post_types = _engine_post_types()
+    mime_types: set[str] = set()
     for module in modules:
         if not NAME_PATTERN.fullmatch(module.name):
             raise _refuse(
@@ -193,6 +262,40 @@ def _verify(modules: Sequence[Module]) -> None:
                         "tags its route %r: the routes of a module are tagged "
                         "with its name, and with nothing else." % route.path,
                     )
+
+        for file_type in module.file_types:
+            post_type = file_type.post_type
+            if (
+                not POST_TYPE_PATTERN.fullmatch(post_type)
+                or len(post_type) > POST_TYPE_MAX_LENGTH
+            ):
+                raise _refuse(module, "has an invalid post type %r." % post_type)
+            if post_type in post_types:
+                raise _refuse(
+                    module, "registers the post type %r a second time." % post_type
+                )
+            post_types.add(post_type)
+            mime_type = file_type.mime_type
+            if (
+                not MIME_TYPE_PATTERN.fullmatch(mime_type)
+                or len(mime_type) > MIME_TYPE_MAX_LENGTH
+            ):
+                raise _refuse(
+                    module,
+                    "has an invalid MIME type %r: lower case, and at most %d "
+                    "characters." % (mime_type, MIME_TYPE_MAX_LENGTH),
+                )
+            if mime_type in mime_types or _is_engine_mime_type(mime_type):
+                raise _refuse(
+                    module, "registers the MIME type %r a second time." % mime_type
+                )
+            mime_types.add(mime_type)
+            if not EXTENSION_PATTERN.fullmatch(file_type.extension):
+                raise _refuse(
+                    module,
+                    "has an invalid file extension %r: lower case letters and "
+                    "digits, without the dot." % file_type.extension,
+                )
 
         for kind in module.content_kinds:
             if (
@@ -320,6 +423,22 @@ def extractors_for(mime_type: str) -> list[tuple[Module, Extractor]]:
         for extractor in module.extractors
         if mime_type in extractor.mime_types
     ]
+
+
+def file_types() -> list[tuple[Module, FileType]]:
+    """The file types of the loaded modules, with their modules."""
+    return [
+        (module, file_type) for module in _modules for file_type in module.file_types
+    ]
+
+
+def file_type_for(mime_type: str) -> FileType | None:
+    """The file type of a loaded module that is stored with this MIME type."""
+    for module in _modules:
+        for file_type in module.file_types:
+            if file_type.mime_type == mime_type:
+                return file_type
+    return None
 
 
 def content_kinds() -> dict[str, ContentKind]:

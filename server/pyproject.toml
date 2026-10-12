@@ -80,6 +80,7 @@ strict = [
     "lithica/modules",
     "lithica/registry.py",
     "lithica/func/post_content.py",
+    "lithica/func/file_types.py",
     "lithica/model/types.py",
     "lithica/tests/fixtures/modules",
 ]

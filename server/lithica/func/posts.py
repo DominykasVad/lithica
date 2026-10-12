@@ -12,6 +12,7 @@ from lithica import config, db, errors, model, registry
 from lithica.func import (
     auth,
     comments,
+    file_types,
     files,
     image_hash,
     images,
@@ -118,7 +119,7 @@ def get_post_content_url(post: model.Post) -> str:
         config.config["data_url"].rstrip("/"),
         post.post_id,
         get_post_security_hash(post.post_id),
-        mime.get_extension(post.mime_type) or "dat",
+        file_types.get_extension(post.mime_type) or "dat",
     )
 
 
@@ -137,7 +138,7 @@ def get_post_content_path(post: model.Post) -> str:
     return "posts/%d_%s.%s" % (
         post.post_id,
         get_post_security_hash(post.post_id),
-        mime.get_extension(post.mime_type) or "dat",
+        file_types.get_extension(post.mime_type) or "dat",
     )
 
 
@@ -235,7 +236,8 @@ class PostSerializer(serialization.BaseSerializer):
         return self.post.source
 
     def serialize_type(self) -> Any:
-        return TYPE_MAP[self.post.type]
+        # a type of a module is its own name
+        return TYPE_MAP.get(self.post.type, self.post.type)
 
     def serialize_mime(self) -> Any:
         return self.post.mime_type
@@ -598,6 +600,33 @@ def generate_post_signature(post: model.Post, content: ContentLike) -> None:
             raise InvalidPostContentError("Unable to generate image hash data.") from ex
 
 
+def generate_post_signature_from_thumbnail(
+    post: model.Post, file_type: registry.FileType, content: ContentLike
+) -> None:
+    """
+    Sign a post of a module's file type by the picture the module offers as
+    its thumbnail, so that the similar-image search finds it. Without a
+    picture, or with one that cannot be read, the post has no signature. It
+    never fails the upload: the file was accepted for what it is, and the
+    picture is an extra.
+    """
+    picture = file_types.get_thumbnail(file_type, content)
+    if picture is None:
+        return
+    try:
+        unpacked_signature = image_hash.generate_signature(picture)
+        packed_signature = image_hash.pack_signature(unpacked_signature)
+        words = image_hash.generate_words(unpacked_signature)
+    except errors.ProcessingError:
+        logger.warning(
+            "The thumbnail of a %r file could not be signed.", file_type.post_type
+        )
+        return
+    db.session.add(
+        model.PostSignature(post=post, signature=packed_signature, words=words)
+    )
+
+
 BACKFILL_BATCH_SIZE = 100
 
 
@@ -776,6 +805,8 @@ def update_post_content(post: model.Post, content: ContentLike | None) -> None:
         raise InvalidPostContentError("Post content missing.")
 
     update_signature = False
+    # a type of a module, for a file the engine itself does not know
+    file_type: registry.FileType | None = None
     post.mime_type = mime.get_mime_type(content)
     if mime.is_flash(post.mime_type):
         post.type = model.Post.TYPE_FLASH
@@ -788,7 +819,15 @@ def update_post_content(post: model.Post, content: ContentLike | None) -> None:
     elif mime.is_video(post.mime_type):
         post.type = model.Post.TYPE_VIDEO
     else:
-        raise InvalidPostContentError("Unhandled file type: %r" % post.mime_type)
+        if post.mime_type == "application/octet-stream":
+            try:
+                file_type = file_types.detect(content)
+            except file_types.FileRejectedError as ex:
+                raise InvalidPostContentError(str(ex)) from ex
+        if file_type is None:
+            raise InvalidPostContentError("Unhandled file type: %r" % post.mime_type)
+        post.mime_type = file_type.mime_type
+        post.type = file_type.post_type
 
     post.checksum = util.get_sha1(content)
     post.checksum_md5 = util.get_md5(content)
@@ -804,8 +843,19 @@ def update_post_content(post: model.Post, content: ContentLike | None) -> None:
     if update_signature:
         purge_post_signature(post)
         generate_post_signature(post, content)
+    elif file_type is not None:
+        # the picture the post had before, if any, is not this file's
+        purge_post_signature(post)
+        generate_post_signature_from_thumbnail(post, file_type, content)
 
     post.file_size = content_module.size(content)
+    if file_type is not None:
+        # not a picture: it has no canvas
+        post.canvas_width = None
+        post.canvas_height = None
+        post_content.update_post_contents(post, content)
+        setattr(post, "__content", content)
+        return
     try:
         image = images.Image(content)
         post.canvas_width = image.width
@@ -878,10 +928,17 @@ def update_post_thumbnail(post: model.Post, content: ContentLike | None = None) 
 
 def generate_post_thumbnail(post: model.Post) -> None:
     assert post
+    file_type = registry.file_type_for(post.mime_type)
     if files.has(get_post_thumbnail_backup_path(post)):
         content = files.get(get_post_thumbnail_backup_path(post))
     else:
         content = files.get(get_post_content_path(post))
+        if file_type is not None:
+            # a file of a module: the picture the module offers, if any
+            content = file_types.get_thumbnail(file_type, content) if content else None
+            if content is None:
+                files.save(get_post_thumbnail_path(post), EMPTY_PIXEL)
+                return
     try:
         assert content
         image = images.Image(content)

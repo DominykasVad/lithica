@@ -12,19 +12,25 @@ from lithica.search.configs.base_search_config import (
 from lithica.search.query import SearchQuery
 from lithica.search.typing import SaColumn, SaQuery
 
+# the values of the `type:` token: the engine's post types and their other names
+ENGINE_POST_TYPES = {
+    "image": model.Post.TYPE_IMAGE,
+    "animation": model.Post.TYPE_ANIMATION,
+    "animated": model.Post.TYPE_ANIMATION,
+    "anim": model.Post.TYPE_ANIMATION,
+    "gif": model.Post.TYPE_ANIMATION,
+    "video": model.Post.TYPE_VIDEO,
+    "webm": model.Post.TYPE_VIDEO,
+    "flash": model.Post.TYPE_FLASH,
+    "swf": model.Post.TYPE_FLASH,
+}
+
 
 def _type_transformer(value: str) -> str:
-    available_values = {
-        "image": model.Post.TYPE_IMAGE,
-        "animation": model.Post.TYPE_ANIMATION,
-        "animated": model.Post.TYPE_ANIMATION,
-        "anim": model.Post.TYPE_ANIMATION,
-        "gif": model.Post.TYPE_ANIMATION,
-        "video": model.Post.TYPE_VIDEO,
-        "webm": model.Post.TYPE_VIDEO,
-        "flash": model.Post.TYPE_FLASH,
-        "swf": model.Post.TYPE_FLASH,
-    }
+    available_values = dict(ENGINE_POST_TYPES)
+    # the post types of the loaded modules, which cannot clash with ours
+    for _module, file_type in registry.file_types():
+        available_values[file_type.post_type] = file_type.post_type
     return search_util.enum_transformer(available_values, value)
 
 

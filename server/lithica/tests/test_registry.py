@@ -255,6 +255,102 @@ def test_clashing_modules_are_refused(modules, problem):
     assert registry.modules() == ()
 
 
+def _file_type(**changes):
+    values = {
+        "post_type": "probefile",
+        "mime_type": "application/x-probe",
+        "extension": "probe",
+        "detect": lambda head, handle: False,
+    }
+    values.update(changes)
+    return registry.FileType(**values)
+
+
+def test_file_types_of_the_loaded_modules():
+    first, second = _file_type(), _file_type(post_type="b", mime_type="b/b")
+    modules = [
+        registry.Module(name="a", file_types=[first]),
+        registry.Module(name="b", file_types=[second]),
+    ]
+    registry.use(modules)
+    assert registry.file_types() == [(modules[0], first), (modules[1], second)]
+    assert registry.file_type_for("b/b") is second
+    assert registry.file_type_for("image/png") is None
+    registry.use([])
+    assert registry.file_types() == []
+    assert registry.file_type_for("b/b") is None
+
+
+@pytest.mark.parametrize(
+    "changes,problem",
+    [
+        # the engine's post types, and the other names the search has for them
+        ({"post_type": "image"}, "registers the post type 'image' a second time"),
+        ({"post_type": "animation"}, "registers the post type 'animation' a second"),
+        ({"post_type": "video"}, "registers the post type 'video' a second time"),
+        ({"post_type": "flash"}, "registers the post type 'flash' a second time"),
+        ({"post_type": "gif"}, "registers the post type 'gif' a second time"),
+        ({"post_type": "webm"}, "registers the post type 'webm' a second time"),
+        ({"post_type": "Probe"}, "has an invalid post type 'Probe'"),
+        ({"post_type": "probe file"}, "has an invalid post type"),
+        ({"post_type": ""}, "has an invalid post type"),
+        ({"post_type": "p" * 33}, "has an invalid post type"),
+        # the engine's MIME types
+        ({"mime_type": "image/png"}, "registers the MIME type 'image/png' a second"),
+        ({"mime_type": "video/mp4"}, "registers the MIME type 'video/mp4' a second"),
+        ({"mime_type": "application/ogg"}, "registers the MIME type"),
+        ({"mime_type": "application/octet-stream"}, "registers the MIME type"),
+        # the column holds 32 characters
+        ({"mime_type": "application/x-" + "p" * 19}, "has an invalid MIME type"),
+        ({"mime_type": "Application/X-Probe"}, "has an invalid MIME type"),
+        ({"mime_type": "probe"}, "has an invalid MIME type"),
+        ({"mime_type": ""}, "has an invalid MIME type"),
+        ({"extension": ".probe"}, "has an invalid file extension '.probe'"),
+        ({"extension": "PROBE"}, "has an invalid file extension"),
+        ({"extension": "../x"}, "has an invalid file extension"),
+        ({"extension": ""}, "has an invalid file extension"),
+        ({"extension": "p" * 17}, "has an invalid file extension"),
+    ],
+)
+def test_file_type_that_cannot_work_is_refused(changes, problem):
+    with pytest.raises(errors.ConfigError, match=problem):
+        registry.use([registry.Module(name="a", file_types=[_file_type(**changes)])])
+    assert registry.modules() == ()
+
+
+def test_file_type_at_the_limits_is_accepted():
+    file_type = _file_type(
+        post_type="p" * 32,
+        mime_type="application/x-" + "p" * 18,
+        extension="p" * 16,
+    )
+    assert len(file_type.mime_type) == 32
+    registry.use([registry.Module(name="a", file_types=[file_type])])
+    assert registry.file_type_for(file_type.mime_type) is file_type
+
+
+@pytest.mark.parametrize(
+    "second,problem",
+    [
+        ({"mime_type": "application/x-other"}, "registers the post type 'probefile'"),
+        ({"post_type": "otherfile"}, "registers the MIME type 'application/x-probe'"),
+    ],
+)
+def test_file_types_of_two_modules_must_not_clash(second, problem):
+    modules = [
+        registry.Module(name="a", file_types=[_file_type()]),
+        registry.Module(name="b", file_types=[_file_type(**second)]),
+    ]
+    with pytest.raises(errors.ConfigError, match="Module 'b' " + problem):
+        registry.use(modules)
+    # nor within one module
+    with pytest.raises(errors.ConfigError, match="Module 'a' " + problem):
+        registry.use(
+            [registry.Module(name="a", file_types=[_file_type(), _file_type(**second)])]
+        )
+    assert registry.modules() == ()
+
+
 def _greeting_module() -> registry.Module:
     router = ApiRouter()
 
