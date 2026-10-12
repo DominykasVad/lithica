@@ -242,7 +242,7 @@ in the dev stack, its results stated in the PR.
 ### 5.1 Scaffold
 - [ ] `clients/sardonyx/`: Vite, React, TypeScript strict, Tailwind v4, shadcn/ui, Biome, Vitest; Node 26 and pnpm pinned as AGENTS.md says.
 - [ ] API types generated from `doc/openapi.json` (openapi-typescript) into a committed file; openapi-fetch client wrapper with the base URL and auth header. A pnpm script regenerates the types; CI fails when they are out of date.
-- [ ] CI job for the client: install with the frozen lockfile, Biome, typecheck, tests, build, type drift check.
+- [ ] CI for the client: add `.github/workflows/ci-sardonyx.yml` with the same trigger pattern as `ci-server.yml` (pull requests ready for review, and pushes to `main`), paths `clients/sardonyx/**`, `doc/openapi.json` and the workflow file itself. It installs with the frozen lockfile and runs Biome, typecheck, tests, build and the type drift check. A future client gets a workflow of its own, never a shared `clients/**` one.
 - [ ] Serving: a `clients/sardonyx/Dockerfile` that builds the client and serves it with nginx, with `/data/` (read-only, from the data volume) and `/api/` (proxy to the server) like the legacy image, written new. New image `lithica-client` in the release workflow.
 - [ ] Dev: `pnpm dev` with a proxy of `/api` and `/data` to a running dev stack; documented.
 - [ ] Fill in the client commands table in AGENTS.md.

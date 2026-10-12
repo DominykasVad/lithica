@@ -139,6 +139,11 @@ client's are added to CI in phase 5.
   one branch (`phase-4.3`) = one PR**. Start the next sub-phase only after the
   previous one is merged into `main`. Never commit directly to `main`; the
   owner merges. Keep commits small inside the branch.
+- Commit as often as is useful, but push the branch once, when the sub-phase
+  is ready for review, and open the PR then. Push again only for review
+  fixes. CI runs on pull requests and on `main`, not on a branch that is
+  merely pushed, and only the workflow whose paths the change touches
+  (`.github/workflows/ci-server.yml` for the server).
 - Do one PLAN.md task per change set. No drive-by refactors, renames or
   reformatting outside the task.
 - If a task needs a decision PLAN.md does not cover (a new dependency, a
