@@ -116,6 +116,14 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 - 2026-10-12 — 4.3 — a thumbnail hook's picture must be an engine image type of at most 32 MiB, else the placeholder
 - 2026-10-12 — 4.3 — the placeholder thumbnail is the engine's existing empty one (`EMPTY_PIXEL`); no new artwork
 - 2026-10-12 — 4.3 — a stored file's extension is asked of every module in `lithica/modules/`, on or off (cached); `dat` if none knows
+- 2026-10-12 — 4.4 — card payload is `{format, chunk, card, assets}`: the card JSON sits under `card`, facts about the file beside it
+- 2026-10-12 — 4.4 — an embedded data URI becomes `{"embedded": {type, name, size}}`; inside a longer text it is cut out and marked
+- 2026-10-12 — 4.4 — an unreadable `ccv3` chunk means no card, also when a good `chara` chunk is there (PLAN: `ccv3` wins)
+- 2026-10-12 — 4.4 — `ccv3` holds V3 cards only; a card in `chara` is of the version its `spec` says (no `spec`: V1)
+- 2026-10-12 — 4.4 — a card needs a name (V1: and one more V1 field); other missing fields are fine (real cards leave them out)
+- 2026-10-12 — 4.4 — `zTXt` and `iTXt` are read like `tEXt` (PNG libraries may write them; the seven real files seen use `tEXt`)
+- 2026-10-12 — 4.4 — NUL characters and lone surrogates are taken out of card texts (PostgreSQL cannot store them)
+- 2026-10-12 — 4.4 — limits: 32 MiB of card text per chunk, 1000 embedded assets listed; beyond that the picture has no card
 
 ---
 
@@ -221,11 +229,11 @@ commit body. If something here contradicts the specs, stop and ask.
 
 ### 4.4 `cards`: PNG cards
 Module `lithica.modules.cards`. Content kinds `card_v1`, `card_v2`, `card_v3`.
-- [ ] Read `tEXt` chunks `ccv3` (base64 JSON, V3) and `chara` (base64 JSON, V2 or V1). If both exist, `ccv3` wins and `chara` is ignored. Also check `iTXt`/`zTXt` if real files use them. A PNG without either chunk is an ordinary image.
-- [ ] `chara-ext-asset_:{path}` chunks (PNG-embedded assets) are not stored in the payload; record only their paths and sizes.
-- [ ] **Payload:** the card JSON as given, minus embedded binary data (base64 data URIs or asset blobs are replaced by their metadata: type, name, size). Lorebooks (`character_book`) stay inside the card payload.
+- [x] Read `tEXt` chunks `ccv3` (base64 JSON, V3) and `chara` (base64 JSON, V2 or V1). If both exist, `ccv3` wins and `chara` is ignored. Also check `iTXt`/`zTXt` if real files use them. A PNG without either chunk is an ordinary image.
+- [x] `chara-ext-asset_:{path}` chunks (PNG-embedded assets) are not stored in the payload; record only their paths and sizes.
+- [x] **Payload:** the card JSON as given, minus embedded binary data (base64 data URIs or asset blobs are replaced by their metadata: type, name, size). Lorebooks (`character_book`) stay inside the card payload.
 - [ ] Payloads must fit the engine limit of 1 MiB per result. Measure on real cards, including large lorebooks. If real cards exceed it, **stop and ask** before changing the limit.
-- [ ] Malformed card data (bad base64, bad JSON, wrong shape) means "no card": the file is still accepted as an ordinary image.
+- [x] Malformed card data (bad base64, bad JSON, wrong shape) means "no card": the file is still accepted as an ordinary image.
 
 **Done when:** fixtures for V1, V2, V3 and a PNG with both chunks (generated in code; no copyrighted card content in the repo) produce the right content kind and payload; malformed cards upload as plain images; `lithica-admin reextract --kind card_v2` works over existing posts.
 

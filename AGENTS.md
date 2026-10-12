@@ -14,7 +14,8 @@ remote, do not cherry-pick, do not open PRs against `rr-/szurubooru`.
 - **Engine** (`Lithica`): generic booru — posts, tags, pools, users, comments,
   search, snapshots. Must stay usable as a plain image booru.
 - **Modules**: optional features layered on the engine, switched on in config
-  (`modules`). No real module exists yet. The module system is
+  (`modules`). The first real one is `cards` (`lithica/modules/cards`,
+  character cards). The module system is
   `lithica/registry.py` (what a module can add) and `lithica/func/post_content.py`
   (the embedded-content pipeline); `lithica/tests/fixtures/modules/dummy` is
   the example module to copy.
