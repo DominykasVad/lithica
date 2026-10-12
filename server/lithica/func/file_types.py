@@ -89,12 +89,15 @@ def get_mime_type(content: ContentLike) -> str:
 
 
 def get_extension(mime_type: str) -> str | None:
-    """The extension files of this MIME type are stored with, if anyone knows."""
+    """
+    The extension files of this MIME type are stored with, if anyone knows:
+    the engine, or any module in the code base, switched on or not. The
+    name of a stored file must not change with the settings.
+    """
     extension = mime.get_extension(mime_type)
     if extension is not None:
         return extension
-    file_type = registry.file_type_for(mime_type)
-    return file_type.extension if file_type else None
+    return registry.stored_extension(mime_type)
 
 
 def get_thumbnail(file_type: registry.FileType, content: ContentLike) -> bytes | None:

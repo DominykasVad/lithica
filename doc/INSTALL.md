@@ -198,10 +198,9 @@ altogether; set to nothing (`MODULES: ""`), it switches every module off.
   kept in the database and is back when the module is switched on again;
   tags it added to posts are ordinary tags and stay.
 - A module's own kinds of files are accepted only while it is on. Posts made
-  from them stay when it is switched off, with their files on disk, but the
-  server no longer knows what their files are called: their content links
-  do not work until the module is on again. Do not delete such posts while
-  the module is off, or their files are left behind.
+  from them stay when it is switched off: their files are served and their
+  posts can be edited and deleted as before. New files of that kind are
+  refused until the module is on again.
 - A module may mark parts of what it extracts as private. Those are shown
   only to ranks that have the `posts:view:content:private` privilege
   (moderators and up, by default).

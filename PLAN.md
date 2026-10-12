@@ -115,7 +115,7 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 - 2026-10-12 — 4.3 — module file posts: no canvas size, no default flags; the `type:` token finds them by their post type
 - 2026-10-12 — 4.3 — a thumbnail hook's picture must be an engine image type of at most 32 MiB, else the placeholder
 - 2026-10-12 — 4.3 — the placeholder thumbnail is the engine's existing empty one (`EMPTY_PIXEL`); no new artwork
-- 2026-10-12 — 4.3 — with its module off a post keeps its type and file, but its file name falls back to `.dat` (URL broken)
+- 2026-10-12 — 4.3 — a stored file's extension is asked of every module in `lithica/modules/`, on or off (cached); `dat` if none knows
 
 ---
 

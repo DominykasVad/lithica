@@ -307,8 +307,10 @@ def client(session):
 def no_modules():
     """Every test starts, and leaves, with no module loaded."""
     registry.use([])
+    registry.forget_available()
     yield
     registry.use([])
+    registry.forget_available()
 
 
 @pytest.fixture

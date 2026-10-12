@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import importlib
+import logging
 import pkgutil
 import re
 from collections.abc import Callable, Iterable, Mapping, Sequence
@@ -30,6 +31,8 @@ from lithica import config, errors
 if TYPE_CHECKING:
     from lithica import model
     from lithica.search.configs.base_search_config import Filter
+
+logger = logging.getLogger(__name__)
 
 # where modules live; the tests load theirs from another package
 MODULE_PACKAGE = "lithica.modules"
@@ -379,6 +382,50 @@ def available() -> list[Module]:
     found = [_import(name, MODULE_PACKAGE) for name in names]
     _verify(found)
     return found
+
+
+# MIME type -> extension for the file types of every module there is, and
+# the package they were read from. Filled on first use and kept: it is a
+# fact about the code, the same in every process, and does not change
+# while one runs.
+_stored_extensions: tuple[str, dict[str, str]] | None = None
+
+
+def forget_available() -> None:
+    """Forget what was learnt about the modules there are (for the tests)."""
+    global _stored_extensions
+    _stored_extensions = None
+
+
+def stored_extension(mime_type: str) -> str | None:
+    """
+    The extension the files of a module's MIME type are stored with, or None
+    if no module there is knows the type. It asks every module in the code
+    base, switched on or not: where a stored file is must not depend on the
+    settings, or a post of a module that was switched off could not be
+    found, served or deleted with its file.
+    """
+    global _stored_extensions
+    if _stored_extensions is None or _stored_extensions[0] != MODULE_PACKAGE:
+        extensions: dict[str, str] = {}
+        try:
+            for module in available():
+                for file_type in module.file_types:
+                    extensions[file_type.mime_type] = file_type.extension
+        except Exception:
+            # A module that is switched off and does not even import must
+            # not take every request down. What it would have said is
+            # missing; the loaded modules are asked below all the same.
+            logger.exception(
+                "Could not read the file types of the modules in %s.", MODULE_PACKAGE
+            )
+        _stored_extensions = (MODULE_PACKAGE, extensions)
+    extension = _stored_extensions[1].get(mime_type)
+    if extension is None:
+        # a module that was handed to use() directly, not from the package
+        file_type = file_type_for(mime_type)
+        extension = file_type.extension if file_type else None
+    return extension
 
 
 def load_configured() -> None:
