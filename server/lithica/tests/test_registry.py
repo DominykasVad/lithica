@@ -114,8 +114,17 @@ def test_server_start_with_the_modules_variable(value, loads):
     # the whole way, as a server process goes it: environment, configuration,
     # registry. Importing the application is what loads the modules.
     server_dir = Path(__file__).resolve().parent.parent.parent
+    # as lithica.openapi does it: importing the application builds a database
+    # engine, which connects to nothing but needs the setting to be there, and
+    # CI and a fresh checkout have none
+    program = (
+        "from lithica import config\n"
+        "if not config.config.get('database'):\n"
+        "    config.config['database'] = 'postgresql://unused@localhost/unused'\n"
+        "import lithica.app\n"
+    )
     started = subprocess.run(
-        [sys.executable, "-c", "import lithica.app"],
+        [sys.executable, "-c", program],
         cwd=server_dir,
         env={**os.environ, "MODULES": value},
         capture_output=True,
