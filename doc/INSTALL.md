@@ -279,14 +279,56 @@ user@host:lithica$ docker compose run --rm server ./lithica-admin --help
 |---|---|
 | `--change-password <user>` | Sets a new password for a user, e.g. when mail is not set up. |
 | `backfill signatures`, `backfill md5`, `backfill all` | Computes data that older posts lack: image signatures for the similar-image search, MD5 checksums. |
+| `import <folder> --user <user> --safety <safety>` | Makes a post of every file in a folder. See [Importing a folder](#importing-a-folder). |
 | `reextract [--kind <kind>]` | Has the modules that are switched on read the files of the existing posts again. For after switching a module on or updating it. |
 | `--regenerate-thumbnails` | Recreates missing thumbnail files. |
 | `--check-all-audio` | Reports videos whose sound flag does not match the file. Changes nothing. |
 | `--reset-filenames` | Renames the stored files after `secret` was changed. |
 
-`backfill` and `reextract` can be repeated and can run while the server is
-up. The server never rewrites existing posts on its own: when posts wait for
+`backfill`, `reextract` and `import` can be repeated and can run while the
+server is up. The server never rewrites existing posts on its own: when posts wait for
 a backfill, it says so in its log at startup and names the command.
+
+### Importing a folder
+
+`lithica-admin import` brings a collection that is on disk into the site: a
+post per file, for every file in the folder and the folders in it, in the
+order of their names. A file goes the way an upload goes, so it gets its
+thumbnail, and the modules that are switched on read it and tag the post:
+with `cards` on, a folder of card pictures and CHARX files becomes posts
+with their cards, creators and tags.
+
+The server runs in a container, so the folder has to be shown to it. Mount
+it read-only for the one run:
+
+```console
+user@host:lithica$ docker compose run --rm -v /path/to/collection:/import:ro \
+    server ./lithica-admin import /import --user <user> --safety safe --dry-run
+```
+
+- `--user` (required): the account the posts are uploaded as. It must exist.
+- `--safety` (required): `safe`, `sketchy` or `unsafe`, for every post.
+- `--tags a,b`: tags to put on every post; they are created if missing.
+- `--dry-run`: says what would happen to each file and creates nothing. Run
+  it first. It finds files that are posts already, files of a type nobody
+  knows and files a module refuses; a picture that is broken is only found
+  by the import itself.
+
+What it prints: a line per file as it goes, then a summary (created,
+skipped, refused, failed) and the files with a problem.
+
+- **Skipped** is a file that is a post already, byte for byte. That makes
+  the command safe to repeat: a second run over the same folder creates
+  nothing, and a run that was interrupted is continued by running it again.
+- **Refused** is a file the site does not take: not a picture, a video or a
+  kind of file a module knows, or one a module refuses. It is reported and
+  the import goes on.
+- **Failed** is a file that should have worked and did not; the log says
+  why. Only this makes the command end with an error.
+
+The files are copied into the site; the folder is not changed. Files and
+folders whose names start with a dot are left out. Nothing asks for
+privileges: the command is yours, whatever rank `--user` has.
 
 ## Deployment notes
 

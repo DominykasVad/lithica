@@ -13,7 +13,7 @@ from getpass import getpass
 from sys import stderr
 
 from lithica import config, db, errors, model, registry
-from lithica.func import files, images
+from lithica.func import files, images, post_import
 from lithica.func import posts as postfuncs
 from lithica.func import users as userfuncs
 
@@ -169,6 +169,55 @@ def reextract(kind: str | None) -> bool:
     return not failed
 
 
+def import_folder(
+    folder: str, user: str, safety: str, tags: str | None, dry_run: bool
+) -> bool:
+    """
+    Make a post of every file in a folder. Returns False if the import
+    could not start or a file failed; a file that was refused for what it
+    is (a duplicate, a type nobody knows) is reported and is no failure.
+    """
+    if not os.path.isdir(folder):
+        print("import: %s is not a folder" % folder, file=sys.stderr)
+        return False
+    tag_names = [name.strip() for name in (tags or "").split(",") if name.strip()]
+    try:
+        result = post_import.import_folder(folder, user, safety, tag_names, dry_run)
+    except errors.BaseError as e:
+        print("import: %s" % e, file=sys.stderr)
+        return False
+
+    counts = [
+        (result.count(status), status)
+        for status in [
+            post_import.CREATED,
+            post_import.SKIPPED,
+            post_import.REFUSED,
+            post_import.FAILED,
+        ]
+    ]
+    print(
+        "import: %d files%s: %s"
+        % (
+            len(result.outcomes),
+            " (dry run, nothing was created)" if dry_run else "",
+            ", ".join(
+                "%d %s"
+                % (
+                    count,
+                    "would be created" if dry_run and status == "created" else status,
+                )
+                for count, status in counts
+            ),
+        )
+    )
+    if result.problems:
+        print("import: problems:")
+        for outcome in result.problems:
+            print("  %s  %s: %s" % (outcome.status, outcome.path, outcome.detail))
+    return not result.count(post_import.FAILED)
+
+
 def main(args: list[str] | None = None) -> int:
     # the modules of this installation bring their own commands
     try:
@@ -210,6 +259,41 @@ def main(args: list[str] | None = None) -> int:
         "--kind",
         metavar="<kind>",
         help="only extract content of this kind, and leave the rest as it is",
+    )
+    parser_import = subparsers.add_parser(
+        "import",
+        help="make a post of every file in a folder",
+        description="Make a post of every file in a folder and the folders in "
+        "it, in the order of their names, as an upload would: with thumbnails, "
+        "and with what the modules that are switched on read out of the files "
+        "and the tags they add. A file that is a post already is skipped, so "
+        "the command is safe to repeat. Files whose names start with a dot are "
+        "left out. The files are copied; the folder is not changed.",
+    )
+    parser_import.add_argument("folder", help="the folder to import")
+    parser_import.add_argument(
+        "--user",
+        required=True,
+        metavar="<username>",
+        help="the user the posts are uploaded as",
+    )
+    parser_import.add_argument(
+        "--safety",
+        required=True,
+        choices=["safe", "sketchy", "unsafe"],
+        help="the safety of every post that is created",
+    )
+    parser_import.add_argument(
+        "--tags",
+        metavar="<tag,tag>",
+        help="tags to put on every post, comma-separated; created if missing",
+    )
+    parser_import.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="say what would happen to each file without creating a post. It "
+        "finds duplicates, files of an unknown type and files a module "
+        "refuses; a picture that is broken is found by the import only",
     )
     for module_command in module_commands.values():
         parser_module = subparsers.add_parser(
@@ -262,6 +346,16 @@ def main(args: list[str] | None = None) -> int:
             elif command.subcommand == "reextract":
                 logging.basicConfig(level=logging.INFO, format="%(message)s")
                 if not reextract(command.kind):
+                    return 1
+            elif command.subcommand == "import":
+                logging.basicConfig(level=logging.INFO, format="%(message)s")
+                if not import_folder(
+                    command.folder,
+                    command.user,
+                    command.safety,
+                    command.tags,
+                    command.dry_run,
+                ):
                     return 1
             elif command.subcommand in module_commands:
                 return module_commands[command.subcommand].run(command)
