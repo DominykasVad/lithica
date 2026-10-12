@@ -55,7 +55,7 @@ Confirmed by the owner on 2026-10-10.
 - The database session is scoped per request by a ContextVar; work outside a request opens `db.session_scope()`.
 - Modules load when `lithica.app` is imported (their routes are part of the application). Module routes live under `/modules/<name>/` and are in `doc/openapi.json`, each tagged with its module's name and nothing else. The contract is generated with every module in `lithica/modules/` enabled (`registry.available()`), whatever the settings; the document a site serves under `api_docs` has the modules of that site.
 - A content kind is at most 64 characters and belongs to exactly one module (`registry.ContentKind`).
-- An extractor returns at most 64 results of at most 1 MiB of JSON each. Beyond that, or with one bad result, it counts as failed and all its results for the file are dropped.
+- An extractor returns at most 64 results, each at most as large as its kind allows (1 MiB of JSON by default, see the Decision log). Beyond that, or with one bad result, it counts as failed and all its results for the file are dropped.
 - New content replaces every `post_content` row of the post, also rows of kinds no loaded module owns. `lithica-admin reextract` replaces only rows of kinds loaded modules own, keeps the old rows where an extractor fails, and never tags.
 - Auto-tags are added on post create and on content change, never removed, and need no `tags:create` privilege. Their category is used only when the tag is created; a category the site lacks means the default one.
 - `GET /post/<id>/content` needs `posts:view`. Rows of kinds no loaded module owns are stored but never shown. Private payload fields are top-level keys per kind, behind the one privilege `posts:view:content:private` (default moderator).
@@ -118,12 +118,12 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 - 2026-10-12 — 4.3 — a stored file's extension is asked of every module in `lithica/modules/`, on or off (cached); `dat` if none knows
 - 2026-10-12 — 4.4 — card payload is `{format, chunk, card, assets}`: the card JSON sits under `card`, facts about the file beside it
 - 2026-10-12 — 4.4 — an embedded data URI becomes `{"embedded": {type, name, size}}`; inside a longer text it is cut out and marked
-- 2026-10-12 — 4.4 — an unreadable `ccv3` chunk means no card, also when a good `chara` chunk is there (PLAN: `ccv3` wins)
+- 2026-10-12 — 4.4 — `ccv3` wins when both chunks are readable; an unreadable `ccv3` makes way for a readable `chara` (owner)
 - 2026-10-12 — 4.4 — `ccv3` holds V3 cards only; a card in `chara` is of the version its `spec` says (no `spec`: V1)
 - 2026-10-12 — 4.4 — a card needs a name (V1: and one more V1 field); other missing fields are fine (real cards leave them out)
 - 2026-10-12 — 4.4 — `zTXt` and `iTXt` are read like `tEXt` (PNG libraries may write them; the seven real files seen use `tEXt`)
 - 2026-10-12 — 4.4 — NUL characters and lone surrogates are taken out of card texts (PostgreSQL cannot store them)
-- 2026-10-12 — 4.4 — limits: 32 MiB of card text per chunk, 1000 embedded assets listed; beyond that the picture has no card
+- 2026-10-12 — 4.4 — limits: 32 MiB of card text per chunk (more refuses the upload), 1000 embedded assets listed
 - 2026-10-12 — 4.5 — CHARX is stored as `application/x-charx` with extension `charx` (no registered MIME type exists)
 - 2026-10-12 — 4.5 — only a ZIP with a root `card.json` is judged by the limits; any other archive is refused as an unknown file
 - 2026-10-12 — 4.5 — limits: 1000 entries, 512 MiB unpacked, 100:1 per entry, `card.json` 8 MiB, table of contents 1 MiB, icon 16 MiB
@@ -131,6 +131,10 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 - 2026-10-12 — 4.5 — the thumbnail is the icon named `main`, else the first icon; an icon elsewhere (`https:`) is never fetched
 - 2026-10-12 — 4.5 — icon URIs read: `embeded://`, `embedded://`, `__asset:` and base64 `data:`; an archive as the icon is refused
 - 2026-10-12 — 4.5 — a CHARX payload has `chunk: null`, and `assets` lists the archive's entries besides `card.json`
+- 2026-10-12 — 4.5 — payload limit is per kind (`ContentKind.max_payload_size`, default 1 MiB, hard cap 32 MiB); cards ask 16 MiB (owner)
+- 2026-10-12 — 4.5 — a card over its limit refuses the upload, PNG and CHARX alike; never a card post without its card (owner)
+- 2026-10-12 — 4.5 — an extractor may refuse a file with `registry.FileRejected`; on `reextract` that counts as a failure, rows kept
+- 2026-10-12 — 4.5 — extraction runs before a post's signature is made, so a refused file leaves nothing in the session
 
 ---
 
@@ -239,7 +243,7 @@ Module `lithica.modules.cards`. Content kinds `card_v1`, `card_v2`, `card_v3`.
 - [x] Read `tEXt` chunks `ccv3` (base64 JSON, V3) and `chara` (base64 JSON, V2 or V1). If both exist, `ccv3` wins and `chara` is ignored. Also check `iTXt`/`zTXt` if real files use them. A PNG without either chunk is an ordinary image.
 - [x] `chara-ext-asset_:{path}` chunks (PNG-embedded assets) are not stored in the payload; record only their paths and sizes.
 - [x] **Payload:** the card JSON as given, minus embedded binary data (base64 data URIs or asset blobs are replaced by their metadata: type, name, size). Lorebooks (`character_book`) stay inside the card payload.
-- [ ] Payloads must fit the engine limit of 1 MiB per result. Measure on real cards, including large lorebooks. If real cards exceed it, **stop and ask** before changing the limit.
+- [x] Payloads must fit the engine limit of 1 MiB per result. Measure on real cards, including large lorebooks. If real cards exceed it, **stop and ask** before changing the limit.
 - [x] Malformed card data (bad base64, bad JSON, wrong shape) means "no card": the file is still accepted as an ordinary image.
 
 **Done when:** fixtures for V1, V2, V3 and a PNG with both chunks (generated in code; no copyrighted card content in the repo) produce the right content kind and payload; malformed cards upload as plain images; `lithica-admin reextract --kind card_v2` works over existing posts.

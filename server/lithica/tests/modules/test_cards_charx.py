@@ -172,6 +172,17 @@ def test_embedded_data_is_taken_out_of_the_card(site, user):
     }
 
 
+def test_oversized_card_refuses_the_upload(site, user, monkeypatch):
+    client = site(["cards"])
+    monkeypatch.setattr(cards_module, "MAX_PAYLOAD_SIZE", 2000)
+    data = cards.charx(cards.charx_card(None, description="x" * 3000))
+    assert _refused(client, user, data).startswith("The character card is larger than")
+    # never a charx post without its card
+    assert db.session.query(model.Post).count() == 0
+    with pytest.raises(registry.FileRejected):
+        list(cards_module.extract_charx("application/x-charx", io.BytesIO(data)))
+
+
 def test_without_the_module_a_charx_file_is_refused(site, user):
     client = site([])
     assert _refused(client, user, cards.charx(icon=cards.picture())) == UNKNOWN

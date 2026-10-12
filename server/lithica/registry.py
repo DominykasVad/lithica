@@ -61,6 +61,12 @@ ENGINE_ADMIN_COMMANDS = frozenset({"backfill", "reextract"})
 # what is stored for one piece of extracted content: a JSON object
 Payload = dict[str, Any]
 
+# How large one payload may be, as JSON: what a kind is allowed unless it
+# asks for more, and what no kind may ask for more than. Embedded data is
+# as large as the uploader made it, and a payload is held in memory whole.
+DEFAULT_MAX_PAYLOAD_SIZE = 1024 * 1024
+PAYLOAD_SIZE_CAP = 32 * 1024 * 1024
+
 
 @dataclass(frozen=True)
 class ExtractedContent:
@@ -81,6 +87,11 @@ class Extractor:
     The file is somebody's upload: it is untrusted, and so is everything
     read from it. An extractor that raises is logged and skipped; it never
     fails the upload.
+
+    The one exception is on purpose: an extractor that finds content of its
+    kind which must not be dropped silently and cannot be stored (larger
+    than the kind allows, say) raises `FileRejected`, and the upload is
+    refused with its message.
     """
 
     mime_types: frozenset[str]
@@ -93,6 +104,9 @@ class FileRejected(Exception):
     stored: the upload is refused, and the message is shown to the uploader.
     Say what is wrong and name the limit that was exceeded. A file that
     simply is not of the type is not rejected; the detector returns False.
+
+    An extractor may raise it too, for content of its kind that cannot be
+    stored and must not be lost without a word.
     """
 
 
@@ -142,10 +156,15 @@ class ContentKind:
 
     `serialize` turns the payload into what the API returns; without it the
     payload is returned as it is stored.
+
+    `max_payload_size` is how large one payload of the kind may be, in bytes
+    of JSON. A kind whose content is larger by nature asks for more, up to
+    `PAYLOAD_SIZE_CAP`.
     """
 
     name: str
     schema_version: int = 1
+    max_payload_size: int = DEFAULT_MAX_PAYLOAD_SIZE
     private_fields: frozenset[str] = frozenset()
     serialize: Callable[[Payload], Any] | None = None
 
@@ -309,6 +328,13 @@ def _verify(modules: Sequence[Module]) -> None:
             if kind.name in kinds:
                 raise _refuse(
                     module, "declares the content kind %r a second time." % kind.name
+                )
+            if not 0 < kind.max_payload_size <= PAYLOAD_SIZE_CAP:
+                raise _refuse(
+                    module,
+                    "asks for payloads of %d bytes for the content kind %r: the "
+                    "most a kind may ask for is %d."
+                    % (kind.max_payload_size, kind.name, PAYLOAD_SIZE_CAP),
                 )
             kinds.add(kind.name)
         if module.extractors and not module.content_kinds:

@@ -112,10 +112,49 @@ def test_v3_chunk_wins_over_the_v2_chunk():
         assert found[0].payload["card"]["data"]["name"] == "New"
 
 
-def test_unreadable_v3_chunk_does_not_make_way_for_the_v2_chunk():
+@pytest.mark.parametrize(
+    "broken",
+    [
+        b"",
+        b"!!! not base64 !!!",
+        base64.b64encode(b"not json"),
+        base64.b64encode(b'{"spec": "chara_card_v3", "data": {"name": "cut off'),
+        # JSON of the wrong shape
+        cards.encoded({"spec": "chara_card_v3", "data": []}),
+        cards.encoded({"spec": "chara_card_v3"}),
+        cards.encoded([1, 2, 3]),
+        # a card, but not a V3 one: not what the chunk is for
+        cards.encoded(cards.v2_card(name="Misplaced")),
+    ],
+)
+def test_unreadable_v3_chunk_makes_way_for_a_readable_v2_chunk(broken):
+    v2 = cards.v2_card(name="Old")
+    for chunks in [
+        (
+            cards.text_chunk(b"ccv3", broken),
+            cards.text_chunk(b"chara", cards.encoded(v2)),
+        ),
+        (
+            cards.text_chunk(b"chara", cards.encoded(v2)),
+            cards.text_chunk(b"ccv3", broken),
+        ),
+    ]:
+        kind, payload = _one(cards.png_with(*chunks))
+        assert (kind, payload["chunk"]) == ("card_v2", "chara")
+        assert payload["card"] == v2
+
+
+def test_v1_card_is_the_fallback_too():
     picture = cards.png_with(
-        cards.text_chunk(b"ccv3", b"!!! not base64 !!!"),
-        cards.text_chunk(b"chara", cards.encoded(cards.v2_card())),
+        cards.text_chunk(b"ccv3", b"!!!"),
+        cards.text_chunk(b"chara", cards.encoded(cards.V1_CARD)),
+    )
+    assert _one(picture)[0] == "card_v1"
+
+
+def test_two_unreadable_chunks_are_no_card():
+    picture = cards.png_with(
+        cards.text_chunk(b"ccv3", b"!!!"), cards.text_chunk(b"chara", b"???")
     )
     assert _extract(picture) == []
 
@@ -235,8 +274,6 @@ def test_malformed_card_is_no_card(text):
         b"not a picture",
         png.SIGNATURE,
         png.SIGNATURE + b"\x00\x00",
-        # a chunk that says it is longer than the file
-        png.SIGNATURE + b"\x7f\xff\xff\xfftEXtchara\x00abc",
         # a text chunk without the end of its keyword
         cards.png_with(cards._chunk(b"tEXt", b"chara")),
         # compressed chunks that are not
@@ -257,14 +294,38 @@ def test_file_that_ends_inside_the_card_chunk():
     assert _extract(cut) == []
 
 
-def test_card_chunk_larger_than_the_limit_is_not_read(monkeypatch):
+def _refusal(content):
+    with pytest.raises(registry.FileRejected) as refusal:
+        _extract(content)
+    return str(refusal.value)
+
+
+def test_card_chunk_larger_than_the_limit_refuses_the_file(monkeypatch):
     picture = cards.png_card(cards.v2_card())
     monkeypatch.setattr(card_format, "MAX_CARD_SIZE", 100)
-    assert _extract(picture) == []
+    assert _refusal(picture) == (
+        "The character card in the `chara` chunk of the picture is larger than 0 MiB."
+    )
+
+
+def test_shipped_limit_of_a_card_chunk():
+    assert card_format.MAX_CARD_SIZE == 32 * 1024 * 1024
+    assert "32 MiB" in cards_module._megabytes(card_format.MAX_CARD_SIZE)
+
+
+def test_oversized_v3_chunk_is_not_passed_over_for_the_v2_chunk(monkeypatch):
+    # too large is not unreadable: the card is there, and it is too much
+    small = cards.encoded(cards.v2_card(description="short"))
+    large = cards.encoded(cards.v3_card(description="x" * 5000))
+    monkeypatch.setattr(card_format, "MAX_CARD_SIZE", len(small) + 100)
+    picture = cards.png_with(
+        cards.text_chunk(b"chara", small), cards.text_chunk(b"ccv3", large)
+    )
+    assert "`ccv3` chunk" in _refusal(picture)
 
 
 def test_compressed_chunk_is_not_inflated_beyond_the_limit(monkeypatch):
-    # a megabyte of zeros is a kilobyte compressed
+    # a megabyte of the same letter is a kilobyte compressed
     bomb = cards.compressed_text_chunk(b"chara", b"A" * 1024 * 1024)
     assert len(bomb) < 2048
     monkeypatch.setattr(card_format, "MAX_CARD_SIZE", 64 * 1024)
@@ -277,8 +338,135 @@ def test_compressed_chunk_is_not_inflated_beyond_the_limit(monkeypatch):
         return result
 
     monkeypatch.setattr(png, "_inflate", watching)
-    assert _extract(cards.png_with(bomb)) == []
+    assert "larger than" in _refusal(cards.png_with(bomb))
     assert inflated == [None]
+
+
+def test_file_cut_off_inside_a_chunk_that_claims_to_be_huge():
+    # broken, not too large: no card, and no refusal
+    data = png.SIGNATURE + b"\x7f\xff\xff\xfftEXtchara\x00abc"
+    assert _extract(data) == []
+
+
+# the size of what is stored
+
+
+def _payload_size(payload):
+    return len(json.dumps(payload, ensure_ascii=False).encode("utf-8"))
+
+
+def _card_with_payload_of(size):
+    """A V2 card whose stored payload is exactly this many bytes of JSON."""
+    card = cards.v2_card(description="")
+    empty = _payload_size(
+        {"format": "png", "chunk": "chara", "card": card, "assets": []}
+    )
+    card["data"]["description"] = "x" * (size - empty)
+    return card
+
+
+def test_shipped_payload_limit():
+    assert cards_module.MAX_PAYLOAD_SIZE == 16 * 1024 * 1024
+    registry.load(["cards"])
+    assert {kind.max_payload_size for kind in registry.content_kinds().values()} == {
+        16 * 1024 * 1024
+    }
+
+
+def test_card_of_just_under_sixteen_megabytes_is_stored():
+    registry.load(["cards"])
+    picture = cards.png_card(_card_with_payload_of(cards_module.MAX_PAYLOAD_SIZE))
+    extraction = post_content.extract("image/png", picture)
+    assert extraction.rejections == [] and extraction.failed_kinds == set()
+    (found,) = extraction.contents
+    assert found.kind == "card_v2"
+    assert _payload_size(found.payload) == 16 * 1024 * 1024
+
+
+def test_card_of_just_over_sixteen_megabytes_refuses_the_file():
+    registry.load(["cards"])
+    picture = cards.png_card(_card_with_payload_of(cards_module.MAX_PAYLOAD_SIZE + 1))
+    extraction = post_content.extract("image/png", picture)
+    assert extraction.contents == []
+    assert extraction.rejections == [
+        "The character card is larger than 16 MiB, also without the files "
+        "embedded in it."
+    ]
+
+
+def test_large_lorebook_is_stored_whole():
+    # larger than the engine's default for a kind, which used to drop it
+    book = {
+        "extensions": {},
+        "entries": [
+            {
+                "keys": ["key %d" % number],
+                "content": "What is known about entry %d. " % number * 40,
+                "extensions": {},
+                "enabled": True,
+                "insertion_order": number,
+            }
+            for number in range(2500)
+        ],
+    }
+    registry.load(["cards"])
+    card = cards.v3_card(character_book=book)
+    extraction = post_content.extract("image/png", cards.png_card(card, b"ccv3"))
+    (found,) = extraction.contents
+    assert _payload_size(found.payload) > 2 * post_content.MAX_PAYLOAD_SIZE
+    assert found.payload["card"] == card
+
+
+def test_oversized_card_refuses_the_upload(site, user, monkeypatch):
+    client = site(["cards"])
+    monkeypatch.setattr(cards_module, "MAX_PAYLOAD_SIZE", 2000)
+    refused = client.post(
+        "/posts",
+        user=user,
+        body={"safety": "safe"},
+        files={"content": cards.png_card(cards.v2_card(description="x" * 3000))},
+    )
+    assert refused.status_code == 400
+    assert refused.json()["name"] == "InvalidPostContentError"
+    assert refused.json()["description"].startswith("The character card is larger than")
+    # not stored as a plain picture either
+    assert db.session.query(model.Post).count() == 0
+    # a card that fits is still fine
+    created = _upload(client, user, cards.png_card(cards.v2_card(description="short")))
+    assert created["contentKinds"] == ["card_v2"]
+
+
+SAMPLES = Path(__file__).resolve().parents[4] / "scratch" / "sample-cards"
+
+
+def test_sample_cards_all_yield_a_card():
+    """
+    Real and real-sized cards the owner keeps outside the repository
+    (scratch/ is git-ignored). Skipped where they are not there, as in CI.
+    """
+    samples = (
+        sorted(path for path in SAMPLES.iterdir() if path.suffix in (".png", ".charx"))
+        if SAMPLES.is_dir()
+        else []
+    )
+    if not samples:
+        pytest.skip("no sample cards in %s" % SAMPLES)
+    registry.load(["cards"])
+    for path in samples:
+        data = path.read_bytes()
+        if path.suffix == ".png":
+            mime_type = "image/png"
+        else:
+            assert cards_module.detect_charx(data[:512], io.BytesIO(data)), path.name
+            mime_type = "application/x-charx"
+        extraction = post_content.extract(mime_type, data)
+        assert extraction.rejections == [], path.name
+        assert extraction.failed_kinds == set(), path.name
+        assert [content.kind[:5] for content in extraction.contents] == ["card_"], (
+            path.name
+        )
+        name = extraction.contents[0].payload["card"]
+        assert isinstance(name.get("data", name).get("name"), str), path.name
 
 
 # embedded binary data
