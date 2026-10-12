@@ -141,3 +141,18 @@ def test_table_has_the_lookup_index():
         index.name: [column.name for column in index.columns] for index in table.indexes
     }
     assert indexes == {"ix_post_content_post_id_kind": ["post_id", "kind"]}
+
+
+def test_payload_is_loaded_only_when_it_is_read(post_factory):
+    post = post_factory()
+    post.contents = [_content("first", {"n": 1}), _content("second", {"n": 2})]
+    db.session.add(post)
+    db.session.commit()
+    db.session.expire_all()
+
+    rows = db.session.get(model.Post, post.post_id).contents
+    # asking which kinds a post has does not fetch what they hold
+    assert sorted(row.kind for row in rows) == ["first", "second"]
+    assert all("payload" in sa.inspect(row).unloaded for row in rows)
+    assert sorted(row.payload["n"] for row in rows) == [1, 2]
+    assert not any("payload" in sa.inspect(row).unloaded for row in rows)
