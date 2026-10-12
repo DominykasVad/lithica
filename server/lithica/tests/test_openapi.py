@@ -12,6 +12,9 @@ COMMITTED = os.path.join(
     os.path.dirname(__file__), os.pardir, os.pardir, os.pardir, "doc", "openapi.json"
 )
 
+# routes that answer with a file
+FILE_DOWNLOADS = {"download_card"}
+
 # requests that take no body
 NO_BODY = {
     "set_tag_category_as_default",
@@ -66,8 +69,14 @@ def test_document_describes_the_whole_api(document):
     assert document["info"]["version"] == get_version()
     assert document["info"]["license"]["identifier"] == "GPL-3.0-only"
     operations = list(_operations(document))
-    assert len(operations) == 61
-    assert len(document["paths"]) == 35
+    # the engine's, and those of the modules there are
+    engine = [o for o in operations if not o[1].startswith("/modules/")]
+    assert len(engine) == 61
+    assert len([path for path in document["paths"] if "/modules/" not in path]) == 35
+    assert sorted(path for path in document["paths"] if "/modules/" in path) == [
+        "/modules/cards/post/{post_id}",
+        "/modules/cards/post/{post_id}/download",
+    ]
     # the documentation routes themselves are not part of the API
     assert "/docs" not in document["paths"]
     assert "/openapi.json" not in document["paths"]
@@ -90,8 +99,16 @@ def test_every_operation_is_documented(document):
         assert len(operation.get("description", "")) > 20, where
         assert operation["tags"] and set(operation["tags"]) <= known_tags, where
         # the result is described by a model, the errors by the error body
-        success = operation["responses"]["200"]["content"]["application/json"]
-        assert success["schema"], where
+        content = operation["responses"]["200"]["content"]
+        if operation["operationId"] in FILE_DOWNLOADS:
+            # the one kind of route that does not answer with JSON
+            assert content == {
+                "application/octet-stream": {
+                    "schema": {"type": "string", "format": "binary"}
+                }
+            }, where
+        else:
+            assert content["application/json"]["schema"], where
         assert "4XX" in operation["responses"], where
 
 

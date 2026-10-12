@@ -272,8 +272,11 @@ class PostContent(Base):
     schema_version: sa_orm.Mapped[int] = sa_orm.mapped_column(
         "schema_version", sa.Integer, nullable=False
     )
+    # Loaded only when it is read: a payload can be megabytes, and most of
+    # what asks for a post's rows (which kinds it has, for one) never looks
+    # at it.
     payload: sa_orm.Mapped[Any] = sa_orm.mapped_column(
-        "payload", json_type(), nullable=False
+        "payload", json_type(), nullable=False, deferred=True
     )
     extracted_at: sa_orm.Mapped[datetime] = sa_orm.mapped_column(
         "extracted_at", sa.DateTime, nullable=False

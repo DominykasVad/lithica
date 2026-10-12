@@ -36,8 +36,28 @@ def _extract(content):
 
 
 def _one(content):
+    """The kind and the payload of the one card, less its summary (see below)."""
     (found,) = _extract(content)
-    return found.kind, found.payload
+    payload = dict(found.payload)
+    assert set(payload.pop("summary")) == {
+        "name",
+        "creator",
+        "greetings",
+        "lorebookEntries",
+    }
+    return found.kind, payload
+
+
+SUMMARIES = {
+    "card_v1": {"name": "Ada", "creator": "", "greetings": 1, "lorebookEntries": 0},
+    "card_v2": {
+        "name": "Ada",
+        "creator": "somebody",
+        "greetings": 3,
+        "lorebookEntries": 2,
+    },
+}
+SUMMARIES["card_v3"] = SUMMARIES["card_v2"]
 
 
 def _upload(client, user, content):
@@ -358,8 +378,15 @@ def _payload_size(payload):
 def _card_with_payload_of(size):
     """A V2 card whose stored payload is exactly this many bytes of JSON."""
     card = cards.v2_card(description="")
+    summary = card_format.summary("card_v2", card)
     empty = _payload_size(
-        {"format": "png", "chunk": "chara", "card": card, "assets": []}
+        {
+            "format": "png",
+            "chunk": "chara",
+            "card": card,
+            "assets": [],
+            "summary": summary,
+        }
     )
     card["data"]["description"] = "x" * (size - empty)
     return card
@@ -663,12 +690,13 @@ def test_upload_of_a_card(site, user, card, keyword, kind):
     assert created["contentKinds"] == [kind]
     (content,) = _content(client, user, created["id"])
     assert content["kind"] == kind
-    assert content["schemaVersion"] == 1
+    assert content["schemaVersion"] == 2
     assert content["content"] == {
         "format": "png",
         "chunk": keyword.decode(),
         "card": card,
         "assets": [],
+        "summary": SUMMARIES[kind],
     }
 
 

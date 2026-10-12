@@ -246,7 +246,8 @@ What a module adds to the API is its own:
   finds them by that type;
 - [extracted content](#extracted-content) of the kinds it owns;
 - named tokens of the [post search](#post-search);
-- extra fields of the [post resource](#post).
+- extra fields of the [post resource](#post). Some of them are returned
+  only when the request names them in `fields`; the module says which.
 
 A module never changes or removes a route, token or field of the engine.
 
@@ -255,6 +256,31 @@ that is the module's name. A route of a module exists only on a site that
 has the module switched on, and is 404 elsewhere: check `modules` of
 `GET /info`. With `api_docs` on, the `openapi.json` a site serves has the
 routes of that site's modules only.
+
+### The cards module
+
+`cards` makes a post of a character card for AI chat programs: a PNG picture
+with the card in a text chunk, or a CHARX file (post `type` `charx`). What it
+adds:
+
+- **Tags.** A post gets its card's creator as a tag in the category
+  `creator`, and the card's own tags in the default category, when the file
+  is uploaded.
+- **Search tokens.** `card-creator:<pattern>`, `card-spec:v1|v2|v3`,
+  `card-format:png|charx`, `card-lorebook:yes|no` and
+  `card-greetings:<number or range>`.
+- **Post field `card`**, returned only when `fields` names it: `name`,
+  `creator`, `spec`, `format`, `greetingCount` and `lorebookEntryCount`, or
+  `null` for a post without a card.
+- **`GET modules/cards/post/<id>`**: the card read for a viewer, the same
+  shape for every version of the format and both kinds of file.
+- **`GET modules/cards/post/<id>/download`**: the stored file, unchanged, as
+  an attachment named after the character. This route answers with the file
+  and does not require `Accept: application/json`.
+
+The card as its file had it is the post's
+[extracted content](#extracted-content), of the kind `card_v1`, `card_v2` or
+`card_v3`. `doc/openapi.json` has the reference of the two routes.
 
 ## Webhooks
 

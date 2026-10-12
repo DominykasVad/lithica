@@ -204,6 +204,10 @@ class Module:
     auto_tag        tags to add to a post, from what was extracted
     search_filters  named tokens of the post search, e.g. `dummy-text:...`
     post_fields     extra fields of the post resource
+    requested_post_fields
+                    extra fields of the post resource that are returned only
+                    when the request names them in `fields`: for what costs
+                    a query, or is of no use to most clients
     admin_commands  subcommands of `lithica-admin`
     """
 
@@ -215,6 +219,9 @@ class Module:
     auto_tag: AutoTag | None = None
     search_filters: Mapping[str, Filter] = field(default_factory=dict[str, "Filter"])
     post_fields: Mapping[str, PostField] = field(default_factory=dict[str, PostField])
+    requested_post_fields: Mapping[str, PostField] = field(
+        default_factory=dict[str, PostField]
+    )
     admin_commands: Sequence[AdminCommand] = ()
 
 
@@ -344,7 +351,7 @@ def _verify(modules: Sequence[Module]) -> None:
             if token in search_filters:
                 raise _refuse(module, "adds the search token %r twice." % token)
             search_filters.add(token)
-        for name in module.post_fields:
+        for name in [*module.post_fields, *module.requested_post_fields]:
             if name in post_fields:
                 raise _refuse(module, "adds the post field %r twice." % name)
             post_fields.add(name)
@@ -481,6 +488,15 @@ def post_fields() -> dict[str, PostField]:
         name: serialize
         for module in _modules
         for name, serialize in module.post_fields.items()
+    }
+
+
+def requested_post_fields() -> dict[str, PostField]:
+    """The post fields of the loaded modules that a request must ask for."""
+    return {
+        name: serialize
+        for module in _modules
+        for name, serialize in module.requested_post_fields.items()
     }
 
 
