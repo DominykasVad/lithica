@@ -196,6 +196,15 @@ and uv; do not assume a specific OS, CPU architecture or machine.
   No features, no refactors, no dependency upgrades beyond what a build fix
   needs.
 
+### Licences
+- The repository is GPLv3; `clients/sardonyx/` alone is MIT (see
+  `LICENSING.md`). This is the one exception to "Licence is GPLv3" above, and
+  it is not a relicensing: the folder holds new code only.
+- Nothing from `legacy/client/` (code, templates, styles, assets, build
+  scripts) may be copied or adapted into `clients/`. Reading it to understand
+  how the API behaves is allowed.
+- Do not add GPL-licensed code or dependencies to `clients/sardonyx/`.
+
 ### Style
 - ruff defaults as configured in `pyproject.toml`, line length 88.
 - Type-annotate all new and changed code. Do not add `# type: ignore` or

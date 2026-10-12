@@ -66,3 +66,7 @@ Post view:
 [GPLv3](LICENSE.md). Lithica is a modified version of szurubooru; the changes
 made since the fork are in this repository's history after the `fork-point`
 tag. Original copyright and attribution are retained.
+
+The server and the repository as a whole are GPLv3. One folder has a licence
+of its own: `clients/sardonyx/`, the new web client, is MIT. See
+[LICENSING.md](LICENSING.md).
