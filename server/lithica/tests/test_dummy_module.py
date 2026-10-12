@@ -84,6 +84,7 @@ def site(config_injector, tmpdir, monkeypatch, tag_category_factory, user_factor
             "uploads:use_downloader": model.User.RANK_POWER,
             "posts:reverse_search": model.User.RANK_REGULAR,
             "posts:edit:content": model.User.RANK_REGULAR,
+            "posts:delete": model.User.RANK_REGULAR,
             "tags:create": model.User.RANK_REGULAR,
             "users:edit:any:email": model.User.RANK_MODERATOR,
         },
@@ -595,20 +596,119 @@ def _plain_png(colour):
     return buffer.getvalue()
 
 
+def _files_in(folder):
+    from lithica import config
+
+    path = os.path.join(config.config["data_dir"], folder)
+    return sorted(name for name in os.listdir(path) if "." in name)
+
+
 def test_switching_the_module_off_keeps_its_posts(site, user, admin):
     client = site(["dummy"])
-    created = _upload(client, user, dummy.FILE_MAGIC + _png(shade=5))
+    uploaded = dummy.FILE_MAGIC + _png(shade=5)
+    created = _upload(client, user, uploaded)
+    assert created["contentUrl"].endswith(".dummy")
+    stored_as = posts.get_post_content_path(posts.get_post_by_id(created["id"]))
+    assert stored_as.endswith(".dummy")
+
     client = site([])
     # the post is still there and says what it is
     post = ok(client.get("/post/%d" % created["id"], user=user))
     assert post["type"] == "dummyfile"
     assert post["mimeType"] == "application/x-lithica-dummy"
     assert _search(client, user, "") == [created["id"]]
-    # and with the module back, everything about it is as before
+    # and its file is where it was: the name of a stored file does not
+    # change with the settings
+    assert post["contentUrl"] == created["contentUrl"]
+    assert posts.get_post_content_path(posts.get_post_by_id(created["id"])) == stored_as
+    assert _stored(post["contentUrl"]) == uploaded
+    # what only a loaded module does is off
+    _refused_upload(client, user, dummy.FILE_MAGIC)
+    assert_error(
+        client.get("/posts", user=user, query={"query": "type:dummyfile"}),
+        errors.SearchError,
+    )
+
+    # with the module back, everything about it is as before
     client = site(["dummy"])
     post = ok(client.get("/post/%d" % created["id"], user=user))
     assert post["contentUrl"] == created["contentUrl"]
+    assert posts.get_post_content_path(posts.get_post_by_id(created["id"])) == stored_as
     assert _search(client, user, "type:dummyfile") == [created["id"]]
+
+
+def test_deleting_a_post_of_a_switched_off_module_removes_its_file(site, user):
+    client = site(["dummy"])
+    created = _upload(client, user, dummy.FILE_MAGIC + _png(shade=5))
+    assert len(_files_in("posts")) == 1 and _files_in("posts")[0].endswith(".dummy")
+    assert len(_files_in("generated-thumbnails")) == 1
+
+    client = site([])
+    ok(
+        client.delete(
+            "/post/%d" % created["id"], user=user, body={"version": created["version"]}
+        )
+    )
+    db.session.flush()
+    assert db.session.query(model.Post).count() == 0
+    # the real file went with the post: nothing is orphaned
+    assert _files_in("posts") == []
+    assert _files_in("generated-thumbnails") == []
+
+
+def test_extension_of_a_module_is_known_without_loading_it(site):
+    site([])
+    assert registry.modules() == ()
+    assert file_types.get_extension("application/x-lithica-dummy") == "dummy"
+    # asking did not switch anything on
+    assert registry.modules() == ()
+    assert registry.file_types() == []
+    assert registry.file_type_for("application/x-lithica-dummy") is None
+
+
+def test_mime_type_no_module_knows_is_stored_as_dat(site, post_factory):
+    site(["dummy"])
+    assert file_types.get_extension("application/x-nobody") is None
+    post = post_factory()
+    post.mime_type = "application/x-nobody"
+    db.session.add(post)
+    db.session.flush()
+    assert posts.get_post_content_path(post).endswith(".dat")
+    assert posts.get_post_content_url(post).endswith(".dat")
+    # and the engine's own types are the engine's to name
+    assert file_types.get_extension("image/png") == "png"
+
+
+def test_modules_there_are_are_read_once(site, monkeypatch):
+    site([])
+    calls = []
+    real = registry.available
+
+    def counting():
+        calls.append(1)
+        return real()
+
+    monkeypatch.setattr(registry, "available", counting)
+    for _ in range(3):
+        assert file_types.get_extension("application/x-lithica-dummy") == "dummy"
+        assert file_types.get_extension("application/x-nobody") is None
+    assert len(calls) == 1
+
+
+def test_broken_module_in_the_code_base_does_not_break_the_lookup(
+    site, monkeypatch, caplog
+):
+    site([])
+
+    def broken():
+        raise ImportError("a module that does not import")
+
+    monkeypatch.setattr(registry, "available", broken)
+    assert file_types.get_extension("application/x-lithica-dummy") is None
+    assert "Could not read the file types of the modules" in caplog.text
+    # the loaded modules are still asked
+    site(["dummy"])
+    assert file_types.get_extension("application/x-lithica-dummy") == "dummy"
 
 
 def _module_with(detect, thumbnail=None, name="probe", post_type="probefile"):
