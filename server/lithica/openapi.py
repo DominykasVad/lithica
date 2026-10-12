@@ -9,9 +9,10 @@ checks that. Never edit that file by hand.
 
 import json
 import sys
+from collections.abc import Sequence
 from typing import Any
 
-from lithica import config
+from lithica import config, registry
 
 DESCRIPTION = """\
 The API of Lithica, a self-hosted image board.
@@ -62,9 +63,24 @@ def build() -> dict[str, Any]:
 
     from lithica.app import create_app
 
-    # the contract is the engine's API: the routes of whatever modules this
-    # installation has switched on are not part of it
-    return create_app(modules=[]).openapi()
+    # The contract describes the code, not this installation: every module
+    # there is, whatever the `modules` setting says, so that the document
+    # is the same on every machine.
+    return create_app(modules=registry.available()).openapi()
+
+
+def module_tags(modules: Sequence[registry.Module]) -> list[dict[str, str]]:
+    """The tags of the modules that have routes: one each, its name."""
+    return [
+        {
+            "name": module.name,
+            "description": "Routes of the optional module `%s`, under "
+            "`modules/%s/`. They exist only where the module is switched on: "
+            "see `modules` of `GET /info`." % (module.name, module.name),
+        }
+        for module in modules
+        if module.router is not None
+    ]
 
 
 def allow_anonymous(document: dict[str, Any]) -> None:
