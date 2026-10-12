@@ -397,3 +397,5 @@ code base are described in [AGENTS.md](../AGENTS.md):
 `docker compose -f docker-compose.dev.yml up` starts the stack, and
 `uv run pytest -n auto` in `server/` runs the tests against the database of
 `server/docker-compose.test.yml`.
+
+<!-- CI trigger check: a change of documentation alone. Never merged. -->
