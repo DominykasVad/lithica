@@ -27,10 +27,9 @@ Never relicense, never strip headers or credits.
 
 ## Current phase
 
-Phase 4 of PLAN.md: module file types and the `cards` module, server only
-(baseline `v0.1.0` is released). Work only on tasks listed there, in order,
-unless the owner says otherwise. Anything not listed in PLAN.md — including
-any client work — is **out of scope**.
+Phases 0–4 of PLAN.md are finished (`v0.2.0` is released). Work only on the
+phase PLAN.md marks as current. If it marks none, take only tasks the owner
+gives explicitly. Anything not in PLAN.md is **out of scope**.
 
 ## Layout
 
@@ -48,6 +47,9 @@ server/
     tests/
       fixtures/modules/ modules that exist for the tests (the dummy module)
   lithica-admin         admin CLI (was szuru-admin)
+clients/
+  sardonyx/             the web client (Sardonyx) — MIT; talks to the server
+                        only through the HTTP API of doc/openapi.json
 legacy/client/          old vanilla-JS client + nginx config — FROZEN, see below
 doc/
 PLAN.md, AGENTS.md, ANALYSIS.md
@@ -84,6 +86,29 @@ No local PostgreSQL install is needed or wanted — the database always runs in
 a container. Everything must work on any host with Docker-compatible tooling
 and uv; do not assume a specific OS, CPU architecture or machine.
 
+### Client (`clients/sardonyx/`)
+
+Commands are run from `clients/sardonyx/`.
+
+- **Package manager:** pnpm only, never npm or yarn. `pnpm-lock.yaml` is
+  committed. Node **26**, pinned in `engines.node` of `package.json` and in
+  `.nvmrc`; pnpm's version is pinned in `packageManager`.
+- **Stack:** Vite, React, TypeScript (`strict: true`), TanStack Router,
+  TanStack Query, Tailwind CSS v4, shadcn/ui. Kibo UI only when a component
+  is actually needed.
+- **API access:** types are generated from `../../doc/openapi.json` with
+  openapi-typescript, and calls are made with openapi-fetch. Generated files
+  are never hand-edited; regenerate them after any change of the server's
+  API. No hand-written types for API data.
+- **Lint and format:** Biome, one tool for both, as ruff is on the server.
+- **Tests:** Vitest and Testing Library for units and components. Playwright
+  for end-to-end tests later, not before the owner asks.
+
+The commands (install, dev, build, lint, format, typecheck, test, regenerate
+the API types) are pnpm scripts that phase 5 creates. Until then there is
+nothing to run in `clients/sardonyx/`: when the scripts exist, list them here
+in a table like the one above, with the exact script names.
+
 ## Definition of done (every task)
 
 1. `ruff check`, `ruff format --check`, `pyright` and the full test suite pass.
@@ -96,6 +121,11 @@ and uv; do not assume a specific OS, CPU architecture or machine.
    to the **Decision log** (see the rules there). Everything else (what you
    did, what you left alone, observations) goes in the commit message body.
 4. Report: what changed, what you verified and how, what you did not verify.
+
+Points 1 to 4 are written for the server. For the client the same holds with
+the client's tools: lint, format check, typecheck and tests pass, and the
+PLAN.md tick is in the same commit. CI runs the server's checks only; the
+client's are added to CI in phase 5.
 
 ## Hard rules
 
@@ -196,6 +226,23 @@ and uv; do not assume a specific OS, CPU architecture or machine.
   No features, no refactors, no dependency upgrades beyond what a build fix
   needs.
 
+### Client (`clients/sardonyx/`)
+- Never render content from the server as raw HTML: no
+  `dangerouslySetInnerHTML`. Card text and other user text is shown as plain
+  text, or as Markdown through react-markdown with rehype-sanitize and
+  without a raw-HTML plugin.
+- Never fetch a URL found inside card data (icons, links, assets). Use only
+  the URLs the API gives for posts and thumbnails.
+- The client learns what a site offers from `GET /info` (`modules`). Card UI
+  is shown only when `cards` is listed. No build-time feature flags.
+- Branding (the name "Sardonyx", colours, logo) lives in the client, not in
+  the server's configuration.
+- Authentication: the client logs in with a user token, not by keeping the
+  password. The token is kept in memory, and written to `localStorage` only
+  when the user chooses "remember me".
+- The definition of done is the server's, with the client's tools (see
+  there).
+
 ### Licences
 - The repository is GPLv3; `clients/sardonyx/` alone is MIT (see
   `LICENSING.md`). This is the one exception to "Licence is GPLv3" above, and
@@ -203,7 +250,8 @@ and uv; do not assume a specific OS, CPU architecture or machine.
 - Nothing from `legacy/client/` (code, templates, styles, assets, build
   scripts) may be copied or adapted into `clients/`. Reading it to understand
   how the API behaves is allowed.
-- Do not add GPL-licensed code or dependencies to `clients/sardonyx/`.
+- Do not add copyleft-licensed code or dependencies (GPL, AGPL) to
+  `clients/sardonyx/`; LGPL is allowed only as an unmodified dependency.
 
 ### Style
 - ruff defaults as configured in `pyproject.toml`, line length 88.
