@@ -26,6 +26,9 @@ services:
       THREADS:
       WORKERS:
       #HOST: "::" (IPv4 and IPv6; "0.0.0.0" where IPv6 is disabled)
+      ## Optional modules to switch on, comma-separated. When set, it
+      ## replaces "modules" of config.yaml:
+      #MODULES: cards
     volumes:
       - "${MOUNT_DATA}:/data"
       - "./server/config.yaml:/opt/app/config.yaml"

@@ -152,7 +152,8 @@ environment and anything you write for them in `config.yaml` is ignored.
 
 Further variables can be set on the `server` service in `docker-compose.yml`:
 `POSTGRES_HOST`, `POSTGRES_PORT` and `POSTGRES_DB` for a database elsewhere,
-`DATA_URL`, `HOST`, `LOG_SQL=1` for SQL in the log and `API_DOCS=1`.
+`DATA_URL`, `HOST`, `LOG_SQL=1` for SQL in the log, `API_DOCS=1` and
+`MODULES` (see [Modules](#modules)).
 
 After changing either file, restart: `docker compose up -d`.
 
@@ -171,7 +172,19 @@ modules, you switch them on by name in `server/config.yaml`:
 modules: [some_module]
 ```
 
-and restart the server. Things to know:
+and restart the server. In the containers you can name them in the
+environment instead, comma-separated, on the `server` service in
+`docker-compose.yml`:
+
+```yaml
+    environment:
+      MODULES: some_module,another_module
+```
+
+When `MODULES` is set, it replaces the `modules` setting of the config files
+altogether; set to nothing (`MODULES: ""`), it switches every module off.
+`lithica-admin` must see the same value, which it does when you run it with
+`docker compose run --rm server`. Things to know:
 
 - A name that is not a module is a configuration error, and the server does
   not start. The log names the module.

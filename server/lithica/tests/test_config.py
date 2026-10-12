@@ -157,3 +157,49 @@ def test_refuses_smtp_without_domain_at_startup(valid_config):
     valid_config["smtp"]["host"] = "mail.example.com"
     with pytest.raises(errors.ConfigError, match="'domain' is not set"):
         config.validate()
+
+
+@pytest.fixture
+def read_config(monkeypatch):
+    """Reads the configuration as at startup, from files that say `settings`."""
+
+    def read(settings):
+        monkeypatch.setattr(config, "_file_config", lambda _filename: dict(settings))
+        monkeypatch.setattr(config, "_running_inside_container", lambda: False)
+        return config._read_config()
+
+    return read
+
+
+def test_modules_come_from_the_files_without_the_variable(monkeypatch, read_config):
+    monkeypatch.delenv("MODULES", raising=False)
+    assert "modules" not in config._environment_overrides()
+    assert read_config({"modules": ["from_file"]})["modules"] == ["from_file"]
+
+
+def test_modules_variable_replaces_what_the_files_say(monkeypatch, read_config):
+    monkeypatch.setenv("MODULES", "alpha,beta")
+    assert read_config({"modules": ["from_file"]})["modules"] == ["alpha", "beta"]
+    # replaced, not added to, and also when the files do not have the setting
+    assert read_config({})["modules"] == ["alpha", "beta"]
+
+
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        ("alpha", ["alpha"]),
+        ("beta,alpha", ["beta", "alpha"]),
+        (" alpha ,\tbeta\n", ["alpha", "beta"]),
+        ("alpha,,beta,", ["alpha", "beta"]),
+        (", ,alpha", ["alpha"]),
+        ("", []),
+        ("  ", []),
+        (",", []),
+    ],
+)
+def test_modules_variable_ignores_whitespace_and_empty_entries(
+    monkeypatch, read_config, value, expected
+):
+    monkeypatch.setenv("MODULES", value)
+    assert config._environment_overrides()["modules"] == expected
+    assert read_config({"modules": ["from_file"]})["modules"] == expected

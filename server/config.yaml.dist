@@ -31,6 +31,7 @@ api_docs: false
 # optional modules to switch on, by name: features layered on the engine.
 # a name that is not a module is an error and the server does not start.
 # a module's routes are served under modules/<name>/
+# the environment variable MODULES (comma-separated), when set, replaces this.
 modules: [] # example: [some_module]
 
 # the largest request the server accepts, in bytes: an upload with everything

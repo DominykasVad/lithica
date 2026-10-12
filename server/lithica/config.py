@@ -48,6 +48,13 @@ def _environment_overrides() -> dict:
     overrides: dict = {}
     if os.getenv("API_DOCS"):
         overrides["api_docs"] = os.getenv("API_DOCS") not in ("0", "false", "no")
+    modules = os.getenv("MODULES")
+    if modules is not None:
+        # Set means it decides, also when it is empty: that is how a compose
+        # file switches off the modules a config file lists.
+        overrides["modules"] = [
+            name.strip() for name in modules.split(",") if name.strip()
+        ]
     return overrides
 
 
