@@ -1,21 +1,36 @@
-name: CI
+name: CI (server)
+
+# When the server's checks run: on a pull request that is ready for review
+# and on main, and only when something they look at has changed. A branch
+# that is pushed without a pull request is not checked, and a change of the
+# documentation or of a client alone does not run them.
 on:
-  push:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "server/**"
+      - "doc/openapi.json"
+      - ".github/workflows/ci-server.yml"
+  push:
+    branches: [main]
+    paths:
+      - "server/**"
+      - "doc/openapi.json"
+      - ".github/workflows/ci-server.yml"
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-server-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   server:
     name: Server (lint, types, tests)
-    # A push to a branch of this repository already runs CI; run on
-    # pull_request only for forks, so the same commit is not checked twice.
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
+    # Not for a draft: it is checked when it is marked ready for review. A
+    # push to main has no pull request, so this is true for it.
+    if: github.event.pull_request.draft != true
     runs-on: ubuntu-latest
     defaults:
       run:
