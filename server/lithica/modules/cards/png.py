@@ -52,6 +52,8 @@ class Embedded:
 
     # keyword -> the text of the first chunk with it; empty if unreadable
     cards: dict[bytes, bytes] = field(default_factory=dict[bytes, bytes])
+    # keywords of card chunks too large to be read
+    oversized: set[bytes] = field(default_factory=set[bytes])
     assets: list[Asset] = field(default_factory=list[Asset])
 
 
@@ -65,6 +67,22 @@ def _inflate(data: bytes, limit: int) -> bytes | None:
     if len(inflated) > limit or not inflater.eof:
         return None
     return inflated
+
+
+def _inflates_beyond(chunk_type: bytes, rest: bytes, limit: int) -> bool:
+    """Whether a compressed text chunk is unreadable because it is too large."""
+    if chunk_type == b"zTXt":
+        data = rest[1:]
+    else:
+        parts = rest[2:].split(b"\x00", 2)
+        if len(parts) < 3 or rest[:1] != b"\x01":
+            return False
+        data = parts[2]
+    inflater = zlib.decompressobj()
+    try:
+        return len(inflater.decompress(data, limit + 1)) > limit
+    except zlib.error:
+        return False
 
 
 def _chunks(handle: BinaryIO) -> Iterator[tuple[bytes, int, int]]:
@@ -129,9 +147,14 @@ def read(handle: BinaryIO) -> Embedded:
     read, only measured.
     """
     embedded = Embedded()
+    file_size = handle.seek(0, 2)
+    handle.seek(0)
     for chunk_type, offset, length in _chunks(handle):
         if chunk_type not in _TEXT_CHUNKS:
             continue
+        if offset + length > file_size:
+            # the file ends inside the chunk, whatever length it claims
+            return embedded
         handle.seek(offset)
         start = handle.read(min(length, MAX_KEYWORD_SIZE + 1))
         keyword, separator, _rest = start.partition(b"\x00")
@@ -152,10 +175,10 @@ def read(handle: BinaryIO) -> Embedded:
             continue
         if keyword not in (V3_KEYWORD, V2_KEYWORD) or keyword in embedded.cards:
             continue
-        # A chunk that is there counts, readable or not: a broken `ccv3`
-        # chunk does not make way for the `chara` chunk.
+        # the first chunk with the keyword counts, readable or not
         embedded.cards[keyword] = b""
         if text_length > card_format.MAX_CARD_SIZE:
+            embedded.oversized.add(keyword)
             continue
         handle.seek(text_offset)
         rest = handle.read(text_length)
@@ -165,4 +188,8 @@ def read(handle: BinaryIO) -> Embedded:
         text = _text_of(chunk_type, rest, card_format.MAX_CARD_SIZE)
         if text is not None:
             embedded.cards[keyword] = text
+        elif chunk_type != b"tEXt" and _inflates_beyond(
+            chunk_type, rest, card_format.MAX_CARD_SIZE
+        ):
+            embedded.oversized.add(keyword)
     return embedded

@@ -173,7 +173,8 @@ SECRET = "the-secret-in-the-file"
         ([_found(nested=[{"deep": [SECRET, "a\x00b"]}])], "NUL character"),
         (
             [_found(text="x" * post_content.MAX_PAYLOAD_SIZE)],
-            "bytes (the limit is %d)" % post_content.MAX_PAYLOAD_SIZE,
+            "bytes (the limit of the kind 'alpha_v1' is %d)"
+            % post_content.MAX_PAYLOAD_SIZE,
         ),
         (
             [_found(n=n) for n in range(post_content.MAX_RESULTS + 1)],
@@ -196,6 +197,99 @@ def test_result_outside_the_contract_is_dropped(caplog, results, problem):
     assert problem in caplog.text
     # what was in the file stays out of the log
     assert SECRET not in caplog.text
+
+
+def _payload_of_size(size):
+    """A payload that is exactly this many bytes of JSON."""
+    empty = len('{"text": ""}')
+    return {"text": "x" * (size - empty)}
+
+
+def test_default_payload_limit_is_a_megabyte():
+    assert registry.ContentKind("a").max_payload_size == 1024 * 1024
+    assert post_content.MAX_PAYLOAD_SIZE == registry.DEFAULT_MAX_PAYLOAD_SIZE
+    registry.use([_module(extractors=[_extractor(lambda m, f: results)])])
+    results = [_found(**_payload_of_size(1024 * 1024))]
+    assert post_content.extract(PNG, b"").contents == results
+    results = [_found(**_payload_of_size(1024 * 1024 + 1))]
+    extraction = post_content.extract(PNG, b"")
+    assert extraction.contents == [] and extraction.failed_kinds == {"alpha_v1"}
+
+
+def test_payload_limit_is_that_of_the_kind(caplog):
+    large, small = 3 * 1024 * 1024, 1000
+    results = []
+    registry.use(
+        [
+            registry.Module(
+                name="alpha",
+                content_kinds=[
+                    registry.ContentKind("large_v1", max_payload_size=large),
+                    registry.ContentKind("small_v1", max_payload_size=small),
+                    registry.ContentKind("plain_v1"),
+                ],
+                extractors=[_extractor(lambda m, f: results)],
+            )
+        ]
+    )
+    results[:] = [
+        _found("large_v1", **_payload_of_size(large)),
+        _found("small_v1", **_payload_of_size(small)),
+        _found("plain_v1", **_payload_of_size(1024 * 1024)),
+    ]
+    extraction = post_content.extract(PNG, b"")
+    assert extraction.contents == results and extraction.failed_kinds == set()
+
+    for kind, size in [("large_v1", large), ("small_v1", small)]:
+        results[:] = [_found(kind, **_payload_of_size(size + 1))]
+        with caplog.at_level(logging.ERROR):
+            extraction = post_content.extract(PNG, b"")
+        assert extraction.contents == []
+        assert "the limit of the kind %r is %d" % (kind, size) in caplog.text
+    # a large limit is the kind's own, not its neighbour's
+    results[:] = [_found("plain_v1", **_payload_of_size(1024 * 1024 + 1))]
+    assert post_content.extract(PNG, b"").contents == []
+
+
+def test_extractor_that_refuses_the_file(caplog, post_factory):
+    def refusing(_mime_type, _handle):
+        raise registry.FileRejected("The thing in the file is too large.")
+
+    registry.use(
+        [
+            _module(extractors=[_extractor(refusing)]),
+            _module(
+                "beta", ["beta_v1"], [_extractor(lambda m, f: [_found("beta_v1", n=1)])]
+            ),
+        ]
+    )
+    with caplog.at_level(logging.DEBUG):
+        extraction = post_content.extract(PNG, b"")
+    assert extraction.rejections == ["The thing in the file is too large."]
+    assert extraction.failed_kinds == {"alpha_v1"}
+    assert extraction.contents == [_found("beta_v1", n=1)]
+    # a refusal on purpose is not an error of the module
+    assert caplog.text == ""
+
+    # as the new content of a post, the file is refused
+    post = post_factory()
+    post.mime_type = PNG
+    kept = model.PostContent(
+        kind="alpha_v1", schema_version=1, payload={"old": True}, extracted_at=None
+    )
+    post.contents = [kept]
+    with pytest.raises(post_content.ContentRejectedError) as refusal:
+        post_content.update_post_contents(post, b"")
+    assert str(refusal.value) == "The thing in the file is too large."
+    assert post.contents == [kept]
+
+    # read again from a file the post already has, it is a failure: what is
+    # stored stays, and what the other module found is taken
+    assert post_content.reextract_post_contents(post, b"") is False
+    assert [(row.kind, row.payload) for row in post.contents] == [
+        ("alpha_v1", {"old": True}),
+        ("beta_v1", {"n": 1}),
+    ]
 
 
 def test_one_bad_result_drops_all_results_of_that_extractor():

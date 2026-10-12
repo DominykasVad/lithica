@@ -799,6 +799,14 @@ def warn_about_pending_backfills() -> None:
             )
 
 
+def _update_post_contents(post: model.Post, content: ContentLike) -> None:
+    try:
+        post_content.update_post_contents(post, content)
+    except post_content.ContentRejectedError as ex:
+        # a module refused the file, in its words
+        raise InvalidPostContentError(str(ex)) from ex
+
+
 def update_post_content(post: model.Post, content: ContentLike | None) -> None:
     assert post
     if not content:
@@ -840,6 +848,10 @@ def update_post_content(post: model.Post, content: ContentLike | None) -> None:
     if other_post and other_post.post_id and other_post.post_id != post.post_id:
         raise PostAlreadyUploadedError(other_post)
 
+    # Before anything of the post goes to the session: a module may refuse
+    # the file here, and a refused file must leave nothing behind.
+    _update_post_contents(post, content)
+
     if update_signature:
         purge_post_signature(post)
         generate_post_signature(post, content)
@@ -853,7 +865,6 @@ def update_post_content(post: model.Post, content: ContentLike | None) -> None:
         # not a picture: it has no canvas
         post.canvas_width = None
         post.canvas_height = None
-        post_content.update_post_contents(post, content)
         setattr(post, "__content", content)
         return
     try:
@@ -876,7 +887,6 @@ def update_post_content(post: model.Post, content: ContentLike | None) -> None:
         else:
             post.canvas_width = None
             post.canvas_height = None
-    post_content.update_post_contents(post, content)
     setattr(post, "__content", content)
 
 

@@ -22,7 +22,7 @@ from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, BinaryIO, cast
 
-from lithica import model, registry
+from lithica import errors, model, registry
 from lithica.func import content as content_module
 from lithica.func import tags, util
 from lithica.func.content import ContentLike
@@ -31,8 +31,10 @@ logger = logging.getLogger(__name__)
 
 # What one extractor may return for one file. Embedded data is as large as
 # the uploader made it; this is what the database is asked to keep of it.
+# How large one result may be is up to its kind (registry.ContentKind); this
+# is what a kind gets that does not ask.
 MAX_RESULTS = 64
-MAX_PAYLOAD_SIZE = 1024 * 1024
+MAX_PAYLOAD_SIZE = registry.DEFAULT_MAX_PAYLOAD_SIZE
 
 # how many tags one module may put on one post
 MAX_AUTO_TAGS = 100
@@ -42,20 +44,30 @@ class _InvalidResultError(Exception):
     """An extractor returned something the contract does not allow."""
 
 
+class ContentRejectedError(errors.ValidationError):
+    """
+    An extractor refused the file on purpose: it holds content that cannot
+    be stored and must not be dropped silently. The message is the
+    module's, for the uploader.
+    """
+
+
 @dataclass
 class Extraction:
     """
     What the extractors made of one file.
 
-    `failed_kinds` are the kinds of the modules that had an extractor fail:
-    for those the file was not read properly, which is not the same as the
-    file holding nothing.
+    `failed_kinds` are the kinds of the modules that had an extractor fail
+    or refuse the file: for those the file was not read properly, which is
+    not the same as the file holding nothing.
     """
 
     contents: list[registry.ExtractedContent] = field(
         default_factory=list[registry.ExtractedContent]
     )
     failed_kinds: set[str] = field(default_factory=set[str])
+    # why extractors refused the file, in their words (see registry.FileRejected)
+    rejections: list[str] = field(default_factory=list[str])
 
 
 def _open(content: ContentLike) -> BinaryIO:
@@ -65,8 +77,9 @@ def _open(content: ContentLike) -> BinaryIO:
 
 
 def _verified(
-    result: object, module: registry.Module, owned_kinds: Collection[str]
+    result: object, module: registry.Module, owned_kinds: Mapping[str, int]
 ) -> registry.ExtractedContent:
+    """`owned_kinds` are the module's kinds and how large a payload of each may be."""
     if not isinstance(result, registry.ExtractedContent):
         raise _InvalidResultError("returned %s" % type(result).__name__)
     if result.kind not in owned_kinds:
@@ -74,6 +87,7 @@ def _verified(
             "returned content of kind %r, which module %r does not declare"
             % (result.kind, module.name)
         )
+    max_payload_size = owned_kinds[result.kind]
     # declared as an object; a module may have put anything there
     payload = cast(object, result.payload)
     if not isinstance(payload, dict):
@@ -87,10 +101,10 @@ def _verified(
         size = len(encoded.encode("utf-8"))
     except (TypeError, ValueError, RecursionError) as ex:
         raise _InvalidResultError("returned a payload that is not JSON") from ex
-    if size > MAX_PAYLOAD_SIZE:
+    if size > max_payload_size:
         raise _InvalidResultError(
-            "returned a payload of %d bytes (the limit is %d)"
-            % (size, MAX_PAYLOAD_SIZE)
+            "returned a payload of %d bytes (the limit of the kind %r is %d)"
+            % (size, result.kind, max_payload_size)
         )
     # the payload as JSON has it: a copy nobody else holds, keys as strings
     stored: registry.Payload = json.loads(encoded)
@@ -117,7 +131,7 @@ def _run(
     mime_type: str,
     content: ContentLike,
 ) -> list[registry.ExtractedContent]:
-    owned_kinds = {kind.name for kind in module.content_kinds}
+    owned_kinds = {kind.name: kind.max_payload_size for kind in module.content_kinds}
     results: list[registry.ExtractedContent] = []
     # every extractor gets the file from its start
     with _open(content) as handle:
@@ -138,7 +152,9 @@ def extract(
 
     Never raises for anything an extractor does: what one extractor found
     is kept when another fails, and all results of a failing one are
-    dropped, as nobody knows which of them to trust.
+    dropped, as nobody knows which of them to trust. An extractor that
+    refuses the file (registry.FileRejected) is noted in `rejections`; what
+    to make of that is the caller's business.
     """
     extraction = Extraction()
     for module, extractor in registry.extractors_for(mime_type):
@@ -147,6 +163,10 @@ def extract(
             continue
         try:
             results = _run(module, extractor, mime_type, content)
+        except registry.FileRejected as ex:
+            # on purpose, and in the module's own words: not a failure to log
+            extraction.rejections.append(str(ex))
+            extraction.failed_kinds |= owned_kinds
         except _InvalidResultError as ex:
             # only our own description of the problem: no payload
             logger.error("An extractor of module %r %s.", module.name, ex)
@@ -186,8 +206,14 @@ def update_post_contents(post: model.Post, content: ContentLike) -> None:
     Make the post's extracted content that of this file: its new content.
     Every row the post had goes, also those of modules that are switched
     off now, because they describe a file the post no longer has.
+
+    Raises ContentRejectedError when an extractor refuses the file: the
+    file must not become the post's content then.
     """
-    post.contents = _rows(extract(post.mime_type, content).contents)
+    extraction = extract(post.mime_type, content)
+    if extraction.rejections:
+        raise ContentRejectedError(extraction.rejections[0])
+    post.contents = _rows(extraction.contents)
 
 
 def _verified_auto_tags(result: object) -> dict[str, list[str]]:
@@ -258,9 +284,9 @@ def reextract_post_contents(
     modules that are switched off, and whoever switches one back on will
     want them.
 
-    Where an extractor fails, the rows of its module's kinds are kept as
-    they are, since old content is better than none. Returns whether every
-    extractor worked.
+    Where an extractor fails, or refuses the file, the rows of its module's
+    kinds are kept as they are, since old content is better than none, and
+    the file is the post's already. Returns whether every extractor worked.
     """
     targets = set(registry.content_kinds() if kinds is None else kinds)
     extraction = extract(post.mime_type, content, kinds)

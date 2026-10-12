@@ -7,6 +7,7 @@ import base64
 import io
 import json
 import struct
+import zipfile
 import zlib
 from typing import Any
 
@@ -130,3 +131,41 @@ def png_with(*chunks: bytes, shade: int = 0) -> bytes:
 def png_card(card: Any, keyword: bytes = b"chara", shade: int = 0) -> bytes:
     """A PNG picture that carries the card in a `tEXt` chunk."""
     return png_with(text_chunk(keyword, encoded(card)), shade=shade)
+
+
+ICON_PATH = "assets/icon/images/main.png"
+
+
+def charx_card(icon_uri: str | None = "embeded://" + ICON_PATH, **data: Any) -> Any:
+    """A V3 card as a CHARX file holds it, with its main icon at this URI."""
+    assets = (
+        []
+        if icon_uri is None
+        else [{"type": "icon", "uri": icon_uri, "name": "main", "ext": "png"}]
+    )
+    return v3_card(**{"assets": assets, **data})
+
+
+def archive(
+    entries: dict[str, bytes], compression: int = zipfile.ZIP_DEFLATED
+) -> bytes:
+    """A ZIP archive with these entries, in this order."""
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", compression) as zip_file:
+        for name, data in entries.items():
+            # a fixed date: the same entries make the same archive every time
+            entry = zipfile.ZipInfo(name, date_time=(2026, 1, 1, 0, 0, 0))
+            entry.compress_type = compression
+            zip_file.writestr(entry, data)
+    return buffer.getvalue()
+
+
+def charx(card: Any = None, icon: bytes | None = None, **entries: bytes) -> bytes:
+    """A CHARX file: the card, its icon if given, and any other entries."""
+    if card is None:
+        card = charx_card() if icon is not None else charx_card(None)
+    content = {"card.json": json.dumps(card).encode("utf-8")}
+    if icon is not None:
+        content[ICON_PATH] = icon
+    content.update(entries)
+    return archive(content)

@@ -255,6 +255,31 @@ def test_clashing_modules_are_refused(modules, problem):
     assert registry.modules() == ()
 
 
+@pytest.mark.parametrize(
+    "size", [0, -1, registry.PAYLOAD_SIZE_CAP + 1, 1024 * 1024 * 1024]
+)
+def test_payload_limit_beyond_the_cap_is_refused(size):
+    kind = registry.ContentKind("alpha_v1", max_payload_size=size)
+    with pytest.raises(errors.ConfigError, match="the most a kind may ask for is"):
+        registry.use([registry.Module(name="alpha", content_kinds=[kind])])
+    assert registry.modules() == ()
+
+
+def test_payload_limit_up_to_the_cap_is_accepted():
+    assert registry.PAYLOAD_SIZE_CAP == 32 * 1024 * 1024
+    kinds = [
+        registry.ContentKind("alpha_v1", max_payload_size=registry.PAYLOAD_SIZE_CAP),
+        registry.ContentKind("alpha_v2", max_payload_size=1),
+        registry.ContentKind("alpha_v3"),
+    ]
+    registry.use([registry.Module(name="alpha", content_kinds=kinds)])
+    assert [kind.max_payload_size for kind in registry.content_kinds().values()] == [
+        32 * 1024 * 1024,
+        1,
+        1024 * 1024,
+    ]
+
+
 def _file_type(**changes):
     values = {
         "post_type": "probefile",

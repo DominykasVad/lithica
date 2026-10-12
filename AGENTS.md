@@ -167,7 +167,11 @@ and uv; do not assume a specific OS, CPU architecture or machine.
   are type-checked in pyright's strict mode.
 - Everything an extractor reads comes from an uploaded file: untrusted. A
   failing extractor or hook must never fail an upload (the pipeline catches
-  it), and payloads are never logged.
+  it), and payloads are never logged. The one way an extractor refuses an
+  upload is on purpose, by raising `registry.FileRejected`, for content that
+  cannot be stored and must not go missing silently.
+- A payload may be 1 MiB of JSON unless its kind asks for more
+  (`ContentKind.max_payload_size`, at most 32 MiB).
 - A module's file types (`registry.FileType`) are asked only about files the
   engine itself does not know. A detector refuses a file of its type by
   raising `registry.FileRejected` with a message for the uploader; anything

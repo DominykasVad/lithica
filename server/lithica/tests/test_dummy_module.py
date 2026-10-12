@@ -860,6 +860,40 @@ def test_thumbnails_of_module_files_can_be_regenerated(site, user, admin):
     assert _stored(created["thumbnailUrl"]) == before
 
 
+def test_extractor_that_refuses_a_file_refuses_the_upload(site, user):
+    def refusing(_mime_type, handle):
+        if b"too much" in handle.read():
+            raise registry.FileRejected("The text in the picture is too long.")
+        return []
+
+    client = _site_with(
+        site,
+        [
+            registry.Module(
+                name="probe",
+                content_kinds=[registry.ContentKind("probe_v1")],
+                extractors=[registry.Extractor(frozenset({"image/png"}), refusing)],
+            )
+        ],
+    )
+    refused = _refused_upload(client, user, _png([("Title", "too much")]))
+    assert refused["description"] == "The text in the picture is too long."
+    assert db.session.query(model.Post).count() == 0
+    # and so is the same file as new content of a post that exists
+    created = _upload(client, user, _png(shade=1))
+    assert_error(
+        client.put(
+            "/post/%d" % created["id"],
+            user=user,
+            body={"version": created["version"]},
+            files={"content": _png([("Title", "too much")], shade=2)},
+        ),
+        posts.InvalidPostContentError,
+    )
+    # That the post is unchanged afterwards cannot be seen here: a server
+    # rolls the refused request back, while the tests share one transaction.
+
+
 def test_proof_module_keeps_to_the_import_boundary(tmp_path, capsys):
     # the same two rules as for lithica.modules, for the package the dummy
     # module lives in, and one more: the engine does not know the tests
