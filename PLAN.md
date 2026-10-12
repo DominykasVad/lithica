@@ -53,7 +53,7 @@ Confirmed by the owner on 2026-10-10.
 - Uploads, downloads and stored files are file-backed `Content` (`lithica.func.content`); data the server makes itself stays `bytes`; code takes either. Temporary files live in `<data_dir>/temporary-uploads/.tmp/` and become stored files by rename.
 - The largest request is `max_upload_size` (default 1 GiB, the limit of the client image's nginx; change both together).
 - The database session is scoped per request by a ContextVar; work outside a request opens `db.session_scope()`.
-- Modules load when `lithica.app` is imported (their routes are part of the application). Module routes live under `/modules/<name>/`. Until phase 4 they stay out of `doc/openapi.json`; from phase 4 on they are in it, tagged per module (task 4.3).
+- Modules load when `lithica.app` is imported (their routes are part of the application). Module routes live under `/modules/<name>/` and are in `doc/openapi.json`, each tagged with its module's name and nothing else. The contract is generated with every module in `lithica/modules/` enabled (`registry.available()`), whatever the settings; the document a site serves under `api_docs` has the modules of that site.
 - A content kind is at most 64 characters and belongs to exactly one module (`registry.ContentKind`).
 - An extractor returns at most 64 results of at most 1 MiB of JSON each. Beyond that, or with one bad result, it counts as failed and all its results for the file are dropped.
 - New content replaces every `post_content` row of the post, also rows of kinds no loaded module owns. `lithica-admin reextract` replaces only rows of kinds loaded modules own, keeps the old rows where an extractor fails, and never tags.
@@ -199,7 +199,7 @@ commit body. If something here contradicts the specs, stop and ask.
 
 ### 4.2 Module routes in the OpenAPI contract
 - [x] `doc/openapi.json` includes module routes, each tagged with its module's name. The committed spec is generated with **every module in `lithica/modules/` enabled**, so it is the same on every machine; the CI drift check uses the same setting.
-- [ ] Update the "Further defaults" line about module routes and the "API compatibility" section of AGENTS.md accordingly.
+- [x] Update the "Further defaults" line about module routes and the "API compatibility" section of AGENTS.md accordingly.
 
 **Done when:** a route added by a module under `lithica/modules/` appears in the generated spec with its module tag (test with a temporary module), and the CI drift check passes.
 

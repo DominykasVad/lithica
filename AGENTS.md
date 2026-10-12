@@ -121,9 +121,13 @@ and uv; do not assume a specific OS, CPU architecture or machine.
   smoke test for this.
 - The only allowed breaking changes are the ones listed under
   "Intentional API changes" in PLAN.md.
-- After phase 2, `doc/openapi.json` is the API contract. It is generated from
-  code (`uv run python -m lithica.openapi > ../doc/openapi.json`) and CI fails
-  if the committed file differs. Never hand-edit it.
+- `doc/openapi.json` is the API contract. It is generated from code
+  (`uv run python -m lithica.openapi > ../doc/openapi.json`) and CI fails if
+  the committed file differs. Never hand-edit it.
+- The contract includes the routes of **every module in `lithica/modules/`**,
+  each tagged with its module's name, whatever `modules` or `MODULES` say on
+  the machine that generates it. Regenerate it after changing a module's
+  routes too. A module's router sets no tags of its own.
 
 ### Database
 - PostgreSQL 17 is the only database tested and shipped, but code must stay
