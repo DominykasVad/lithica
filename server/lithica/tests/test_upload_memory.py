@@ -78,6 +78,19 @@ class _Server:
         return response.status, result, digest.hexdigest()
 
 
+def _wait_until_empty(folder: str) -> list[str]:
+    """
+    What is in the folder once the server has cleaned up, at the latest
+    after ten seconds. The server removes the folder of a request after it
+    has sent the response, so a client that has just read the response can
+    be a moment ahead of it.
+    """
+    deadline = time.monotonic() + 10
+    while os.listdir(folder) and time.monotonic() < deadline:
+        time.sleep(0.05)
+    return os.listdir(folder)
+
+
 @pytest.fixture
 def server(tmpdir):
     port = _free_port()
@@ -123,7 +136,8 @@ def test_large_upload_does_not_grow_the_server_by_its_size(server, tmpdir):
     assert os.path.getsize(stored) == size
     # it was written once, into the data directory, and renamed into place:
     # the folder for temporary files is empty again
-    assert os.listdir(os.path.join(str(tmpdir), "temporary-uploads", ".tmp")) == []
+    temporary = os.path.join(str(tmpdir), "temporary-uploads", ".tmp")
+    assert _wait_until_empty(temporary) == []
 
     # and the server needed a small fraction of it in memory
     growth = after - before
@@ -148,4 +162,4 @@ def test_request_larger_than_the_limit_is_refused_by_a_real_server(server, tmpdi
     # nothing was stored, and nothing is left in the folder for temporary files
     uploads = os.path.join(str(tmpdir), "temporary-uploads")
     assert os.listdir(uploads) == [".tmp"]
-    assert os.listdir(os.path.join(uploads, ".tmp")) == []
+    assert _wait_until_empty(os.path.join(uploads, ".tmp")) == []
