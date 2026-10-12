@@ -129,7 +129,11 @@ respect). One line each, max ~120 characters: `date — task — decision (reaso
 No status notes, no "left untouched", no results — those go in commit messages.
 When a whole phase is finished (its last sub-phase merged), its entries are folded into the tables above or deleted.
 
-- (empty: phases 0–4 are folded into the tables above)
+- 2026-10-12 — 5.0 — import: each file is its own transaction; a duplicate is skipped by the upload path's checksum check
+- 2026-10-12 — 5.0 — import: "refused" is a validation or processing error of the file (exit 0); "failed" is anything else (exit 1)
+- 2026-10-12 — 5.0 — import: files and folders whose names start with a dot are left out; symlinked folders are not followed
+- 2026-10-12 — 5.0 — import: no privilege of `--user` is asked (the command is the administrator's); snapshots are the user's
+- 2026-10-12 — 5.0 — `--dry-run` checks duplicates, the file type and module refusals; it does not decode pictures
 
 ---
 
@@ -232,10 +236,10 @@ browser tests in this phase. Every client sub-phase ends with a manual check
 in the dev stack, its results stated in the PR.
 
 ### 5.0 Bulk import (server)
-- [ ] `lithica-admin import <folder>`: an engine command, not a cards one. Creates a post per file (recursive, sorted), as a named user (`--user`, required) with an explicit `--safety safe|sketchy|unsafe` (required), optional `--tags a,b`. Runs the normal upload path, so modules extract and auto-tag as for an upload.
-- [ ] Exact duplicates (same checksum) are skipped, not errors. Files nobody accepts are reported, not fatal. Output: a summary (created, skipped, refused, failed) and a list of problems with file names; exit code non-zero if anything failed.
-- [ ] `--dry-run` reports what would happen without creating posts.
-- [ ] Safe to re-run: a second run over the same folder creates nothing.
+- [x] `lithica-admin import <folder>`: an engine command, not a cards one. Creates a post per file (recursive, sorted), as a named user (`--user`, required) with an explicit `--safety safe|sketchy|unsafe` (required), optional `--tags a,b`. Runs the normal upload path, so modules extract and auto-tag as for an upload.
+- [x] Exact duplicates (same checksum) are skipped, not errors. Files nobody accepts are reported, not fatal. Output: a summary (created, skipped, refused, failed) and a list of problems with file names; exit code non-zero if anything failed.
+- [x] `--dry-run` reports what would happen without creating posts.
+- [x] Safe to re-run: a second run over the same folder creates nothing.
 
 **Done when:** tests cover duplicates, refused files, the dry run and a re-run; importing `scratch/sample-cards/` locally gives one post per card with its card content and tags.
 
