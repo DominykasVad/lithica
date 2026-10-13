@@ -94,6 +94,7 @@ def test_v1_card():
         "chunk": "chara",
         "card": cards.V1_CARD,
         "assets": [],
+        "ignoredChunks": [],
     }
 
 
@@ -101,7 +102,13 @@ def test_v2_card():
     card = cards.v2_card()
     kind, payload = _one(cards.png_card(card))
     assert kind == "card_v2"
-    assert payload == {"format": "png", "chunk": "chara", "card": card, "assets": []}
+    assert payload == {
+        "format": "png",
+        "chunk": "chara",
+        "card": card,
+        "assets": [],
+        "ignoredChunks": [],
+    }
     # the lorebook stays inside the card
     assert payload["card"]["data"]["character_book"] == cards.LOREBOOK
 
@@ -110,7 +117,13 @@ def test_v3_card():
     card = cards.v3_card()
     kind, payload = _one(cards.png_card(card, b"ccv3"))
     assert kind == "card_v3"
-    assert payload == {"format": "png", "chunk": "ccv3", "card": card, "assets": []}
+    assert payload == {
+        "format": "png",
+        "chunk": "ccv3",
+        "card": card,
+        "assets": [],
+        "ignoredChunks": [],
+    }
 
 
 def test_v3_chunk_wins_over_the_v2_chunk():
@@ -179,12 +192,172 @@ def test_two_unreadable_chunks_are_no_card():
     assert _extract(picture) == []
 
 
-def test_first_of_two_chunks_with_the_same_keyword_counts():
+def _chunks_of(picture):
+    """The (position, type, keyword or None, size) of every chunk of a PNG file."""
+    found, offset = [], 8
+    while offset < len(picture):
+        length = int.from_bytes(picture[offset : offset + 4], "big")
+        chunk_type = picture[offset + 4 : offset + 8]
+        data = picture[offset + 8 : offset + 8 + length]
+        keyword = data.split(b"\x00")[0].decode() if chunk_type == b"tEXt" else None
+        found.append((len(found), chunk_type.decode(), keyword, length))
+        offset += 12 + length
+    return found
+
+
+def _ignored(picture, *numbers):
+    """The card chunks of these numbers (0 is the first card chunk), as listed."""
+    card_chunks = [
+        chunk for chunk in _chunks_of(picture) if chunk[2] in ("chara", "ccv3")
+    ]
+    return [
+        {
+            "keyword": card_chunks[number][2],
+            "position": card_chunks[number][0],
+            "size": card_chunks[number][3],
+        }
+        for number in numbers
+    ]
+
+
+def test_of_two_chunks_with_the_same_keyword_the_first_is_the_card():
+    # as a site that hosts cards leaves them: its current version first, the
+    # chunk of the picture that was uploaded to it behind
+    current = cards.v2_card(name="Current", tags=["a", "b", "c"])
+    stale = cards.v2_card(name="Stale", tags=["a"], character_book=None)
+    picture = cards.png_with(
+        cards.text_chunk(b"chara", cards.encoded(current)),
+        cards.text_chunk(b"chara", cards.encoded(stale)),
+    )
+    kind, payload = _one(picture)
+    assert kind == "card_v2" and payload["chunk"] == "chara"
+    assert payload["card"] == current
+    # the other is listed, and nothing of what it holds is kept
+    assert payload["ignoredChunks"] == _ignored(picture, 1)
+    assert payload["ignoredChunks"][0]["size"] == len(
+        b"chara\x00" + cards.encoded(stale)
+    )
+    assert "Stale" not in json.dumps(payload)
+
+
+def test_position_decides_not_size():
+    small = cards.v2_card(name="First", description="short")
+    large = cards.v2_card(name="Second", description="long " * 2000)
+    picture = cards.png_with(
+        cards.text_chunk(b"chara", cards.encoded(small)),
+        cards.text_chunk(b"chara", cards.encoded(large)),
+    )
+    assert _one(picture)[1]["card"]["data"]["name"] == "First"
+
+
+@pytest.mark.parametrize(
+    "broken",
+    [
+        b"",
+        b"!!! not base64 !!!",
+        base64.b64encode(b"not json"),
+        cards.encoded({"spec": "chara_card_v2", "data": []}),
+        cards.encoded(["not", "a", "card"]),
+    ],
+)
+def test_unreadable_first_chunk_makes_way_for_the_next_of_its_keyword(broken):
+    good = cards.v2_card(name="Readable")
+    picture = cards.png_with(
+        cards.text_chunk(b"chara", broken),
+        cards.text_chunk(b"chara", cards.encoded(good)),
+        cards.text_chunk(b"chara", cards.encoded(cards.v2_card(name="Third"))),
+    )
+    kind, payload = _one(picture)
+    assert kind == "card_v2" and payload["card"] == good
+    # what was not used is listed, the unreadable one too
+    assert payload["ignoredChunks"] == _ignored(picture, 0, 2)
+
+
+def test_v3_chunk_is_used_and_both_v2_chunks_are_listed():
+    v3 = cards.v3_card(name="Three")
+    picture = cards.png_with(
+        cards.text_chunk(b"chara", cards.encoded(cards.v2_card(name="Two"))),
+        cards.text_chunk(b"ccv3", cards.encoded(v3)),
+        cards.text_chunk(b"chara", cards.encoded(cards.v2_card(name="Two, older"))),
+    )
+    kind, payload = _one(picture)
+    assert (kind, payload["chunk"]) == ("card_v3", "ccv3")
+    assert payload["card"] == v3
+    assert payload["ignoredChunks"] == _ignored(picture, 0, 2)
+    assert [chunk["keyword"] for chunk in payload["ignoredChunks"]] == [
+        "chara",
+        "chara",
+    ]
+
+
+def test_second_v3_chunk_comes_before_any_v2_chunk():
+    v3 = cards.v3_card(name="Second three")
+    picture = cards.png_with(
+        cards.text_chunk(b"chara", cards.encoded(cards.v2_card(name="Two"))),
+        cards.text_chunk(b"ccv3", b"!!! not base64 !!!"),
+        cards.text_chunk(b"ccv3", cards.encoded(v3)),
+    )
+    kind, payload = _one(picture)
+    assert kind == "card_v3" and payload["card"] == v3
+    assert payload["ignoredChunks"] == _ignored(picture, 0, 1)
+
+
+def test_unreadable_chunks_of_both_keywords_are_no_card():
+    picture = cards.png_with(
+        cards.text_chunk(b"ccv3", b"!!!"),
+        cards.text_chunk(b"ccv3", b"???"),
+        cards.text_chunk(b"chara", b"!!!"),
+        cards.text_chunk(b"chara", cards.encoded({"not": "a card"})),
+    )
+    assert _extract(picture) == []
+
+
+def test_oversized_chunk_refuses_the_file_when_its_turn_comes(monkeypatch):
+    small = cards.encoded(cards.v2_card(description="short"))
+    large = cards.encoded(cards.v2_card(description="x" * 5000))
+    monkeypatch.setattr(card_format, "MAX_CARD_SIZE", len(small) + 100)
+    # behind a readable chunk it is never looked at
+    picture = cards.png_with(
+        cards.text_chunk(b"chara", small), cards.text_chunk(b"chara", large)
+    )
+    assert _one(picture)[1]["ignoredChunks"] == _ignored(picture, 1)
+    # in front of one, or behind an unreadable one, it is the card, and too much
+    for chunks in [
+        (cards.text_chunk(b"chara", large), cards.text_chunk(b"chara", small)),
+        (cards.text_chunk(b"chara", b"!!!"), cards.text_chunk(b"chara", large)),
+    ]:
+        assert "`chara` chunk" in _refusal(cards.png_with(*chunks))
+
+
+def test_number_of_card_chunks_looked_at_is_limited(monkeypatch):
+    monkeypatch.setattr(png, "MAX_CARDS", 3)
+    good = cards.encoded(cards.v2_card())
+    picture = cards.png_with(*[cards.text_chunk(b"chara", good) for _ in range(10)])
+    assert len(_one(picture)[1]["ignoredChunks"]) == 2
+    # a readable chunk beyond the limit is not reached
+    picture = cards.png_with(
+        *[cards.text_chunk(b"chara", b"!!!") for _ in range(3)],
+        cards.text_chunk(b"chara", good),
+    )
+    assert _extract(picture) == []
+
+
+def test_chunks_are_read_only_when_their_turn_comes(monkeypatch):
+    read = []
+    real = png.read_text
+
+    def watching(handle, chunk):
+        read.append(chunk.position)
+        return real(handle, chunk)
+
+    monkeypatch.setattr(png, "read_text", watching)
     picture = cards.png_with(
         cards.text_chunk(b"chara", cards.encoded(cards.v2_card(name="First"))),
         cards.text_chunk(b"chara", cards.encoded(cards.v2_card(name="Second"))),
+        cards.text_chunk(b"chara", cards.encoded(cards.v2_card(name="Third"))),
     )
     assert _one(picture)[1]["card"]["data"]["name"] == "First"
+    assert len(read) == 1
 
 
 def test_card_that_names_itself_v3_in_the_v2_chunk_is_v3():
@@ -225,7 +398,13 @@ def test_card_with_fewer_fields_than_the_specification_asks_for():
     card = {"spec": "chara_card_v2", "data": {"name": "Ada"}}
     assert _one(cards.png_card(card)) == (
         "card_v2",
-        {"format": "png", "chunk": "chara", "card": card, "assets": []},
+        {
+            "format": "png",
+            "chunk": "chara",
+            "card": card,
+            "assets": [],
+            "ignoredChunks": [],
+        },
     )
 
 
@@ -385,6 +564,7 @@ def _card_with_payload_of(size):
             "chunk": "chara",
             "card": card,
             "assets": [],
+            "ignoredChunks": [],
             "summary": summary,
         }
     )
@@ -464,6 +644,7 @@ def test_oversized_card_refuses_the_upload(site, user, monkeypatch):
 
 
 SAMPLES = Path(__file__).resolve().parents[4] / "scratch" / "sample-cards"
+DOWNLOADS = Path(__file__).resolve().parents[4] / "scratch" / "CharCards"
 
 
 def test_sample_cards_all_yield_a_card():
@@ -494,6 +675,44 @@ def test_sample_cards_all_yield_a_card():
         )
         name = extraction.contents[0].payload["card"]
         assert isinstance(name.get("data", name).get("name"), str), path.name
+
+
+def test_downloaded_cards_with_two_chunks_use_the_current_one():
+    """
+    Cards as a hosting site hands them out, which the owner keeps outside
+    the repository (scratch/ is git-ignored). Skipped where they are not
+    there, as in CI. Most of them carry two `chara` chunks: the site's
+    current card, which has the site's `chub` extension, and behind it the
+    chunk of the picture that was uploaded to the site.
+    """
+    downloads = sorted(DOWNLOADS.glob("*.png")) if DOWNLOADS.is_dir() else []
+    if not downloads:
+        pytest.skip("no downloaded cards in %s" % DOWNLOADS)
+    registry.load(["cards"])
+    with_two = 0
+    for path in downloads:
+        picture = path.read_bytes()
+        card_chunks = [c for c in _chunks_of(picture) if c[2] in ("chara", "ccv3")]
+        extraction = post_content.extract("image/png", picture)
+        assert extraction.rejections == [] and extraction.failed_kinds == set(), (
+            path.name
+        )
+        (found,) = extraction.contents
+        payload = found.payload
+        # every card chunk is either the card or listed as not used
+        assert len(payload["ignoredChunks"]) == len(card_chunks) - 1, path.name
+        keywords = [chunk[2] for chunk in card_chunks]
+        if keywords == ["chara", "chara"]:
+            with_two += 1
+            first, second = card_chunks
+            assert payload["chunk"] == "chara", path.name
+            assert payload["ignoredChunks"] == [
+                {"keyword": "chara", "position": second[0], "size": second[3]}
+            ], path.name
+            assert "chub" in payload["card"]["data"]["extensions"], path.name
+        elif "ccv3" in keywords:
+            assert (found.kind, payload["chunk"]) == ("card_v3", "ccv3"), path.name
+    assert with_two, "none of the downloaded cards has two chunks"
 
 
 # embedded binary data
@@ -690,12 +909,13 @@ def test_upload_of_a_card(site, user, card, keyword, kind):
     assert created["contentKinds"] == [kind]
     (content,) = _content(client, user, created["id"])
     assert content["kind"] == kind
-    assert content["schemaVersion"] == 2
+    assert content["schemaVersion"] == 3
     assert content["content"] == {
         "format": "png",
         "chunk": keyword.decode(),
         "card": card,
         "assets": [],
+        "ignoredChunks": [],
         "summary": SUMMARIES[kind],
     }
 

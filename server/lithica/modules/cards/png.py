@@ -3,7 +3,9 @@ Character cards in PNG files.
 
 A card rides in a text chunk of the picture: `ccv3` for a V3 card, `chara`
 for a V2 or V1 one, the card's JSON as base64 (see lithica.modules.cards.card
-for the formats). The V3 specification names `tEXt`; `zTXt` and `iTXt`, the
+for the formats). A picture may have several chunks with the same keyword;
+which of them is the card is the extractor's business (see
+lithica.modules.cards). The V3 specification names `tEXt`; `zTXt` and `iTXt`, the
 other two text chunks of PNG, are read the same way, since a PNG library
 may pick either for the same text. A V3 picture may also carry files in
 chunks named `chara-ext-asset_:<path>`.
@@ -34,6 +36,11 @@ MAX_KEYWORD_SIZE = 1024
 # how many embedded assets of one picture are listed
 MAX_ASSETS = 1000
 
+# How many card chunks of one picture are looked at and listed. A card is
+# one chunk, or two where a V2 copy rides along; sites that re-export a
+# picture leave the older chunks in. More than this is not a card's doing.
+MAX_CARDS = 64
+
 _TEXT_CHUNKS = (b"tEXt", b"zTXt", b"iTXt")
 
 
@@ -46,15 +53,34 @@ class Asset:
     size: int | None
 
 
+@dataclass(frozen=True)
+class CardChunk:
+    """
+    A text chunk that carries a card, found and not yet read: which keyword,
+    the how-manyth chunk of the file it is (the first chunk of a PNG file,
+    `IHDR`, is number 0), and how many bytes of data it has.
+    """
+
+    keyword: bytes
+    position: int
+    size: int
+    # how the text is stored, and where: for read_text()
+    chunk_type: bytes
+    text_offset: int
+    text_length: int
+
+
 @dataclass
 class Embedded:
     """What a PNG file carries besides the picture."""
 
-    # keyword -> the text of the first chunk with it; empty if unreadable
-    cards: dict[bytes, bytes] = field(default_factory=dict[bytes, bytes])
-    # keywords of card chunks too large to be read
-    oversized: set[bytes] = field(default_factory=set[bytes])
+    # the card chunks, in the order of the file
+    cards: list[CardChunk] = field(default_factory=list[CardChunk])
     assets: list[Asset] = field(default_factory=list[Asset])
+
+
+class Oversized(Exception):
+    """A card chunk holds more text than is read of one."""
 
 
 def _inflate(data: bytes, limit: int) -> bytes | None:
@@ -142,14 +168,14 @@ def _base64_size(handle: BinaryIO, offset: int, length: int) -> int:
 
 def read(handle: BinaryIO) -> Embedded:
     """
-    The card chunks and the asset chunks of a PNG file. Of several chunks
-    with the same keyword the first one counts. An asset's data is not
-    read, only measured.
+    The card chunks and the asset chunks of a PNG file, found and measured.
+    Nothing of their data is read here: a card chunk is read with read_text(),
+    when it is its turn, and an asset's data never.
     """
     embedded = Embedded()
     file_size = handle.seek(0, 2)
     handle.seek(0)
-    for chunk_type, offset, length in _chunks(handle):
+    for position, (chunk_type, offset, length) in enumerate(_chunks(handle)):
         if chunk_type not in _TEXT_CHUNKS:
             continue
         if offset + length > file_size:
@@ -173,23 +199,33 @@ def read(handle: BinaryIO) -> Embedded:
                 path = keyword[len(ASSET_PREFIX) :].decode("latin-1")
                 embedded.assets.append(Asset(path, size))
             continue
-        if keyword not in (V3_KEYWORD, V2_KEYWORD) or keyword in embedded.cards:
-            continue
-        # the first chunk with the keyword counts, readable or not
-        embedded.cards[keyword] = b""
-        if text_length > card_format.MAX_CARD_SIZE:
-            embedded.oversized.add(keyword)
-            continue
-        handle.seek(text_offset)
-        rest = handle.read(text_length)
-        if len(rest) < text_length:
-            # the file ends inside the chunk
-            continue
-        text = _text_of(chunk_type, rest, card_format.MAX_CARD_SIZE)
-        if text is not None:
-            embedded.cards[keyword] = text
-        elif chunk_type != b"tEXt" and _inflates_beyond(
-            chunk_type, rest, card_format.MAX_CARD_SIZE
-        ):
-            embedded.oversized.add(keyword)
+        if keyword in (V3_KEYWORD, V2_KEYWORD) and len(embedded.cards) < MAX_CARDS:
+            embedded.cards.append(
+                CardChunk(
+                    keyword, position, length, chunk_type, text_offset, text_length
+                )
+            )
     return embedded
+
+
+def read_text(handle: BinaryIO, chunk: CardChunk) -> bytes | None:
+    """
+    The text of a card chunk, or None if it cannot be read (a compressed
+    chunk that is not what it says). Raises Oversized for a chunk with more
+    text than MAX_CARD_SIZE, as it is stored or once it is inflated: too
+    large is not unreadable.
+    """
+    if chunk.text_length > card_format.MAX_CARD_SIZE:
+        raise Oversized
+    handle.seek(chunk.text_offset)
+    rest = handle.read(chunk.text_length)
+    if len(rest) < chunk.text_length:
+        return None
+    found = _text_of(chunk.chunk_type, rest, card_format.MAX_CARD_SIZE)
+    if (
+        found is None
+        and chunk.chunk_type != b"tEXt"
+        and _inflates_beyond(chunk.chunk_type, rest, card_format.MAX_CARD_SIZE)
+    ):
+        raise Oversized
+    return found

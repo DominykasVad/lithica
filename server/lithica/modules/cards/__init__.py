@@ -16,6 +16,19 @@ and its pictures beside it. The module makes them a file type of the site:
 a post of the type `charx`, with the card's main icon as its thumbnail. See
 lithica.modules.cards.charx for what is asked of such an archive.
 
+Which chunk is the card. A picture may carry more than one card chunk: a
+`ccv3` chunk with a `chara` copy for older programs beside it, and often
+several chunks with the same keyword. The card is the first `ccv3` chunk
+that can be read as a V3 card, or else the first `chara` chunk that can be
+read as a card. Among chunks with the same keyword the first readable one
+is the card: a site that hosts cards (Chub, for one) writes its current
+version of the card first and leaves the chunk of the picture that was
+uploaded to it behind it, older and often with fewer tags and another
+lorebook. Position decides, not size: the current version is not always
+the larger one. A chunk that cannot be read as a card (bad base64, bad
+JSON, the wrong shape) is passed over for the next one. The chunks that
+were not used are listed in the payload, without their content.
+
 A card that is too large to be stored (see MAX_PAYLOAD_SIZE) refuses the
 upload, picture or CHARX file alike: a card that silently went missing
 would leave a post that looks like a card and is none.
@@ -30,6 +43,11 @@ What is stored for a card (the payload):
     assets   the files that came with the card: path and size of each, never
              their data. For a picture, its `chara-ext-asset_:` chunks; for
              a CHARX file, the entries of the archive besides the card
+    ignoredChunks
+             the card chunks of a picture that were not used, in the order
+             of the file: keyword, position (the how-manyth chunk of the
+             file, from 0) and size in bytes of each, never their content.
+             Empty for a CHARX file
     summary  name, creator, number of greetings and of lorebook entries: what
              lists and the search need, so that they need not read the card
 
@@ -67,10 +85,12 @@ from lithica.modules.cards import card as card_format
 
 NAME = "cards"
 
-# Raised when the shape of the payload changes. 2: `summary` was added; rows
-# of version 1 lack it until `lithica-admin reextract` has read their files
+# Raised when the shape of the payload changes. Rows of an older version
+# lack what was added until `lithica-admin reextract` has read their files
 # again.
-SCHEMA_VERSION = 2
+#   2: `summary` was added
+#   3: `ignoredChunks` was added
+SCHEMA_VERSION = 3
 
 # the tag category the creator of a card is put in
 CREATOR_CATEGORY = "creator"
@@ -105,12 +125,14 @@ def _payload(
     chunk: str | None,
     card: dict[str, object],
     assets: list[dict[str, object]],
+    ignored_chunks: list[dict[str, object]],
 ) -> registry.Payload:
     return {
         "format": file_format,
         "chunk": chunk,
         "card": card,
         "assets": assets,
+        "ignoredChunks": ignored_chunks,
         "summary": card_format.summary(kind, card),
     }
 
@@ -139,43 +161,78 @@ def auto_tag(contents: Sequence[registry.ExtractedContent]) -> Mapping[str, list
     return tags
 
 
+def _card_of(
+    handle: BinaryIO, chunk: png.CardChunk
+) -> tuple[str, dict[str, object]] | None:
+    """
+    The card in a chunk, as its kind and what is stored of it, or None if
+    the chunk cannot be read as a card. Raises registry.FileRejected for a
+    chunk too large to be read.
+    """
+    keyword = chunk.keyword.decode("ascii")
+    try:
+        text = png.read_text(handle, chunk)
+    except png.Oversized as ex:
+        raise registry.FileRejected(
+            "The character card in the `%s` chunk of the picture is larger than %s."
+            % (keyword, _megabytes(card_format.MAX_CARD_SIZE))
+        ) from ex
+    if text is None:
+        return None
+    card = card_format.decode(text)
+    kind = card_format.kind_of(card)
+    if kind is None:
+        return None
+    if chunk.keyword == png.V3_KEYWORD and kind != card_format.KIND_V3:
+        # the chunk is for V3 cards; anything else in it is not a card
+        return None
+    stored = card_format.stored(card)
+    if stored is None:
+        return None
+    return kind, stored
+
+
 def extract_png(
     _mime_type: str, handle: BinaryIO
 ) -> Iterator[registry.ExtractedContent]:
     """
-    The card of a PNG file, if it has one. Where a picture carries both
-    chunks, `ccv3` is the card: programs write `chara` next to it as a copy
-    for older programs. Only where the `ccv3` chunk cannot be read as a V3
-    card is a readable `chara` chunk taken instead.
+    The card of a PNG file, if it has one: the first `ccv3` chunk that can
+    be read as a V3 card, or else the first `chara` chunk that can be read
+    as a card (see "Which chunk is the card" in the module's description).
+    The card chunks that were not used are listed in the payload.
 
     Raises registry.FileRejected for a card too large to be stored.
     """
     embedded = png.read(handle)
-    for keyword in (png.V3_KEYWORD, png.V2_KEYWORD):
-        if keyword not in embedded.cards:
+    candidates = [
+        chunk
+        for keyword in (png.V3_KEYWORD, png.V2_KEYWORD)
+        for chunk in embedded.cards
+        if chunk.keyword == keyword
+    ]
+    for chunk in candidates:
+        found = _card_of(handle, chunk)
+        if found is None:
             continue
-        if keyword in embedded.oversized:
-            raise registry.FileRejected(
-                "The character card in the `%s` chunk of the picture is larger "
-                "than %s."
-                % (keyword.decode("ascii"), _megabytes(card_format.MAX_CARD_SIZE))
-            )
-        card = card_format.decode(embedded.cards[keyword])
-        kind = card_format.kind_of(card)
-        if kind is None:
-            continue
-        if keyword == png.V3_KEYWORD and kind != card_format.KIND_V3:
-            # the chunk is for V3 cards; anything else in it is not a card
-            continue
-        stored = card_format.stored(card)
-        if stored is None:
-            continue
+        kind, stored = found
         assets: list[dict[str, object]] = [
             {"path": asset.path.replace("\x00", ""), "size": asset.size}
             for asset in embedded.assets
         ]
+        ignored: list[dict[str, object]] = [
+            {
+                "keyword": other.keyword.decode("ascii"),
+                "position": other.position,
+                "size": other.size,
+            }
+            for other in embedded.cards
+            if other is not chunk
+        ]
         yield _content(
-            kind, _payload(kind, "png", keyword.decode("ascii"), stored, assets)
+            kind,
+            _payload(
+                kind, "png", chunk.keyword.decode("ascii"), stored, assets, ignored
+            ),
         )
         return
 
@@ -195,7 +252,7 @@ def _charx_content(opened: charx.Charx) -> registry.ExtractedContent:
     ]
     return _content(
         card_format.KIND_V3,
-        _payload(card_format.KIND_V3, "charx", None, stored, assets),
+        _payload(card_format.KIND_V3, "charx", None, stored, assets, []),
     )
 
 
