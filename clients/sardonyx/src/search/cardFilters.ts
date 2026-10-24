@@ -125,6 +125,12 @@ export function readFilters(query: string): Filters {
   };
 }
 
+/** How many of the controls filter (custom ones too): what "Filters (2)" counts. */
+export function countFilters(query: string): number {
+  return Object.values(readFilters(query)).filter((control) => control.state !== "none")
+    .length;
+}
+
 const WRITE: { [Name in FilterName]: (value: FilterValues[Name]) => string | null } = {
   creator(value) {
     // a space cannot be in a token: the words are joined by a wildcard

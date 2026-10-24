@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readFilters, writeFilter } from "./cardFilters";
+import { countFilters, readFilters, writeFilter } from "./cardFilters";
 import { completing, suggestionQuery, take } from "./completion";
 import { escapeValue, parts, unescapeValue } from "./query";
 
@@ -122,6 +122,12 @@ describe("card filters in the query text", () => {
     const query = writeFilter("", "creator", "a,b..c*");
     expect(query).toBe("card-creator:a\\,b\\.\\.c\\*");
     expect(readFilters(query).creator).toEqual({ state: "set", value: "a,b..c*" });
+  });
+
+  it("counts the controls that filter, custom ones too", () => {
+    expect(countFilters("sea -nsfw")).toBe(0);
+    expect(countFilters("card-spec:v2 card-format:png card-format:charx")).toBe(2);
+    expect(countFilters("card-greetings-min:2 card-lorebook:yes")).toBe(2);
   });
 
   it("reads other spellings the engine takes", () => {

@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import {
   type KeyboardEvent,
+  type ReactNode,
   useEffect,
   useId,
   useLayoutEffect,
@@ -40,10 +41,13 @@ export function SearchBox({
   value,
   onChange,
   onSubmit,
+  children,
 }: {
   value: string;
   onChange(next: string): void;
   onSubmit(): void;
+  /** more buttons, after Search */
+  children?: ReactNode;
 }) {
   const id = useId();
   const listId = `${id}-tags`;
@@ -169,7 +173,7 @@ export function SearchBox({
           }}
           onKeyDown={keyDown}
           onBlur={close}
-          className="h-12 w-full rounded-xl border border-input bg-card px-4 font-mono text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="h-12 w-full rounded-xl border border-control-border bg-card px-4 font-mono text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
         <div
           id={listId}
@@ -209,6 +213,7 @@ export function SearchBox({
       <Button type="submit" className="h-12 rounded-xl px-5">
         Search
       </Button>
+      {children}
     </form>
   );
 }

@@ -34,6 +34,7 @@
   --color-warn: var(--warn);
   --color-border: var(--border);
   --color-input: var(--input);
+  --color-control-border: var(--control-border);
   --color-ring: var(--ring);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
@@ -74,6 +75,9 @@
   --destructive: #b3261e;
   --border: #e4dad0;
   --input: #d9ccbf;
+  /* the edge of a checkbox, radio, field or select: WCAG 1.4.11 asks 3:1
+     against what is around it (--input is too faint to be that) */
+  --control-border: #958478;
   --ring: #9a3b2b;
   /* links; macros such as {{char}} in card text; good and doubtful states */
   --link: #2d5b78;
@@ -114,6 +118,7 @@
   --destructive: #f08a7a;
   --border: #3f342e;
   --input: #3f342e;
+  --control-border: #806f64;
   --ring: #d9826f;
   --link: #8fb8d3;
   --macro: #22303a;

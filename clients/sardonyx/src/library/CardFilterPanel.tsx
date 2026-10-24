@@ -2,6 +2,8 @@ import { type ReactNode, useId, useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { cn } from "@/lib/utils";
 import {
   type Control,
   type FilterName,
@@ -147,11 +149,15 @@ const LOREBOOK = [
  * one replaces only the tokens it owns, and is a new search.
  */
 export function CardFilterPanel({
+  id,
   query,
   onChange,
+  className,
 }: {
+  id?: string;
   query: string;
   onChange(next: string): void;
+  className?: string;
 }) {
   const name = useId();
   const filters = readFilters(query);
@@ -163,8 +169,12 @@ export function CardFilterPanel({
 
   return (
     <aside
+      id={id}
       aria-label="Card filters"
-      className="flex flex-[1_1_220px] flex-col gap-5 self-start rounded-2xl border bg-card p-4 md:max-w-64"
+      className={cn(
+        "flex flex-col gap-5 rounded-2xl border bg-card p-4 md:w-60 md:shrink-0",
+        className,
+      )}
     >
       <TextFilter
         label="Creator"
@@ -187,21 +197,23 @@ export function CardFilterPanel({
         onChange={(next) => set("format", next)}
       />
       <Group legend="Lorebook" control={filters.lorebook}>
-        {LOREBOOK.map(([value, label]) => (
-          <label key={value} className="flex items-center gap-2">
-            <input
-              type="radio"
-              name={name}
-              value={value}
-              checked={
-                filters.lorebook.state !== "custom" && (lorebook ?? "any") === value
-              }
-              onChange={() => set("lorebook", value === "any" ? null : value)}
-              className="size-4 accent-primary"
-            />
-            {label}
-          </label>
-        ))}
+        <RadioGroup
+          // a custom token is none of these: nothing is chosen
+          value={filters.lorebook.state === "custom" ? "" : (lorebook ?? "any")}
+          onValueChange={(value) =>
+            set("lorebook", value === "yes" || value === "no" ? value : null)
+          }
+          className="gap-2"
+        >
+          {LOREBOOK.map(([value, label]) => (
+            <div key={value} className="flex items-center gap-2">
+              <RadioGroupItem id={`${name}-${value}`} value={value} />
+              <Label htmlFor={`${name}-${value}`} className="font-normal">
+                {label}
+              </Label>
+            </div>
+          ))}
+        </RadioGroup>
       </Group>
       <TextFilter
         label="Greetings, at least"

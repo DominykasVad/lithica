@@ -1,8 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { infoQuery } from "@/app/info";
 import { CardsOnly } from "@/components/CardsOnly";
+import { Button } from "@/components/ui/button";
+import { countFilters } from "@/search/cardFilters";
 import { AutoResults } from "./AutoResults";
 import { CardFilterPanel } from "./CardFilterPanel";
 import { PagedResults } from "./PagedResults";
@@ -10,6 +12,10 @@ import { type PerPage, usePerPage } from "./perPage";
 import { tileFields } from "./posts";
 import { SearchBox } from "./SearchBox";
 import { librarySearch } from "./search";
+
+function filterCount(count: number): string {
+  return count ? `Filters (${count})` : "Filters";
+}
 
 /**
  * The library: the search line, the card filters on a site with cards, and
@@ -20,6 +26,9 @@ export function Library() {
   const navigate = useNavigate();
   const [perPage, setPerPage] = usePerPage();
   const info = useQuery(infoQuery);
+  // below md the filters fold away behind a button, so the results come first
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const filtersId = useId();
 
   // what is typed but not searched for yet; a new search in the URL replaces it
   const [draft, setDraft] = useState(q);
@@ -44,15 +53,30 @@ export function Library() {
   return (
     <main className="mx-auto flex max-w-[1360px] flex-col gap-5 px-4 py-6 sm:px-8">
       <h1 className="sr-only">Library</h1>
-      <SearchBox value={draft} onChange={setDraft} onSubmit={() => search(draft)} />
-      <div className="flex flex-wrap items-start gap-7">
+      <SearchBox value={draft} onChange={setDraft} onSubmit={() => search(draft)}>
         <CardsOnly>
-          <CardFilterPanel query={draft} onChange={search} />
+          <Button
+            type="button"
+            variant="outline"
+            aria-expanded={filtersOpen}
+            aria-controls={filtersId}
+            onClick={() => setFiltersOpen((open) => !open)}
+            className="h-12 rounded-xl px-5 md:hidden"
+          >
+            {filterCount(countFilters(draft))}
+          </Button>
         </CardsOnly>
-        <section
-          aria-label="Results"
-          className="flex min-w-0 flex-[999_1_560px] flex-col gap-4"
-        >
+      </SearchBox>
+      <div className="flex flex-col gap-5 md:flex-row md:items-start md:gap-7">
+        <CardsOnly>
+          <CardFilterPanel
+            id={filtersId}
+            query={draft}
+            onChange={search}
+            className={filtersOpen ? undefined : "max-md:hidden"}
+          />
+        </CardsOnly>
+        <section aria-label="Results" className="flex min-w-0 flex-1 flex-col gap-4">
           {known ? (
             perPage === "auto" ? (
               <AutoResults

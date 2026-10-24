@@ -170,6 +170,8 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 - 2026-10-24 — 5.3 — the query text is the only truth: card filters are read from it and change only their own `card-*` tokens
 - 2026-10-24 — 5.3 — completion: the token at the cursor, not a named one; `<prefix>* sort:usages`, 10, after 150 ms; tag escaped
 - 2026-10-24 — 5.3 — the creator filter writes spaces as `*` (a token has no spaces); `*` is shown as a space again
+- 2026-10-25 — 5.3 — control edges (checkbox, radio, field, select) use `--control-border`, held to 3:1 on background and card (WCAG 1.4.11); text pairs stay at 4.5
+- 2026-10-25 — 5.3 — below `sm` the header's pages fold into a menu; below `md` the card filters fold behind "Filters (n)", n counting set and custom controls
 
 ---
 

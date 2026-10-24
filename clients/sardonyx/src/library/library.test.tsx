@@ -147,6 +147,7 @@ describe("the library", () => {
       "id,type,thumbnailUrl",
     );
     expect(screen.queryByRole("complementary", { name: "Card filters" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Filters/ })).toBeNull();
     // a tile without a card: the post's number and its type
     expect(tiles()[0]).toHaveTextContent("IMAGE");
     expect(tiles()[0]).toHaveTextContent("Post 1");
@@ -531,6 +532,38 @@ describe("tag completion", () => {
 });
 
 describe("card filters", () => {
+  it("fold away behind a button below md, which counts them", async () => {
+    library();
+    renderApp(`/posts?q=${encodeURIComponent("sea card-spec:v2 card-greetings:2..4")}`);
+    const user = userEvent.setup();
+    const panel = await screen.findByRole("complementary", { name: "Card filters" });
+    // one set and one custom: both filter
+    const button = screen.getByRole("button", { name: "Filters (2)" });
+    expect(button).toHaveAttribute("aria-controls", panel.id);
+    expect(button).toHaveAttribute("aria-expanded", "false");
+    // hidden by the stylesheet below md, a side panel from md on
+    expect(panel).toHaveClass("max-md:hidden");
+    expect(button).toHaveClass("md:hidden");
+
+    await user.click(button);
+    expect(button).toHaveAttribute("aria-expanded", "true");
+    expect(panel).not.toHaveClass("max-md:hidden");
+    await user.click(button);
+    expect(panel).toHaveClass("max-md:hidden");
+  });
+
+  it("are counted as typed, and the button says none when there are none", async () => {
+    library();
+    renderApp("/posts?q=sea");
+    const user = userEvent.setup();
+    expect(await screen.findByRole("button", { name: "Filters" })).toBeInTheDocument();
+    await user.type(
+      screen.getByRole("combobox", { name: "Search query" }),
+      " card-format:png",
+    );
+    expect(screen.getByRole("button", { name: "Filters (1)" })).toBeInTheDocument();
+  });
+
   it("are read from the query text, custom where they cannot show it", async () => {
     library();
     renderApp(

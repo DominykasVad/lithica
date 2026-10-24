@@ -35,7 +35,7 @@ export function ResultsBar({
             const value = event.target.value;
             onPerPage(value === "auto" ? "auto" : (Number(value) as PerPage));
           }}
-          className="h-9 rounded-md border border-input bg-card px-2 text-foreground"
+          className="h-9 rounded-md border border-control-border bg-card px-2 text-foreground"
         >
           {PER_PAGE_CHOICES.map((choice) => (
             <option key={choice} value={String(choice)}>
