@@ -158,6 +158,8 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 - 2026-10-24 — 5.2 — theme light/dark/system per browser (`sardonyx.theme`), applied by public/theme.js (no inline script under the CSP)
 - 2026-10-24 — 5.2 — errors: everything a request throws is an `ApiError` (title, description, status) and shown by one component
 - 2026-10-24 — 5.2 — design reference in `clients/sardonyx/docs/design/`: read-only, out of lint, image and client CI
+- 2026-10-24 — 5.2 — palette from the design reference (hex), roles `link` `macro` `ok` `warn` added; components use roles only
+- 2026-10-24 — 5.2 — every theme in index.css passes `src/app/palette.test.ts`: text roles on their backgrounds reach WCAG 4.5:1
 
 ---
 
@@ -322,6 +324,9 @@ in the dev stack, its results stated in the PR.
 - [ ] `docker-compose.yml`: Sardonyx is the default client; the legacy client stays available as an optional service.
 - [ ] `doc/UPGRADING.md`: 0.2.0 → 0.3.0.
 - [ ] Version `0.3.0`; images `lithica-server`, `lithica-client` (Sardonyx), `lithica-client-legacy`.
+- [ ] Optional themes Dracula and Gruvbox in the theme menu (values below), passing the contrast test.
+  - Dracula: bg `#282A36`, card `#343746`, border `#4D5066`, fg `#F8F8F2`, muted `#A9B1D6`, primary `#BD93F9` on `#282A36`, selected `#3E3755`, link `#8BE9FD`, macro bg `#2C3B48`, ok `#50FA7B`, warn `#FFB86C`.
+  - Gruvbox: bg `#282828`, card `#3C3836`, border `#504945`, fg `#EBDBB2`, muted `#A89984`, primary `#FE8019` on `#282828`, selected `#4A3726`, link `#83A598`, macro bg `#2F3B39`, ok `#B8BB26`, warn `#FABD2F`.
 
 **Done when (phase 5 exit):** in the compose stack with `MODULES=cards`: import `scratch/sample-cards/`; log in; search with text and card filters; open a V2 PNG, a V3 PNG and a CHARX card and read greetings and a large lorebook; download; upload new files and see results incl. a refused hostile ZIP; edit tags; log out. Results per step in the PR.
 
