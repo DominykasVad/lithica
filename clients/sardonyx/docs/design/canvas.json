@@ -1,0 +1,97 @@
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "DarkDracula.dc.html": {
+      "h": 820,
+      "title": "Dark style tile · Dracula",
+      "w": 1200,
+      "x": 1280,
+      "y": 2900
+    },
+    "DarkGruvbox.dc.html": {
+      "h": 820,
+      "title": "Dark style tile · Gruvbox",
+      "w": 1200,
+      "x": 2560,
+      "y": 2900
+    },
+    "DarkTile.dc.html": {
+      "h": 820,
+      "title": "Dark style tile · Sardonyx",
+      "w": 1200,
+      "x": 0,
+      "y": 2900
+    },
+    "Gallery.dc.html": {
+      "expand": "fill",
+      "h": 1120,
+      "title": "Library (gallery and search)",
+      "w": 1440,
+      "x": 1520,
+      "y": 0
+    },
+    "Lorebook.dc.html": {
+      "expand": "fill",
+      "h": 1180,
+      "is_interactive": true,
+      "title": "Lorebook view",
+      "w": 1440,
+      "x": 0,
+      "y": 1300
+    },
+    "Main.dc.html": {
+      "expand": "fill",
+      "h": 1180,
+      "is_interactive": true,
+      "title": "Card viewer",
+      "w": 1440,
+      "x": 0,
+      "y": 0
+    },
+    "Style.dc.html": {
+      "h": 780,
+      "title": "Style tile",
+      "w": 1200,
+      "x": 1520,
+      "y": 1300
+    }
+  },
+  "createdOnFiles": {
+    "at": "2026-10-24T10:20:00Z",
+    "v": 1
+  },
+  "designSystems": [],
+  "launch": {
+    "view": "canvas"
+  },
+  "notes": {
+    "t1": {
+      "kind": "title1",
+      "maxW": 2960,
+      "text": "Sardonyx — first design direction",
+      "w": 240,
+      "x": 0,
+      "y": -300
+    },
+    "t2": {
+      "kind": "title1",
+      "maxW": 3760,
+      "text": "Dark themes",
+      "w": 240,
+      "x": 0,
+      "y": 2600
+    }
+  },
+  "order": [
+    "Main.dc.html",
+    "Gallery.dc.html",
+    "Lorebook.dc.html",
+    "Style.dc.html",
+    "DarkTile.dc.html",
+    "DarkDracula.dc.html",
+    "DarkGruvbox.dc.html"
+  ],
+  "pages": [],
+  "title": "Sardonyx design"
+}

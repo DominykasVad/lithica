@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sardonyx — library</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&amp;family=Inter:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#F6F1EA}
+a{color:#2D5B78}a:hover{color:#1E4057}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+button,input,select{font:inherit}
+</style>
+</helmet>
+<div style="min-height: 1120px; background: #F6F1EA; color: #2B211C; font-family: Inter, system-ui, sans-serif; font-size: 15px; line-height: 1.5">
+
+<header style="background: #FFFDF9; border-bottom: 1px solid #E4DAD0">
+<div style="max-width: 1360px; margin: 0 auto; padding: 14px 32px; display: flex; flex-wrap: wrap; align-items: center; gap: 24px">
+<a href="Gallery.dc.html" style="display: flex; align-items: center; gap: 10px; text-decoration: none; color: #2B211C">
+<svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="12" ry="12" fill="#9A3B2B"></ellipse><ellipse cx="14" cy="14" rx="8" ry="8" fill="#F6F1EA"></ellipse><ellipse cx="14" cy="14" rx="4.5" ry="4.5" fill="#9A3B2B"></ellipse></svg>
+<span style="font-family: Newsreader, Georgia, serif; font-size: 24px; font-weight: 600; letter-spacing: 0.01em">Sardonyx</span>
+</a>
+<nav aria-label="Main" style="display: flex; gap: 4px">
+<a href="Gallery.dc.html" style="padding: 8px 12px; border-radius: 8px; text-decoration: none; color: #9A3B2B; background: #F3E3DC; font-weight: 500">Library</a>
+<a href="#" style="padding: 8px 12px; border-radius: 8px; text-decoration: none; color: #4A3D35">Upload</a>
+<a href="#" style="padding: 8px 12px; border-radius: 8px; text-decoration: none; color: #4A3D35">Tags</a>
+</nav>
+<span style="flex: 1 1 40px"></span>
+<button type="button" aria-label="Account: dominic" style="height: 40px; width: 40px; border-radius: 50%; border: 1px solid #D9CCBF; background: #FFFDF9; color: #4A3D35; font-weight: 600; cursor: pointer">D</button>
+</div>
+</header>
+
+<main style="max-width: 1360px; margin: 0 auto; padding: 24px 32px 64px; display: flex; flex-direction: column; gap: 20px">
+
+<form role="search" style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center">
+<label for="query" class="sr-only">Search query</label>
+<input id="query" type="search" value="card-lorebook:yes -nsfw coastal" style="flex: 1 1 420px; height: 48px; box-sizing: border-box; padding: 0 16px; border: 1px solid #D9CCBF; border-radius: 12px; background: #FFFDF9; color: #2B211C; font-family: ui-monospace, monospace; font-size: 15px">
+<button type="submit" style="height: 48px; padding: 0 22px; border: none; border-radius: 12px; background: #9A3B2B; color: #FFFDF9; font-weight: 600; cursor: pointer">Search</button>
+</form>
+
+<div style="display: flex; flex-wrap: wrap; gap: 28px; align-items: flex-start">
+
+<aside aria-label="Filters" style="flex: 1 1 220px; max-width: 260px; display: flex; flex-direction: column; gap: 22px; padding: 18px; background: #FFFDF9; border: 1px solid #E4DAD0; border-radius: 14px; box-sizing: border-box">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<label for="creator" style="font-size: 13px; font-weight: 600">Creator</label>
+<input id="creator" type="text" placeholder="any" style="height: 44px; box-sizing: border-box; padding: 0 12px; border: 1px solid #D9CCBF; border-radius: 10px; background: #F6F1EA">
+</div>
+<fieldset style="margin: 0; padding: 0; border: none; display: flex; flex-direction: column; gap: 8px">
+<legend style="font-size: 13px; font-weight: 600; padding: 0; margin-bottom: 6px">Spec</legend>
+<label style="display: flex; gap: 8px; align-items: center"><input type="checkbox"> V1</label>
+<label style="display: flex; gap: 8px; align-items: center"><input type="checkbox" checked=""> V2</label>
+<label style="display: flex; gap: 8px; align-items: center"><input type="checkbox" checked=""> V3</label>
+</fieldset>
+<fieldset style="margin: 0; padding: 0; border: none; display: flex; flex-direction: column; gap: 8px">
+<legend style="font-size: 13px; font-weight: 600; padding: 0; margin-bottom: 6px">File</legend>
+<label style="display: flex; gap: 8px; align-items: center"><input type="checkbox" checked=""> PNG</label>
+<label style="display: flex; gap: 8px; align-items: center"><input type="checkbox" checked=""> CHARX</label>
+</fieldset>
+<fieldset style="margin: 0; padding: 0; border: none; display: flex; flex-direction: column; gap: 8px">
+<legend style="font-size: 13px; font-weight: 600; padding: 0; margin-bottom: 6px">Lorebook</legend>
+<label style="display: flex; gap: 8px; align-items: center"><input type="radio" name="lore"> Any</label>
+<label style="display: flex; gap: 8px; align-items: center"><input type="radio" name="lore" checked=""> With lorebook</label>
+<label style="display: flex; gap: 8px; align-items: center"><input type="radio" name="lore"> Without</label>
+</fieldset>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<label for="greet" style="font-size: 13px; font-weight: 600">Greetings, at least</label>
+<input id="greet" type="number" min="0" value="1" style="height: 44px; box-sizing: border-box; padding: 0 12px; border: 1px solid #D9CCBF; border-radius: 10px; background: #F6F1EA">
+</div>
+<p style="margin: 0; font-size: 12px; color: #6B5D54">Filters write into the search line above, so a search can always be copied as text.</p>
+</aside>
+
+<section aria-label="Results" style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px">
+<p style="margin: 0; color: #6B5D54"><strong style="color: #2B211C">128</strong> cards</p>
+<span style="margin-left: auto; display: flex; gap: 6px" role="group" aria-label="Density">
+<button type="button" aria-pressed="true" style="height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #9A3B2B; background: #F3E3DC; color: #7E2F22; font-weight: 500; cursor: pointer">Comfortable</button>
+<button type="button" aria-pressed="false" style="height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #D9CCBF; background: #FFFDF9; color: #4A3D35; cursor: pointer">Compact</button>
+<button type="button" aria-pressed="false" style="height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #D9CCBF; background: #FFFDF9; color: #4A3D35; cursor: pointer">List</button>
+</span>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 20px">
+<sc-for list="{{cards}}" as="card" hint-placeholder-count="10">
+<a href="Main.dc.html" style="display: flex; flex-direction: column; gap: 8px; text-decoration: none; color: #2B211C">
+<div role="img" aria-label="{{card.alt}}" style="{{card.artStyle}}">
+<span style="align-self: flex-start; padding: 2px 8px; border-radius: 6px; background: #FFFDF9; color: #4A3D35; font-size: 11px; font-weight: 600">{{card.format}}</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-family: Newsreader, Georgia, serif; font-size: 18px; font-weight: 600; line-height: 1.2">{{card.name}}</span>
+<span style="font-size: 13px; color: #6B5D54">by {{card.creator}}</span>
+<span style="font-size: 12px; color: #6B5D54">{{card.facts}}</span>
+</div>
+</a>
+</sc-for>
+</div>
+
+<nav aria-label="Pages" style="display: flex; gap: 6px; justify-content: center; padding-top: 8px">
+<a href="#" style="min-width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 10px; background: #9A3B2B; color: #FFFDF9; text-decoration: none; font-weight: 600" aria-current="page">1</a>
+<a href="#" style="min-width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 10px; border: 1px solid #D9CCBF; color: #4A3D35; text-decoration: none">2</a>
+<a href="#" style="min-width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 10px; border: 1px solid #D9CCBF; color: #4A3D35; text-decoration: none">3</a>
+<a href="#" style="padding: 0 14px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 10px; border: 1px solid #D9CCBF; color: #4A3D35; text-decoration: none">Next →</a>
+</nav>
+</section>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1120}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const tints = ['#D8C3B3', '#C9D3D6', '#D6CBB8', '#CFC2CF', '#D9C9BE', '#C4CFC4'];
+    const list = [
+      ['Mira Vell', 'ashwyn', 'CHARX', 3, 42],
+      ['Captain Oder', 'ashwyn', 'PNG', 2, 18],
+      ['The Tidewife', 'morrowlane', 'PNG', 1, 64],
+      ['Brother Calloway', 'quillan', 'CHARX', 4, 9],
+      ['Ines of the Saltworks', 'morrowlane', 'PNG', 2, 27],
+      ['Harbourmaster Pell', 'quillan', 'PNG', 1, 12],
+      ['Wren Ashby', 'ashwyn', 'CHARX', 5, 131],
+      ['The Cartographer', 'lindqvist', 'PNG', 2, 340],
+      ['Sister Ottilie', 'quillan', 'PNG', 1, 6],
+      ['Joss Marrow', 'lindqvist', 'CHARX', 3, 22]
+    ];
+    const cards = list.map(([name, creator, format, greetings, lore], i) => ({
+      name, creator, format,
+      alt: 'Card art: ' + name,
+      facts: greetings + (greetings === 1 ? ' greeting' : ' greetings') + ' · lorebook ' + lore,
+      artStyle: 'aspect-ratio: 3 / 4; border-radius: 12px; border: 1px solid #CDB6A4; background: ' + tints[i % tints.length] + '; display: flex; flex-direction: column; justify-content: flex-start; padding: 10px; box-sizing: border-box'
+    }));
+    return { cards };
+  }
+}
+</script>
+</body>
+</html>

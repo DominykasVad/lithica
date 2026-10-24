@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sardonyx — card viewer</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&amp;family=Inter:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#F6F1EA}
+a{color:#2D5B78}a:hover{color:#1E4057}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+button{font:inherit}
+</style>
+</helmet>
+<div style="min-height: 1180px; background: #F6F1EA; color: #2B211C; font-family: Inter, system-ui, sans-serif; font-size: 15px; line-height: 1.5">
+
+<header style="background: #FFFDF9; border-bottom: 1px solid #E4DAD0">
+<div style="max-width: 1360px; margin: 0 auto; padding: 14px 32px; display: flex; flex-wrap: wrap; align-items: center; gap: 24px">
+<a href="Gallery.dc.html" style="display: flex; align-items: center; gap: 10px; text-decoration: none; color: #2B211C">
+<svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="12" ry="12" fill="#9A3B2B"></ellipse><ellipse cx="14" cy="14" rx="8" ry="8" fill="#F6F1EA"></ellipse><ellipse cx="14" cy="14" rx="4.5" ry="4.5" fill="#9A3B2B"></ellipse></svg>
+<span style="font-family: Newsreader, Georgia, serif; font-size: 24px; font-weight: 600; letter-spacing: 0.01em">Sardonyx</span>
+</a>
+<nav aria-label="Main" style="display: flex; gap: 4px">
+<a href="Gallery.dc.html" style="padding: 8px 12px; border-radius: 8px; text-decoration: none; color: #9A3B2B; background: #F3E3DC; font-weight: 500">Library</a>
+<a href="#" style="padding: 8px 12px; border-radius: 8px; text-decoration: none; color: #4A3D35">Upload</a>
+<a href="#" style="padding: 8px 12px; border-radius: 8px; text-decoration: none; color: #4A3D35">Tags</a>
+</nav>
+<form style="flex: 1 1 280px; display: flex" role="search">
+<label for="q" class="sr-only">Search the library</label>
+<input id="q" type="search" placeholder="Search cards, tags, creators…  ( / )" style="width: 100%; box-sizing: border-box; height: 40px; padding: 0 14px; border: 1px solid #D9CCBF; border-radius: 10px; background: #F6F1EA; color: #2B211C; font: inherit">
+</form>
+<button type="button" aria-label="Account: dominic" style="height: 40px; width: 40px; border-radius: 50%; border: 1px solid #D9CCBF; background: #FFFDF9; color: #4A3D35; font-weight: 600; cursor: pointer">D</button>
+</div>
+</header>
+
+<main style="max-width: 1360px; margin: 0 auto; padding: 24px 32px 64px">
+<nav aria-label="Breadcrumb" style="font-size: 13px; color: #6B5D54; margin-bottom: 20px; display: flex; gap: 8px; flex-wrap: wrap">
+<a href="Gallery.dc.html">Library</a><span aria-hidden="true">/</span><span>Mira Vell</span>
+<span style="margin-left: auto; display: flex; gap: 8px">
+<a href="#" style="text-decoration: none; padding: 2px 10px; border: 1px solid #D9CCBF; border-radius: 999px; color: #4A3D35">← Previous</a>
+<a href="#" style="text-decoration: none; padding: 2px 10px; border: 1px solid #D9CCBF; border-radius: 999px; color: #4A3D35">Next →</a>
+</span>
+</nav>
+
+<div style="display: flex; flex-wrap: wrap; gap: 32px; align-items: flex-start">
+
+<aside style="flex: 1 1 300px; max-width: 340px; display: flex; flex-direction: column; gap: 20px">
+<div role="img" aria-label="Card art: Mira Vell" style="aspect-ratio: 3 / 4; border-radius: 14px; background: #D8C3B3; border: 1px solid #CDB6A4; display: flex; align-items: flex-end; justify-content: center; padding: 16px; box-sizing: border-box; color: #5C4638; font-size: 13px">[card art, 3:4]</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<h1 style="margin: 0; font-family: Newsreader, Georgia, serif; font-size: 36px; font-weight: 600; line-height: 1.1">Mira Vell</h1>
+<p style="margin: 0; color: #6B5D54">The last keeper of the Gullrock light</p>
+<p style="margin: 0; font-size: 14px">by <a href="Gallery.dc.html">ashwyn</a> · version 1.4</p>
+</div>
+<dl style="margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 16px; background: #FFFDF9; border: 1px solid #E4DAD0; border-radius: 12px">
+<div><dt style="font-size: 12px; color: #6B5D54">Spec</dt><dd style="margin: 0; font-weight: 600">V3</dd></div>
+<div><dt style="font-size: 12px; color: #6B5D54">File</dt><dd style="margin: 0; font-weight: 600">CHARX</dd></div>
+<div><dt style="font-size: 12px; color: #6B5D54">Greetings</dt><dd style="margin: 0; font-weight: 600">3</dd></div>
+<div><dt style="font-size: 12px; color: #6B5D54">Lorebook</dt><dd style="margin: 0; font-weight: 600">42 entries</dd></div>
+</dl>
+<div style="display: flex; flex-wrap: wrap; gap: 6px">
+<a href="#" style="text-decoration: none; padding: 4px 10px; border-radius: 999px; background: #F3E3DC; color: #7E2F22; font-size: 13px; font-weight: 500">creator: ashwyn</a>
+<a href="#" style="text-decoration: none; padding: 4px 10px; border-radius: 999px; background: #ECE4DA; color: #4A3D35; font-size: 13px">fantasy</a>
+<a href="#" style="text-decoration: none; padding: 4px 10px; border-radius: 999px; background: #ECE4DA; color: #4A3D35; font-size: 13px">slow-burn</a>
+<a href="#" style="text-decoration: none; padding: 4px 10px; border-radius: 999px; background: #ECE4DA; color: #4A3D35; font-size: 13px">coastal</a>
+<a href="#" style="text-decoration: none; padding: 4px 10px; border-radius: 999px; background: #ECE4DA; color: #4A3D35; font-size: 13px">mystery</a>
+<a href="#" style="text-decoration: none; padding: 4px 10px; border-radius: 999px; background: #ECE4DA; color: #4A3D35; font-size: 13px">safe</a>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<a href="#" style="display: flex; align-items: center; justify-content: center; gap: 8px; height: 46px; border-radius: 10px; background: {{accent}}; color: #FFFDF9; text-decoration: none; font-weight: 600">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"></path><path d="m7 10 5 5 5-5"></path><path d="M5 21h14"></path></svg>
+Download Mira Vell.charx</a>
+<a href="#" style="display: flex; align-items: center; justify-content: center; height: 44px; border-radius: 10px; border: 1px solid #D9CCBF; color: #4A3D35; text-decoration: none; font-weight: 500">Edit tags and safety</a>
+</div>
+</aside>
+
+<section style="flex: 999 1 560px; min-width: 0; background: #FFFDF9; border: 1px solid #E4DAD0; border-radius: 14px">
+<div role="tablist" aria-label="Card sections" style="display: flex; flex-wrap: wrap; gap: 4px; padding: 10px 12px 0; border-bottom: 1px solid #E4DAD0">
+<sc-for list="{{tabs}}" as="tab" hint-placeholder-count="6">
+<button type="button" role="tab" aria-selected="{{tab.selected}}" onClick="{{tab.pick}}" style="{{tab.style}}">{{tab.label}}</button>
+</sc-for>
+</div>
+
+<div style="padding: 28px 36px 40px; max-width: 760px">
+<sc-if value="{{showOverview}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 28px">
+<div>
+<h2 style="margin: 0 0 8px; font-family: Newsreader, Georgia, serif; font-size: 22px; font-weight: 600">Description</h2>
+<p style="margin: 0; font-size: 16px; line-height: 1.7">Mira Vell has kept the Gullrock lighthouse alone for eleven winters. She is thirty-four, wiry from the stairs, with salt-cracked hands and a habit of talking to the lamp as if it could answer. She distrusts boats, keeps a ledger of every ship that passes, and has started to notice names in it that no harbour has ever heard of.</p>
+</div>
+<div>
+<h2 style="margin: 0 0 8px; font-family: Newsreader, Georgia, serif; font-size: 22px; font-weight: 600">Personality</h2>
+<p style="margin: 0; font-size: 16px; line-height: 1.7">Dry, patient, quietly funny. Warms slowly to <span style="padding: 1px 6px; border-radius: 6px; background: #E6EEF3; color: #1E4057; font-family: ui-monospace, monospace; font-size: 14px">{{m.user}}</span>, tests them with small chores before trusting them with anything about the ledger.</p>
+</div>
+<div>
+<h2 style="margin: 0 0 8px; font-family: Newsreader, Georgia, serif; font-size: 22px; font-weight: 600">Scenario</h2>
+<p style="margin: 0; font-size: 16px; line-height: 1.7"><span style="padding: 1px 6px; border-radius: 6px; background: #E6EEF3; color: #1E4057; font-family: ui-monospace, monospace; font-size: 14px">{{m.user}}</span> washes up on Gullrock after a storm, the only survivor of a ship that <span style="padding: 1px 6px; border-radius: 6px; background: #E6EEF3; color: #1E4057; font-family: ui-monospace, monospace; font-size: 14px">{{m.char}}</span> already wrote down in her ledger three days ago.</p>
+</div>
+<p style="margin: 0; font-size: 13px; color: #6B5D54">Placeholders such as <span style="font-family: ui-monospace, monospace">{{m.user}}</span> are shown as the card writes them; the chat program fills them in.</p>
+</div>
+</sc-if>
+
+<sc-if value="{{showGreetings}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap">
+<h2 style="margin: 0; font-family: Newsreader, Georgia, serif; font-size: 22px; font-weight: 600">{{greeting.title}}</h2>
+<span style="font-size: 13px; color: #6B5D54">{{greeting.position}}</span>
+<span style="margin-left: auto; display: flex; gap: 8px">
+<button type="button" onClick="{{prevGreeting}}" aria-label="Previous greeting" style="height: 44px; width: 44px; border-radius: 10px; border: 1px solid #D9CCBF; background: #FFFDF9; color: #4A3D35; cursor: pointer">←</button>
+<button type="button" onClick="{{nextGreeting}}" aria-label="Next greeting" style="height: 44px; width: 44px; border-radius: 10px; border: 1px solid #D9CCBF; background: #FFFDF9; color: #4A3D35; cursor: pointer">→</button>
+</span>
+</div>
+<p style="margin: 0; font-size: 16px; line-height: 1.75; white-space: pre-line; padding: 20px 24px; background: #F6F1EA; border-radius: 12px">{{greeting.text}}</p>
+</div>
+</sc-if>
+
+<sc-if value="{{showLorebook}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 14px">
+<h2 style="margin: 0; font-family: Newsreader, Georgia, serif; font-size: 22px; font-weight: 600">The Gullrock Ledger</h2>
+<p style="margin: 0; color: #6B5D54">42 entries · 31,400 characters · 3 always active</p>
+<div style="display: flex; flex-direction: column; border: 1px solid #E4DAD0; border-radius: 12px">
+<div style="padding: 12px 16px; border-bottom: 1px solid #E4DAD0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap"><strong style="font-weight: 600">The lamp</strong><span style="padding: 2px 8px; border-radius: 6px; background: #ECE4DA; font-size: 12px">lamp</span><span style="padding: 2px 8px; border-radius: 6px; background: #ECE4DA; font-size: 12px">light</span><span style="margin-left: auto; font-size: 12px; color: #6B5D54">always active</span></div>
+<div style="padding: 12px 16px; border-bottom: 1px solid #E4DAD0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap"><strong style="font-weight: 600">The ledger</strong><span style="padding: 2px 8px; border-radius: 6px; background: #ECE4DA; font-size: 12px">ledger</span><span style="padding: 2px 8px; border-radius: 6px; background: #ECE4DA; font-size: 12px">ships</span><span style="margin-left: auto; font-size: 12px; color: #6B5D54">keyword</span></div>
+<div style="padding: 12px 16px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap"><strong style="font-weight: 600">Port Ashby</strong><span style="padding: 2px 8px; border-radius: 6px; background: #ECE4DA; font-size: 12px">ashby</span><span style="padding: 2px 8px; border-radius: 6px; background: #ECE4DA; font-size: 12px">harbour</span><span style="margin-left: auto; font-size: 12px; color: #6B5D54">keyword</span></div>
+</div>
+<a href="Lorebook.dc.html" style="font-weight: 500">Open the full lorebook (42 entries) →</a>
+</div>
+</sc-if>
+
+<sc-if value="{{showOther}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 10px">
+<h2 style="margin: 0; font-family: Newsreader, Georgia, serif; font-size: 22px; font-weight: 600">{{otherTitle}}</h2>
+<p style="margin: 0; color: #6B5D54">[{{otherTitle}} of the card, as plain text or sanitised Markdown]</p>
+</div>
+</sc-if>
+</div>
+</section>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#9A3B2B","options":["#9A3B2B","#7E2F22","#2D5B78","#4A3D35"]},"$preview":{"width":1440,"height":1180}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { tab: 'overview', greeting: 0 };
+  }
+  renderVals() {
+    const accent = this.props.accent ?? '#9A3B2B';
+    const defs = [
+      ['overview', 'Overview'], ['greetings', 'Greetings (3)'], ['examples', 'Examples'],
+      ['notes', 'Creator notes'], ['prompts', 'Prompts'], ['lorebook', 'Lorebook (42)']
+    ];
+    const tabs = defs.map(([id, label]) => {
+      const on = this.state.tab === id;
+      return {
+        label,
+        selected: on ? 'true' : 'false',
+        pick: () => this.setState({ tab: id }),
+        style: 'min-height: 44px; padding: 0 16px; border: none; border-bottom: 3px solid ' + (on ? accent : 'transparent') +
+          '; background: none; color: ' + (on ? '#2B211C' : '#6B5D54') + '; font-weight: ' + (on ? '600' : '500') + '; cursor: pointer'
+      };
+    });
+    const greetings = [
+      { title: 'First message', text: 'The lamp is already lit when you open your eyes, and the woman sitting by the stove does not look up from her book.\n\n"You were in my ledger," she says. "Three days ago. I wondered when you would arrive."' },
+      { title: 'Alternate greeting', text: 'A knock at the lighthouse door at four in the morning. Mira opens it with a lantern in one hand and a boat hook in the other.\n\n"If you are selling something, the sea is that way."' },
+      { title: 'Alternate greeting', text: 'The supply boat is late again. Mira hands you the second oar without a word and points at the grey line of the mainland.' }
+    ];
+    const i = this.state.greeting;
+    const g = greetings[i];
+    const otherTitles = { examples: 'Example messages', notes: 'Creator notes', prompts: 'System prompt and post-history instructions' };
+    return {
+      accent,
+      tabs,
+      m: { user: '{{user}}', char: '{{char}}' },
+      showOverview: this.state.tab === 'overview',
+      showGreetings: this.state.tab === 'greetings',
+      showLorebook: this.state.tab === 'lorebook',
+      showOther: !!otherTitles[this.state.tab],
+      otherTitle: otherTitles[this.state.tab] || '',
+      greeting: { title: g.title, text: g.text, position: (i + 1) + ' of ' + greetings.length },
+      prevGreeting: () => this.setState({ greeting: (i + greetings.length - 1) % greetings.length }),
+      nextGreeting: () => this.setState({ greeting: (i + 1) % greetings.length })
+    };
+  }
+}
+</script>
+</body>
+</html>

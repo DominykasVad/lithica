@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sardonyx — style tile</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&amp;family=Inter:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#2D5B78}a:hover{color:#1E4057}
+button{font:inherit}
+</style>
+</helmet>
+<div style="width: 1200px; height: 780px; box-sizing: border-box; padding: 48px 56px; background: #F6F1EA; color: #2B211C; font-family: Inter, system-ui, sans-serif; font-size: 15px; display: flex; flex-direction: column; gap: 32px">
+
+<div style="display: flex; align-items: center; gap: 14px">
+<svg width="44" height="44" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="12" ry="12" fill="#9A3B2B"></ellipse><ellipse cx="14" cy="14" rx="8" ry="8" fill="#F6F1EA"></ellipse><ellipse cx="14" cy="14" rx="4.5" ry="4.5" fill="#9A3B2B"></ellipse></svg>
+<div>
+<h1 style="margin: 0; font-family: Newsreader, Georgia, serif; font-size: 40px; font-weight: 600; line-height: 1">Sardonyx</h1>
+<p style="margin: 4px 0 0; color: #6B5D54">A library for character cards. Banded stone: carnelian on warm white.</p>
+</div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px">
+
+<section style="display: flex; flex-direction: column; gap: 14px">
+<h2 style="margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #6B5D54">Colour</h2>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 6px"><div style="height: 72px; border-radius: 10px; background: #9A3B2B"></div><span style="font-size: 13px; font-weight: 600">Carnelian</span><span style="font-size: 12px; color: #6B5D54">#9A3B2B · accent</span></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><div style="height: 72px; border-radius: 10px; background: #F3E3DC; border: 1px solid #E4DAD0"></div><span style="font-size: 13px; font-weight: 600">Blush</span><span style="font-size: 12px; color: #6B5D54">#F3E3DC · selected</span></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><div style="height: 72px; border-radius: 10px; background: #2D5B78"></div><span style="font-size: 13px; font-weight: 600">Harbour</span><span style="font-size: 12px; color: #6B5D54">#2D5B78 · links, focus</span></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><div style="height: 72px; border-radius: 10px; background: #E6EEF3; border: 1px solid #D3DFE7"></div><span style="font-size: 13px; font-weight: 600">Mist</span><span style="font-size: 12px; color: #6B5D54">#E6EEF3 · macros</span></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><div style="height: 72px; border-radius: 10px; background: #F6F1EA; border: 1px solid #E4DAD0"></div><span style="font-size: 13px; font-weight: 600">Paper</span><span style="font-size: 12px; color: #6B5D54">#F6F1EA · ground</span></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><div style="height: 72px; border-radius: 10px; background: #FFFDF9; border: 1px solid #E4DAD0"></div><span style="font-size: 13px; font-weight: 600">Vellum</span><span style="font-size: 12px; color: #6B5D54">#FFFDF9 · surfaces</span></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><div style="height: 72px; border-radius: 10px; background: #6B5D54"></div><span style="font-size: 13px; font-weight: 600">Driftwood</span><span style="font-size: 12px; color: #6B5D54">#6B5D54 · muted text</span></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><div style="height: 72px; border-radius: 10px; background: #2B211C"></div><span style="font-size: 13px; font-weight: 600">Umber</span><span style="font-size: 12px; color: #6B5D54">#2B211C · text</span></div>
+</div>
+<p style="margin: 0; font-size: 12px; color: #6B5D54">Dark mode inverts the ground to umber (#1D1714) with vellum text; carnelian lightens to #D9826F to keep contrast.</p>
+</section>
+
+<section style="display: flex; flex-direction: column; gap: 14px">
+<h2 style="margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #6B5D54">Type</h2>
+<p style="margin: 0; font-family: Newsreader, Georgia, serif; font-size: 44px; font-weight: 600; line-height: 1.05">Mira Vell</p>
+<p style="margin: 0; font-family: Newsreader, Georgia, serif; font-size: 22px; font-weight: 600">Description, greetings, lorebook</p>
+<p style="margin: 0; font-size: 16px; line-height: 1.7; max-width: 480px">Body and card text in Inter at 16 px, line height 1.7, at most about 75 characters a line, because cards are long prose.</p>
+<p style="margin: 0; font-size: 13px; color: #6B5D54">Newsreader for names and headings · Inter for everything else · monospace for queries, keys and macros</p>
+</section>
+</div>
+
+<section style="display: flex; flex-direction: column; gap: 14px">
+<h2 style="margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #6B5D54">Pieces</h2>
+<div style="display: flex; flex-wrap: wrap; gap: 14px; align-items: center">
+<button type="button" style="height: 46px; padding: 0 20px; border: none; border-radius: 10px; background: {{accent}}; color: #FFFDF9; font-weight: 600">Download card</button>
+<button type="button" style="height: 46px; padding: 0 20px; border: 1px solid #D9CCBF; border-radius: 10px; background: #FFFDF9; color: #4A3D35; font-weight: 500">Edit tags</button>
+<a href="#" style="font-weight: 500">Open the full lorebook →</a>
+<span style="padding: 4px 10px; border-radius: 999px; background: #F3E3DC; color: #7E2F22; font-size: 13px; font-weight: 500">creator: ashwyn</span>
+<span style="padding: 4px 10px; border-radius: 999px; background: #ECE4DA; color: #4A3D35; font-size: 13px">fantasy</span>
+<span style="padding: 2px 8px; border-radius: 6px; background: #ECE4DA; color: #4A3D35; font-size: 12px; font-family: ui-monospace, monospace">ledger</span>
+<span style="padding: 1px 6px; border-radius: 6px; background: #E6EEF3; color: #1E4057; font-family: ui-monospace, monospace; font-size: 14px">{{macro}}</span>
+<span style="display: flex; gap: 4px; border-bottom: 1px solid #E4DAD0">
+<span style="padding: 10px 14px; border-bottom: 3px solid #9A3B2B; font-weight: 600">Overview</span>
+<span style="padding: 10px 14px; color: #6B5D54">Greetings (3)</span>
+<span style="padding: 10px 14px; color: #6B5D54">Lorebook (42)</span>
+</span>
+</div>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#9A3B2B","options":["#9A3B2B","#7E2F22","#2D5B78","#4A3D35"]},"$preview":{"width":1200,"height":780}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#9A3B2B', macro: '{{user}}' };
+  }
+}
+</script>
+</body>
+</html>

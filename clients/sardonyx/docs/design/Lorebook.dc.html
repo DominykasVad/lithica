@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sardonyx — lorebook</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&amp;family=Inter:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#F6F1EA}
+a{color:#2D5B78}a:hover{color:#1E4057}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+button,input{font:inherit}
+</style>
+</helmet>
+<div style="min-height: 1180px; background: #F6F1EA; color: #2B211C; font-family: Inter, system-ui, sans-serif; font-size: 15px; line-height: 1.5">
+
+<header style="background: #FFFDF9; border-bottom: 1px solid #E4DAD0">
+<div style="max-width: 1360px; margin: 0 auto; padding: 14px 32px; display: flex; flex-wrap: wrap; align-items: center; gap: 24px">
+<a href="Gallery.dc.html" style="display: flex; align-items: center; gap: 10px; text-decoration: none; color: #2B211C">
+<svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="12" ry="12" fill="#9A3B2B"></ellipse><ellipse cx="14" cy="14" rx="8" ry="8" fill="#F6F1EA"></ellipse><ellipse cx="14" cy="14" rx="4.5" ry="4.5" fill="#9A3B2B"></ellipse></svg>
+<span style="font-family: Newsreader, Georgia, serif; font-size: 24px; font-weight: 600; letter-spacing: 0.01em">Sardonyx</span>
+</a>
+<nav aria-label="Main" style="display: flex; gap: 4px">
+<a href="Gallery.dc.html" style="padding: 8px 12px; border-radius: 8px; text-decoration: none; color: #9A3B2B; background: #F3E3DC; font-weight: 500">Library</a>
+<a href="#" style="padding: 8px 12px; border-radius: 8px; text-decoration: none; color: #4A3D35">Upload</a>
+<a href="#" style="padding: 8px 12px; border-radius: 8px; text-decoration: none; color: #4A3D35">Tags</a>
+</nav>
+</div>
+</header>
+
+<main style="max-width: 1100px; margin: 0 auto; padding: 24px 32px 64px; display: flex; flex-direction: column; gap: 20px">
+<nav aria-label="Breadcrumb" style="font-size: 13px; color: #6B5D54; display: flex; gap: 8px; flex-wrap: wrap">
+<a href="Gallery.dc.html">Library</a><span aria-hidden="true">/</span><a href="Main.dc.html">Mira Vell</a><span aria-hidden="true">/</span><span>Lorebook</span>
+</nav>
+
+<div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<h1 style="margin: 0; font-family: Newsreader, Georgia, serif; font-size: 34px; font-weight: 600; line-height: 1.1">The Gullrock Ledger</h1>
+<p style="margin: 0; color: #6B5D54">Lorebook of Mira Vell · 42 entries · 31,400 characters · scan depth 4 · token budget 2048</p>
+</div>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center">
+<label for="filter" class="sr-only">Filter entries by key or content</label>
+<input id="filter" type="search" placeholder="Filter by key or content" value="{{query}}" onInput="{{setQuery}}" style="flex: 1 1 320px; height: 46px; box-sizing: border-box; padding: 0 14px; border: 1px solid #D9CCBF; border-radius: 12px; background: #FFFDF9; color: #2B211C">
+<div role="group" aria-label="Show" style="display: flex; flex-wrap: wrap; gap: 6px">
+<sc-for list="{{kinds}}" as="k" hint-placeholder-count="4">
+<button type="button" aria-pressed="{{k.pressed}}" onClick="{{k.pick}}" style="{{k.style}}">{{k.label}}</button>
+</sc-for>
+</div>
+</div>
+
+<p style="margin: 0; font-size: 13px; color: #6B5D54">{{countLine}}</p>
+
+<div style="background: #FFFDF9; border: 1px solid #E4DAD0; border-radius: 14px">
+<sc-for list="{{entries}}" as="e" hint-placeholder-count="8">
+<div style="border-bottom: 1px solid #EDE5DC">
+<button type="button" aria-expanded="{{e.expanded}}" onClick="{{e.toggle}}" style="width: 100%; min-height: 56px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 18px; border: none; background: none; text-align: left; color: #2B211C; cursor: pointer">
+<span aria-hidden="true" style="width: 16px; color: #6B5D54">{{e.chevron}}</span>
+<span style="font-weight: 600; min-width: 160px">{{e.name}}</span>
+<sc-for list="{{e.keys}}" as="key" hint-placeholder-count="2">
+<span style="padding: 2px 8px; border-radius: 6px; background: #ECE4DA; color: #4A3D35; font-size: 12px; font-family: ui-monospace, monospace">{{key}}</span>
+</sc-for>
+<span style="margin-left: auto; display: flex; gap: 12px; align-items: center; font-size: 12px; color: #6B5D54">
+<span>{{e.mode}}</span>
+<span>{{e.size}}</span>
+<span style="{{e.stateStyle}}">{{e.state}}</span>
+</span>
+</button>
+<sc-if value="{{e.open}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 4px 18px 18px 44px; display: flex; flex-direction: column; gap: 10px">
+<p style="margin: 0; font-size: 15px; line-height: 1.7; max-width: 760px">{{e.content}}</p>
+<p style="margin: 0; font-size: 12px; color: #6B5D54">{{e.details}}</p>
+</div>
+</sc-if>
+</div>
+</sc-for>
+<sc-if value="{{empty}}" hint-placeholder-val="{{ false }}">
+<p style="margin: 0; padding: 24px 18px; color: #6B5D54">No entry matches this filter.</p>
+</sc-if>
+</div>
+<p style="margin: 0; font-size: 12px; color: #6B5D54">The list renders only the rows on screen, so a lorebook with thousands of entries scrolls as fast as this one.</p>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1180}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { query: '', kind: 'all', open: 'The ledger' };
+  }
+  renderVals() {
+    const all = [
+      { name: 'The lamp', keys: ['lamp', 'light', 'lens'], mode: 'always active', enabled: true, content: 'A second-order Fresnel lens, older than the tower around it. Mira cleans it every dawn and speaks to it while she works; she insists it turns a little faster when ships are near.', details: 'Order 100 · position before character · depth 4' },
+      { name: 'The ledger', keys: ['ledger', 'ships', 'log'], mode: 'keyword', enabled: true, content: 'A leather book in which Mira records every vessel she sees. For the last month, some entries appear in her handwriting before the ships do, and some name ports that are on no chart.', details: 'Order 110 · selective · secondary keys: handwriting, names' },
+      { name: 'Port Ashby', keys: ['ashby', 'harbour', 'mainland'], mode: 'keyword', enabled: true, content: 'The nearest mainland town, two hours by oar. Supplies come from there every second week, when the weather allows; the harbourmaster owes Mira a favour she has never called in.', details: 'Order 120 · position after character' },
+      { name: 'The storm of the ninth', keys: ['storm', 'wreck'], mode: 'keyword', enabled: true, content: 'The storm that brought the stranger ashore. It came from a clear sky and lasted exactly one hour.', details: 'Order 130 · probability 100' },
+      { name: 'Gullrock', keys: ['gullrock', 'island', 'rock'], mode: 'always active', enabled: true, content: 'A bare island of black stone a mile long, with the tower at its northern tip, a cottage, a cistern and a landing stage that floods at spring tides.', details: 'Order 90 · constant' },
+      { name: 'Old keeper Hale', keys: ['hale', 'previous keeper'], mode: 'keyword', enabled: false, content: 'Mira’s predecessor, who left the island without a word eleven years ago. His boat was found; he was not.', details: 'Order 140 · disabled by the creator' },
+      { name: 'The supply boat', keys: ['supply', 'boat', 'oar'], mode: 'keyword', enabled: true, content: 'A flat-bottomed rowing boat Mira takes to the mainland. She hates the crossing and rows it faster than anyone in Ashby.', details: 'Order 150' },
+      { name: 'Unknown harbours', keys: ['elsmouth', 'carran', 'vey'], mode: 'selective', enabled: true, content: 'Names from the ledger that no chart has: Elsmouth, Carran Deep, the Vey. Mira has started a second list of them on the back pages.', details: 'Order 160 · selective · secondary keys: chart, map' }
+    ];
+    const q = this.state.query.trim().toLowerCase();
+    const kindOk = (e) => this.state.kind === 'all' ? true
+      : this.state.kind === 'constant' ? e.mode === 'always active'
+      : this.state.kind === 'selective' ? e.mode === 'selective'
+      : !e.enabled;
+    const shown = all.filter((e) => kindOk(e) && (!q || e.name.toLowerCase().includes(q) || e.content.toLowerCase().includes(q) || e.keys.some((k) => k.includes(q))));
+    const entries = shown.map((e) => {
+      const open = this.state.open === e.name;
+      return {
+        name: e.name, keys: e.keys, mode: e.mode, content: e.content, details: e.details,
+        size: e.content.length + ' chars',
+        state: e.enabled ? 'enabled' : 'disabled',
+        stateStyle: e.enabled ? 'color: #2F6B45; font-weight: 500' : 'color: #8A5A16; font-weight: 500',
+        open, expanded: open ? 'true' : 'false', chevron: open ? '▾' : '▸',
+        toggle: () => this.setState({ open: open ? null : e.name })
+      };
+    });
+    const kinds = [['all', 'All 42'], ['constant', 'Always active 3'], ['selective', 'Selective 12'], ['disabled', 'Disabled 2']].map(([id, label]) => {
+      const on = this.state.kind === id;
+      return {
+        label, pressed: on ? 'true' : 'false',
+        pick: () => this.setState({ kind: id }),
+        style: 'height: 44px; padding: 0 14px; border-radius: 10px; cursor: pointer; border: 1px solid ' + (on ? '#9A3B2B' : '#D9CCBF') + '; background: ' + (on ? '#F3E3DC' : '#FFFDF9') + '; color: ' + (on ? '#7E2F22' : '#4A3D35') + '; font-weight: ' + (on ? '600' : '400')
+      };
+    });
+    return {
+      query: this.state.query,
+      setQuery: (ev) => this.setState({ query: ev.target.value }),
+      kinds, entries,
+      empty: entries.length === 0,
+      countLine: 'Showing ' + entries.length + ' of the 8 entries in this mockup (42 in the card).'
+    };
+  }
+}
+</script>
+</body>
+</html>

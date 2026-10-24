@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sardonyx — dark style tile</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&amp;family=Inter:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0}
+button{font:inherit}
+</style>
+</helmet>
+<div style="width: 1200px; height: 820px; box-sizing: border-box; padding: 44px 56px; background: {{t.bg}}; color: {{t.text}}; font-family: Inter, system-ui, sans-serif; font-size: 15px; display: flex; flex-direction: column; gap: 28px">
+
+<div style="display: flex; align-items: center; gap: 14px">
+<svg width="44" height="44" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="12" ry="12" fill="{{t.accent}}"></ellipse><ellipse cx="14" cy="14" rx="8" ry="8" fill="{{t.bg}}"></ellipse><ellipse cx="14" cy="14" rx="4.5" ry="4.5" fill="{{t.accent}}"></ellipse></svg>
+<div>
+<h1 style="margin: 0; font-family: Newsreader, Georgia, serif; font-size: 40px; font-weight: 600; line-height: 1">Sardonyx <span style="font-size: 22px; font-weight: 500; color: {{t.muted}}">dark · {{t.label}}</span></h1>
+<p style="margin: 4px 0 0; color: {{t.muted}}">{{t.blurb}}</p>
+</div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px">
+
+<section style="display: flex; flex-direction: column; gap: 14px">
+<h2 style="margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: {{t.muted}}">Colour</h2>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px">
+<sc-for list="{{swatches}}" as="s" hint-placeholder-count="8">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<div style="{{s.box}}"></div>
+<span style="font-size: 13px; font-weight: 600">{{s.name}}</span>
+<span style="font-size: 12px; color: {{t.muted}}">{{s.note}}</span>
+</div>
+</sc-for>
+</div>
+<p style="margin: 0; font-size: 12px; color: {{t.muted}}">Roles are the same in every theme: accent, selected, link and focus, placeholder, ground, surface, muted text, text. Only the values change.</p>
+</section>
+
+<section style="display: flex; flex-direction: column; gap: 14px">
+<h2 style="margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: {{t.muted}}">In use</h2>
+<div style="background: {{t.surface}}; border: 1px solid {{t.line}}; border-radius: 14px; overflow: hidden">
+<div style="display: flex; gap: 4px; padding: 6px 12px 0; border-bottom: 1px solid {{t.line}}">
+<span style="padding: 10px 14px; border-bottom: 3px solid {{t.accent}}; font-weight: 600">Overview</span>
+<span style="padding: 10px 14px; color: {{t.muted}}">Greetings (3)</span>
+<span style="padding: 10px 14px; color: {{t.muted}}">Lorebook (42)</span>
+</div>
+<div style="padding: 18px 22px; display: flex; flex-direction: column; gap: 10px">
+<p style="margin: 0; font-family: Newsreader, Georgia, serif; font-size: 22px; font-weight: 600">Scenario</p>
+<p style="margin: 0; font-size: 15px; line-height: 1.7"><span style="padding: 1px 6px; border-radius: 6px; background: {{t.macroBg}}; color: {{t.link}}; font-family: ui-monospace, monospace; font-size: 13px">{{m.user}}</span> washes up on Gullrock after a storm, the only survivor of a ship that <span style="padding: 1px 6px; border-radius: 6px; background: {{t.macroBg}}; color: {{t.link}}; font-family: ui-monospace, monospace; font-size: 13px">{{m.char}}</span> already wrote down in her ledger.</p>
+<p style="margin: 0; font-size: 14px; line-height: 1.7; padding: 12px 14px; border-radius: 10px; background: {{t.bg}}; color: {{t.text}}">"You were in my ledger," she says. "Three days ago."</p>
+</div>
+</div>
+</section>
+</div>
+
+<section style="display: flex; flex-direction: column; gap: 14px">
+<h2 style="margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: {{t.muted}}">Pieces</h2>
+<div style="display: flex; flex-wrap: wrap; gap: 14px; align-items: center">
+<button type="button" style="height: 46px; padding: 0 20px; border: none; border-radius: 10px; background: {{t.accent}}; color: {{t.onAccent}}; font-weight: 600">Download card</button>
+<button type="button" style="height: 46px; padding: 0 20px; border: 1px solid {{t.line}}; border-radius: 10px; background: {{t.surface}}; color: {{t.text}}; font-weight: 500">Edit tags</button>
+<a href="#" style="font-weight: 500; color: {{t.link}}">Open the full lorebook →</a>
+<span style="padding: 4px 10px; border-radius: 999px; background: {{t.selected}}; color: {{t.accent}}; font-size: 13px; font-weight: 500">creator: ashwyn</span>
+<span style="padding: 4px 10px; border-radius: 999px; background: {{t.surface}}; border: 1px solid {{t.line}}; color: {{t.text}}; font-size: 13px">fantasy</span>
+<span style="padding: 2px 8px; border-radius: 6px; background: {{t.surface}}; color: {{t.muted}}; font-size: 12px; font-family: ui-monospace, monospace">ledger</span>
+<span style="font-size: 12px; font-weight: 500; color: {{t.ok}}">enabled</span>
+<span style="font-size: 12px; font-weight: 500; color: {{t.warn}}">disabled</span>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: {{t.muted}}">Search
+<input type="search" value="card-lorebook:yes" style="height: 40px; width: 220px; box-sizing: border-box; padding: 0 12px; border: 2px solid {{t.link}}; border-radius: 10px; background: {{t.bg}}; color: {{t.text}}; font-family: ui-monospace, monospace">
+</label>
+</div>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["sardonyx","dracula","gruvbox"],"default":"sardonyx"},"$preview":{"width":1200,"height":820}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const themes = {
+      dracula: {
+        label: 'Dracula', blurb: 'Blue-violet night, Dracula purple as the accent, cyan for links.',
+        bg: '#282A36', surface: '#343746', line: '#4D5066', text: '#F8F8F2', muted: '#A9B1D6',
+        accent: '#BD93F9', onAccent: '#282A36', selected: '#3E3755', link: '#8BE9FD', macroBg: '#2C3B48',
+        ok: '#50FA7B', warn: '#FFB86C',
+        names: ['Purple', 'Violet shade', 'Cyan', 'Deep cyan', 'Night', 'Current line', 'Lavender grey', 'Foreground']
+      },
+      gruvbox: {
+        label: 'Gruvbox', blurb: 'Retro brown-grey ground, Gruvbox orange as the accent, faded blue for links.',
+        bg: '#282828', surface: '#3C3836', line: '#504945', text: '#EBDBB2', muted: '#A89984',
+        accent: '#FE8019', onAccent: '#282828', selected: '#4A3726', link: '#83A598', macroBg: '#2F3B39',
+        ok: '#B8BB26', warn: '#FABD2F',
+        names: ['Orange', 'Rust shade', 'Faded blue', 'Blue shade', 'Dark0', 'Dark1', 'Grey', 'Light1']
+      },
+      sardonyx: {
+        label: 'Sardonyx', blurb: 'The house palette at night: umber ground, lightened carnelian, harbour blue for links.',
+        bg: '#1D1714', surface: '#2A221E', line: '#3F342E', text: '#F6F1EA', muted: '#B5A69B',
+        accent: '#D9826F', onAccent: '#1D1714', selected: '#3F2620', link: '#8FB8D3', macroBg: '#22303A',
+        ok: '#9BC27A', warn: '#E3B866',
+        names: ['Carnelian (light)', 'Ember', 'Harbour (light)', 'Deep harbour', 'Umber', 'Walnut', 'Driftwood (light)', 'Paper']
+      }
+    };
+    const key = this.props.theme ?? 'sardonyx';
+    const t = themes[key] || themes.sardonyx;
+    const values = [
+      [t.accent, 'accent'], [t.selected, 'selected'], [t.link, 'links, focus'], [t.macroBg, 'placeholders'],
+      [t.bg, 'ground'], [t.surface, 'surfaces'], [t.muted, 'muted text'], [t.text, 'text']
+    ];
+    const swatches = values.map(([hex, role], i) => ({
+      name: t.names[i],
+      note: hex + ' · ' + role,
+      box: 'height: 64px; border-radius: 10px; border: 1px solid ' + t.line + '; background: ' + hex
+    }));
+    return { t, swatches, m: { user: '{{user}}', char: '{{char}}' } };
+  }
+}
+</script>
+</body>
+</html>
