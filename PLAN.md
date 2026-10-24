@@ -157,6 +157,7 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 - 2026-10-24 — 5.2 — logout forgets the token here first, then deletes it on the site; a failure there is shown, not fatal
 - 2026-10-24 — 5.2 — theme light/dark/system per browser (`sardonyx.theme`), applied by public/theme.js (no inline script under the CSP)
 - 2026-10-24 — 5.2 — errors: everything a request throws is an `ApiError` (title, description, status) and shown by one component
+- 2026-10-24 — 5.2 — design reference in `clients/sardonyx/docs/design/`: read-only, out of lint, image and client CI
 
 ---
 

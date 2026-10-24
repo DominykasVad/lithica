@@ -3,18 +3,21 @@ name: CI (sardonyx)
 # The checks of the Sardonyx client, with the trigger pattern of
 # ci-server.yml: on a pull request that is ready for review and on main, and
 # only when something they look at has changed. The API contract is one of
-# those: the client's types are generated from it.
+# those: the client's types are generated from it. The design reference in
+# clients/sardonyx/docs/ is not: a change to it alone runs nothing.
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "clients/sardonyx/**"
+      - "!clients/sardonyx/docs/**"
       - "doc/openapi.json"
       - ".github/workflows/ci-sardonyx.yml"
   push:
     branches: [main]
     paths:
       - "clients/sardonyx/**"
+      - "!clients/sardonyx/docs/**"
       - "doc/openapi.json"
       - ".github/workflows/ci-sardonyx.yml"
 
