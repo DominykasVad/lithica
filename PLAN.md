@@ -152,11 +152,15 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 - 2026-10-24 — 5.1 — the image's nginx passes `/api/` on as sent (still encoded), and resolves the server at each request
 - 2026-10-24 — 5.1 — dev stack: Sardonyx's image on port 8082; `pnpm dev` proxies to the stack's client on 8080 (`LITHICA_URL`)
 - 2026-10-24 — fix — a token that does not work is `InvalidTokenError` (403), also for an unknown user, so clients need not read text
-- 2026-10-24 — 5.2 — session: token in memory; "remember me" stores `{user, token}` as `sardonyx.session` in localStorage
-- 2026-10-24 — 5.2 — a 403 whose description is "Invalid token." ends the session (the API has no error name of its own for it)
+- 2026-10-24 — 5.2 — session `sardonyx.session`: sessionStorage, token expires in 24 h; "remember me": localStorage, 90 days
+- 2026-10-24 — 5.2 — the session ends on an `InvalidTokenError` only, by its name; a refused privilege (`AuthError`) leaves it
 - 2026-10-24 — 5.2 — logout forgets the token here first, then deletes it on the site; a failure there is shown, not fatal
 - 2026-10-24 — 5.2 — theme light/dark/system per browser (`sardonyx.theme`), applied by public/theme.js (no inline script under the CSP)
 - 2026-10-24 — 5.2 — errors: everything a request throws is an `ApiError` (title, description, status) and shown by one component
+- 2026-10-24 — 5.2 — design reference in `clients/sardonyx/docs/design/`: read-only, out of lint, image and client CI
+- 2026-10-24 — 5.2 — palette from the design reference (hex), roles `link` `macro` `ok` `warn` added; components use roles only
+- 2026-10-24 — 5.2 — every theme in index.css passes `src/app/palette.test.ts`: text roles on their backgrounds reach WCAG 4.5:1
+- 2026-10-24 — 5.7 — Gruvbox dropped; Dracula is the one optional theme
 
 ---
 
@@ -321,6 +325,8 @@ in the dev stack, its results stated in the PR.
 - [ ] `docker-compose.yml`: Sardonyx is the default client; the legacy client stays available as an optional service.
 - [ ] `doc/UPGRADING.md`: 0.2.0 → 0.3.0.
 - [ ] Version `0.3.0`; images `lithica-server`, `lithica-client` (Sardonyx), `lithica-client-legacy`.
+- [ ] Optional theme Dracula in the theme menu (values below), passing the contrast test.
+  - Dracula: bg `#282A36`, card `#343746`, border `#4D5066`, fg `#F8F8F2`, muted `#A9B1D6`, primary `#BD93F9` on `#282A36`, selected `#3E3755`, link `#8BE9FD`, macro bg `#2C3B48`, ok `#50FA7B`, warn `#FFB86C`.
 
 **Done when (phase 5 exit):** in the compose stack with `MODULES=cards`: import `scratch/sample-cards/`; log in; search with text and card filters; open a V2 PNG, a V3 PNG and a CHARX card and read greetings and a large lorebook; download; upload new files and see results incl. a refused hostile ZIP; edit tags; log out. Results per step in the PR.
 

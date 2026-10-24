@@ -49,10 +49,10 @@ function base64(value: string): string {
   return btoa(String.fromCharCode(...bytes));
 }
 
-// The server's answer to a token it does not take (lithica/api/dependencies).
-// It has no error name of its own: an AuthError is also what a missing
-// privilege gets, so the description tells the two apart.
-const INVALID_TOKEN = "Invalid token.";
+// The server's answer to a token it does not take (deleted, disabled,
+// expired, or of a user who is gone). A missing privilege is an AuthError,
+// with the same status, and leaves the session alone.
+const INVALID_TOKEN_ERROR = "InvalidTokenError";
 
 const headers: Middleware = {
   onRequest({ request }) {
@@ -78,8 +78,8 @@ const headers: Middleware = {
     if (
       typeof body === "object" &&
       body !== null &&
-      "description" in body &&
-      body.description === INVALID_TOKEN
+      "name" in body &&
+      body.name === INVALID_TOKEN_ERROR
     ) {
       sessionEnded();
     }

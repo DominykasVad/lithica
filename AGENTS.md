@@ -286,6 +286,21 @@ them in `.github/workflows/ci-sardonyx.yml`.
 - Commit messages: `<area>: <imperative summary>` where area is `server`,
   `client`, `ci`, `docker`, `doc`, or a module name. Body explains *why*.
 
+## Design reference
+
+`clients/sardonyx/docs/design/` holds the Sardonyx design canvas as source
+files, one per board; its `README.md` says which is which. Read them as
+source; they do not render without the canvas runtime, which is not in the
+repo.
+
+The design is a direction, not a spec:
+- Follow its layout, hierarchy, type and colour roles.
+- Build with our components and tokens; never copy its markup or inline
+  styles.
+- Where it disagrees with PLAN.md or a brief, the plan and brief win. Say so
+  in the PR.
+- Never edit these files. A newer design replaces them all.
+
 ## Reference
 
 - `PLAN.md` — phases, tasks, decisions, open questions.

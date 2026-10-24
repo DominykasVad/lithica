@@ -7,6 +7,7 @@ afterEach(() => {
   // what one test rendered, stored or logged in to is gone before the next
   cleanup();
   localStorage.clear();
+  sessionStorage.clear();
   setCredentials(null);
   document.documentElement.classList.remove("dark");
 });

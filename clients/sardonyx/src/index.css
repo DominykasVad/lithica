@@ -27,6 +27,11 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
+  --color-link: var(--link);
+  --color-macro: var(--macro);
+  --color-macro-foreground: var(--macro-foreground);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -47,73 +52,87 @@
 
 :root {
   /* Sardonyx: the bands of the stone. A deep carnelian red-brown for what
-     the user acts on, warm off-whites around it. */
+     the user acts on, warm off-whites around it. The values are the design
+     reference's (docs/design); src/app/palette.test.ts holds every theme to
+     WCAG AA contrast. */
   --radius: 0.625rem;
-  --background: oklch(0.99 0.004 70);
-  --foreground: oklch(0.2 0.02 40);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.2 0.02 40);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.2 0.02 40);
-  --primary: oklch(0.47 0.13 38);
-  --primary-foreground: oklch(0.99 0.004 70);
-  --secondary: oklch(0.95 0.014 60);
-  --secondary-foreground: oklch(0.3 0.04 40);
-  --muted: oklch(0.95 0.01 60);
-  --muted-foreground: oklch(0.5 0.025 45);
-  --accent: oklch(0.93 0.025 55);
-  --accent-foreground: oklch(0.3 0.06 38);
-  --destructive: oklch(0.55 0.22 27);
-  --border: oklch(0.9 0.012 60);
-  --input: oklch(0.88 0.014 60);
-  --ring: oklch(0.6 0.12 40);
-  --chart-1: oklch(0.47 0.13 38);
-  --chart-2: oklch(0.65 0.12 55);
-  --chart-3: oklch(0.8 0.08 70);
-  --chart-4: oklch(0.38 0.05 40);
-  --chart-5: oklch(0.6 0.03 60);
-  --sidebar: oklch(0.97 0.008 60);
-  --sidebar-foreground: oklch(0.2 0.02 40);
-  --sidebar-primary: oklch(0.47 0.13 38);
-  --sidebar-primary-foreground: oklch(0.99 0.004 70);
-  --sidebar-accent: oklch(0.93 0.025 55);
-  --sidebar-accent-foreground: oklch(0.3 0.06 38);
-  --sidebar-border: oklch(0.9 0.012 60);
-  --sidebar-ring: oklch(0.6 0.12 40);
+  --background: #f6f1ea;
+  --foreground: #2b211c;
+  --card: #fffdf9;
+  --card-foreground: #2b211c;
+  --popover: #fffdf9;
+  --popover-foreground: #2b211c;
+  --primary: #9a3b2b;
+  --primary-foreground: #fffdf9;
+  --secondary: #ece4da;
+  --secondary-foreground: #2b211c;
+  --muted: #ece4da;
+  --muted-foreground: #6b5d54;
+  /* also what is selected */
+  --accent: #f3e3dc;
+  --accent-foreground: #7e2f22;
+  --destructive: #b3261e;
+  --border: #e4dad0;
+  --input: #d9ccbf;
+  --ring: #9a3b2b;
+  /* links; macros such as {{char}} in card text; good and doubtful states */
+  --link: #2d5b78;
+  --macro: #e6eef3;
+  --macro-foreground: #1e4057;
+  --ok: #3f6b2a;
+  --warn: #8a5a12;
+  --chart-1: #9a3b2b;
+  --chart-2: #2d5b78;
+  --chart-3: #8a5a12;
+  --chart-4: #3f6b2a;
+  --chart-5: #6b5d54;
+  --sidebar: #fffdf9;
+  --sidebar-foreground: #2b211c;
+  --sidebar-primary: #9a3b2b;
+  --sidebar-primary-foreground: #fffdf9;
+  --sidebar-accent: #f3e3dc;
+  --sidebar-accent-foreground: #7e2f22;
+  --sidebar-border: #e4dad0;
+  --sidebar-ring: #9a3b2b;
 }
 
 .dark {
-  --background: oklch(0.17 0.012 40);
-  --foreground: oklch(0.95 0.01 70);
-  --card: oklch(0.21 0.014 40);
-  --card-foreground: oklch(0.95 0.01 70);
-  --popover: oklch(0.21 0.014 40);
-  --popover-foreground: oklch(0.95 0.01 70);
-  --primary: oklch(0.72 0.13 45);
-  --primary-foreground: oklch(0.17 0.012 40);
-  --secondary: oklch(0.27 0.018 40);
-  --secondary-foreground: oklch(0.95 0.01 70);
-  --muted: oklch(0.27 0.015 40);
-  --muted-foreground: oklch(0.72 0.02 60);
-  --accent: oklch(0.3 0.03 40);
-  --accent-foreground: oklch(0.95 0.01 70);
-  --destructive: oklch(0.7 0.19 22);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.6 0.11 45);
-  --chart-1: oklch(0.72 0.13 45);
-  --chart-2: oklch(0.6 0.1 55);
-  --chart-3: oklch(0.82 0.07 70);
-  --chart-4: oklch(0.5 0.06 40);
-  --chart-5: oklch(0.7 0.03 60);
-  --sidebar: oklch(0.21 0.014 40);
-  --sidebar-foreground: oklch(0.95 0.01 70);
-  --sidebar-primary: oklch(0.72 0.13 45);
-  --sidebar-primary-foreground: oklch(0.17 0.012 40);
-  --sidebar-accent: oklch(0.3 0.03 40);
-  --sidebar-accent-foreground: oklch(0.95 0.01 70);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.6 0.11 45);
+  --background: #1d1714;
+  --foreground: #f6f1ea;
+  --card: #2a221e;
+  --card-foreground: #f6f1ea;
+  --popover: #2a221e;
+  --popover-foreground: #f6f1ea;
+  --primary: #d9826f;
+  --primary-foreground: #1d1714;
+  --secondary: #352b26;
+  --secondary-foreground: #f6f1ea;
+  --muted: #352b26;
+  --muted-foreground: #b5a69b;
+  --accent: #3f2620;
+  --accent-foreground: #d9826f;
+  --destructive: #f08a7a;
+  --border: #3f342e;
+  --input: #3f342e;
+  --ring: #d9826f;
+  --link: #8fb8d3;
+  --macro: #22303a;
+  --macro-foreground: #8fb8d3;
+  --ok: #9bc27a;
+  --warn: #e3b866;
+  --chart-1: #d9826f;
+  --chart-2: #8fb8d3;
+  --chart-3: #e3b866;
+  --chart-4: #9bc27a;
+  --chart-5: #b5a69b;
+  --sidebar: #2a221e;
+  --sidebar-foreground: #f6f1ea;
+  --sidebar-primary: #d9826f;
+  --sidebar-primary-foreground: #1d1714;
+  --sidebar-accent: #3f2620;
+  --sidebar-accent-foreground: #d9826f;
+  --sidebar-border: #3f342e;
+  --sidebar-ring: #d9826f;
 }
 
 @layer base {
