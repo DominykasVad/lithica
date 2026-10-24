@@ -1,0 +1,15 @@
+// Puts the theme the viewer chose (or the system's) on the page before it is
+// drawn, so that a dark page does not flash light first. A file of its own:
+// the app's Content-Security-Policy allows no inline script.
+(() => {
+  let preference = "system";
+  try {
+    preference = localStorage.getItem("sardonyx.theme") || "system";
+  } catch {
+    // storage may be blocked; the system's theme then
+  }
+  const dark =
+    preference === "dark" ||
+    (preference === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
+  document.documentElement.classList.toggle("dark", dark);
+})();

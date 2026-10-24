@@ -152,6 +152,11 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 - 2026-10-24 — 5.1 — the image's nginx passes `/api/` on as sent (still encoded), and resolves the server at each request
 - 2026-10-24 — 5.1 — dev stack: Sardonyx's image on port 8082; `pnpm dev` proxies to the stack's client on 8080 (`LITHICA_URL`)
 - 2026-10-24 — fix — a token that does not work is `InvalidTokenError` (403), also for an unknown user, so clients need not read text
+- 2026-10-24 — 5.2 — session: token in memory; "remember me" stores `{user, token}` as `sardonyx.session` in localStorage
+- 2026-10-24 — 5.2 — a 403 whose description is "Invalid token." ends the session (the API has no error name of its own for it)
+- 2026-10-24 — 5.2 — logout forgets the token here first, then deletes it on the site; a failure there is shown, not fatal
+- 2026-10-24 — 5.2 — theme light/dark/system per browser (`sardonyx.theme`), applied by public/theme.js (no inline script under the CSP)
+- 2026-10-24 — 5.2 — errors: everything a request throws is an `ApiError` (title, description, status) and shown by one component
 
 ---
 
@@ -272,10 +277,10 @@ in the dev stack, its results stated in the PR.
 **Done when:** a blank app builds, is served by its image next to the legacy client in the dev stack, and calls `GET /info` through the typed client.
 
 ### 5.2 App shell and login
-- [ ] Layout, navigation, light/dark theme, "Sardonyx" branding (name, colours, logo in the client).
-- [ ] `GET /info` on start; module detection (`modules`); card UI only when `cards` is listed.
-- [ ] Login with user name and password once, to create a user token (`POST /user-token/<user>`); the token then authenticates every request; the password is not kept. "Remember me" writes the token to localStorage; logout deletes the token on the server and locally.
-- [ ] API errors shown in a consistent way (the error body's `title` and `description`).
+- [x] Layout, navigation, light/dark theme, "Sardonyx" branding (name, colours, logo in the client).
+- [x] `GET /info` on start; module detection (`modules`); card UI only when `cards` is listed.
+- [x] Login with user name and password once, to create a user token (`POST /user-token/<user>`); the token then authenticates every request; the password is not kept. "Remember me" writes the token to localStorage; logout deletes the token on the server and locally.
+- [x] API errors shown in a consistent way (the error body's `title` and `description`).
 
 **Done when:** log in (with and without "remember me"), reload, log out; a site without `cards` shows no card UI; an API error is shown readably.
 
