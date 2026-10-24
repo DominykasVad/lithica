@@ -154,6 +154,9 @@ List of possible error names:
 - `IntegrityError` (race conditions when editing the same resource)
 - `SearchError`
 - `AuthError`
+- `InvalidTokenError` (an `AuthError`: the login token of the request does not
+  work, because it is unknown, disabled or expired, or its user does not
+  exist; the client's session is over)
 - `PostNotFoundError`
 - `PostAlreadyFeaturedError`
 - `PostAlreadyUploadedError`
