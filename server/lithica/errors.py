@@ -19,6 +19,15 @@ class AuthError(BaseError):
     pass
 
 
+class InvalidTokenError(AuthError):
+    """
+    The login token a request carries does not work: unknown, disabled,
+    expired, or of a user who does not exist. Named apart from a missing
+    privilege, so that a client knows its session is over without reading
+    the description.
+    """
+
+
 class IntegrityError(BaseError):
     pass
 

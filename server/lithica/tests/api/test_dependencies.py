@@ -9,7 +9,7 @@ import pytest
 from fastapi import Depends, FastAPI
 from fastapi.testclient import TestClient
 
-from lithica import db, model
+from lithica import db, errors, model
 from lithica.api import dependencies, error_handlers
 from lithica.api.dependencies import CurrentUser, require
 from lithica.app import SessionScopeMiddleware
@@ -127,14 +127,19 @@ def test_token_auth(client, user, token):
     assert response.json()["name"] == "u1"
 
 
+# A token that does not work is named as such, so that a client can tell
+# its session is over from a privilege it lacks.
+INVALID_TOKEN = {
+    "name": "InvalidTokenError",
+    "title": "Authentication error",
+    "description": "Invalid token.",
+}
+
+
 def test_token_auth_with_wrong_token(client, user, token):
     response = client.get("/whoami", headers=_header("Token", "u1", "other"))
     assert response.status_code == 403
-    assert response.json() == {
-        "name": "AuthError",
-        "title": "Authentication error",
-        "description": "Invalid token.",
-    }
+    assert response.json() == INVALID_TOKEN
 
 
 def test_token_auth_with_disabled_token(client, user, token):
@@ -142,7 +147,7 @@ def test_token_auth_with_disabled_token(client, user, token):
     db.session.flush()
     response = client.get("/whoami", headers=_header("Token", "u1", "the-token"))
     assert response.status_code == 403
-    assert response.json()["description"] == "Invalid token."
+    assert response.json() == INVALID_TOKEN
 
 
 def test_token_auth_with_expired_token(client, user, token):
@@ -150,7 +155,30 @@ def test_token_auth_with_expired_token(client, user, token):
     db.session.flush()
     response = client.get("/whoami", headers=_header("Token", "u1", "the-token"))
     assert response.status_code == 403
-    assert response.json()["description"] == "Invalid token."
+    assert response.json() == INVALID_TOKEN
+
+
+@pytest.mark.parametrize("name", ["nobody", "u2"])
+def test_token_auth_of_a_user_who_does_not_exist(client, user, token, name):
+    # a remembered session of a user who was deleted or renamed ends; it is
+    # not a 404 on every request
+    response = client.get("/whoami", headers=_header("Token", name, "the-token"))
+    assert response.status_code == 403
+    assert response.json() == INVALID_TOKEN
+
+
+def test_token_of_a_deleted_user(client, user, token):
+    db.session.delete(user)
+    db.session.flush()
+    response = client.get("/whoami", headers=_header("Token", "u1", "the-token"))
+    assert response.status_code == 403
+    assert response.json() == INVALID_TOKEN
+
+
+def test_invalid_token_is_an_auth_error():
+    # what catches an AuthError catches it too, and the API answers both alike
+    assert issubclass(errors.InvalidTokenError, errors.AuthError)
+    assert error_handlers.ERROR_KINDS[0][0] is errors.AuthError
 
 
 def test_password_is_not_a_token_and_a_token_is_not_a_password(client, user, token):
@@ -262,6 +290,17 @@ def test_privilege_missing_for_anonymous_user(client):
     response = client.get("/tags")
     assert response.status_code == 403
     assert response.json()["name"] == "AuthError"
+
+
+def test_privilege_missing_with_a_token_is_not_an_invalid_token(client, user, token):
+    # the token works; the user may not do this
+    response = client.delete("/tags", headers=_header("Token", "u1", "the-token"))
+    assert response.status_code == 403
+    assert response.json() == {
+        "name": "AuthError",
+        "title": "Authentication error",
+        "description": "Insufficient privileges to do this.",
+    }
 
 
 def test_wrong_credentials_are_refused_before_the_privilege_check(client, user):

@@ -115,6 +115,14 @@ Additions only; nothing existing changes shape.
 3. Module routes appear in `doc/openapi.json`, tagged per module.
 4. The `cards` module adds its routes, search tokens and post fields.
 
+### Intentional API changes (phase 5)
+
+1. A login token that does not work (unknown, disabled, expired, or of a
+   user who does not exist) is refused with the error name
+   `InvalidTokenError`, a kind of `AuthError` (was `AuthError`). The token
+   of a user who does not exist is 403, as any token that does not work
+   (was 404 `UserNotFoundError`). Basic authentication is unchanged.
+
 ### Allowed dialect exceptions
 
 - `sa.ARRAY` in migrations `8f3a1c2d4e5b` and `b7d2e9a4c1f3` only: they read and (on downgrade) restore the old
@@ -143,6 +151,7 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 - 2026-10-24 — 5.1 — code-based TanStack routes for now; the API base URL is `api/` beside the app, made absolute
 - 2026-10-24 — 5.1 — the image's nginx passes `/api/` on as sent (still encoded), and resolves the server at each request
 - 2026-10-24 — 5.1 — dev stack: Sardonyx's image on port 8082; `pnpm dev` proxies to the stack's client on 8080 (`LITHICA_URL`)
+- 2026-10-24 — fix — a token that does not work is `InvalidTokenError` (403), also for an unknown user, so clients need not read text
 
 ---
 

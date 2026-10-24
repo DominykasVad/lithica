@@ -67,10 +67,14 @@ def _authenticate_basic_auth(username: str, password: str) -> model.User:
 def _authenticate_token(
     username: str, token: str
 ) -> tuple[model.User, model.UserToken]:
-    user = users.get_user_by_name(username)
-    user_token = user_tokens.get_by_user_and_token(user, token)
-    if user_token is None or not auth.is_valid_token(user_token):
-        raise errors.AuthError("Invalid token.")
+    # A token of a user who is gone (deleted, renamed) does not work either:
+    # that is the client's session ending, not a page that is not found.
+    user = users.try_get_user_by_name(username)
+    user_token = (
+        user_tokens.get_by_user_and_token(user, token) if user is not None else None
+    )
+    if user is None or user_token is None or not auth.is_valid_token(user_token):
+        raise errors.InvalidTokenError("Invalid token.")
     return user, user_token
 
 
