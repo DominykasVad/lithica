@@ -43,6 +43,20 @@ services:
       - "${PORT}:80"
       - "8081:8081"
 
+  # Sardonyx, the new client, as its image serves it: on port 8082 (or
+  # SARDONYX_PORT). Rebuild it after a change; `pnpm dev` in
+  # clients/sardonyx is the quicker way to work on it.
+  sardonyx:
+    build:
+      context: ./clients/sardonyx
+      target: release
+    depends_on:
+      - server
+    volumes:
+      - "data:/data:ro"
+    ports:
+      - "${SARDONYX_PORT:-8082}:80"
+
   sql:
     image: postgres:17
     restart: unless-stopped

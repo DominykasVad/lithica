@@ -106,10 +106,22 @@ Commands are run from `clients/sardonyx/`.
 - **Tests:** Vitest and Testing Library for units and components. Playwright
   for end-to-end tests later, not before the owner asks.
 
-The commands (install, dev, build, lint, format, typecheck, test, regenerate
-the API types) are pnpm scripts that phase 5 creates. Until then there is
-nothing to run in `clients/sardonyx/`: when the scripts exist, list them here
-in a table like the one above, with the exact script names.
+| Task | Run from | Command |
+|---|---|---|
+| Install | `clients/sardonyx/` | `pnpm install` (CI: `pnpm install --frozen-lockfile`) |
+| Dev server | `clients/sardonyx/` | `pnpm dev` — passes `/api` and `/data` to the dev stack on `localhost:8080`, or to `LITHICA_URL` |
+| Build | `clients/sardonyx/` | `pnpm build` |
+| Lint | `clients/sardonyx/` | `pnpm lint` |
+| Format | `clients/sardonyx/` | `pnpm format` |
+| Lint and format check | `clients/sardonyx/` | `pnpm check` (what CI runs) |
+| Type check | `clients/sardonyx/` | `pnpm typecheck` |
+| Tests | `clients/sardonyx/` | `pnpm test` |
+| Regenerate the API types | `clients/sardonyx/` | `pnpm api:generate` — after every change of `doc/openapi.json` |
+| Check the API types | `clients/sardonyx/` | `pnpm api:check` (what CI runs) |
+| Image | repo root | `docker build clients/sardonyx`; the dev stack serves it on port 8082 |
+
+TypeScript is held at 6.0: openapi-typescript generates the API types with
+TypeScript's compiler API, which TypeScript 7 does not have.
 
 ## Definition of done (every task)
 
@@ -125,9 +137,9 @@ in a table like the one above, with the exact script names.
 4. Report: what changed, what you verified and how, what you did not verify.
 
 Points 1 to 4 are written for the server. For the client the same holds with
-the client's tools: lint, format check, typecheck and tests pass, and the
-PLAN.md tick is in the same commit. CI runs the server's checks only; the
-client's are added to CI in phase 5.
+the client's tools: lint, format check, typecheck, tests, the API types
+check and the build pass, and the PLAN.md tick is in the same commit. CI runs
+them in `.github/workflows/ci-sardonyx.yml`.
 
 ## Hard rules
 
@@ -148,7 +160,8 @@ client's are added to CI in phase 5.
   whitespace), that no file over 5 MiB is added, the commits for secrets,
   and the links between the Markdown files. A component's workflow runs
   only when the change touches its paths
-  (`.github/workflows/ci-server.yml` for the server).
+  (`.github/workflows/ci-server.yml` for the server,
+  `.github/workflows/ci-sardonyx.yml` for the client).
 - Do one PLAN.md task per change set. No drive-by refactors, renames or
   reformatting outside the task.
 - If a task needs a decision PLAN.md does not cover (a new dependency, a

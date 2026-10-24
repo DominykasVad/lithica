@@ -22,6 +22,8 @@ jobs:
             context: ./server
           - image: lithica-client-legacy
             context: ./legacy/client
+          - image: lithica-client
+            context: ./clients/sardonyx
 
     steps:
       - name: Checkout
