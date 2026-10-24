@@ -258,7 +258,7 @@ in the dev stack, its results stated in the PR.
 - [x] CI for the client: add `.github/workflows/ci-sardonyx.yml` with the same trigger pattern as `ci-server.yml` (pull requests ready for review, and pushes to `main`), paths `clients/sardonyx/**`, `doc/openapi.json` and the workflow file itself. It installs with the frozen lockfile and runs Biome, typecheck, tests, build and the type drift check. A future client gets a workflow of its own, never a shared `clients/**` one.
 - [x] Serving: a `clients/sardonyx/Dockerfile` that builds the client and serves it with nginx, with `/data/` (read-only, from the data volume) and `/api/` (proxy to the server) like the legacy image, written new. New image `lithica-client` in the release workflow.
 - [x] Dev: `pnpm dev` with a proxy of `/api` and `/data` to a running dev stack; documented.
-- [ ] Fill in the client commands table in AGENTS.md.
+- [x] Fill in the client commands table in AGENTS.md.
 
 **Done when:** a blank app builds, is served by its image next to the legacy client in the dev stack, and calls `GET /info` through the typed client.
 

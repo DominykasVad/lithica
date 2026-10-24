@@ -106,10 +106,22 @@ Commands are run from `clients/sardonyx/`.
 - **Tests:** Vitest and Testing Library for units and components. Playwright
   for end-to-end tests later, not before the owner asks.
 
-The commands (install, dev, build, lint, format, typecheck, test, regenerate
-the API types) are pnpm scripts that phase 5 creates. Until then there is
-nothing to run in `clients/sardonyx/`: when the scripts exist, list them here
-in a table like the one above, with the exact script names.
+| Task | Run from | Command |
+|---|---|---|
+| Install | `clients/sardonyx/` | `pnpm install` (CI: `pnpm install --frozen-lockfile`) |
+| Dev server | `clients/sardonyx/` | `pnpm dev` — passes `/api` and `/data` to the dev stack on `localhost:8080`, or to `LITHICA_URL` |
+| Build | `clients/sardonyx/` | `pnpm build` |
+| Lint | `clients/sardonyx/` | `pnpm lint` |
+| Format | `clients/sardonyx/` | `pnpm format` |
+| Lint and format check | `clients/sardonyx/` | `pnpm check` (what CI runs) |
+| Type check | `clients/sardonyx/` | `pnpm typecheck` |
+| Tests | `clients/sardonyx/` | `pnpm test` |
+| Regenerate the API types | `clients/sardonyx/` | `pnpm api:generate` — after every change of `doc/openapi.json` |
+| Check the API types | `clients/sardonyx/` | `pnpm api:check` (what CI runs) |
+| Image | repo root | `docker build clients/sardonyx`; the dev stack serves it on port 8082 |
+
+TypeScript is held at 6.0: openapi-typescript generates the API types with
+TypeScript's compiler API, which TypeScript 7 does not have.
 
 ## Definition of done (every task)
 
