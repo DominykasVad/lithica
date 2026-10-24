@@ -640,6 +640,20 @@ def test_post_field_on_request_cannot_take_a_name_that_is_taken(modules):
     assert registry.requested_post_fields() == {}
 
 
+def test_post_field_schema_must_be_of_a_field_the_module_adds():
+    with pytest.raises(errors.ConfigError, match="describes the post field 'mine'"):
+        registry.use(
+            [
+                registry.Module(
+                    name="a",
+                    post_fields={"other": lambda p, u: 1},
+                    post_field_schemas={"mine": int},
+                )
+            ]
+        )
+    assert registry.post_fields() == {}
+
+
 def test_post_field_is_unknown_without_the_module(
     inject_config, client, post_factory, user_factory, tag_category_factory
 ):

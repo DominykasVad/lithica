@@ -12,6 +12,8 @@ import sys
 from collections.abc import Sequence
 from typing import Any
 
+from pydantic import BaseModel, TypeAdapter
+
 from lithica import config, registry
 
 DESCRIPTION = """\
@@ -94,6 +96,57 @@ def allow_anonymous(document: dict[str, Any]) -> None:
         for operation in path.values():
             if "security" in operation:
                 operation["security"] = [*operation["security"], {}]
+
+
+def _value_schema(value_type: Any, schemas: dict[str, Any], where: str) -> Any:
+    """
+    The JSON schema of a module's post field value. A model becomes a
+    component of its own, as the engine's are, and is referred to.
+    """
+    schema = TypeAdapter(value_type).json_schema(
+        by_alias=True,
+        mode="serialization",
+        ref_template="#/components/schemas/{model}",
+    )
+    found: dict[str, Any] = schema.pop("$defs", {})
+    if isinstance(value_type, type) and issubclass(value_type, BaseModel):
+        found[value_type.__name__] = schema
+        schema = {"$ref": "#/components/schemas/%s" % value_type.__name__}
+    for name, component in found.items():
+        if schemas.setdefault(name, component) != component:
+            raise ValueError("%s: the schema %r is already another one" % (where, name))
+    return schema
+
+
+def add_module_post_fields(
+    document: dict[str, Any], modules: Sequence[registry.Module]
+) -> None:
+    """
+    Describe the fields modules add to the post resource, as the routes of
+    every module are described: they are part of what a client can be given.
+    """
+    schemas: dict[str, Any] = document["components"]["schemas"]
+    properties: dict[str, Any] = schemas["Post"]["properties"]
+    for module in modules:
+        requested = list(module.requested_post_fields)
+        for name in [*module.post_fields, *requested]:
+            when = "only when the module is enabled"
+            if name in requested:
+                when = "only when asked for in `fields`, and " + when
+            description = (
+                "Added by the module `%s`; returned %s (see `modules` of "
+                "`GET /info`); it may be `null`." % (module.name, when)
+            )
+            if name in module.post_field_schemas:
+                value = _value_schema(
+                    module.post_field_schemas[name], schemas, "post field %r" % name
+                )
+                properties[name] = {
+                    "anyOf": [value, {"type": "null"}],
+                    "description": description,
+                }
+            else:
+                properties[name] = {"description": description}
 
 
 def dump() -> str:

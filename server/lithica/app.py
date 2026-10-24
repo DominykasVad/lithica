@@ -279,6 +279,7 @@ def create_app(modules: Sequence[registry.Module] | None = None) -> FastAPI:
                 routes=application.routes,
             )
             openapi.allow_anonymous(document)
+            openapi.add_module_post_fields(document, modules)
             application.openapi_schema = document
         return application.openapi_schema
 

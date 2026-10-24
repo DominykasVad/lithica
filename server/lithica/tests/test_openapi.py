@@ -2,10 +2,12 @@ import json
 import os
 import subprocess
 import sys
+from typing import Any
 
 import pytest
 
-from lithica import openapi
+from lithica import openapi, registry
+from lithica.api.resources import Resource
 from lithica.version import get_version
 
 COMMITTED = os.path.join(
@@ -208,3 +210,83 @@ def test_no_response_field_is_required(document):
 
 def test_server_is_relative_to_the_document(document):
     assert document["servers"] == [{"url": "./", "description": "This server."}]
+
+
+def test_module_post_fields_are_part_of_the_post(document):
+    post = document["components"]["schemas"]["Post"]["properties"]
+    assert post["card"]["anyOf"] == [
+        {"$ref": "#/components/schemas/CardSummary"},
+        {"type": "null"},
+    ]
+    assert "module `cards`" in post["card"]["description"]
+    assert "only when asked for in `fields`" in post["card"]["description"]
+    summary = document["components"]["schemas"]["CardSummary"]
+    assert list(summary["properties"]) == [
+        "name",
+        "creator",
+        "spec",
+        "format",
+        "greetingCount",
+        "lorebookEntryCount",
+    ]
+    assert "required" not in summary
+
+
+class _Inner(Resource):
+    word: str
+
+
+class _Outer(Resource):
+    inner: _Inner
+
+
+def _bare_document() -> dict[str, Any]:
+    return {"components": {"schemas": {"Post": {"properties": {"id": {}}}}}}
+
+
+def test_module_post_fields_take_any_type_or_none():
+    document = _bare_document()
+    openapi.add_module_post_fields(
+        document,
+        [
+            registry.Module(
+                name="a",
+                post_fields={"plain": lambda p, u: 1, "loose": lambda p, u: 1},
+                requested_post_fields={"nested": lambda p, u: 1},
+                post_field_schemas={"plain": list[str], "nested": _Outer},
+            )
+        ],
+    )
+    schemas = document["components"]["schemas"]
+    post = schemas["Post"]["properties"]
+    assert list(post) == ["id", "plain", "loose", "nested"]
+    assert post["plain"]["anyOf"] == [
+        {"items": {"type": "string"}, "type": "array"},
+        {"type": "null"},
+    ]
+    assert "only when the module is enabled" in post["plain"]["description"]
+    assert "`fields`" not in post["plain"]["description"]
+    # without a schema: any value
+    assert list(post["loose"]) == ["description"]
+    # a model and the models it holds are components of their own
+    assert post["nested"]["anyOf"][0] == {"$ref": "#/components/schemas/_Outer"}
+    assert schemas["_Outer"]["properties"]["inner"] == {
+        "$ref": "#/components/schemas/_Inner"
+    }
+    assert set(schemas["_Inner"]["properties"]) == {"word"}
+
+
+def test_module_post_field_cannot_replace_a_schema():
+    document = _bare_document()
+    document["components"]["schemas"]["_Inner"] = {"type": "string"}
+    with pytest.raises(ValueError, match="already another one"):
+        openapi.add_module_post_fields(
+            document,
+            [
+                registry.Module(
+                    name="a",
+                    post_fields={"mine": lambda p, u: 1},
+                    post_field_schemas={"mine": _Inner},
+                )
+            ],
+        )

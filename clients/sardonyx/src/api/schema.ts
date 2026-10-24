@@ -1899,6 +1899,8 @@ export interface components {
              * @description The kinds of content extracted from the post's file by the modules of this installation. Empty without modules.
              */
             contentKinds?: string[];
+            /** @description Added by the module `cards`; returned only when asked for in `fields`, and only when the module is enabled (see `modules` of `GET /info`); it may be `null`. */
+            card?: components["schemas"]["CardSummary"] | null;
         };
         /**
          * PostContent
@@ -2098,6 +2100,42 @@ export interface components {
             lastEditTime?: string | null;
             /** Lastusagetime */
             lastUsageTime?: string | null;
+        };
+        /**
+         * CardSummary
+         * @description The summary of a post's card, for lists of posts: the post field `card`.
+         */
+        CardSummary: {
+            /**
+             * Name
+             * @description The card's name, shortened.
+             */
+            name?: string | null;
+            /**
+             * Creator
+             * @description The card's creator, shortened.
+             */
+            creator?: string | null;
+            /**
+             * Spec
+             * @description `v1`, `v2` or `v3`.
+             */
+            spec?: string;
+            /**
+             * Format
+             * @description The file: `png` or `charx`.
+             */
+            format?: string | null;
+            /**
+             * Greetingcount
+             * @description The first message and the alternate greetings.
+             */
+            greetingCount?: number | null;
+            /**
+             * Lorebookentrycount
+             * @description The entries of the card's lorebook.
+             */
+            lorebookEntryCount?: number | null;
         };
     };
     responses: never;
