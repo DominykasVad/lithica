@@ -12,9 +12,10 @@ export interface Credentials {
   token: string;
 }
 
-// The credentials of this browser tab, in memory only. Keeping them across
-// visits ("remember me") is the login's business, not the client's.
+// The credentials of this browser tab, in memory. Whether they are also
+// kept across visits is the session's business (src/auth/session.ts).
 let credentials: Credentials | null = null;
+let sessionEnded: () => void = () => {};
 
 export function setCredentials(next: Credentials | null): void {
   credentials = next;
@@ -24,21 +25,65 @@ export function getCredentials(): Credentials | null {
   return credentials;
 }
 
+/**
+ * What to do when the API refuses the token the app sent: it was deleted,
+ * disabled or has expired, here or on another device.
+ */
+export function onSessionEnded(listener: () => void): void {
+  sessionEnded = listener;
+}
+
 /** `Token <base64 of user:token>`, the API's token authentication. */
 export function authorization({ user, token }: Credentials): string {
-  // base64 of the UTF-8 bytes: btoa alone takes Latin-1 only
-  const bytes = new TextEncoder().encode(`${user}:${token}`);
-  return `Token ${btoa(String.fromCharCode(...bytes))}`;
+  return `Token ${base64(`${user}:${token}`)}`;
 }
+
+/** `Basic <base64 of user:password>`, for the one request that logs in. */
+export function basicAuthorization(user: string, password: string): string {
+  return `Basic ${base64(`${user}:${password}`)}`;
+}
+
+function base64(value: string): string {
+  // of the UTF-8 bytes: btoa alone takes Latin-1 only
+  const bytes = new TextEncoder().encode(value);
+  return btoa(String.fromCharCode(...bytes));
+}
+
+// The server's answer to a token it does not take (lithica/api/dependencies).
+// It has no error name of its own: an AuthError is also what a missing
+// privilege gets, so the description tells the two apart.
+const INVALID_TOKEN = "Invalid token.";
 
 const headers: Middleware = {
   onRequest({ request }) {
     // the API answers only a request that says it accepts JSON
     request.headers.set("Accept", "application/json");
-    if (credentials) {
+    // a request that brings its own (the login) keeps them
+    if (credentials && !request.headers.has("Authorization")) {
       request.headers.set("Authorization", authorization(credentials));
     }
     return request;
+  },
+  async onResponse({ request, response }) {
+    if (
+      response.status !== 403 ||
+      !request.headers.get("Authorization")?.startsWith("Token ")
+    ) {
+      return response;
+    }
+    const body: unknown = await response
+      .clone()
+      .json()
+      .catch(() => null);
+    if (
+      typeof body === "object" &&
+      body !== null &&
+      "description" in body &&
+      body.description === INVALID_TOKEN
+    ) {
+      sessionEnded();
+    }
+    return response;
   },
 };
 

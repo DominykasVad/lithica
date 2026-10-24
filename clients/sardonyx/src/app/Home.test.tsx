@@ -34,9 +34,11 @@ describe("the start page", () => {
   it("shows what GET /info says", async () => {
     const fetch = answering(INFO);
     renderHome();
-    expect(await screen.findByText("My cards")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "My cards" }),
+    ).toBeInTheDocument();
     expect(screen.getByText("67")).toBeInTheDocument();
-    expect(screen.getByText("cards")).toBeInTheDocument();
+    expect(screen.getByText("cards", { selector: "dd" })).toBeInTheDocument();
     const request = fetch.mock.calls[0]?.[0];
     expect(request instanceof Request && new URL(request.url).pathname).toBe(
       "/api/info",
@@ -59,6 +61,9 @@ describe("the start page", () => {
       503,
     );
     renderHome();
-    expect(await screen.findByRole("alert")).toHaveTextContent("Down for a bit.");
+    const alert = await screen.findByRole("alert");
+    // the API's title and description, both
+    expect(alert).toHaveTextContent("Service unavailable");
+    expect(alert).toHaveTextContent("Down for a bit.");
   });
 });
