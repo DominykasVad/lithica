@@ -1,7 +1,28 @@
 # Upgrading
 
+- [After 0.2.0](#after-020)
 - [From 0.1.0 to 0.2.0](#from-010-to-020)
 - [From szurubooru to Lithica 0.1.0](#from-szurubooru-to-lithica-010)
+
+## After 0.2.0
+
+Notes for the release after 0.2.0, kept here until it has its number.
+
+### The cards module stores more about a picture
+
+A card picture often carries more than one card chunk; sites that host
+cards leave the chunk of the uploaded picture behind their own. The module
+now lists the chunks it did not use with each card (`ignoredChunks`), and
+where the first chunk of a kind cannot be read it tries the next one.
+
+Cards stored by 0.2.0 do not have the list, and a picture whose first chunk
+was unreadable was stored without a card. Nothing else about them changes:
+they are shown, found and downloaded as before. To bring them up to date,
+have the module read the files again, once:
+
+```console
+user@host:lithica$ docker compose run --rm server ./lithica-admin reextract
+```
 
 ## From 0.1.0 to 0.2.0
 

@@ -134,6 +134,9 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 - 2026-10-12 — 5.0 — import: files and folders whose names start with a dot are left out; symlinked folders are not followed
 - 2026-10-12 — 5.0 — import: no privilege of `--user` is asked (the command is the administrator's); snapshots are the user's
 - 2026-10-12 — 5.0 — `--dry-run` checks duplicates, the file type and module refusals; it does not decode pictures
+- 2026-10-13 — cards — several chunks with the same keyword: the first readable one is the card (Chub writes its current version first; the original's chunk stays behind it)
+- 2026-10-13 — cards — order of reading: first readable `ccv3`, else first readable `chara`; position decides, never size
+- 2026-10-13 — cards — payload lists unused card chunks as `ignoredChunks` (keyword, position = chunk number in the file, size); schema version 3
 
 ---
 
