@@ -24,6 +24,8 @@ const PAIRS: [string, string][] = [
   ["ok", "card"],
   ["warn", "card"],
   ["macro-foreground", "macro"],
+  ["accent-foreground", "accent"],
+  ["destructive", "card"],
 ];
 
 type Properties = Map<string, string>;
