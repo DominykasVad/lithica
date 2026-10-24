@@ -76,7 +76,7 @@ button{font:inherit}
 </section>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["sardonyx","dracula","gruvbox"],"default":"sardonyx"},"$preview":{"width":1200,"height":820}}'>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["sardonyx","dracula"],"default":"sardonyx"},"$preview":{"width":1200,"height":820}}'>
 class Component extends DCLogic {
   renderVals() {
     const themes = {
@@ -86,13 +86,6 @@ class Component extends DCLogic {
         accent: '#BD93F9', onAccent: '#282A36', selected: '#3E3755', link: '#8BE9FD', macroBg: '#2C3B48',
         ok: '#50FA7B', warn: '#FFB86C',
         names: ['Purple', 'Violet shade', 'Cyan', 'Deep cyan', 'Night', 'Current line', 'Lavender grey', 'Foreground']
-      },
-      gruvbox: {
-        label: 'Gruvbox', blurb: 'Retro brown-grey ground, Gruvbox orange as the accent, faded blue for links.',
-        bg: '#282828', surface: '#3C3836', line: '#504945', text: '#EBDBB2', muted: '#A89984',
-        accent: '#FE8019', onAccent: '#282828', selected: '#4A3726', link: '#83A598', macroBg: '#2F3B39',
-        ok: '#B8BB26', warn: '#FABD2F',
-        names: ['Orange', 'Rust shade', 'Faded blue', 'Blue shade', 'Dark0', 'Dark1', 'Grey', 'Light1']
       },
       sardonyx: {
         label: 'Sardonyx', blurb: 'The house palette at night: umber ground, lightened carnelian, harbour blue for links.',

@@ -9,13 +9,6 @@
       "x": 1280,
       "y": 2900
     },
-    "DarkGruvbox.dc.html": {
-      "h": 820,
-      "title": "Dark style tile · Gruvbox",
-      "w": 1200,
-      "x": 2560,
-      "y": 2900
-    },
     "DarkTile.dc.html": {
       "h": 820,
       "title": "Dark style tile · Sardonyx",
@@ -76,7 +69,7 @@
     },
     "t2": {
       "kind": "title1",
-      "maxW": 3760,
+      "maxW": 2480,
       "text": "Dark themes",
       "w": 240,
       "x": 0,
@@ -89,8 +82,7 @@
     "Lorebook.dc.html",
     "Style.dc.html",
     "DarkTile.dc.html",
-    "DarkDracula.dc.html",
-    "DarkGruvbox.dc.html"
+    "DarkDracula.dc.html"
   ],
   "pages": [],
   "title": "Sardonyx design"

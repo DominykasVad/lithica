@@ -8,8 +8,8 @@ The source files of the Sardonyx design canvas (as of 2026-10-24), one per board
 | `Gallery.dc.html` | Library (gallery and search) |
 | `Lorebook.dc.html` | Lorebook view |
 | `Style.dc.html` | Light style tile |
-| `DarkTile.dc.html` | Dark style tile; its `theme` switches between `sardonyx`, `dracula` and `gruvbox` |
-| `DarkDracula.dc.html`, `DarkGruvbox.dc.html` | The dark tile with that theme |
+| `DarkTile.dc.html` | Dark style tile; its `theme` switches between `sardonyx` and `dracula` |
+| `DarkDracula.dc.html` | The dark tile with the Dracula theme |
 | `canvas.json` | Board titles, sizes and order |
 
 They are read as source, not opened in a browser: the canvas runtime they load
