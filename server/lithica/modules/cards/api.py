@@ -20,6 +20,21 @@ class CardNotFoundError(errors.NotFoundError):
     pass
 
 
+class CardSummary(resources.Resource):
+    """The summary of a post's card, for lists of posts: the post field `card`."""
+
+    name: str | None = Field(description="The card's name, shortened.")
+    creator: str | None = Field(description="The card's creator, shortened.")
+    spec: str = Field(description="`v1`, `v2` or `v3`.")
+    format: str | None = Field(description="The file: `png` or `charx`.")
+    greeting_count: int | None = Field(
+        description="The first message and the alternate greetings."
+    )
+    lorebook_entry_count: int | None = Field(
+        description="The entries of the card's lorebook."
+    )
+
+
 class LorebookEntry(resources.Resource):
     keys: list[str]
     secondary_keys: list[str]

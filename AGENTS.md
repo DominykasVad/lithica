@@ -180,10 +180,12 @@ them in `.github/workflows/ci-sardonyx.yml`.
 - `doc/openapi.json` is the API contract. It is generated from code
   (`uv run python -m lithica.openapi > ../doc/openapi.json`) and CI fails if
   the committed file differs. Never hand-edit it.
-- The contract includes the routes of **every module in `lithica/modules/`**,
-  each tagged with its module's name, whatever `modules` or `MODULES` say on
-  the machine that generates it. Regenerate it after changing a module's
-  routes too. A module's router sets no tags of its own.
+- The contract includes the routes and the post fields of **every module in
+  `lithica/modules/`**, the routes tagged with their module's name, whatever
+  `modules` or `MODULES` say on the machine that generates it. Regenerate it
+  after changing a module's routes or post fields too. A module's router sets
+  no tags of its own; a module describes its post fields' values in
+  `post_field_schemas`.
 
 ### Database
 - PostgreSQL 17 is the only database tested and shipped, but code must stay

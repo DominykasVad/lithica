@@ -188,6 +188,8 @@ module = registry.Module(
         )
     },
     post_fields={"dummyKeywords": _keywords},
+    # what the field holds, for the API document
+    post_field_schemas={"dummyKeywords": list[str]},
     admin_commands=[
         registry.AdminCommand(
             "dummy-count", "count the text chunks the dummy module stored", _print_count

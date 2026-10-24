@@ -305,6 +305,7 @@ module = registry.Module(
     auto_tag=auto_tag,
     search_filters=search.FILTERS,
     requested_post_fields={"card": api.card_field},
+    post_field_schemas={"card": api.CardSummary},
     content_kinds=[
         registry.ContentKind(kind, SCHEMA_VERSION, max_payload_size=MAX_PAYLOAD_SIZE)
         for kind in (card_format.KIND_V1, card_format.KIND_V2, card_format.KIND_V3)

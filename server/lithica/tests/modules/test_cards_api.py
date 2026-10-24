@@ -7,7 +7,7 @@ import pytest
 import sqlalchemy as sa
 import sqlalchemy.event as sa_event
 
-from lithica import config, db, errors, model, registry
+from lithica import config, db, errors, model, openapi, registry
 from lithica.func import posts, tag_categories
 from lithica.modules.cards import api, filename
 from lithica.modules.cards import card as card_format
@@ -342,6 +342,24 @@ def test_post_field(site, user):
     }
     one = ok(client.get("/post/%d" % card["id"], user=user, query={"fields": "card"}))
     assert list(one) == ["card"] and one["card"]["spec"] == "v2"
+
+
+def test_post_field_is_what_the_contract_says(site, user):
+    # the summary is described by hand (CardSummary) beside the code that
+    # makes it (card_field): the two must not drift apart
+    client = site(["cards"])
+    _upload(client, user, cards.png_card(cards.v2_card(), shade=1))
+    _upload(client, user, cards.charx())
+    _upload(client, user, cards.picture(shade=2))
+    described = openapi.build()["components"]["schemas"]["CardSummary"]
+    listed = ok(client.get("/posts", user=user, query={"fields": "card"}))["results"]
+    summaries = [post["card"] for post in listed if post["card"] is not None]
+    assert len(summaries) == 2
+    for summary in summaries:
+        assert list(summary) == list(described["properties"])
+        assert (
+            api.CardSummary.model_validate(summary).model_dump(by_alias=True) == summary
+        )
 
 
 def test_post_field_is_small_whatever_the_card(site, user):

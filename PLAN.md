@@ -152,6 +152,7 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 - 2026-10-24 — 5.1 — the image's nginx passes `/api/` on as sent (still encoded), and resolves the server at each request
 - 2026-10-24 — 5.1 — dev stack: Sardonyx's image on port 8082; `pnpm dev` proxies to the stack's client on 8080 (`LITHICA_URL`)
 - 2026-10-24 — fix — a token that does not work is `InvalidTokenError` (403), also for an unknown user, so clients need not read text
+- 2026-10-24 — fix — module post fields are in the contract: `post_field_schemas` per module, nullable, on `Post`
 - 2026-10-24 — 5.2 — session `sardonyx.session`: sessionStorage, token expires in 24 h; "remember me": localStorage, 90 days
 - 2026-10-24 — 5.2 — the session ends on an `InvalidTokenError` only, by its name; a refused privilege (`AuthError`) leaves it
 - 2026-10-24 — 5.2 — logout forgets the token here first, then deletes it on the site; a failure there is shown, not fatal

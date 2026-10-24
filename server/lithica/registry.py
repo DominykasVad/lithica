@@ -208,6 +208,11 @@ class Module:
                     extra fields of the post resource that are returned only
                     when the request names them in `fields`: for what costs
                     a query, or is of no use to most clients
+    post_field_schemas
+                    for the API document: the type of the value of each of
+                    the fields above (a pydantic model, or any type pydantic
+                    can describe), by field name. A field without one is
+                    described as any JSON value.
     admin_commands  subcommands of `lithica-admin`
     """
 
@@ -222,6 +227,7 @@ class Module:
     requested_post_fields: Mapping[str, PostField] = field(
         default_factory=dict[str, PostField]
     )
+    post_field_schemas: Mapping[str, Any] = field(default_factory=dict[str, Any])
     admin_commands: Sequence[AdminCommand] = ()
 
 
@@ -355,6 +361,13 @@ def _verify(modules: Sequence[Module]) -> None:
             if name in post_fields:
                 raise _refuse(module, "adds the post field %r twice." % name)
             post_fields.add(name)
+        for name in module.post_field_schemas:
+            if name not in module.post_fields and name not in (
+                module.requested_post_fields
+            ):
+                raise _refuse(
+                    module, "describes the post field %r, which it does not add." % name
+                )
         for command in module.admin_commands:
             if command.name in admin_commands:
                 raise _refuse(module, "adds the command %r twice." % command.name)

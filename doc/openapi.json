@@ -7213,6 +7213,17 @@
             "type": "array",
             "title": "Contentkinds",
             "description": "The kinds of content extracted from the post's file by the modules of this installation. Empty without modules."
+          },
+          "card": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CardSummary"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Added by the module `cards`; returned only when asked for in `fields`, and only when the module is enabled (see `modules` of `GET /info`); it may be `null`."
           }
         },
         "additionalProperties": false,
@@ -7695,6 +7706,79 @@
         "additionalProperties": false,
         "type": "object",
         "title": "UserToken"
+      },
+      "CardSummary": {
+        "additionalProperties": false,
+        "description": "The summary of a post's card, for lists of posts: the post field `card`.",
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The card's name, shortened.",
+            "title": "Name"
+          },
+          "creator": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The card's creator, shortened.",
+            "title": "Creator"
+          },
+          "spec": {
+            "description": "`v1`, `v2` or `v3`.",
+            "title": "Spec",
+            "type": "string"
+          },
+          "format": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The file: `png` or `charx`.",
+            "title": "Format"
+          },
+          "greetingCount": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The first message and the alternate greetings.",
+            "title": "Greetingcount"
+          },
+          "lorebookEntryCount": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The entries of the card's lorebook.",
+            "title": "Lorebookentrycount"
+          }
+        },
+        "title": "CardSummary",
+        "type": "object"
       }
     },
     "securitySchemes": {
