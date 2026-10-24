@@ -73,3 +73,8 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+      # the image: its nginx configuration, the security headers of the app
+      # and of uploaded files, and that temporary uploads are not served
+      - name: Image
+        run: scripts/test-image.sh
