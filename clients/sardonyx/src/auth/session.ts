@@ -1,9 +1,16 @@
 /**
  * Logging in and out. The password is sent once, to make a login token
  * (`POST /user-token/<user>`), and not kept: from then on every request is
- * made with the token. The token lives in memory; with "remember me" it is
- * also written to this browser's localStorage, to be found on the next
- * visit.
+ * made with the token. The token lives in memory, and is kept for as long
+ * as the session is meant to last:
+ *
+ * - without "remember me", in this tab's sessionStorage: a reload keeps it,
+ *   closing the tab ends it, and the site lets the token expire in 24 hours;
+ * - with "remember me", in this browser's localStorage, and the token
+ *   expires in 90 days.
+ *
+ * The expiry is the site's, so a token that is left behind (a tab closed
+ * without logging out) stops working by itself.
  */
 import {
   api,
@@ -16,11 +23,23 @@ import { unwrap } from "@/api/errors";
 
 const STORAGE_KEY = "sardonyx.session";
 
+const HOUR = 60 * 60 * 1000;
+const SESSION_LIFETIME = 24 * HOUR;
+const REMEMBERED_LIFETIME = 90 * 24 * HOUR;
+
 // Storage can be missing or refuse (a private window, blocked site data):
-// then the session lasts as long as the tab.
-function readStored(): Credentials | null {
+// then the session lasts as long as the page.
+function store(kind: "local" | "session"): Storage | null {
   try {
-    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "null");
+    return kind === "local" ? localStorage : sessionStorage;
+  } catch {
+    return null;
+  }
+}
+
+function readStored(kind: "local" | "session"): Credentials | null {
+  try {
+    const stored = JSON.parse(store(kind)?.getItem(STORAGE_KEY) ?? "null");
     if (
       typeof stored?.user === "string" &&
       typeof stored?.token === "string" &&
@@ -35,21 +54,30 @@ function readStored(): Credentials | null {
   return null;
 }
 
-function writeStored(credentials: Credentials | null): void {
+function writeStored(kind: "local" | "session", credentials: Credentials): void {
   try {
-    if (credentials) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(credentials));
-    } else {
-      localStorage.removeItem(STORAGE_KEY);
-    }
+    store(kind)?.setItem(STORAGE_KEY, JSON.stringify(credentials));
   } catch {
-    // not kept; the session lasts as long as the tab
+    // not kept; the session lasts as long as the page
   }
 }
 
-/** The session remembered from an earlier visit, made the current one. */
+function clearStored(): void {
+  for (const kind of ["local", "session"] as const) {
+    try {
+      store(kind)?.removeItem(STORAGE_KEY);
+    } catch {
+      // nothing to clear, or not allowed to
+    }
+  }
+}
+
+/**
+ * The session kept from an earlier visit (remembered) or from before a
+ * reload of this tab, made the current one.
+ */
 export function restoreSession(): Credentials | null {
-  const stored = readStored();
+  const stored = readStored("local") ?? readStored("session");
   setCredentials(stored);
   return stored;
 }
@@ -63,7 +91,13 @@ export async function logIn(
     api.POST("/user-token/{user_name}", {
       params: { path: { user_name: user } },
       headers: { Authorization: basicAuthorization(user, password) },
-      body: { enabled: true, note: "Sardonyx" },
+      body: {
+        enabled: true,
+        note: remember ? "Sardonyx, remembered" : "Sardonyx session",
+        expirationTime: new Date(
+          Date.now() + (remember ? REMEMBERED_LIFETIME : SESSION_LIFETIME),
+        ).toISOString(),
+      },
     }),
   );
   if (!created.token) {
@@ -72,7 +106,8 @@ export async function logIn(
   // the name as the site has it, which may differ in case from what was typed
   const credentials = { user: created.user?.name ?? user, token: created.token };
   setCredentials(credentials);
-  writeStored(remember ? credentials : null);
+  clearStored();
+  writeStored(remember ? "local" : "session", credentials);
   return credentials;
 }
 
@@ -102,5 +137,5 @@ export async function logOut(credentials: Credentials): Promise<unknown> {
 /** Forget the session here only: for a token the site no longer takes. */
 export function forgetSession(): void {
   setCredentials(null);
-  writeStored(null);
+  clearStored();
 }

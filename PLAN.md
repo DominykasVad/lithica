@@ -152,8 +152,8 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 - 2026-10-24 — 5.1 — the image's nginx passes `/api/` on as sent (still encoded), and resolves the server at each request
 - 2026-10-24 — 5.1 — dev stack: Sardonyx's image on port 8082; `pnpm dev` proxies to the stack's client on 8080 (`LITHICA_URL`)
 - 2026-10-24 — fix — a token that does not work is `InvalidTokenError` (403), also for an unknown user, so clients need not read text
-- 2026-10-24 — 5.2 — session: token in memory; "remember me" stores `{user, token}` as `sardonyx.session` in localStorage
-- 2026-10-24 — 5.2 — a 403 whose description is "Invalid token." ends the session (the API has no error name of its own for it)
+- 2026-10-24 — 5.2 — session `sardonyx.session`: sessionStorage, token expires in 24 h; "remember me": localStorage, 90 days
+- 2026-10-24 — 5.2 — the session ends on an `InvalidTokenError` only, by its name; a refused privilege (`AuthError`) leaves it
 - 2026-10-24 — 5.2 — logout forgets the token here first, then deletes it on the site; a failure there is shown, not fatal
 - 2026-10-24 — 5.2 — theme light/dark/system per browser (`sardonyx.theme`), applied by public/theme.js (no inline script under the CSP)
 - 2026-10-24 — 5.2 — errors: everything a request throws is an `ApiError` (title, description, status) and shown by one component

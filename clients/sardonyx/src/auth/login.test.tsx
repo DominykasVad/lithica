@@ -1,11 +1,28 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { authorization } from "@/api/client";
 import { fakeSite, INFO, renderApp, type Sent } from "@/test-utils";
 
 const TOKEN = "f5a2c0de-0000-4000-8000-000000000001";
 const ADA_TOKEN = authorization({ user: "ada", token: TOKEN });
+const SESSION = JSON.stringify({ user: "ada", token: TOKEN });
+const HOUR = 60 * 60 * 1000;
+
+// The expiry the login asked for, as hours from when it was sent.
+function hoursAsked(login: Sent | undefined, sentAt: number): number {
+  const body = login?.body as { expirationTime?: string } | undefined;
+  const expires = Date.parse(body?.expirationTime ?? "");
+  expect(body?.expirationTime).toMatch(/Z$/);
+  return Math.round((expires - sentAt) / HOUR);
+}
+
+// A reload of the tab: what is in memory goes, sessionStorage stays.
+async function reload(view: { unmount: () => void }) {
+  view.unmount();
+  const { setCredentials } = await import("@/api/client");
+  setCredentials(null);
+}
 
 function site(extra: Record<string, unknown> = {}) {
   return fakeSite({
@@ -48,6 +65,7 @@ describe("logging in", () => {
   it("makes a login token with the password once, then uses the token", async () => {
     const sent = site();
     const view = renderApp("/");
+    const startedAt = Date.now();
     await logIn(false);
 
     expect(
@@ -56,7 +74,8 @@ describe("logging in", () => {
     await waitFor(() => expect(view.router.state.location.pathname).toBe("/"));
     const login = sent.find((one) => one.method === "POST");
     expect(login?.path).toBe("/user-token/ada");
-    expect(login?.body).toEqual({ enabled: true, note: "Sardonyx" });
+    expect(login?.body).toMatchObject({ enabled: true, note: "Sardonyx session" });
+    expect(hoursAsked(login, startedAt)).toBe(24);
     // the password went in that one request and nowhere else
     const withPassword = sent.filter((one) => one.authorization?.startsWith("Basic"));
     expect(withPassword).toHaveLength(1);
@@ -65,14 +84,17 @@ describe("logging in", () => {
     for (const one of after) {
       expect(one.authorization).toBe(ADA_TOKEN);
     }
-    // not remembered: nothing in storage, and the password in no field
+    // not remembered: kept for this tab only, and the password in no field
     expect(localStorage.length).toBe(0);
+    expect(sessionStorage.getItem("sardonyx.session")).toBe(SESSION);
+    expect(sessionStorage.getItem("sardonyx.session")).not.toContain("secret!");
     expect(document.body.innerHTML).not.toContain("secret!");
   });
 
   it("with remember me, keeps the token for the next visit", async () => {
-    site();
+    const asked = site();
     const first = renderApp("/");
+    const startedAt = Date.now();
     await logIn(true);
     expect(
       await (await header()).findByRole("button", { name: "ada" }),
@@ -82,9 +104,15 @@ describe("logging in", () => {
       token: TOKEN,
     });
     expect(localStorage.getItem("sardonyx.session")).not.toContain("secret!");
-    first.unmount();
+    expect(sessionStorage.length).toBe(0);
+    const login = asked.find((one) => one.method === "POST");
+    expect(login?.body).toMatchObject({ enabled: true, note: "Sardonyx, remembered" });
+    expect(hoursAsked(login, startedAt)).toBe(90 * 24);
+    await reload(first);
+    // a new tab has none of this tab's sessionStorage, and still knows the user
+    sessionStorage.clear();
 
-    // a reload: the app starts again from what is stored
+    // the app starts again from what is stored
     const sent = site();
     renderApp("/");
     expect(
@@ -94,17 +122,34 @@ describe("logging in", () => {
     expect(sent.every((one) => one.authorization === ADA_TOKEN)).toBe(true);
   });
 
-  it("without remember me, a reload is logged out", async () => {
+  it("without remember me, a reload keeps the session", async () => {
     site();
     const first = renderApp("/");
     await logIn(false);
     expect(
       await (await header()).findByRole("button", { name: "ada" }),
     ).toBeInTheDocument();
-    first.unmount();
-    // what is in memory goes with the page
-    const { setCredentials } = await import("@/api/client");
-    setCredentials(null);
+    await reload(first);
+
+    const sent = site();
+    renderApp("/");
+    expect(
+      await (await header()).findByRole("button", { name: "ada" }),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(sent.length).toBeGreaterThan(0));
+    expect(sent.every((one) => one.authorization === ADA_TOKEN)).toBe(true);
+  });
+
+  it("without remember me, a new tab is logged out", async () => {
+    site();
+    const first = renderApp("/");
+    await logIn(false);
+    expect(
+      await (await header()).findByRole("button", { name: "ada" }),
+    ).toBeInTheDocument();
+    await reload(first);
+    // a new tab starts with a sessionStorage of its own
+    sessionStorage.clear();
 
     const sent = site();
     renderApp("/");
@@ -113,6 +158,21 @@ describe("logging in", () => {
     ).toBeInTheDocument();
     await waitFor(() => expect(sent.length).toBeGreaterThan(0));
     expect(sent.every((one) => one.authorization === null)).toBe(true);
+  });
+
+  it("still logs in when the browser refuses storage, for this page only", async () => {
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("Blocked", "SecurityError");
+    });
+    const sent = site();
+    renderApp("/");
+    await logIn(true);
+    expect(
+      await (await header()).findByRole("button", { name: "ada" }),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(sent.at(-1)?.authorization).toBe(ADA_TOKEN));
+    expect(localStorage.length).toBe(0);
+    expect(sessionStorage.length).toBe(0);
   });
 
   it("shows the site's refusal readably and keeps nobody logged in", async () => {
@@ -155,14 +215,13 @@ async function logInHere() {
 
 describe("logging out", () => {
   async function loggedInAndRemembered() {
-    localStorage.setItem(
-      "sardonyx.session",
-      JSON.stringify({ user: "ada", token: TOKEN }),
-    );
+    localStorage.setItem("sardonyx.session", SESSION);
   }
 
   it("deletes the token on the site and here", async () => {
     await loggedInAndRemembered();
+    // and a session of this tab, from before remember me was chosen
+    sessionStorage.setItem("sardonyx.session", SESSION);
     const sent = site();
     renderApp("/");
     const user = userEvent.setup();
@@ -176,6 +235,7 @@ describe("logging out", () => {
     expect(deleted?.path).toBe(`/user-token/ada/${TOKEN}`);
     expect(deleted?.authorization).toBe(ADA_TOKEN);
     expect(localStorage.getItem("sardonyx.session")).toBeNull();
+    expect(sessionStorage.getItem("sardonyx.session")).toBeNull();
     // and asks the site anew, as nobody
     await waitFor(() => expect(sent.at(-1)?.authorization).toBeNull());
   });
@@ -212,7 +272,7 @@ describe("logging out", () => {
           ? {
               status: 403,
               body: {
-                name: "AuthError",
+                name: "InvalidTokenError",
                 title: "Authentication error",
                 description: "Invalid token.",
               },
@@ -227,6 +287,24 @@ describe("logging out", () => {
     expect(
       await screen.findByRole("heading", { name: "My cards" }),
     ).toBeInTheDocument();
+  });
+
+  it("goes by the error's name, not its text", async () => {
+    await loggedInAndRemembered();
+    site({
+      "GET /posts": {
+        status: 403,
+        body: {
+          name: "AuthError",
+          title: "Authentication error",
+          description: "Invalid token.",
+        },
+      },
+    });
+    renderApp("/");
+    expect(await screen.findByText("Invalid token.")).toBeInTheDocument();
+    expect((await header()).getByRole("button", { name: "ada" })).toBeInTheDocument();
+    expect(localStorage.getItem("sardonyx.session")).not.toBeNull();
   });
 
   it("does not happen for a refusal of another kind", async () => {
