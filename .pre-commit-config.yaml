@@ -5,10 +5,12 @@ repos:
     hooks:
     # generated files are as their tools write them
     -   id: trailing-whitespace
-        exclude: &generated ^(doc/openapi\.json|.*/uv\.lock|.*/pnpm-lock\.yaml)$
+        exclude: &generated ^(doc/openapi\.json|clients/sardonyx/src/api/schema\.ts|.*/uv\.lock|.*/pnpm-lock\.yaml)$
     -   id: end-of-file-fixer
         exclude: *generated
+    # pnpm's lock file is several YAML documents in one file
     -   id: check-yaml
+        args: ['--allow-multiple-documents']
     -   id: check-json
     -   id: check-toml
     # also outside a merge: a marker that was committed is the one to find

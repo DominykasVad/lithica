@@ -125,9 +125,9 @@ in a table like the one above, with the exact script names.
 4. Report: what changed, what you verified and how, what you did not verify.
 
 Points 1 to 4 are written for the server. For the client the same holds with
-the client's tools: lint, format check, typecheck and tests pass, and the
-PLAN.md tick is in the same commit. CI runs the server's checks only; the
-client's are added to CI in phase 5.
+the client's tools: lint, format check, typecheck, tests, the API types
+check and the build pass, and the PLAN.md tick is in the same commit. CI runs
+them in `.github/workflows/ci-sardonyx.yml`.
 
 ## Hard rules
 
@@ -148,7 +148,8 @@ client's are added to CI in phase 5.
   whitespace), that no file over 5 MiB is added, the commits for secrets,
   and the links between the Markdown files. A component's workflow runs
   only when the change touches its paths
-  (`.github/workflows/ci-server.yml` for the server).
+  (`.github/workflows/ci-server.yml` for the server,
+  `.github/workflows/ci-sardonyx.yml` for the client).
 - Do one PLAN.md task per change set. No drive-by refactors, renames or
   reformatting outside the task.
 - If a task needs a decision PLAN.md does not cover (a new dependency, a

@@ -1,0 +1,75 @@
+name: CI (sardonyx)
+
+# The checks of the Sardonyx client, with the trigger pattern of
+# ci-server.yml: on a pull request that is ready for review and on main, and
+# only when something they look at has changed. The API contract is one of
+# those: the client's types are generated from it.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "clients/sardonyx/**"
+      - "doc/openapi.json"
+      - ".github/workflows/ci-sardonyx.yml"
+  push:
+    branches: [main]
+    paths:
+      - "clients/sardonyx/**"
+      - "doc/openapi.json"
+      - ".github/workflows/ci-sardonyx.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-sardonyx-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sardonyx:
+    name: Sardonyx (lint, types, tests, build)
+    # Not for a draft: it is checked when it is marked ready for review. A
+    # push to main has no pull request, so this is true for it.
+    if: github.event.pull_request.draft != true
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: clients/sardonyx
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # the version of pnpm that package.json names in packageManager
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6.1.0
+        with:
+          package_json_file: clients/sardonyx/package.json
+
+      - name: Install Node
+        uses: actions/setup-node@v7.1.0
+        with:
+          node-version-file: clients/sardonyx/.nvmrc
+          cache: pnpm
+          cache-dependency-path: clients/sardonyx/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint and format (Biome)
+        run: pnpm check
+
+      - name: Type check
+        run: pnpm typecheck
+
+      # The API types are generated from doc/openapi.json and committed.
+      # Run first among the rest so that the difference is shown.
+      - name: API types are up to date
+        run: pnpm api:check
+
+      - name: Test
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
