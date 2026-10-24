@@ -1,6 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
+import { api } from "@/api/client";
+import { unwrap } from "@/api/errors";
 import type { components } from "@/api/schema";
+import { ApiErrorMessage } from "@/components/ApiErrorMessage";
+import { CardsOnly } from "@/components/CardsOnly";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { infoQuery } from "./info";
 
 type Info = components["schemas"]["Info"];
@@ -21,20 +26,50 @@ function SiteFacts({ info }: { info: Info }) {
   );
 }
 
+/** How many posts are character cards: what the cards module adds here. */
+function CardCount() {
+  const cards = useQuery({
+    queryKey: ["posts", "card-count"],
+    queryFn: () =>
+      unwrap(
+        api.GET("/posts", {
+          params: { query: { query: "card-spec:v1,v2,v3", limit: 1, fields: "id" } },
+        }),
+      ),
+  });
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Character cards</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {cards.isError ? (
+          <ApiErrorMessage error={cards.error} />
+        ) : (
+          <p>
+            {cards.data ? `${cards.data.total ?? "?"} cards on this site` : "Counting…"}
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 /** The start page, for now: what the site says about itself. */
 export function Home() {
   const info = useQuery(infoQuery);
 
   return (
-    <main className="mx-auto flex max-w-xl flex-col gap-4 p-6">
-      <h1 className="text-2xl font-semibold">Sardonyx</h1>
+    <main className="mx-auto flex max-w-5xl flex-col gap-4 p-6">
+      <h1 className="font-semibold text-2xl">
+        {info.data?.config?.name ?? "Sardonyx"}
+      </h1>
       {info.isPending && <p>Asking the site…</p>}
-      {info.isError && (
-        <p role="alert" className="text-destructive">
-          The site did not answer: {info.error.message}
-        </p>
-      )}
+      {info.isError && <ApiErrorMessage error={info.error} />}
       {info.data && <SiteFacts info={info.data} />}
+      <CardsOnly>
+        <CardCount />
+      </CardsOnly>
       <div>
         <Button variant="outline" onClick={() => info.refetch()}>
           Ask again
