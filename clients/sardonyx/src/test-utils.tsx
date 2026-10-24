@@ -3,26 +3,26 @@
  * rendered whole at a path.
  */
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import {
-  createMemoryHistory,
-  createRouter,
-  RouterProvider,
-} from "@tanstack/react-router";
+import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { render } from "@testing-library/react";
+import { StrictMode } from "react";
 import { vi } from "vitest";
 import { ThemeProvider } from "./app/theme";
 import { AuthProvider } from "./auth/AuthProvider";
-import { routeTree } from "./router";
+import { makeRouter } from "./router";
 
 export interface Sent {
   method: string;
   path: string;
   authorization: string | null;
   body: unknown;
+  /** let go of by the app (StrictMode's second mount asks anew) */
+  readonly aborted: boolean;
 }
 
 type Answer = { status?: number; body: unknown };
-type Handler = (sent: Sent) => Answer;
+// an answer can take its time: a promise is waited for
+type Handler = (sent: Sent) => Answer | Promise<Answer>;
 
 /**
  * The site, as far as a test needs it: answers by "METHOD /path" (the path
@@ -40,6 +40,9 @@ export function fakeSite(routes: Record<string, Answer | Handler>) {
       path: url.pathname.replace(/^\/api/, "") + url.search,
       authorization: request.headers.get("Authorization"),
       body: text ? JSON.parse(text) : undefined,
+      get aborted() {
+        return request.signal.aborted;
+      },
     };
     sent.push(one);
     const route =
@@ -47,7 +50,7 @@ export function fakeSite(routes: Record<string, Answer | Handler>) {
       routes[`${one.method} ${url.pathname.replace(/^\/api/, "")}`];
     const answer =
       typeof route === "function"
-        ? route(one)
+        ? await route(one)
         : (route ?? {
             status: 404,
             body: {
@@ -77,18 +80,18 @@ export function renderApp(path = "/") {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  const router = createRouter({
-    routeTree,
-    history: createMemoryHistory({ initialEntries: [path] }),
-  });
+  const router = makeRouter(createMemoryHistory({ initialEntries: [path] }));
+  // as main.tsx renders it: StrictMode runs every effect twice
   const view = render(
-    <ThemeProvider>
-      <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <RouterProvider router={router} />
-        </AuthProvider>
-      </QueryClientProvider>
-    </ThemeProvider>,
+    <StrictMode>
+      <ThemeProvider>
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider>
+            <RouterProvider router={router} />
+          </AuthProvider>
+        </QueryClientProvider>
+      </ThemeProvider>
+    </StrictMode>,
   );
   return { ...view, router, queryClient };
 }

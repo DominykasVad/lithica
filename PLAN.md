@@ -162,6 +162,14 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 - 2026-10-24 — 5.2 — palette from the design reference (hex), roles `link` `macro` `ok` `warn` added; components use roles only
 - 2026-10-24 — 5.2 — every theme in index.css passes `src/app/palette.test.ts`: text roles on their backgrounds reach WCAG 4.5:1
 - 2026-10-24 — 5.7 — Gruvbox dropped; Dracula is the one optional theme
+- 2026-10-24 — 5.3 — the library is `/posts`; `/` stays the site's start page
+- 2026-10-24 — 5.3 — one URL for both list modes: `?q=<query>&at=<offset of the first result>`, plain key=value pairs
+- 2026-10-24 — 5.3 — "Per page" 50 / 100 / Auto load, per browser (`sardonyx.perPage`), default Auto load
+- 2026-10-24 — 5.3 — a page change or a new search pushes a history entry; scrolling in auto load replaces `at`
+- 2026-10-24 — 5.3 — auto load asks 100 at a time (the API's maximum), batches aligned to multiples of 100
+- 2026-10-24 — 5.3 — the query text is the only truth: card filters are read from it and change only their own `card-*` tokens
+- 2026-10-24 — 5.3 — completion: the token at the cursor, not a named one; `<prefix>* sort:usages`, 10, after 150 ms; tag escaped
+- 2026-10-24 — 5.3 — the creator filter writes spaces as `*` (a token has no spaces); `*` is shown as a space again
 
 ---
 
@@ -290,12 +298,12 @@ in the dev stack, its results stated in the PR.
 **Done when:** log in (with and without "remember me"), reload, log out; a site without `cards` shows no card UI; an API error is shown readably.
 
 ### 5.3 Post list and search
-- [ ] Grid of thumbnails with paging (the API's offset/limit), sized for large libraries.
-- [ ] Search box with the engine's query syntax and tag autocomplete.
-- [ ] When `cards` is enabled: filters for the `card-*` tokens (creator, spec, format, has lorebook, greeting count) that build the query text; the card summary (`fields=…,card`) on the tiles.
-- [ ] Search state lives in the URL (back button and links work).
+- [x] Grid of thumbnails: pages of 50 or 100, or auto load (virtualised), chosen per browser.
+- [x] Search box with the engine's query syntax and tag autocomplete.
+- [x] When `cards` is enabled: filters for the `card-*` tokens (creator, spec, format, has lorebook, greeting count) that build the query text; the card summary (`fields=…,card`) on the tiles.
+- [x] Search state lives in the URL (back button and links work).
 
-**Done when:** searching by tag, by text and by each card filter gives the expected posts; paging and the back button keep the search.
+**Done when:** searching by tag, by text and by each card filter gives the expected posts; paging, scrolling, reload and the back button keep the search and position.
 
 ### 5.4 Post page and card viewer
 - [ ] Post page: the picture (or thumbnail for CHARX), tags by category, safety, source, size, dates; previous/next within the current search.

@@ -1,8 +1,16 @@
-import { createRootRoute, createRoute, createRouter } from "@tanstack/react-router";
+import {
+  createRootRoute,
+  createRoute,
+  createRouter,
+  type RouterHistory,
+} from "@tanstack/react-router";
 import { ApiErrorMessage } from "@/components/ApiErrorMessage";
 import { Home } from "./app/Home";
 import { Login } from "./app/Login";
 import { NotFound, Shell } from "./app/Shell";
+import { Library } from "./library/Library";
+import { PostPlaceholder } from "./library/PostPlaceholder";
+import { validateLibrarySearch } from "./library/search";
 
 const rootRoute = createRootRoute({
   component: Shell,
@@ -33,10 +41,54 @@ const loginRoute = createRoute({
   },
 });
 
-export const routeTree = rootRoute.addChildren([homeRoute, loginRoute]);
+export const libraryRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/posts",
+  validateSearch: validateLibrarySearch,
+  component: Library,
+});
 
-export function makeRouter() {
-  return createRouter({ routeTree, basepath: import.meta.env.BASE_URL });
+export const postRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/posts/$id",
+  component: PostPlaceholder,
+});
+
+export const routeTree = rootRoute.addChildren([
+  homeRoute,
+  loginRoute,
+  libraryRoute,
+  postRoute,
+]);
+
+// The search part of a URL as plain `key=value` pairs: `?q=coastal&at=100`.
+// The router's default would read `q=123` as a number and write strings
+// that look like JSON in quotes.
+function parseSearch(search: string): Record<string, unknown> {
+  return Object.fromEntries(new URLSearchParams(search));
+}
+
+function stringifySearch(search: Record<string, unknown>): string {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(search)) {
+    if (value !== undefined && value !== null) {
+      params.set(key, String(value));
+    }
+  }
+  const text = params.toString();
+  return text ? `?${text}` : "";
+}
+
+export function makeRouter(history?: RouterHistory) {
+  return createRouter({
+    routeTree,
+    history,
+    basepath: import.meta.env.BASE_URL,
+    parseSearch,
+    stringifySearch,
+    // back to a page goes back to where it was scrolled to
+    scrollRestoration: true,
+  });
 }
 
 export const router = makeRouter();

@@ -121,6 +121,11 @@ export function Shell() {
                 Home
               </Link>
             </Button>
+            <Button asChild variant="ghost" size="sm">
+              <Link to="/posts" activeProps={{ "aria-current": "page" }}>
+                Library
+              </Link>
+            </Button>
             <CardsOnly>
               <span className="rounded-full bg-accent px-2 py-0.5 text-accent-foreground text-xs">
                 Character cards
