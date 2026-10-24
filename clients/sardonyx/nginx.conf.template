@@ -9,6 +9,21 @@ map $request_uri $lithica_path {
     default /;
 }
 
+# The policy of the app's own pages: everything from this site and nothing
+# from anywhere else, no inline or evaluated script, no plugins, never in a
+# frame. Inline styles are allowed: React and the UI components set style
+# attributes. Defined once here and sent by each location below, since an
+# add_header inside a location replaces those of the server.
+map "" $app_csp {
+    default "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
+}
+
+# The policy of an uploaded file opened by itself: it may run nothing and
+# load nothing, whatever it is or claims to be.
+map "" $upload_csp {
+    default "default-src 'none'; sandbox";
+}
+
 server {
     listen 80;
     listen [::]:80;
@@ -37,20 +52,39 @@ server {
     # the uploaded files and their thumbnails, from the data volume, read-only
     location /data/ {
         alias /data/;
-        # somebody's upload: a browser must not guess at what it is
+        # somebody's upload: a browser must not guess at what it is, and
+        # opened by itself it can run nothing
         add_header X-Content-Type-Options nosniff always;
+        add_header Content-Security-Policy $upload_csp always;
         expires 7d;
+    }
+
+    # Files uploaded ahead of the request that uses them. The API refers to
+    # them by token; nothing of the client fetches them, and nobody else
+    # should. (^~: no other location is looked at for these paths.)
+    location ^~ /data/temporary-uploads/ {
+        return 404;
     }
 
     # the app's own files carry their content's hash in their names
     location /assets/ {
-        expires 1y;
+        add_header Content-Security-Policy $app_csp always;
+        add_header X-Content-Type-Options nosniff always;
+        add_header Referrer-Policy same-origin always;
+        # for old browsers; frame-ancestors says it to the rest
+        add_header X-Frame-Options DENY always;
         add_header Cache-Control "public, immutable" always;
+        expires 1y;
         try_files $uri =404;
     }
 
     # every other path is a page of the app, which finds its way from there
     location / {
+        add_header Content-Security-Policy $app_csp always;
+        add_header X-Content-Type-Options nosniff always;
+        add_header Referrer-Policy same-origin always;
+        # for old browsers; frame-ancestors says it to the rest
+        add_header X-Frame-Options DENY always;
         add_header Cache-Control "no-cache" always;
         try_files $uri /index.html;
     }
