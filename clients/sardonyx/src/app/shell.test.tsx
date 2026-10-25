@@ -79,4 +79,30 @@ describe("the app shell", () => {
     expect(document.documentElement).not.toHaveClass("dark");
     expect(localStorage.getItem("sardonyx.theme")).toBeNull();
   });
+
+  it("on a phone, has the pages in a menu, and the rest of the header beside it", async () => {
+    fakeSite({ "GET /info": { body: INFO }, "GET /posts": { body: { total: 0 } } });
+    const view = renderApp("/");
+    const user = userEvent.setup();
+    const banner = await screen.findByRole("banner");
+    const menu = within(banner).getByRole("button", { name: "Menu" });
+    // the stylesheet shows one or the other: the menu below sm, the links from sm on
+    expect(menu).toHaveClass("sm:hidden");
+    const links = within(banner).getByRole("navigation", { name: "Main" });
+    for (const name of ["Home", "Library"]) {
+      expect(within(links).getByRole("link", { name })).toHaveClass("max-sm:hidden");
+    }
+    for (const kept of [
+      within(banner).getByRole("link", { name: "Sardonyx" }),
+      within(banner).getByRole("button", { name: "Theme" }),
+      within(banner).getByRole("link", { name: "Log in" }),
+    ]) {
+      expect(kept.className).not.toMatch(/(^|\s)(max-sm:)?hidden/);
+    }
+
+    await user.click(menu);
+    expect(await screen.findByRole("menuitem", { name: "Home" })).toBeInTheDocument();
+    await user.click(screen.getByRole("menuitem", { name: "Library" }));
+    await waitFor(() => expect(view.router.state.location.pathname).toBe("/posts"));
+  });
 });

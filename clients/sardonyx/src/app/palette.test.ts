@@ -1,6 +1,7 @@
 /**
  * Every theme of index.css is readable: the pairs of colours that carry
- * text reach WCAG AA (a contrast ratio of 4.5 for body text). A theme is
+ * text reach WCAG AA (a contrast ratio of 4.5 for body text), and the
+ * edges of controls stand out from what is around them (3, WCAG 1.4.11). A theme is
  * any rule there that sets `--background`; what it leaves out it takes
  * from `:root`, as the page does.
  */
@@ -26,6 +27,15 @@ const PAIRS: [string, string][] = [
   ["macro-foreground", "macro"],
   ["accent-foreground", "accent"],
   ["destructive", "card"],
+];
+
+const CONTROL_MINIMUM = 3;
+
+// [edge, background]: what draws a checkbox, radio, field or select, and
+// what it stands on
+const CONTROL_PAIRS: [string, string][] = [
+  ["control-border", "background"],
+  ["control-border", "card"],
 ];
 
 type Properties = Map<string, string>;
@@ -132,6 +142,12 @@ describe.each(themes)("the theme %s", (_selector, properties) => {
     expect(
       contrast(resolve(theme, text), resolve(theme, background)),
     ).toBeGreaterThanOrEqual(MINIMUM);
+  });
+
+  it.each(CONTROL_PAIRS)("has the %s visible on %s", (edge, background) => {
+    expect(
+      contrast(resolve(theme, edge), resolve(theme, background)),
+    ).toBeGreaterThanOrEqual(CONTROL_MINIMUM);
   });
 });
 

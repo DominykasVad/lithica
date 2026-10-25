@@ -1,5 +1,5 @@
 import { Link, Outlet, useNavigate } from "@tanstack/react-router";
-import { LogIn, LogOut, Monitor, Moon, Sun, UserRound } from "lucide-react";
+import { LogIn, LogOut, Menu, Monitor, Moon, Sun, UserRound } from "lucide-react";
 import { useState } from "react";
 import { ApiError } from "@/api/errors";
 import { useAuth } from "@/auth/AuthProvider";
@@ -58,9 +58,9 @@ function UserMenu() {
       {auth.user ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm">
+            <Button variant="ghost" size="sm" className="min-w-0">
               <UserRound />
-              {auth.user}
+              <span className="max-w-32 truncate">{auth.user}</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
@@ -93,6 +93,29 @@ function UserMenu() {
   );
 }
 
+/** The pages of the navigation, folded into one button on a phone. */
+function NavMenu() {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" aria-label="Menu" className="sm:hidden">
+          <Menu />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start">
+        <DropdownMenuItem asChild>
+          <Link to="/" activeOptions={{ exact: true }}>
+            Home
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link to="/posts">Library</Link>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 const SESSION_ENDED = new ApiError(
   "SessionEnded",
   "You are logged out",
@@ -106,13 +129,17 @@ export function Shell() {
   return (
     <div className="min-h-svh bg-background text-foreground">
       <header className="border-b">
-        <div className="mx-auto flex max-w-5xl items-center gap-4 px-4 py-2">
-          <Link to="/" className="flex items-center gap-2 font-semibold">
+        <div className="mx-auto flex max-w-5xl items-center gap-2 px-4 py-2 sm:gap-4">
+          <Link to="/" className="flex shrink-0 items-center gap-2 font-semibold">
             <Logo className="size-7" />
             Sardonyx
           </Link>
-          <nav aria-label="Main" className="flex flex-1 items-center gap-1 text-sm">
-            <Button asChild variant="ghost" size="sm">
+          <nav
+            aria-label="Main"
+            className="flex min-w-0 flex-1 items-center gap-1 text-sm"
+          >
+            <NavMenu />
+            <Button asChild variant="ghost" size="sm" className="max-sm:hidden">
               <Link
                 to="/"
                 activeOptions={{ exact: true }}
@@ -121,8 +148,13 @@ export function Shell() {
                 Home
               </Link>
             </Button>
+            <Button asChild variant="ghost" size="sm" className="max-sm:hidden">
+              <Link to="/posts" activeProps={{ "aria-current": "page" }}>
+                Library
+              </Link>
+            </Button>
             <CardsOnly>
-              <span className="rounded-full bg-accent px-2 py-0.5 text-accent-foreground text-xs">
+              <span className="rounded-full bg-accent px-2 max-sm:hidden py-0.5 text-accent-foreground text-xs">
                 Character cards
               </span>
             </CardsOnly>
