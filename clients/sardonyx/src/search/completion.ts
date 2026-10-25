@@ -42,8 +42,9 @@ export function take(
   query: string,
   { token, negated }: Completing,
   tag: string,
+  escaped = true,
 ): { query: string; cursor: number } {
-  const text = (negated ? "-" : "") + escapeValue(tag);
+  const text = (negated ? "-" : "") + (escaped ? escapeValue(tag) : tag);
   const replaced = replaceToken(query, token, text);
   const end = token.start + text.length;
   if (replaced[end] === undefined || !/\s/.test(replaced[end] ?? "")) {
@@ -53,4 +54,23 @@ export function take(
     };
   }
   return { query: replaced, cursor: end + 1 };
+}
+
+/**
+ * In a list of tag names (the tags of an upload, not a query), the name
+ * under the cursor: every word is one, written as it is. The prefix is
+ * that name as query text, for asking the site.
+ */
+export function completingName(text: string, cursor: number): Completing | null {
+  const token = tokens(text).find((one) => one.start <= cursor && cursor <= one.end);
+  return token ? { token, negated: false, prefix: escapeValue(token.text) } : null;
+}
+
+/** The list with that name replaced by the tag, as it is named. */
+export function takeName(
+  text: string,
+  { token }: Completing,
+  tag: string,
+): { query: string; cursor: number } {
+  return take(text, { token, negated: false, prefix: "" }, tag, false);
 }
