@@ -105,4 +105,32 @@ describe("the app shell", () => {
     await user.click(screen.getByRole("menuitem", { name: "Library" }));
     await waitFor(() => expect(view.router.state.location.pathname).toBe("/posts"));
   });
+
+  it("gives way with a long user name, and with nothing else", async () => {
+    const name = "a-user-whose-name-is-31-letters";
+    sessionStorage.setItem(
+      "sardonyx.session",
+      JSON.stringify({ user: name, token: "f5a2c0de-0000-4000-8000-000000000001" }),
+    );
+    fakeSite({ "GET /info": { body: INFO }, "GET /posts": { body: { total: 0 } } });
+    renderApp("/");
+    const banner = await screen.findByRole("banner");
+    const account = await within(banner).findByRole("button", { name });
+    // the account button shrinks, and its name is cut short
+    expect(account).toHaveClass("min-w-0", "shrink");
+    expect(account).not.toHaveClass("shrink-0");
+    expect(within(account).getByText(name)).toHaveClass("min-w-0", "truncate");
+    // the mark, the menu and the theme keep their size
+    for (const kept of [
+      within(banner).getByRole("link", { name: "Sardonyx" }),
+      within(banner).getByRole("button", { name: "Menu" }),
+      within(banner).getByRole("button", { name: "Theme" }),
+    ]) {
+      expect(kept).toHaveClass("shrink-0");
+    }
+    // nor does the navigation shrink below the menu it holds
+    expect(within(banner).getByRole("navigation", { name: "Main" })).not.toHaveClass(
+      "min-w-0",
+    );
+  });
 });
