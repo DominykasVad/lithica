@@ -4,8 +4,9 @@
  * files: whatever it holds is shown, nothing of it is run or fetched.
  *
  * Before rehype-sanitize:
- * - HTML in the text stays visible as text (`<START>`, `<br>`, `<div>`).
- *   Without this, the sanitiser would drop it without a trace.
+ * - HTML in the text becomes the text it shows (htmlToText): no markup,
+ *   no CSS, line breaks for its blocks. Without this, the sanitiser would
+ *   drop it without a trace.
  * - An image is not loaded: it becomes the text `[image: alt]`.
  * - A link shows its URL; only an http(s) one stays a link.
  *
@@ -13,6 +14,8 @@
  * - Macros (`{{char}}`, `{{user}}`, any `{{…}}`) are marked to be styled,
  *   their text unchanged.
  */
+
+import { htmlToText } from "./htmlText";
 
 // The few node shapes of hast these steps touch.
 interface Text {
@@ -76,10 +79,35 @@ export function isWebUrl(href: string): boolean {
   }
 }
 
-/** HTML written in the text is shown as the text it is. */
-export function rawAsText() {
-  return (tree: Parent) =>
-    rewrite(tree, (node) => (node.type === "raw" ? [text((node as Raw).value)] : null));
+// a lone tag of a block element, as `<br>` or `</p>` in a paragraph
+const BLOCK_TAG = /^<\/?(p|div|br|li|h[1-6]|tr|hr)\b[^>]*>$/i;
+
+/**
+ * HTML written in the text, as the text it shows. HTML on lines of its
+ * own (an HTML block) becomes a paragraph; a tag within a paragraph, its
+ * text, or a line break for a block element's tag.
+ */
+export function htmlAsText() {
+  return (tree: Parent) => {
+    // the top level: HTML blocks
+    tree.children = tree.children.flatMap((node): Node[] => {
+      if (node.type !== "raw") {
+        return [node];
+      }
+      const shown = htmlToText((node as Raw).value);
+      return shown
+        ? [{ type: "element", tagName: "p", properties: {}, children: [text(shown)] }]
+        : [];
+    });
+    // within paragraphs, lists and the rest: HTML among the text
+    rewrite(tree, (node) => {
+      if (node.type !== "raw") {
+        return null;
+      }
+      const value = (node as Raw).value.trim();
+      return [text(BLOCK_TAG.test(value) ? "\n" : htmlToText(value))];
+    });
+  };
 }
 
 /** An image is named, never loaded. */

@@ -174,10 +174,13 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 - 2026-10-25 — 5.3 — control edges (checkbox, radio, field, select) use `--control-border`, held to 3:1 on background and card (WCAG 1.4.11); text pairs stay at 4.5
 - 2026-10-25 — 5.3 — below `sm` the header's pages fold into a menu; below `md` the card filters fold behind "Filters (n)", n counting set and custom controls
 - 2026-10-25 — fix — dev `--reload` watches only the `lithica` package, by watchfiles events (dev group), not polling
-- 2026-10-25 — 5.4 — card Markdown without a raw-HTML plugin: HTML shows as text, images as `[image: alt]`, never loaded
+- 2026-10-25 — 5.4 — card Markdown without a raw-HTML plugin; images as `[image: alt]`, never loaded
+- 2026-10-25 — 5.4 — Readable shows HTML as its text: no tags, style/script dropped, blocks as lines, entities decoded
 - 2026-10-25 — 5.4 — card links show their URL; only http(s) is a link (new tab, `noopener noreferrer nofollow ugc`)
-- 2026-10-25 — 5.4 — macros `{{…}}` shown as written in the macro role, in Markdown and Plain alike; never replaced
-- 2026-10-25 — 5.4 — card text Formatted / Plain per browser (`sardonyx.cardText`, default Formatted)
+- 2026-10-25 — 5.4 — macros `{{…}}` shown as written in the macro role, in Readable and Source alike; never replaced
+- 2026-10-25 — 5.4 — card text Readable / Source per browser (`sardonyx.cardText`, default Readable); one list of modes
+- 2026-10-25 — 5.4 — an old `sardonyx.cardText` of "formatted" or "plain" is read as "readable" or "source"
+- 2026-10-25 — 5.4 — tags shown once: the post's, by category; no card tag list; the default category has no heading
 - 2026-10-25 — 5.4 — post URL `?q=&at=&tab=`: q and at are the way back and prev/next; tab replaces
 - 2026-10-25 — 5.4 — lorebook URL `?filter=&kind=` (replace; filter once typing rests 300 ms); open entries are state
 - 2026-10-25 — 5.4 — lorebook mode: constant = always active; selective flag + secondary keys = selective; else keyword

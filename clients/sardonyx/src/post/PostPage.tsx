@@ -121,7 +121,10 @@ function swatch(color: string | undefined): string | null {
   return /^(#[0-9a-f]{3,8}|[a-z]+)$/i.test(color) ? color : null;
 }
 
-/** The post's tags under their categories, in the categories' order. */
+/**
+ * The post's tags under their categories, in the categories' order: the
+ * one list of tags on the page. The default category has no heading.
+ */
 function TagGroups({ tags }: { tags: NonNullable<Post["tags"]> }) {
   const categories = useQuery(categoriesQuery);
   // in the categories' order once the site has said it (or could not)
@@ -140,6 +143,10 @@ function TagGroups({ tags }: { tags: NonNullable<Post["tags"]> }) {
     .map((name) => ({
       name,
       color: swatch(known.find((category) => category.name === name)?.color),
+      // the site's default, or (when the site did not say) the one named so
+      isDefault: categories.data
+        ? known.some((category) => category.name === name && category.default)
+        : name === "default",
       tags: tags.filter((tag) => (tag.category ?? "") === name && tag.names?.[0]),
     }))
     .filter((group) => group.tags.length > 0);
@@ -149,18 +156,23 @@ function TagGroups({ tags }: { tags: NonNullable<Post["tags"]> }) {
   return (
     <div className="flex flex-col gap-3">
       {groups.map((group) => (
-        <section key={group.name} aria-label={`Tags: ${group.name || "no category"}`}>
-          <h3 className="mb-1.5 flex items-center gap-2 font-semibold text-muted-foreground text-xs uppercase tracking-wide">
-            {group.color ? (
-              <span
-                aria-hidden
-                data-color={group.color}
-                className="size-2.5 rounded-full border"
-                style={{ backgroundColor: group.color }}
-              />
-            ) : null}
-            {group.name || "no category"}
-          </h3>
+        <section
+          key={group.name}
+          aria-label={group.isDefault ? "Tags" : `Tags: ${group.name || "no category"}`}
+        >
+          {group.isDefault ? null : (
+            <h3 className="mb-1.5 flex items-center gap-2 font-semibold text-muted-foreground text-xs uppercase tracking-wide">
+              {group.color ? (
+                <span
+                  aria-hidden
+                  data-color={group.color}
+                  className="size-2.5 rounded-full border"
+                  style={{ backgroundColor: group.color }}
+                />
+              ) : null}
+              {group.name || "no category"}
+            </h3>
+          )}
           <ul className="flex flex-wrap gap-1.5">
             {group.tags.map((tag) => {
               const name = tag.names?.[0] ?? "";
@@ -358,7 +370,11 @@ function DownloadButton({ post, card }: { post: Post; card: Card | null }) {
   );
 }
 
-/** The card's name, creator, version, spec, file and tags. */
+/**
+ * The card's name, creator, version, spec and file. Its tags are not
+ * listed here: the module puts them on the post, and the post's tags are
+ * the page's one list.
+ */
 function CardHeader({ card }: { card: Card }) {
   const entries = card.lorebook?.entries?.length ?? 0;
   const greetings =
@@ -394,16 +410,6 @@ function CardHeader({ card }: { card: Card }) {
         <Fact label="Greetings">{greetings}</Fact>
         <Fact label="Lorebook">{entries ? `${entries} entries` : "none"}</Fact>
       </dl>
-      {card.tags?.length ? (
-        <ul aria-label="Tags of the card" className="flex flex-wrap gap-1.5">
-          {card.tags.map((tag, i) => (
-            // biome-ignore lint/suspicious/noArrayIndexKey: a card may repeat a tag
-            <li key={i} className="rounded-full bg-secondary px-2.5 py-1 text-sm">
-              {tag}
-            </li>
-          ))}
-        </ul>
-      ) : null}
     </div>
   );
 }

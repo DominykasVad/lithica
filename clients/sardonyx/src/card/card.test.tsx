@@ -13,7 +13,7 @@ function searchOf(view: ReturnType<typeof renderApp>) {
 }
 
 describe("the card viewer", () => {
-  it("shows the card: name, creator, version, spec, file and its tags", async () => {
+  it("shows the card: name, creator, version, spec and file; the post's tags once", async () => {
     cardSite();
     renderApp("/posts/5");
     expect(
@@ -34,11 +34,10 @@ describe("the card viewer", () => {
     expect(fact("File")).toHaveTextContent("CHARX");
     expect(fact("Greetings")).toHaveTextContent("3");
     expect(fact("Lorebook")).toHaveTextContent("25 entries");
-    expect(
-      within(side.getByRole("list", { name: "Tags of the card" }))
-        .getAllByRole("listitem")
-        .map((one) => one.textContent),
-    ).toEqual(["fantasy", "slow-burn"]);
+    // the card's own tag list is not shown: the post's tags are the one list
+    expect(side.queryByText("fantasy")).toBeNull();
+    expect(await side.findAllByRole("region", { name: /^Tags/ })).toHaveLength(2);
+    expect(side.getAllByRole("link", { name: /coastal/ })).toHaveLength(1);
     expect(
       side.getByRole("button", { name: /Download Mira Vell\.charx/ }),
     ).toBeInTheDocument();
@@ -121,31 +120,49 @@ describe("the card viewer", () => {
     ).toEqual(["{{user}}", "{{char}}", "{{char}}"]);
   });
 
-  it("shows HTML in creator notes as text", async () => {
+  it("shows the text of HTML in creator notes, not its markup", async () => {
     cardSite();
     renderApp("/posts/5?tab=notes");
     const panel = await screen.findByRole("tabpanel");
-    expect(panel).toHaveTextContent(
-      'Made for the contest. <div class="note">Read me</div>',
-    );
+    const notes = panel.querySelector("[data-text]");
+    expect(notes?.textContent).toBe("Made for the contest. \nRead me\n");
+    expect(panel).not.toHaveTextContent("<div");
     expect(panel.querySelector(".note, [data-text] div")).toBeNull();
   });
 
-  it("shows text as written with Plain, and keeps the choice", async () => {
+  it("shows text as written with Source, and keeps the choice", async () => {
     cardSite();
-    const first = renderApp("/posts/5");
+    const first = renderApp("/posts/5?tab=notes");
     const user = userEvent.setup();
     const panel = await screen.findByRole("tabpanel");
-    expect(panel.querySelector("em")).toHaveTextContent("Gullrock");
-    await user.click(screen.getByRole("button", { name: "Plain" }));
-    expect(panel.querySelector("em")).toBeNull();
-    expect(panel).toHaveTextContent("Keeper of the *Gullrock* light.");
-    expect(localStorage.getItem("sardonyx.cardText")).toBe("plain");
+    expect(screen.getByRole("button", { name: "Readable" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await user.click(screen.getByRole("button", { name: "Source" }));
+    expect(panel.querySelector("[data-text]")?.textContent).toBe(
+      'Made for the contest. <div class="note">Read me</div>',
+    );
+    expect(localStorage.getItem("sardonyx.cardText")).toBe("source");
     first.unmount();
 
     cardSite();
     renderApp("/posts/5");
-    expect(await screen.findByRole("button", { name: "Plain" })).toHaveAttribute(
+    expect(await screen.findByRole("button", { name: "Source" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
+  it.each([
+    ["plain", "Source"],
+    ["formatted", "Readable"],
+    ["something else", "Readable"],
+  ])("reads the setting %j, as it was called before, as %s", async (stored, shown) => {
+    localStorage.setItem("sardonyx.cardText", stored);
+    cardSite();
+    renderApp("/posts/5");
+    expect(await screen.findByRole("button", { name: shown })).toHaveAttribute(
       "aria-pressed",
       "true",
     );

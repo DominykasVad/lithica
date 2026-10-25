@@ -78,12 +78,17 @@ describe("the post page", () => {
   it("groups the tags by category, in the categories' order, each a search", async () => {
     site();
     renderApp("/posts/5");
-    const groups = await screen.findAllByRole("region", { name: /^Tags: / });
+    const groups = await screen.findAllByRole("region", { name: /^Tags/ });
     expect(groups.map((group) => group.getAttribute("aria-label"))).toEqual([
-      "Tags: default",
+      "Tags",
       "Tags: character",
     ]);
     const [general, character] = groups as [HTMLElement, HTMLElement];
+    // the default category goes without a heading; the others have theirs
+    expect(within(general).queryByRole("heading")).toBeNull();
+    expect(
+      within(character).getByRole("heading", { name: "character" }),
+    ).toBeInTheDocument();
     // the category's own colour; "default" is none
     expect(character.querySelector("[data-color]")).toHaveAttribute(
       "data-color",

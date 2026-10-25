@@ -3,24 +3,40 @@ import Markdown, { type Components } from "react-markdown";
 import rehypeSanitize from "rehype-sanitize";
 import { cn } from "@/lib/utils";
 import {
+  htmlAsText,
   imagesAsText,
   isWebUrl,
   linksWithUrl,
   MACRO_CLASS,
   macros,
-  rawAsText,
   splitMacros,
 } from "./rehype";
 
-/** How card text is shown: as Markdown, or as the very text of the card. */
-export type TextMode = "formatted" | "plain";
+/**
+ * The ways card text can be shown, in the switch's order: Readable
+ * (sanitised Markdown, HTML as its text) and Source (the text as written).
+ * A mode is one entry here and one renderer below.
+ */
+export const TEXT_MODES = [
+  { id: "readable", label: "Readable" },
+  { id: "source", label: "Source" },
+] as const;
+
+export type TextMode = (typeof TEXT_MODES)[number]["id"];
 
 const STORAGE_KEY = "sardonyx.cardText";
-const DEFAULT: TextMode = "formatted";
+const DEFAULT: TextMode = "readable";
+// what the setting was called before, read as the mode it is now
+const RENAMED: Record<string, TextMode> = { formatted: "readable", plain: "source" };
+
+function isMode(value: string | null): value is TextMode {
+  return TEXT_MODES.some((one) => one.id === value);
+}
 
 function stored(): TextMode {
   try {
-    return localStorage.getItem(STORAGE_KEY) === "plain" ? "plain" : DEFAULT;
+    const value = localStorage.getItem(STORAGE_KEY);
+    return isMode(value) ? value : (RENAMED[value ?? ""] ?? DEFAULT);
   } catch {
     // storage may be blocked
     return DEFAULT;
@@ -60,7 +76,7 @@ export function TextModeProvider({
 
 // the order matters: what the sanitiser would drop is made text first,
 // and the macros' spans come after it, which would take their classes
-const REHYPE = [rawAsText, imagesAsText, linksWithUrl, rehypeSanitize, macros];
+const REHYPE = [htmlAsText, imagesAsText, linksWithUrl, rehypeSanitize, macros];
 
 const COMPONENTS: Components = {
   a({ href, children }) {
@@ -105,35 +121,40 @@ export function WithMacros({ text }: { text: string }) {
   );
 }
 
-/**
- * Text of a card, as the browser's choice says: Markdown, sanitised, or
- * the source as it is. Either way at a reading width.
- */
-export function CardText({ text, className }: { text: string; className?: string }) {
-  const mode = useContext(TextModeContext);
-  if (mode === "plain") {
-    return (
-      <div
-        data-text="plain"
-        className={cn("max-w-[75ch] whitespace-pre-wrap break-words", className)}
-      >
-        <WithMacros text={text} />
-      </div>
-    );
-  }
-  return (
+const RENDERERS: Record<
+  TextMode,
+  (props: { text: string; className?: string }) => ReactNode
+> = {
+  readable: ({ text, className }) => (
     <div
-      data-text="formatted"
+      data-text="readable"
       className={cn("max-w-[75ch] break-words", MARKDOWN_CLASS, className)}
     >
       <Markdown rehypePlugins={REHYPE} components={COMPONENTS}>
         {text}
       </Markdown>
     </div>
-  );
+  ),
+  source: ({ text, className }) => (
+    <div
+      data-text="source"
+      className={cn("max-w-[75ch] whitespace-pre-wrap break-words", className)}
+    >
+      <WithMacros text={text} />
+    </div>
+  ),
+};
+
+/**
+ * Text of a card, as the browser's choice says, at a reading width:
+ * readable (Markdown, sanitised, HTML as its text) or its source.
+ */
+export function CardText({ text, className }: { text: string; className?: string }) {
+  const Render = RENDERERS[useContext(TextModeContext)];
+  return <Render text={text} className={className} />;
 }
 
-/** The switch between Markdown and the source text. */
+/** The switch between the modes of card text. */
 export function TextModeSwitch({
   mode,
   onChange,
@@ -142,22 +163,22 @@ export function TextModeSwitch({
   onChange(next: TextMode): void;
 }) {
   return (
-    // biome-ignore lint/a11y/useSemanticElements: a group of two toggle buttons, not a form's fieldset
+    // biome-ignore lint/a11y/useSemanticElements: a group of toggle buttons, not a form's fieldset
     <div role="group" aria-label="Card text" className="flex rounded-lg border p-0.5">
-      {(["formatted", "plain"] as const).map((one) => (
+      {TEXT_MODES.map((one) => (
         <button
-          key={one}
+          key={one.id}
           type="button"
-          aria-pressed={mode === one}
-          onClick={() => onChange(one)}
+          aria-pressed={mode === one.id}
+          onClick={() => onChange(one.id)}
           className={cn(
             "rounded-md px-3 py-1 text-sm",
-            mode === one
+            mode === one.id
               ? "bg-accent font-semibold text-accent-foreground"
               : "text-muted-foreground hover:text-foreground",
           )}
         >
-          {one === "formatted" ? "Formatted" : "Plain"}
+          {one.label}
         </button>
       ))}
     </div>
