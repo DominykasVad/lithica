@@ -14,13 +14,19 @@ Settings, from the environment:
     PORT     port to listen on. Default 6666.
     WORKERS  server processes. Default 1.
 
-`--reload` runs one process and restarts it when a source file changes.
+`--reload` runs one process and restarts it when a source file of the
+lithica package changes (*.py, uvicorn's default). Only the package is
+watched, not what is beside it in the project: the virtualenv, the tests'
+caches, data. With watchfiles installed (the dev dependencies), changes
+come as file events; without it, uvicorn looks at every file four times a
+second, which costs a lot where the files are mounted from another system.
 """
 
 import logging
 import os
 import socket
 import sys
+from pathlib import Path
 
 import uvicorn
 from uvicorn.supervisors import ChangeReload, Multiprocess
@@ -32,6 +38,8 @@ DEFAULT_HOST = "::"
 DEFAULT_PORT = 6666
 # what uvicorn exits with when the application does not start
 STARTUP_FAILURE = 3
+# what a reload watches: this package's source
+PACKAGE_DIR = Path(__file__).resolve().parent
 
 
 def listening_socket(host: str, port: int) -> socket.socket:
@@ -66,6 +74,7 @@ def main(arguments: list[str]) -> int:
         port=port,
         workers=workers,
         reload=reload,
+        reload_dirs=[str(PACKAGE_DIR)] if reload else None,
         # the application writes its own line per request
         access_log=False,
     )

@@ -1,8 +1,10 @@
 import socket
 import threading
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from uvicorn.supervisors.watchfilesreload import FileFilter, WatchFilesReload
 
 from lithica import serve
 
@@ -146,6 +148,22 @@ def test_reload(started):
     assert serve.main(["--reload"]) == 0
     assert started["mode"] == "reload"
     assert started["sockets"] == ["the socket"]
+
+
+def test_reload_watches_the_package_only(started):
+    assert serve.main(["--reload"]) == 0
+    package = Path(serve.__file__).resolve().parent
+    assert started["config"].reload_dirs == [package]
+    # the files of it the reloader looks at: uvicorn's default, the source
+    watched = FileFilter(started["config"])
+    assert watched.includes == ["*.py"]
+    assert watched(package / "app.py")
+    assert not watched(package / "__pycache__" / "app.cpython-313.pyc")
+
+
+def test_reload_takes_file_events_with_the_dev_dependencies():
+    # watchfiles is a dev dependency: without it uvicorn polls every file
+    assert serve.ChangeReload is WatchFilesReload
 
 
 def test_address_that_cannot_be_bound(monkeypatch, capsys):
