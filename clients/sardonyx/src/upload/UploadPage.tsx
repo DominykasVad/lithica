@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useBlocker } from "@tanstack/react-router";
 import { FileUp, RotateCcw, X } from "lucide-react";
 import { type DragEvent, useEffect, useId, useRef, useState } from "react";
-import { infoQuery } from "@/app/info";
+import { infoQuery, useHasCards } from "@/app/info";
 import { uploadRank, useCanUpload } from "@/app/privileges";
 import { useAuth } from "@/auth/AuthProvider";
 import { ApiErrorMessage } from "@/components/ApiErrorMessage";
@@ -32,8 +32,8 @@ interface Item {
   /** why the site would surely refuse it: it is not sent */
   refused: string | null;
   nsfw: boolean;
-  /** the viewer changed the box: what the card says no longer sets it */
-  nsfwTouched: boolean;
+  /** the card's own tags say NSFW: the site tags it so in any case, so the box is held */
+  cardNsfw: boolean;
   step: Step;
   /** share of the file sent, 0 to 1 */
   sent: number;
@@ -199,6 +199,7 @@ export function UploadPage() {
 
 function Uploader() {
   const info = useQuery(infoQuery);
+  const hasCards = useHasCards();
   const id = useId();
   const picker = useRef<HTMLInputElement>(null);
   const [safety, setSafety] = useState<Batch["safety"]>("safe");
@@ -218,23 +219,20 @@ function Uploader() {
       file,
       refused: refusal(file, info.data?.maxUploadSize, info.data?.acceptedTypes),
       nsfw: false,
-      nsfwTouched: false,
+      cardNsfw: false,
       step: "ready",
       sent: 0,
     }));
     setItems((current) => [...current, ...added]);
     for (const item of added) {
-      if (item.refused) {
+      // a site without cards reads no card, and tags nothing by it
+      if (item.refused || !hasCards) {
         continue;
       }
-      // what the card itself says, unless the viewer said otherwise first
+      // what the card itself says; it wins over a box unchecked meanwhile
       cardSaysNsfw(item.file).then((nsfw) => {
         if (nsfw) {
-          setItems((current) =>
-            current.map((one) =>
-              one.id === item.id && !one.nsfwTouched ? { ...one, nsfw: true } : one,
-            ),
-          );
+          update(item.id, { nsfw: true, cardNsfw: true });
         }
       });
     }
@@ -272,6 +270,7 @@ function Uploader() {
         { safety, tags: tagsFor(tags, item.nsfw) },
         {
           signal: controller.signal,
+          cards: hasCards,
           onProgress: (sent) => update(item.id, { sent }),
           onCreating: () => update(item.id, { step: "creating", sent: 1 }),
         },
@@ -437,14 +436,26 @@ function Uploader() {
                       <Checkbox
                         id={`${id}-nsfw-${item.id}`}
                         checked={item.nsfw}
-                        disabled={item.step !== "ready"}
+                        disabled={item.step !== "ready" || item.cardNsfw}
+                        aria-describedby={
+                          item.cardNsfw ? `${id}-nsfw-note-${item.id}` : undefined
+                        }
                         onCheckedChange={(checked) =>
-                          update(item.id, { nsfw: checked === true, nsfwTouched: true })
+                          update(item.id, { nsfw: checked === true })
                         }
                       />
                       <Label htmlFor={`${id}-nsfw-${item.id}`} className="font-normal">
                         NSFW
                       </Label>
+                      {item.cardNsfw ? (
+                        <span
+                          id={`${id}-nsfw-note-${item.id}`}
+                          className="max-w-56 text-muted-foreground text-xs"
+                        >
+                          This card is tagged NSFW by its creator; the site keeps that
+                          tag.
+                        </span>
+                      ) : null}
                     </div>
                     <div className="flex flex-[3_1_20rem] items-center gap-3">
                       {item.step === "done" && item.outcome ? (
@@ -491,8 +502,7 @@ function Uploader() {
               </Button>
             ) : null}
             <span className="text-muted-foreground text-sm">
-              Checked NSFW adds the tag {NSFW_TAG}; a card whose own tags say NSFW gets
-              it from the site in any case.
+              Checked NSFW adds the tag {NSFW_TAG}.
             </span>
           </div>
         </section>

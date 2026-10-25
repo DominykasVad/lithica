@@ -26,8 +26,9 @@ export interface Batch {
 }
 
 const DUPLICATE = "PostAlreadyUploadedError";
-// what the post of a file is asked with: enough for its result line
-const CREATED_FIELDS = "id,type,thumbnailUrl,card";
+// what the post of a file is asked with: enough for its result line; `card`
+// only where the site has cards, which refuses a field it does not know
+const CREATED_FIELDS = "id,type,thumbnailUrl";
 
 /** A failure the site answered with is a refusal; one of the site's own (5xx) is not. */
 function answered(error: ApiError): Outcome {
@@ -110,17 +111,23 @@ function putUp(
 
 /**
  * Sends the file and makes its post; resolves to how it ended, never
- * throws. `onProgress` gets the share of the file sent, 0 to 1; `onStep`
- * says when the post is being made.
+ * throws. `onProgress` gets the share of the file sent, 0 to 1; `onCreating`
+ * says when the post is being made. `cards`: the site has the cards module.
  */
 export async function send(
   file: File,
   batch: Batch,
   {
     signal,
+    cards,
     onProgress,
     onCreating,
-  }: { signal: AbortSignal; onProgress(sent: number): void; onCreating(): void },
+  }: {
+    signal: AbortSignal;
+    cards: boolean;
+    onProgress(sent: number): void;
+    onCreating(): void;
+  },
 ): Promise<Outcome> {
   const upload = await putUp(file, onProgress, signal);
   if (!("token" in upload)) {
@@ -132,7 +139,7 @@ export async function send(
   onCreating();
   try {
     const { data, error, response } = await api.POST("/posts", {
-      params: { query: { fields: CREATED_FIELDS } },
+      params: { query: { fields: cards ? `${CREATED_FIELDS},card` : CREATED_FIELDS } },
       body: { safety: batch.safety, tags: batch.tags, contentToken: upload.token },
       signal,
     });

@@ -39,6 +39,7 @@ afterEach(() => {
 function site({
   rank = "regular",
   loggedIn = true,
+  modules = ["cards"],
   created = (sent: Sent) => ({
     body: {
       id:
@@ -52,6 +53,7 @@ function site({
 }: {
   rank?: string;
   loggedIn?: boolean;
+  modules?: string[];
   created?: (sent: Sent) => { status?: number; body: unknown };
 } = {}) {
   if (loggedIn) {
@@ -61,7 +63,7 @@ function site({
     );
   }
   return fakeSite({
-    "GET /info": { body: SITE_INFO },
+    "GET /info": { body: { ...SITE_INFO, modules } },
     "GET /user/ada": { body: { name: "ada", rank } },
     "GET /posts": { body: { total: 0, results: [] } },
     "POST /posts": created,
@@ -178,7 +180,7 @@ describe("the NSFW box", () => {
     ).toBe(false);
   });
 
-  it("is checked for a card that says NSFW, and sets the tag it is sent with", async () => {
+  it("is checked and held for a card that says NSFW, and sets the tag it is sent with", async () => {
     const sent = site();
     renderApp("/upload");
     const user = userEvent.setup();
@@ -187,20 +189,32 @@ describe("the NSFW box", () => {
       file("lewd.png", pngCard(["nsfw"])),
       file("lewd.charx", await charxCard(["NSFW"])),
       file("tame.png", pngCard(["sea"])),
+      file("plain.jpg", "a picture"),
     );
     const box = (name: string) =>
       within(row(name)).getByRole("checkbox", { name: "NSFW" });
-    await waitFor(() => expect(box("lewd.png")).toBeChecked());
-    await waitFor(() => expect(box("lewd.charx")).toBeChecked());
-    expect(box("tame.png")).not.toBeChecked();
-    // unchecking takes it out, even where the card and the batch's tags say it
-    await user.click(box("lewd.charx"));
-    await user.click(screen.getByRole("button", { name: "Upload 3 files" }));
-    for (let i = 0; i < 3; i++) {
+    const note = "This card is tagged NSFW by its creator; the site keeps that tag.";
+    for (const name of ["lewd.png", "lewd.charx"]) {
+      await waitFor(() => expect(box(name)).toBeChecked());
+      // the site tags it so whatever is sent: the box says so and cannot be unticked
+      expect(box(name)).toBeDisabled();
+      expect(box(name)).toHaveAccessibleDescription(note);
+      await user.click(box(name));
+      expect(box(name)).toBeChecked();
+    }
+    for (const name of ["tame.png", "plain.jpg"]) {
+      expect(box(name)).not.toBeChecked();
+      expect(box(name)).toBeEnabled();
+      expect(within(row(name)).queryByText(note)).toBeNull();
+    }
+    // checked by hand, it adds the tag; unchecked, it takes the batch's out
+    await user.click(box("plain.jpg"));
+    await user.click(screen.getByRole("button", { name: "Upload 4 files" }));
+    for (let i = 0; i < 4; i++) {
       await waitFor(() => expect(FakeXhr.all.length).toBeGreaterThan(i));
       await act(async () => FakeXhr.all[i]?.respond(200, { token: `token-${i}` }));
     }
-    await waitFor(() => expect(postsSent(sent)).toHaveLength(3));
+    await waitFor(() => expect(postsSent(sent)).toHaveLength(4));
     const tags = Object.fromEntries(
       postsSent(sent).map((one) => {
         const body = one.body as {
@@ -213,9 +227,53 @@ describe("the NSFW box", () => {
     );
     expect(tags).toEqual({
       "token-0": ["sea", "nsfw"],
-      "token-1": ["sea"],
+      "token-1": ["sea", "nsfw"],
       "token-2": ["sea"],
+      "token-3": ["sea", "nsfw"],
     });
+  });
+
+  it("holds the box for a card that says NSFW even when it was unticked first", async () => {
+    site();
+    renderApp("/upload");
+    const user = userEvent.setup();
+    await screen.findByRole("combobox", { name: /^Tags/ });
+    let answer: (nsfw: boolean) => void = () => {};
+    const reading = new Promise<boolean>((resolve) => {
+      answer = resolve;
+    });
+    const spy = vi.spyOn(await import("./cardTags"), "cardSaysNsfw");
+    spy.mockReturnValue(reading);
+    await choose(file("slow.png", pngCard(["nsfw"])));
+    const box = within(row("slow.png")).getByRole("checkbox", { name: "NSFW" });
+    await user.click(box);
+    await user.click(box);
+    expect(box).not.toBeChecked();
+    await act(async () => answer(true));
+    expect(box).toBeChecked();
+    expect(box).toBeDisabled();
+    spy.mockRestore();
+  });
+
+  it("is the viewer's alone on a site without cards, which asks no card field", async () => {
+    const sent = site({ modules: [] });
+    renderApp("/upload");
+    const user = userEvent.setup();
+    await screen.findByRole("combobox", { name: /^Tags/ });
+    await choose(file("lewd.png", pngCard(["nsfw"])));
+    const box = within(row("lewd.png")).getByRole("checkbox", { name: "NSFW" });
+    // the card is not read: nothing checks or holds the box
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(box).not.toBeChecked();
+    expect(box).toBeEnabled();
+    await user.click(screen.getByRole("button", { name: "Upload 1 file" }));
+    await waitFor(() => expect(FakeXhr.all).toHaveLength(1));
+    await act(async () => FakeXhr.all[0]?.respond(200, { token: "token-1" }));
+    await waitFor(() => expect(postsSent(sent)).toHaveLength(1));
+    const [post] = postsSent(sent);
+    expect(post?.path).toContain("fields=id%2Ctype%2CthumbnailUrl");
+    expect(post?.path).not.toContain("card");
+    expect(post?.body).toMatchObject({ tags: [] });
   });
 
   it("keeps what the viewer chose over what the card says", () => {

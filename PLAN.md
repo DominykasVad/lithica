@@ -199,8 +199,8 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 - 2026-10-25 — 5.4b — AGENTS.md: the app fetches nothing of card data; Styled loads https images in the frame, if asked
 - 2026-10-25 — 5.5 — upload: POST /uploads by XMLHttpRequest (real progress), then POST /posts with the token; 2 at a time
 - 2026-10-25 — 5.5 — up front, a file is refused only when sure: over maxUploadSize, or a well-known extension not listed
-- 2026-10-25 — 5.5 — NSFW box per file, pre-checked from the card's own tags (read in the browser); sets `nsfw` in tags sent
-- 2026-10-25 — 5.5 — a card's own NSFW tag reaches the post even unchecked: auto-tags are a union (server unchanged, as asked)
+- 2026-10-25 — 5.5 — NSFW box per file sets `nsfw` in the tags sent; card tags are read in the browser, only where cards is on
+- 2026-10-25 — 5.5 — a card whose own tags say NSFW: box checked and held, with a note (auto-tags are a union; server unchanged)
 - 2026-10-25 — 5.5 — the Upload link and page need `uploads:create` and `posts:create:identified` at the user's rank
 
 ---
