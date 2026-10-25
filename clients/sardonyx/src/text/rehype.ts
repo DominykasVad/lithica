@@ -150,8 +150,12 @@ export function splitMacros(value: string): string[] {
   return value.split(/(\{\{[^{}]*\}\})/g);
 }
 
-/** Each macro in a span of its own, styled; the text is not changed. */
-export function macros() {
+/**
+ * Each macro in a span of its own, styled; the text is not changed. The
+ * class is the app's (Tailwind) unless the frame's own is asked for.
+ */
+export function macros(options: { className?: string[] } = {}) {
+  const className = options.className ?? MACRO_CLASS.split(" ");
   return (tree: Parent) =>
     rewrite(tree, (node) => {
       if (node.type !== "text" || !MACRO.test((node as Text).value)) {
@@ -166,7 +170,7 @@ export function macros() {
             ? {
                 type: "element",
                 tagName: "span",
-                properties: { className: MACRO_CLASS.split(" "), dataMacro: "" },
+                properties: { className, dataMacro: "" },
                 children: [text(piece)],
               }
             : text(piece);

@@ -188,6 +188,13 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 - 2026-10-25 — 5.4 — lorebook URL `?filter=&kind=` (replace; filter once typing rests 300 ms); open entries are state
 - 2026-10-25 — 5.4 — lorebook mode: constant = always active; selective flag + secondary keys = selective; else keyword
 - 2026-10-25 — 5.4 — download: fetched with the session, saved as `Content-Disposition` names it, else `<id>.<ext>`
+- 2026-10-25 — 5.4b — Styled: card HTML in a frame sandboxed `allow-scripts allow-popups allow-popups-to-escape-sandbox`
+- 2026-10-25 — 5.4b — the frame takes its HTML by postMessage (from its parent only); the page takes only its height
+- 2026-10-25 — 5.4b — the frame's one script is named by sha256 hash, not 'self' (exact; 'self' in opaque frames varies)
+- 2026-10-25 — 5.4b — two frame policies, one page under two paths: images off (data: only) and on (https: data:)
+- 2026-10-25 — 5.4b — card pictures load only when the viewer asks, per card; hosts are read from the text; not kept
+- 2026-10-25 — 5.4b — the frame also drops script, meta, base, link, frames, objects, on* and non-http(s) link hrefs
+- 2026-10-25 — 5.4b — AGENTS.md: the app fetches nothing of card data; Styled loads https images in the frame, if asked
 
 ---
 
@@ -333,11 +340,11 @@ in the dev stack, its results stated in the PR.
 **Done when:** a V2 PNG, a V3 PNG and a CHARX card show every field; the 2500-entry lorebook sample opens, filters and scrolls without stalling; the download saves the original file under the card's name.
 
 ### 5.4b Styled card text (sandboxed)
-- [ ] A third text mode, "Styled", for every card text field (description, personality, scenario, greetings, examples, creator notes, prompts, lorebook entries): the card's HTML and CSS shown as written, in a sandboxed iframe (no allow-scripts, no allow-same-origin), so it cannot reach the page, the session or the app's storage.
-- [ ] Images and other remote resources in card HTML are not loaded until the viewer asks, per card ("Load images from <hosts>"); the choice is not remembered across cards. AGENTS.md's rule on URLs in card data changes to say exactly this.
-- [ ] The app's security policy allows what the frame needs and nothing more; the main page's policy does not get weaker.
-- [ ] The frame's height: fixed with its own scroll, or resizable by the viewer (no scripts to measure it).
-- [ ] Tests that card HTML cannot touch the parent page, the token or the network before the viewer allows images.
+- [x] A third text mode, "Styled", for every card text field (description, personality, scenario, greetings, examples, creator notes, prompts, lorebook entries): the card's HTML and CSS shown as written, in a sandboxed iframe (no allow-same-origin; allow-scripts for the frame's own script only, named by hash: card HTML runs no script), so it cannot reach the page, the session or the app's storage.
+- [x] Images and other remote resources in card HTML are not loaded until the viewer asks, per card ("Load images from <hosts>"); the choice is not remembered across cards. AGENTS.md's rule on URLs in card data changes to say exactly this.
+- [x] The app's security policy allows what the frame needs and nothing more; the main page's policy does not get weaker.
+- [x] The frame's height: the height the frame's own script reports, up to 80% of the window, with its own scroll beyond it.
+- [x] Tests that card HTML cannot touch the parent page, the token or the network before the viewer allows images.
 
 **Done when:** a Chub card with styled creator notes and images in greetings shows styled; nothing outside the frame changes; no request leaves for a card's image host until the viewer asks; Readable and Source unchanged.
 

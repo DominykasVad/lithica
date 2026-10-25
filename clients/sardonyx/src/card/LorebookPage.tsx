@@ -17,6 +17,8 @@ import { cn } from "@/lib/utils";
 import { cardQuery } from "@/post/queries";
 import { fromLibrary, KINDS, type Kind } from "@/post/search";
 import { TextModeProvider, TextModeSwitch, useTextMode } from "@/text/CardText";
+import { CardImages, ImagesBar } from "@/text/StyledFrame";
+import { imageHosts } from "@/text/styled";
 import { EntryRow } from "./EntryRow";
 import { countsOf, formatNumber, isKind, type Numbered, searchText } from "./lorebook";
 
@@ -102,6 +104,8 @@ export function LorebookPage() {
   const hasCards = useHasCards();
   const card = useQuery({ ...cardQuery(id), enabled: valid && hasCards });
   const [mode, setMode] = useTextMode();
+  // pictures in Styled only when asked, for this page of this card
+  const [images, setImages] = useState(false);
 
   // what is typed; the list follows it as soon as it can, the URL once
   // typing rests
@@ -167,6 +171,10 @@ export function LorebookPage() {
     [matching, kind],
   );
   const totals = useMemo(() => countsOf(lorebook?.entries ?? []), [lorebook]);
+  const hosts = useMemo(
+    () => imageHosts((lorebook?.entries ?? []).map((entry) => entry.content ?? "")),
+    [lorebook],
+  );
 
   const [open, setOpen] = useState<ReadonlySet<number>>(new Set());
   const toggle = (index: number) =>
@@ -307,47 +315,52 @@ export function LorebookPage() {
               ))}
             </div>
           </div>
+          {mode === "styled" ? (
+            <ImagesBar hosts={hosts} allowed={images} onAllow={() => setImages(true)} />
+          ) : null}
           <p className="text-muted-foreground text-sm" aria-live="polite">
             Showing {formatNumber(shown.length)} of {formatNumber(totals.entries)}{" "}
             entries
           </p>
           <TextModeProvider mode={mode}>
-            <div
-              ref={list}
-              data-testid="lorebook-entries"
-              className="relative rounded-2xl border bg-card"
-              style={{
-                height: Math.max(virtualizer.getTotalSize(), shown.length ? 0 : 72),
-              }}
-            >
-              {shown.length === 0 ? (
-                <p className="px-4 py-6 text-muted-foreground">
-                  No entry matches this filter.
-                </p>
-              ) : null}
-              {items.map((item) => {
-                const one = shown[item.index];
-                return one ? (
-                  <MeasuredRow
-                    key={item.key}
-                    index={item.index}
-                    measure={virtualizer.measureElement}
-                    resize={virtualizer.resizeItem}
-                    open={open.has(one.index)}
-                    top={item.start - scrollMargin}
-                  >
-                    <EntryRow
-                      numbered={one}
+            <CardImages allowed={images}>
+              <div
+                ref={list}
+                data-testid="lorebook-entries"
+                className="relative rounded-2xl border bg-card"
+                style={{
+                  height: Math.max(virtualizer.getTotalSize(), shown.length ? 0 : 72),
+                }}
+              >
+                {shown.length === 0 ? (
+                  <p className="px-4 py-6 text-muted-foreground">
+                    No entry matches this filter.
+                  </p>
+                ) : null}
+                {items.map((item) => {
+                  const one = shown[item.index];
+                  return one ? (
+                    <MeasuredRow
+                      key={item.key}
+                      index={item.index}
+                      measure={virtualizer.measureElement}
+                      resize={virtualizer.resizeItem}
                       open={open.has(one.index)}
-                      onToggle={() => toggle(one.index)}
-                      className={
-                        item.index === shown.length - 1 ? "border-b-0" : undefined
-                      }
-                    />
-                  </MeasuredRow>
-                ) : null;
-              })}
-            </div>
+                      top={item.start - scrollMargin}
+                    >
+                      <EntryRow
+                        numbered={one}
+                        open={open.has(one.index)}
+                        onToggle={() => toggle(one.index)}
+                        className={
+                          item.index === shown.length - 1 ? "border-b-0" : undefined
+                        }
+                      />
+                    </MeasuredRow>
+                  ) : null;
+                })}
+              </div>
+            </CardImages>
           </TextModeProvider>
         </>
       ) : (

@@ -11,14 +11,18 @@ import {
   macros,
   splitMacros,
 } from "./rehype";
+import { StyledFrame } from "./StyledFrame";
+import { needsFrame } from "./styled";
 
 /**
  * The ways card text can be shown, in the switch's order: Readable
- * (sanitised Markdown, HTML as its text) and Source (the text as written).
- * A mode is one entry here and one renderer below.
+ * (sanitised Markdown, HTML as its text), Styled (the card's HTML and CSS
+ * as written, in a sandboxed frame) and Source (the text as written). A
+ * mode is one entry here and one renderer below.
  */
 export const TEXT_MODES = [
   { id: "readable", label: "Readable" },
+  { id: "styled", label: "Styled" },
   { id: "source", label: "Source" },
 ] as const;
 
@@ -135,6 +139,13 @@ const RENDERERS: Record<
       </Markdown>
     </div>
   ),
+  // HTML or pictures go to the frame; text without them reads as Readable
+  styled: ({ text, className }) =>
+    needsFrame(text) ? (
+      <StyledFrame text={text} className={className} />
+    ) : (
+      RENDERERS.readable({ text, className })
+    ),
   source: ({ text, className }) => (
     <div
       data-text="source"

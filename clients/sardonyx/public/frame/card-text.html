@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="referrer" content="no-referrer">
+<title>Card text</title>
+<style>
+/* the scheme of the iframe element too: a frame of another scheme is painted opaque */
+:root { color-scheme: light; }
+html, body { margin: 0; padding: 0; background: transparent; }
+body { display: flow-root; font: 16px/1.7 var(--sx-font, system-ui, sans-serif); color: var(--sx-foreground, #2b211c); overflow-wrap: anywhere; }
+a { color: var(--sx-link, #2d5b78); }
+img { max-width: 100%; height: auto; }
+.sx-markdown p { white-space: pre-line; }
+.sx-macro { border-radius: 6px; padding: 1px 6px; font-family: ui-monospace, monospace; font-size: 0.875em; background: var(--sx-macro, #e6eef3); color: var(--sx-macro-foreground, #1e4057); }
+</style>
+</head>
+<body>
+<script>
+/*
+ * Sardonyx: the frame card text is shown in when it is styled. It runs in a
+ * sandboxed, opaque origin, and this is its only script (the policy names it
+ * by hash). It takes the card's HTML from the page that embeds it, shows it,
+ * and tells that page how high it is. Card HTML gets no script of its own.
+ */
+(() => {
+  "use strict";
+  const host = window.parent;
+  if (host === window) {
+    return;
+  }
+  // what could fetch, navigate or run on its own; the policy blocks most of it too
+  const DROPPED =
+    "script,noscript,template,meta,base,link,iframe,frame,frameset,object,embed,applet,portal";
+  const THEME = ["font", "foreground", "link", "macro", "macro-foreground"];
+  let last = -1;
+
+  const report = () => {
+    const height = Math.ceil(document.body.getBoundingClientRect().height);
+    if (height !== last) {
+      last = height;
+      host.postMessage({ type: "sardonyx-card-text-height", height }, "*");
+    }
+  };
+
+  const theme = (values) => {
+    if (!values || typeof values !== "object") {
+      return;
+    }
+    for (const name of THEME) {
+      const value = values[name];
+      if (typeof value === "string" && /^[\w\s#%(),.'"-]{0,200}$/.test(value)) {
+        document.documentElement.style.setProperty(`--sx-${name}`, value);
+      }
+    }
+  };
+
+  const show = (html) => {
+    // parsed inert: nothing in a template is loaded or run
+    const parsed = document.createElement("template");
+    parsed.innerHTML = html;
+    const content = parsed.content;
+    for (const element of content.querySelectorAll(DROPPED)) {
+      element.remove();
+    }
+    for (const element of content.querySelectorAll("*")) {
+      for (const attribute of [...element.attributes]) {
+        if (/^on/i.test(attribute.name)) {
+          element.removeAttribute(attribute.name);
+        }
+      }
+    }
+    // a link opens apart, and only to the web
+    for (const link of content.querySelectorAll("a, area")) {
+      const href = (link.getAttribute("href") ?? "").trim();
+      if (/^https?:\/\//i.test(href)) {
+        link.setAttribute("target", "_blank");
+        link.setAttribute("rel", "noopener noreferrer nofollow ugc");
+      } else {
+        link.removeAttribute("href");
+        link.removeAttribute("target");
+      }
+    }
+    document.body.replaceChildren(content);
+    report();
+  };
+
+  window.addEventListener("message", (event) => {
+    if (event.source !== host) {
+      return;
+    }
+    const data = event.data;
+    if (data?.type !== "sardonyx-card-text" || typeof data.html !== "string") {
+      return;
+    }
+    theme(data.theme);
+    show(data.html);
+  });
+  if (window.ResizeObserver) {
+    new ResizeObserver(report).observe(document.body);
+  }
+})();
+</script>
+</body>
+</html>

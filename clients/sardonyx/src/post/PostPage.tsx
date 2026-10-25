@@ -443,7 +443,15 @@ function CardParts({
         <PostDetails post={post} />
       </aside>
       <div className="min-w-0 flex-1">
-        <CardViewer card={card.data} postId={id} tab={tab} onTab={onTab} from={from} />
+        <CardViewer
+          // another card is another viewer: its pictures start not loaded
+          key={id}
+          card={card.data}
+          postId={id}
+          tab={tab}
+          onTab={onTab}
+          from={from}
+        />
       </div>
     </div>
   );

@@ -3,7 +3,7 @@
  * into kinds and find them by text.
  */
 
-import type { LorebookEntry } from "@/post/queries";
+import type { Card, LorebookEntry } from "@/post/queries";
 import type { Kind } from "@/post/search";
 
 /** An entry with its place in the lorebook (its index), which keys it. */
@@ -54,6 +54,22 @@ export function isKind(entry: LorebookEntry, kind: Kind): boolean {
     case "disabled":
       return isDisabled(entry);
   }
+}
+
+/** Every text of a card: what Styled shows, and where its pictures are named. */
+export function cardTexts(card: Card): string[] {
+  return [
+    card.description,
+    card.personality,
+    card.scenario,
+    card.firstMessage,
+    ...(card.alternateGreetings ?? []),
+    card.exampleMessages,
+    card.creatorNotes,
+    card.systemPrompt,
+    card.postHistoryInstructions,
+    ...(card.lorebook?.entries ?? []).map((entry) => entry.content),
+  ].filter((text): text is string => Boolean(text));
 }
 
 /** The text the filter looks in, lower case: keys, name, comment, content. */
