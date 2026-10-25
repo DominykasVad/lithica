@@ -95,6 +95,7 @@ dev = [
     "pytest-cov>=7.1.0",
     "pytest-xdist>=3.8.0",
     "ruff>=0.17.0",
+    "watchfiles>=1.3.0",
 ]
 
 # The module boundary (AGENTS.md, "Modules"). Checked by `uv run lint-imports`
