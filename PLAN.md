@@ -181,6 +181,7 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 - 2026-10-25 — 5.4 — card text Readable / Source per browser (`sardonyx.cardText`, default Readable); one list of modes
 - 2026-10-25 — 5.4 — an old `sardonyx.cardText` of "formatted" or "plain" is read as "readable" or "source"
 - 2026-10-25 — 5.4 — tags shown once: the post's, by category; no card tag list; the default category has no heading
+- 2026-10-25 — 5.4 — the Sardonyx image gzips JSON, JS, CSS and SVG from 1 KB; uploads and downloads are sent as stored
 - 2026-10-25 — 5.4 — post URL `?q=&at=&tab=`: q and at are the way back and prev/next; tab replaces
 - 2026-10-25 — 5.4 — lorebook URL `?filter=&kind=` (replace; filter once typing rests 300 ms); open entries are state
 - 2026-10-25 — 5.4 — lorebook mode: constant = always active; selective flag + secondary keys = selective; else keyword
