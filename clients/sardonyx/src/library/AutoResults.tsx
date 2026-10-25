@@ -245,7 +245,12 @@ export function AutoResults({
               }
               const post = byIndex.get(index);
               return post ? (
-                <PostTile key={post.id} post={post} layout={layout} />
+                <PostTile
+                  key={post.id}
+                  post={post}
+                  layout={layout}
+                  from={librarySearch(q, at)}
+                />
               ) : (
                 <TilePlaceholder key={`at-${index}`} layout={layout} />
               );

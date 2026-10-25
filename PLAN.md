@@ -174,6 +174,14 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 - 2026-10-25 — 5.3 — control edges (checkbox, radio, field, select) use `--control-border`, held to 3:1 on background and card (WCAG 1.4.11); text pairs stay at 4.5
 - 2026-10-25 — 5.3 — below `sm` the header's pages fold into a menu; below `md` the card filters fold behind "Filters (n)", n counting set and custom controls
 - 2026-10-25 — fix — dev `--reload` watches only the `lithica` package, by watchfiles events (dev group), not polling
+- 2026-10-25 — 5.4 — card Markdown without a raw-HTML plugin: HTML shows as text, images as `[image: alt]`, never loaded
+- 2026-10-25 — 5.4 — card links show their URL; only http(s) is a link (new tab, `noopener noreferrer nofollow ugc`)
+- 2026-10-25 — 5.4 — macros `{{…}}` shown as written in the macro role, in Markdown and Plain alike; never replaced
+- 2026-10-25 — 5.4 — card text Formatted / Plain per browser (`sardonyx.cardText`, default Formatted)
+- 2026-10-25 — 5.4 — post URL `?q=&at=&tab=`: q and at are the way back and prev/next; tab replaces
+- 2026-10-25 — 5.4 — lorebook URL `?filter=&kind=` (replace; filter once typing rests 300 ms); open entries are state
+- 2026-10-25 — 5.4 — lorebook mode: constant = always active; selective flag + secondary keys = selective; else keyword
+- 2026-10-25 — 5.4 — download: fetched with the session, saved as `Content-Disposition` names it, else `<id>.<ext>`
 
 ---
 
@@ -310,11 +318,11 @@ in the dev stack, its results stated in the PR.
 **Done when:** searching by tag, by text and by each card filter gives the expected posts; paging, scrolling, reload and the back button keep the search and position.
 
 ### 5.4 Post page and card viewer
-- [ ] Post page: the picture (or thumbnail for CHARX), tags by category, safety, source, size, dates; previous/next within the current search.
-- [ ] Card viewer (cards enabled, post has a card): name, creator, version, description, personality, scenario, first message and alternate greetings (switchable), example messages, creator notes, system prompt, post-history instructions, tags.
-- [ ] Lorebook view for large lorebooks: entry list with filter by key/content, collapsed entries, virtualised so thousands of entries stay fast.
-- [ ] Download button (the cards download endpoint).
-- [ ] Text rendering per AGENTS.md (plain text or sanitised Markdown; macros like `{{char}}` shown as written).
+- [x] Post page: the picture (or thumbnail for CHARX), tags by category, safety, source, size, dates; previous/next within the current search.
+- [x] Card viewer (cards enabled, post has a card): name, creator, version, description, personality, scenario, first message and alternate greetings (switchable), example messages, creator notes, system prompt, post-history instructions, tags.
+- [x] Lorebook view for large lorebooks: entry list with filter by key/content, collapsed entries, virtualised so thousands of entries stay fast.
+- [x] Download button (the cards download endpoint).
+- [x] Text rendering per AGENTS.md (plain text or sanitised Markdown; macros like `{{char}}` shown as written).
 
 **Done when:** a V2 PNG, a V3 PNG and a CHARX card show every field; the 2500-entry lorebook sample opens, filters and scrolls without stalling; the download saves the original file under the card's name.
 
