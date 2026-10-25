@@ -197,6 +197,11 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 - 2026-10-25 — 5.4b — card pictures load only when the viewer asks, per card; hosts are read from the text; not kept
 - 2026-10-25 — 5.4b — the frame also drops script, meta, base, link, frames, objects, on* and non-http(s) link hrefs
 - 2026-10-25 — 5.4b — AGENTS.md: the app fetches nothing of card data; Styled loads https images in the frame, if asked
+- 2026-10-25 — 5.5 — upload: POST /uploads by XMLHttpRequest (real progress), then POST /posts with the token; 2 at a time
+- 2026-10-25 — 5.5 — up front, a file is refused only when sure: over maxUploadSize, or a well-known extension not listed
+- 2026-10-25 — 5.5 — NSFW box per file, pre-checked from the card's own tags (read in the browser); sets `nsfw` in tags sent
+- 2026-10-25 — 5.5 — a card's own NSFW tag reaches the post even unchecked: auto-tags are a union (server unchanged, as asked)
+- 2026-10-25 — 5.5 — the Upload link and page need `uploads:create` and `posts:create:identified` at the user's rank
 
 ---
 
@@ -351,9 +356,9 @@ in the dev stack, its results stated in the PR.
 **Done when:** a Chub card with styled creator notes and images in greetings shows styled; nothing outside the frame changes; no request leaves for a card's image host until the viewer asks; Readable and Source unchanged.
 
 ### 5.5 Upload
-- [ ] Drag-and-drop of one or many files (PNG, CHARX, other images), safety per batch, optional tags; progress per file.
-- [ ] Results per file: created (link), duplicate (link to the existing post), refused (the server's reason, e.g. a ZIP limit).
-- [ ] No card preview before upload: the server reads the card; the client shows what it found afterwards.
+- [x] Drag-and-drop of one or many files (PNG, CHARX, other images), safety per batch, optional tags; progress per file.
+- [x] Results per file: created (link), duplicate (link to the existing post), refused (the server's reason, e.g. a ZIP limit).
+- [x] No card preview before upload: the server reads the card; the client shows what it found afterwards.
 
 **Done when:** a mixed batch (cards, a plain image, a duplicate, a hostile ZIP fixture) uploads with the right result for each file.
 
@@ -364,6 +369,16 @@ in the dev stack, its results stated in the PR.
 - [ ] Out of scope in phase 5: pools, comments, users and admin screens beyond the above.
 
 **Done when:** editing, the 409 case and deleting work; actions the user lacks the privilege for are not offered.
+
+### 5.6b NSFW
+- [ ] Server: a site setting `visibility`: `open` (default), `nsfw-login` (posts tagged with the NSFW tag need login), `login` (nothing but login and `GET /info` without login). The NSFW tag's name is a setting too (default `nsfw`). `GET /info` reports both.
+- [ ] `nsfw-login`: for anonymous users, searches leave NSFW posts out (as if `-nsfw` were in the query), and a NSFW post's page, `around`, card, download and featured answer as if it did not exist (404, not 403).
+- [ ] `login`: every route but login, password reset and `GET /info` needs a logged-in user; the client shows only the login page.
+- [ ] Client: a "Show NSFW" switch, per browser (later per account), default off. Off: NSFW tiles and pictures blurred with an "NSFW" label, revealed one at a time by a click; card text of a NSFW post behind the same click.
+- [ ] Upload: an "NSFW" checkbox per file, pre-checked when the card carries the NSFW tag; it adds or removes the tag.
+- [ ] Files under /data/ are not gated: their addresses cannot be guessed, but whoever has one can open it. Documented in the README; gating them (nginx asking the server per request) is a decision for a later phase.
+
+**Done when:** in each of the three modes an anonymous visitor sees exactly what the mode allows (search, post, card, download, around); a logged-in user sees everything; the switch blurs and reveals as described.
 
 ### 5.7 Release `v0.3.0`
 - [ ] `doc/INSTALL.md`: running Sardonyx (compose service, image, dev mode).
