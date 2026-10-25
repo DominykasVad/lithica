@@ -25,7 +25,7 @@ function ThemeMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label="Theme">
+        <Button variant="ghost" size="icon" aria-label="Theme" className="shrink-0">
           <Icon />
         </Button>
       </DropdownMenuTrigger>
@@ -58,9 +58,10 @@ function UserMenu() {
       {auth.user ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" className="min-w-0">
+            {/* the one part of the header that gives way: a long name is cut short */}
+            <Button variant="ghost" size="sm" className="min-w-0 shrink">
               <UserRound />
-              <span className="max-w-32 truncate">{auth.user}</span>
+              <span className="min-w-0 max-w-48 truncate">{auth.user}</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
@@ -98,7 +99,12 @@ function NavMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label="Menu" className="sm:hidden">
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Menu"
+          className="shrink-0 sm:hidden"
+        >
           <Menu />
         </Button>
       </DropdownMenuTrigger>
@@ -134,10 +140,7 @@ export function Shell() {
             <Logo className="size-7" />
             Sardonyx
           </Link>
-          <nav
-            aria-label="Main"
-            className="flex min-w-0 flex-1 items-center gap-1 text-sm"
-          >
+          <nav aria-label="Main" className="flex flex-1 items-center gap-1 text-sm">
             <NavMenu />
             <Button asChild variant="ghost" size="sm" className="max-sm:hidden">
               <Link
