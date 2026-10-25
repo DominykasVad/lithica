@@ -174,6 +174,7 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 - 2026-10-25 — 5.3 — control edges (checkbox, radio, field, select) use `--control-border`, held to 3:1 on background and card (WCAG 1.4.11); text pairs stay at 4.5
 - 2026-10-25 — 5.3 — below `sm` the header's pages fold into a menu; below `md` the card filters fold behind "Filters (n)", n counting set and custom controls
 - 2026-10-25 — fix — dev `--reload` watches only the `lithica` package, by watchfiles events (dev group), not polling
+- 2026-10-25 — fix — implicit tags are inserted at once in a connection savepoint (Core); on a name conflict, the tag that won
 
 ---
 
