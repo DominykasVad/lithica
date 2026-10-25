@@ -75,6 +75,19 @@ def detect(content: ContentLike) -> registry.FileType | None:
     return None
 
 
+def accepted_types() -> list[tuple[str, list[str]]]:
+    """
+    The types of file this site takes, as MIME type and extensions: the
+    engine's, then those of the modules that are switched on.
+    """
+    return [
+        (mime_type, list(extensions)) for mime_type, extensions in mime.ACCEPTED_TYPES
+    ] + [
+        (file_type.mime_type, [file_type.extension])
+        for _module, file_type in registry.file_types()
+    ]
+
+
 def get_mime_type(content: ContentLike) -> str:
     """
     The MIME type of the content: what the engine says, and for a file it

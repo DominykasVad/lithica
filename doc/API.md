@@ -103,7 +103,16 @@ must have names specific to the API that is being used.)
 
 The server accepts requests up to the size set as `max_upload_size` in its
 config (1 GiB unless changed). A larger request is refused with status 413
-and an error named `RequestTooLargeError`.
+and an error named `RequestTooLargeError`. `GET /info` says the limit, in
+bytes, as `maxUploadSize` (`null` if there is none).
+
+`GET /info` also lists the types of file a post can be made from on the
+site, as `acceptedTypes`: the engine's, then those of the
+[modules](#modules) that are switched on, each as
+`{"mime": [<mime-type>, ...], "extensions": [<extension>, ...]}` (the
+extension a stored file gets first). Both are hints, for a client to point
+out at once a file that would be refused: the server decides by the file's
+content, not by its name or the type a browser gives it.
 
 Alternatively, the server can download the files from the Internet on client's
 behalf. In that case, the request doesn't need to be specially encoded in any
@@ -246,7 +255,7 @@ What a module adds to the API is its own:
 - routes under `modules/<name>/`;
 - file types the engine does not know, with a post `type` and a `mimeType`
   of their own (see the [post resource](#post)); the `type` search token
-  finds them by that type;
+  finds them by that type, and `acceptedTypes` of `GET /info` lists them;
 - [extracted content](#extracted-content) of the kinds it owns;
 - named tokens of the [post search](#post-search);
 - extra fields of the [post resource](#post). Some of them are returned
