@@ -330,6 +330,15 @@ in the dev stack, its results stated in the PR.
 
 **Done when:** a V2 PNG, a V3 PNG and a CHARX card show every field; the 2500-entry lorebook sample opens, filters and scrolls without stalling; the download saves the original file under the card's name.
 
+### 5.4b Styled card text (sandboxed)
+- [ ] A third text mode, "Styled", for every card text field (description, personality, scenario, greetings, examples, creator notes, prompts, lorebook entries): the card's HTML and CSS shown as written, in a sandboxed iframe (no allow-scripts, no allow-same-origin), so it cannot reach the page, the session or the app's storage.
+- [ ] Images and other remote resources in card HTML are not loaded until the viewer asks, per card ("Load images from <hosts>"); the choice is not remembered across cards. AGENTS.md's rule on URLs in card data changes to say exactly this.
+- [ ] The app's security policy allows what the frame needs and nothing more; the main page's policy does not get weaker.
+- [ ] The frame's height: fixed with its own scroll, or resizable by the viewer (no scripts to measure it).
+- [ ] Tests that card HTML cannot touch the parent page, the token or the network before the viewer allows images.
+
+**Done when:** a Chub card with styled creator notes and images in greetings shows styled; nothing outside the frame changes; no request leaves for a card's image host until the viewer asks; Readable and Source unchanged.
+
 ### 5.5 Upload
 - [ ] Drag-and-drop of one or many files (PNG, CHARX, other images), safety per batch, optional tags; progress per file.
 - [ ] Results per file: created (link), duplicate (link to the existing post), refused (the server's reason, e.g. a ZIP limit).
