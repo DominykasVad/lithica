@@ -13,20 +13,31 @@ function params(sent: Sent): URLSearchParams {
 }
 
 interface SiteOptions {
-  total?: number;
+  /** the posts there are, or a function to change it between requests */
+  total?: number | (() => number);
   cards?: boolean;
   /** answer this request for posts with an error */
   fails?: (offset: number, sent: Sent) => boolean;
   tags?: (query: string) => string[] | Promise<string[]>;
+  /** answer this request for posts only once the promise is settled */
+  hold?: (offset: number) => Promise<void> | null;
 }
 
 /** A site with `total` posts; with cards, each odd one is a card. */
-function library({ total = 1000, cards = true, fails, tags }: SiteOptions = {}) {
+function library({
+  total: totalNow = 1000,
+  cards = true,
+  fails,
+  tags,
+  hold,
+}: SiteOptions = {}) {
   return fakeSite({
     "GET /info": { body: cards ? INFO : { ...INFO, modules: [] } },
-    "GET /posts": (sent: Sent) => {
+    "GET /posts": async (sent: Sent) => {
       const asked = params(sent);
       const offset = Number(asked.get("offset") ?? 0);
+      await hold?.(offset);
+      const total = typeof totalNow === "function" ? totalNow() : totalNow;
       const limit = Number(asked.get("limit") ?? 100);
       if (fails?.(offset, sent)) {
         return {
@@ -335,13 +346,14 @@ describe("auto load", () => {
     const sent = library({ total: 1000 });
     renderApp("/posts");
     await waitFor(() => expect(tiles().length).toBeGreaterThan(0));
-    expect(offsetsAsked(sent)).toEqual([0]);
+    // the batch in view, then one ahead
+    await waitFor(() => expect(offsetsAsked(sent)).toEqual([0, 100]));
     // three rows fill the window, two more are drawn ahead: 25 of 100
     expect(tiles()).toHaveLength(5 * COLUMNS);
     expect(screen.getByText("1 of 1000")).toBeInTheDocument();
 
     await scrollTo(18 * ROW);
-    await waitFor(() => expect(offsetsAsked(sent)).toEqual([0, 100]));
+    await waitFor(() => expect(offsetsAsked(sent)).toEqual([0, 100, 200]));
     await waitFor(() =>
       expect(tiles().map((tile) => tile.getAttribute("href"))).toContain("/posts/101"),
     );
@@ -357,10 +369,63 @@ describe("auto load", () => {
     await waitFor(() =>
       expect(tiles().map((tile) => tile.getAttribute("href"))).toContain("/posts/251"),
     );
-    expect(offsetsAsked(sent)).toEqual([200]);
+    // then one batch each way, and nothing before the list got there
+    await waitFor(() => expect(offsetsAsked(sent)).toEqual([200, 100, 300]));
 
-    await scrollTo(30 * ROW);
-    await waitFor(() => expect(offsetsAsked(sent)).toEqual([200, 100]));
+    await scrollTo(0);
+    await waitFor(() => expect(offsetsAsked(sent)).toEqual([200, 100, 300, 0]));
+  });
+
+  it("jumps: a drag to far down asks for the batches there, not those between", async () => {
+    const sent = library({ total: 10_000 });
+    renderApp("/posts");
+    await waitFor(() => expect(offsetsAsked(sent)).toEqual([0, 100]));
+
+    // the row of result 9,001, at once, as a dragged scrollbar does
+    await scrollTo((9000 / COLUMNS) * ROW);
+    await waitFor(() =>
+      expect(tiles().map((tile) => tile.getAttribute("href"))).toContain("/posts/9001"),
+    );
+    expect(screen.getByText("9001 of 10000")).toBeInTheDocument();
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(offsetsAsked(sent)).toEqual([0, 100, 8900, 9000, 9100]);
+  });
+
+  it("shows the rows of a batch not here yet as placeholders", async () => {
+    let release = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    library({ total: 10_000, hold: (offset) => (offset === 5000 ? held : null) });
+    renderApp("/posts");
+    await waitFor(() => expect(tiles().length).toBeGreaterThan(0));
+
+    await scrollTo((5000 / COLUMNS) * ROW);
+    await waitFor(() => expect(screen.getByText("5001 of 10000")).toBeInTheDocument());
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    const hrefs = () => tiles().map((tile) => tile.getAttribute("href"));
+    expect(hrefs()).not.toContain("/posts/5001");
+    expect(document.querySelectorAll("[data-placeholder]").length).toBeGreaterThan(0);
+    await act(async () => release());
+    await waitFor(() => expect(hrefs()).toContain("/posts/5001"));
+  });
+
+  it("takes the total of the newest answer, and resizes the list", async () => {
+    let total = 1000;
+    const sent = library({ total: () => total });
+    renderApp("/posts");
+    await waitFor(() => expect(screen.getByText("1 of 1000")).toBeInTheDocument());
+    await waitFor(() => expect(offsetsAsked(sent)).toEqual([0, 100]));
+    // posts were added meanwhile: the next batch says so
+    total = 1500;
+    await scrollTo(18 * ROW);
+    await waitFor(() => expect(offsetsAsked(sent)).toContain(200));
+    await waitFor(() =>
+      expect(screen.getByText(`${18 * COLUMNS + 1} of 1500`)).toBeInTheDocument(),
+    );
+    expect(screen.getByTestId("auto-list").style.height).toBe(
+      `${(1500 / COLUMNS) * ROW}px`,
+    );
   });
 
   it("writes the place into the URL without a history entry", async () => {
@@ -386,7 +451,11 @@ describe("auto load", () => {
     const user = userEvent.setup();
     await waitFor(() => expect(tiles().length).toBeGreaterThan(0));
 
-    await scrollTo(17 * ROW);
+    // asked ahead and failed, but not in the window: nothing to say yet
+    await waitFor(() => expect(offsetsAsked(sent)).toEqual([0, 100]));
+    expect(screen.queryByRole("alert")).toBeNull();
+    // the failed batch is in the window from here on (an alert only then)
+    await scrollTo(18 * ROW);
     expect(await screen.findByRole("alert")).toHaveTextContent("Try later.");
     const hrefs = () => tiles().map((tile) => tile.getAttribute("href"));
     // the rows of the first batch are still there
@@ -397,7 +466,13 @@ describe("auto load", () => {
     await user.click(screen.getByRole("button", { name: "Try again" }));
     await waitFor(() => expect(hrefs()).toContain("/posts/101"));
     expect(hrefs()).toContain("/posts/96");
-    expect(offsetsAsked(sent)).toEqual([0, 100, 100]);
+    // asked again, once; the rest as scrolled to
+    expect(offsetsAsked(sent).filter((offset) => offset === 100)).toHaveLength(2);
+    await waitFor(() =>
+      expect([...new Set(offsetsAsked(sent))].sort((x, y) => x - y)).toEqual([
+        0, 100, 200,
+      ]),
+    );
     expect(screen.queryByRole("alert")).toBeNull();
   });
 

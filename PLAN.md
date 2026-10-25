@@ -167,6 +167,7 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 - 2026-10-24 — 5.3 — "Per page" 50 / 100 / Auto load, per browser (`sardonyx.perPage`), default Auto load
 - 2026-10-24 — 5.3 — a page change or a new search pushes a history entry; scrolling in auto load replaces `at`
 - 2026-10-24 — 5.3 — auto load asks 100 at a time (the API's maximum), batches aligned to multiples of 100
+- 2026-10-25 — 5.3 — auto load: one query per batch, keyed by offset; the batches in the window ±1, asked once scrolling rests 150 ms; the total of the newest answer
 - 2026-10-24 — 5.3 — the query text is the only truth: card filters are read from it and change only their own `card-*` tokens
 - 2026-10-24 — 5.3 — completion: the token at the cursor, not a named one; `<prefix>* sort:usages`, 10, after 150 ms; tag escaped
 - 2026-10-24 — 5.3 — the creator filter writes spaces as `*` (a token has no spaces); `*` is shown as a space again

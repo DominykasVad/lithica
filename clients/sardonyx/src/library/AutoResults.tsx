@@ -1,4 +1,4 @@
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useQueries } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
 import { ArrowUp } from "lucide-react";
@@ -14,12 +14,21 @@ import { librarySearch } from "./search";
 const PLACEHOLDERS = 12;
 // how long scrolling rests before the position is written into the URL
 const SETTLE_MS = 300;
+// how long it rests before the batches in view are asked for: a drag
+// across the list asks only for where it stops
+const ASK_MS = 150;
+// batches asked beyond those in view, each way
+const AHEAD = 1;
 
 /**
  * The results as one long list, loaded a batch at a time as it is
  * scrolled. Every row of the search has its place from the start (the
  * total is known with the first batch), so a batch that arrives above
  * what is shown moves nothing; only the rows in view are drawn.
+ *
+ * Each batch is its own query, by its offset: a jump far down asks for
+ * the batches there, not for those in between. Rows of a batch not here
+ * yet are placeholders.
  *
  * `at` opens the list there. Scrolling writes the first result in view
  * back into the URL without a history entry: back goes to the search
@@ -42,37 +51,43 @@ export function AutoResults({
   const { columns } = layout;
   const rowHeight = layout.tileHeight + GAP;
   // loading starts with the batch that holds `at` when the list opens
-  const [start] = useState(() => Math.floor(at / BATCH) * BATCH);
+  const [start] = useState(() => Math.floor(at / BATCH));
+  const [asked, setAsked] = useState<number[]>(() => [start]);
 
-  const posts = useInfiniteQuery({
-    queryKey: ["posts", "auto", q, fields],
-    initialPageParam: start,
-    queryFn: ({ pageParam, signal }) => fetchPosts(q, pageParam, BATCH, fields, signal),
-    getNextPageParam: (last, _pages, offset) =>
-      offset + BATCH < (last.total ?? 0) ? offset + BATCH : undefined,
-    getPreviousPageParam: (_first, _pages, offset) =>
-      offset > 0 ? offset - BATCH : undefined,
+  const batches = useQueries({
+    queries: asked.map((batch) => ({
+      queryKey: ["posts", "auto", q, fields, batch * BATCH],
+      queryFn: ({ signal }: { signal: AbortSignal }) =>
+        fetchPosts(q, batch * BATCH, BATCH, fields, signal),
+      // scrolling back to a batch shows it as it was, without asking again
+      staleTime: 60_000,
+    })),
   });
 
-  const pages = posts.data?.pages ?? [];
-  const offsets = (posts.data?.pageParams ?? []) as number[];
-  const total = pages[0]?.total ?? null;
+  // the total of the newest answer: posts added or removed meanwhile
+  // resize the list. Kept while the batches asked are all on their way.
+  const known = useRef<{ total: number; updatedAt: number } | null>(null);
+  for (const batch of batches) {
+    const total = batch.data?.total;
+    if (
+      total !== undefined &&
+      batch.dataUpdatedAt > (known.current?.updatedAt ?? Number.NEGATIVE_INFINITY)
+    ) {
+      known.current = { total, updatedAt: batch.dataUpdatedAt };
+    }
+  }
+  const total = known.current?.total ?? null;
+
   const byIndex = useMemo(() => {
     const found = new Map<number, Post>();
-    for (const [k, page] of (posts.data?.pages ?? []).entries()) {
-      const offset = (posts.data?.pageParams[k] as number | undefined) ?? 0;
-      for (const [i, post] of (page.results ?? []).entries()) {
+    for (const [k, batch] of batches.entries()) {
+      const offset = (asked[k] ?? 0) * BATCH;
+      for (const [i, post] of (batch.data?.results ?? []).entries()) {
         found.set(offset + i, post);
       }
     }
     return found;
-  }, [posts.data]);
-  const loadedStart = offsets[0] ?? start;
-  const lastOffset = offsets.at(-1);
-  const loadedEnd =
-    lastOffset === undefined
-      ? start
-      : lastOffset + (pages.at(-1)?.results?.length ?? 0);
+  }, [batches, asked]);
 
   const rows = total ? Math.ceil(total / columns) : 0;
   const scrollMargin = list.current?.offsetTop ?? 0;
@@ -88,11 +103,16 @@ export function AutoResults({
   }, [virtualizer, rowHeight, columns]);
 
   const items = virtualizer.getVirtualItems();
-  const firstShown = (items[0]?.index ?? 0) * columns;
-  const lastShown = ((items.at(-1)?.index ?? 0) + 1) * columns - 1;
   const scrolled = Math.max(0, (virtualizer.scrollOffset ?? 0) - scrollMargin);
   const firstVisible =
     rows > 0 ? Math.min(rows - 1, Math.floor(scrolled / rowHeight)) * columns : 0;
+  const viewHeight = virtualizer.scrollRect?.height ?? window.innerHeight;
+  const lastVisible =
+    rows > 0
+      ? (Math.min(rows - 1, Math.floor((scrolled + viewHeight) / rowHeight)) + 1) *
+          columns -
+        1
+      : 0;
 
   // `at` as last written here, or opened; another one is scrolled to
   const written = useRef<number | null>(null);
@@ -133,21 +153,33 @@ export function AutoResults({
     };
   }, [at, rows]);
 
-  // the batches the rows in view need, one request at a time
+  // the batches the rows in the window need, and one more each way, once
+  // scrolling rests and the list is where it is going
+  const lastBatch = total ? Math.ceil(total / BATCH) - 1 : 0;
+  const firstInView = Math.floor(firstVisible / BATCH);
+  const lastInView = Math.floor(lastVisible / BATCH);
+  const from = Math.max(0, firstInView - AHEAD);
+  const to = Math.min(lastBatch, lastInView + AHEAD);
   useEffect(() => {
-    if (!total || posts.isFetching || heading.current !== null) {
+    if (!total) {
       return;
     }
-    if (lastShown >= loadedEnd && posts.hasNextPage && !posts.isFetchNextPageError) {
-      posts.fetchNextPage();
-    } else if (
-      firstShown < loadedStart &&
-      posts.hasPreviousPage &&
-      !posts.isFetchPreviousPageError
-    ) {
-      posts.fetchPreviousPage();
-    }
-  }, [total, posts, firstShown, lastShown, loadedStart, loadedEnd]);
+    const timer = setTimeout(() => {
+      if (written.current === null || heading.current !== null) {
+        return;
+      }
+      const next = Array.from(
+        { length: Math.max(0, to - from + 1) },
+        (_, i) => from + i,
+      );
+      setAsked((current) =>
+        current.length === next.length && current.every((one, i) => one === next[i])
+          ? current
+          : next,
+      );
+    }, ASK_MS);
+    return () => clearTimeout(timer);
+  }, [total, from, to]);
 
   useEffect(() => {
     if (
@@ -170,14 +202,18 @@ export function AutoResults({
     return () => clearTimeout(timer);
   }, [firstVisible, total, q, navigate]);
 
-  const failedBatch = posts.isFetchNextPageError || posts.isFetchPreviousPageError;
+  // a batch in view that could not be loaded; the rows of the others stay
+  const failed = batches.filter(
+    (batch, k) =>
+      batch.isError &&
+      (total === null ||
+        ((asked[k] ?? 0) >= firstInView && (asked[k] ?? 0) <= lastInView)),
+  );
+  const pending = total === null && batches.every((batch) => batch.isPending);
   return (
     <>
       <ResultsBar total={total} perPage="auto" onPerPage={onPerPage} />
-      {posts.isError && !posts.data ? (
-        <Failed error={posts.error} onRetry={() => posts.refetch()} />
-      ) : null}
-      {posts.isPending ? (
+      {pending ? (
         <div className="flex flex-wrap" style={{ gap: GAP }}>
           {Array.from({ length: PLACEHOLDERS }, (_, i) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: placeholders have nothing else
@@ -217,14 +253,14 @@ export function AutoResults({
           </div>
         ))}
       </div>
-      {failedBatch ? (
+      {failed[0] ? (
         <Failed
-          error={posts.error}
-          onRetry={() =>
-            posts.isFetchNextPageError
-              ? posts.fetchNextPage()
-              : posts.fetchPreviousPage()
-          }
+          error={failed[0].error}
+          onRetry={() => {
+            for (const batch of failed) {
+              batch.refetch();
+            }
+          }}
         />
       ) : null}
       {total ? (
