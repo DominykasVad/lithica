@@ -175,6 +175,18 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 - 2026-10-25 — 5.3 — below `sm` the header's pages fold into a menu; below `md` the card filters fold behind "Filters (n)", n counting set and custom controls
 - 2026-10-25 — fix — dev `--reload` watches only the `lithica` package, by watchfiles events (dev group), not polling
 - 2026-10-25 — fix — `GET /info` says `maxUploadSize` and `acceptedTypes` (engine + enabled modules), hints only
+- 2026-10-25 — 5.4 — card Markdown without a raw-HTML plugin; images as `[image: alt]`, never loaded
+- 2026-10-25 — 5.4 — Readable shows HTML as its text: no tags, style/script dropped, blocks as lines, entities decoded
+- 2026-10-25 — 5.4 — card links show their URL; only http(s) is a link (new tab, `noopener noreferrer nofollow ugc`)
+- 2026-10-25 — 5.4 — macros `{{…}}` shown as written in the macro role, in Readable and Source alike; never replaced
+- 2026-10-25 — 5.4 — card text Readable / Source per browser (`sardonyx.cardText`, default Readable); one list of modes
+- 2026-10-25 — 5.4 — an old `sardonyx.cardText` of "formatted" or "plain" is read as "readable" or "source"
+- 2026-10-25 — 5.4 — tags shown once: the post's, by category; no card tag list; the default category has no heading
+- 2026-10-25 — 5.4 — the Sardonyx image gzips JSON, JS, CSS and SVG from 1 KB; uploads and downloads are sent as stored
+- 2026-10-25 — 5.4 — post URL `?q=&at=&tab=`: q and at are the way back and prev/next; tab replaces
+- 2026-10-25 — 5.4 — lorebook URL `?filter=&kind=` (replace; filter once typing rests 300 ms); open entries are state
+- 2026-10-25 — 5.4 — lorebook mode: constant = always active; selective flag + secondary keys = selective; else keyword
+- 2026-10-25 — 5.4 — download: fetched with the session, saved as `Content-Disposition` names it, else `<id>.<ext>`
 
 ---
 
@@ -311,13 +323,22 @@ in the dev stack, its results stated in the PR.
 **Done when:** searching by tag, by text and by each card filter gives the expected posts; paging, scrolling, reload and the back button keep the search and position.
 
 ### 5.4 Post page and card viewer
-- [ ] Post page: the picture (or thumbnail for CHARX), tags by category, safety, source, size, dates; previous/next within the current search.
-- [ ] Card viewer (cards enabled, post has a card): name, creator, version, description, personality, scenario, first message and alternate greetings (switchable), example messages, creator notes, system prompt, post-history instructions, tags.
-- [ ] Lorebook view for large lorebooks: entry list with filter by key/content, collapsed entries, virtualised so thousands of entries stay fast.
-- [ ] Download button (the cards download endpoint).
-- [ ] Text rendering per AGENTS.md (plain text or sanitised Markdown; macros like `{{char}}` shown as written).
+- [x] Post page: the picture (or thumbnail for CHARX), tags by category, safety, source, size, dates; previous/next within the current search.
+- [x] Card viewer (cards enabled, post has a card): name, creator, version, description, personality, scenario, first message and alternate greetings (switchable), example messages, creator notes, system prompt, post-history instructions, tags.
+- [x] Lorebook view for large lorebooks: entry list with filter by key/content, collapsed entries, virtualised so thousands of entries stay fast.
+- [x] Download button (the cards download endpoint).
+- [x] Text rendering per AGENTS.md (plain text or sanitised Markdown; macros like `{{char}}` shown as written).
 
 **Done when:** a V2 PNG, a V3 PNG and a CHARX card show every field; the 2500-entry lorebook sample opens, filters and scrolls without stalling; the download saves the original file under the card's name.
+
+### 5.4b Styled card text (sandboxed)
+- [ ] A third text mode, "Styled", for every card text field (description, personality, scenario, greetings, examples, creator notes, prompts, lorebook entries): the card's HTML and CSS shown as written, in a sandboxed iframe (no allow-scripts, no allow-same-origin), so it cannot reach the page, the session or the app's storage.
+- [ ] Images and other remote resources in card HTML are not loaded until the viewer asks, per card ("Load images from <hosts>"); the choice is not remembered across cards. AGENTS.md's rule on URLs in card data changes to say exactly this.
+- [ ] The app's security policy allows what the frame needs and nothing more; the main page's policy does not get weaker.
+- [ ] The frame's height: fixed with its own scroll, or resizable by the viewer (no scripts to measure it).
+- [ ] Tests that card HTML cannot touch the parent page, the token or the network before the viewer allows images.
+
+**Done when:** a Chub card with styled creator notes and images in greetings shows styled; nothing outside the frame changes; no request leaves for a card's image host until the viewer asks; Readable and Source unchanged.
 
 ### 5.5 Upload
 - [ ] Drag-and-drop of one or many files (PNG, CHARX, other images), safety per batch, optional tags; progress per file.

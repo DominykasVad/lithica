@@ -20,7 +20,14 @@ export interface Sent {
   readonly aborted: boolean;
 }
 
-type Answer = { status?: number; body: unknown };
+type Answer = {
+  status?: number;
+  body: unknown;
+  /** more headers; JSON's Content-Type unless `raw` */
+  headers?: Record<string, string>;
+  /** the body as these bytes, not as JSON (a file) */
+  raw?: Uint8Array<ArrayBuffer>;
+};
 // an answer can take its time: a promise is waited for
 type Handler = (sent: Sent) => Answer | Promise<Answer>;
 
@@ -59,9 +66,15 @@ export function fakeSite(routes: Record<string, Answer | Handler>) {
               description: `No ${one.path}.`,
             },
           });
+    if (answer.raw) {
+      return new Response(answer.raw, {
+        status: answer.status ?? 200,
+        headers: { "Content-Type": "application/octet-stream", ...answer.headers },
+      });
+    }
     return new Response(JSON.stringify(answer.body), {
       status: answer.status ?? 200,
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...answer.headers },
     });
   });
   return sent;

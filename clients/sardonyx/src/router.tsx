@@ -2,6 +2,7 @@ import {
   createRootRoute,
   createRoute,
   createRouter,
+  lazyRouteComponent,
   type RouterHistory,
 } from "@tanstack/react-router";
 import { ApiErrorMessage } from "@/components/ApiErrorMessage";
@@ -9,8 +10,8 @@ import { Home } from "./app/Home";
 import { Login } from "./app/Login";
 import { NotFound, Shell } from "./app/Shell";
 import { Library } from "./library/Library";
-import { PostPlaceholder } from "./library/PostPlaceholder";
 import { validateLibrarySearch } from "./library/search";
+import { validateLorebookSearch, validatePostSearch } from "./post/search";
 
 const rootRoute = createRootRoute({
   component: Shell,
@@ -51,7 +52,17 @@ export const libraryRoute = createRoute({
 export const postRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/posts/$id",
-  component: PostPlaceholder,
+  validateSearch: validatePostSearch,
+  // the post and lorebook pages bring the Markdown renderer: loaded when
+  // first opened, not with the app
+  component: lazyRouteComponent(() => import("./post/PostPage"), "PostPage"),
+});
+
+export const lorebookRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/posts/$id/lorebook",
+  validateSearch: validateLorebookSearch,
+  component: lazyRouteComponent(() => import("./card/LorebookPage"), "LorebookPage"),
 });
 
 export const routeTree = rootRoute.addChildren([
@@ -59,6 +70,7 @@ export const routeTree = rootRoute.addChildren([
   loginRoute,
   libraryRoute,
   postRoute,
+  lorebookRoute,
 ]);
 
 // The search part of a URL as plain `key=value` pairs: `?q=coastal&at=100`.

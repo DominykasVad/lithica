@@ -265,8 +265,9 @@ them in `.github/workflows/ci-sardonyx.yml`.
 - Branding (the name "Sardonyx", colours, logo) lives in the client, not in
   the server's configuration.
 - Authentication: the client logs in with a user token, not by keeping the
-  password. The token is kept in memory, and written to `localStorage` only
-  when the user chooses "remember me".
+  password. The token is kept in memory and in the tab's `sessionStorage`
+  (a reload keeps it, a new tab does not); only when the user chooses
+  "remember me" is it written to `localStorage` instead, for the next visit.
 - The definition of done is the server's, with the client's tools (see
   there).
 
