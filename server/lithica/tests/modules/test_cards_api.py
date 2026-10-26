@@ -152,6 +152,17 @@ def test_automatic_tags_need_no_privilege_to_create_tags(site, user, creator_cat
     assert "lighthouse" in _tags(created)
 
 
+def test_charx_is_an_accepted_type_where_cards_is_on(site):
+    from lithica.func import file_types
+
+    site([])
+    assert all(mime != "application/x-charx" for mime, _ in file_types.accepted_types())
+    site(["cards"])
+    assert ("application/x-charx", ["charx"]) in file_types.accepted_types()
+    # a PNG card is a picture to the engine: listed with the engine's types
+    assert ("image/png", ["png"]) in file_types.accepted_types()
+
+
 def test_normalising_a_name():
     assert card_format.tag_name("Slice of Life") == "slice_of_life"
     assert card_format.tag_name("  A \t\n B  ") == "a_b"

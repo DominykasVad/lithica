@@ -5,9 +5,9 @@ from typing import Any
 
 from lithica import config, registry
 from lithica.api import resources
-from lithica.api.dependencies import CurrentUser
+from lithica.api.dependencies import CurrentUser, max_upload_size
 from lithica.api.routing import ApiRouter
-from lithica.func import auth, posts, users, util
+from lithica.func import auth, file_types, posts, users, util
 
 router = ApiRouter(tags=["Info"])
 
@@ -89,6 +89,13 @@ def get_info(user: CurrentUser) -> dict[str, Any]:
     on, in the order of its configuration; empty on a plain installation. A
     module's routes are under `modules/<name>/`.
 
+    `<max-upload-size>` is the largest request the server takes, in bytes, and
+    `<accepted-types>` the types of file a post can be made from here (the
+    engine's, then those of the modules switched on), each with its MIME
+    type(s) and usual extensions: hints for a client, to point out at once a
+    file that would be refused. The server still decides by the file's
+    content.
+
     `<disk-usage>` is the size of the data directory. It is measured in the
     background and can be up to an hour old; it is null until the first
     measurement after a server start has finished. When several server processes
@@ -101,6 +108,11 @@ def get_info(user: CurrentUser) -> dict[str, Any]:
         "diskUsage": _disk_usage.get(),
         "serverTime": util.utcnow(),
         "modules": [module.name for module in registry.modules()],
+        "maxUploadSize": max_upload_size(),
+        "acceptedTypes": [
+            {"mime": [mime_type], "extensions": extensions}
+            for mime_type, extensions in file_types.accepted_types()
+        ],
         "config": {
             "name": config.config["name"],
             "userNameRegex": config.config["user_name_regex"],
