@@ -3,6 +3,7 @@ from collections.abc import Callable
 from typing import Any
 
 import sqlalchemy as sa
+import sqlalchemy.exc as sa_exc
 import sqlalchemy.orm as sa_orm
 
 from lithica import config, db, errors, model
@@ -201,15 +202,48 @@ def get_or_create_tags_by_names(
                 found = True
                 break
         if not found:
-            new_tag = create_tag(
-                names=[name],
-                category_name=tag_category_name,
-                suggestions=[],
-                implications=[],
-            )
-            db.session.add(new_tag)
-            new_tags.append(new_tag)
+            tag, created = _insert_tag(name, tag_category_name)
+            (new_tags if created else existing_tags).append(tag)
     return existing_tags, new_tags
+
+
+def _insert_tag(name: str, category_name: str) -> tuple[model.Tag, bool]:
+    """
+    A new tag of one name; or, if another request created a tag of that name
+    after this one looked, that tag. Returns the tag and whether this request
+    created it.
+
+    The rows are written at once, under a savepoint, so a conflict on the
+    name rolls back the savepoint only and the request goes on with the tag
+    that won. The savepoint is the connection's, and the rows are written
+    with SQLAlchemy Core: the session's savepoint (begin_nested) would first
+    flush everything else the request has pending, the files of a post's
+    new content among it, before the request has checked all it must.
+    """
+    _verify_name_validity(name)
+    category = tag_categories.get_category_by_name(category_name)
+    connection = db.session.connection()
+    try:
+        with connection.begin_nested():
+            inserted = connection.execute(
+                sa.insert(model.Tag).values(
+                    category_id=category.tag_category_id,
+                    creation_time=util.utcnow(),
+                )
+            ).inserted_primary_key
+            assert inserted is not None
+            tag_id = inserted[0]
+            connection.execute(
+                sa.insert(model.TagName).values(tag_id=tag_id, name=name, ord=0)
+            )
+    except sa_exc.IntegrityError:
+        # nothing but a tag of this name, committed meanwhile, makes this one
+        # welcome; any other conflict is the request's
+        tag = try_get_tag_by_name(name)
+        if tag is None:
+            raise
+        return tag, False
+    return db.session.get(model.Tag, tag_id), True
 
 
 def get_tag_siblings(tag: model.Tag) -> list[tuple[model.Tag, int]]:
