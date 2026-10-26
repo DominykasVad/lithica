@@ -660,9 +660,9 @@ def test_json_body_over_the_limit_is_refused(client, upload_limit):
 
 def test_default_limit_applies_without_the_setting(client, config_injector):
     config_injector({})
-    assert dependencies._max_upload_size() == 1024 * 1024 * 1024
+    assert dependencies.max_upload_size() == 1024 * 1024 * 1024
     config_injector({"max_upload_size": None})
-    assert dependencies._max_upload_size() == 1024 * 1024 * 1024
+    assert dependencies.max_upload_size() == 1024 * 1024 * 1024
     assert client.post("/things", json={"safety": "safe"}).status_code == 200
 
 

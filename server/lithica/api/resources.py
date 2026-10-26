@@ -261,6 +261,16 @@ class InfoConfig(Resource):
     privileges: dict[str, str]
 
 
+class AcceptedType(Resource):
+    mime: list[str] = Field(
+        description="Its MIME type(s), as the post's `mimeType` says them."
+    )
+    extensions: list[str] = Field(
+        description="Usual file name extensions, without the dot; the one a stored "
+        "file gets first."
+    )
+
+
 class Info(Resource):
     post_count: int
     disk_usage: int | None = Field(
@@ -271,6 +281,17 @@ class Info(Resource):
         description="Names of the modules that are switched on, in config order."
     )
     config: InfoConfig
+    max_upload_size: int | None = Field(
+        description="The largest request the server takes, in bytes, as it checks it "
+        "(`max_upload_size`); `null` if there is no limit. A larger one is refused "
+        "with 413 `RequestTooLargeError`."
+    )
+    accepted_types: list[AcceptedType] = Field(
+        description="The types of file a post can be made from on this site: the "
+        "engine's, then those of the modules switched on. A hint for clients, to "
+        "point out at once a file that would be refused: the server decides by the "
+        "file's content, not by its name or the type a browser gives it."
+    )
     featured_post: Post | None = Field(
         description="Present only if the requester may see the featured post."
     )

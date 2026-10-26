@@ -308,7 +308,8 @@ class RequestData:
         raise errors.MissingRequiredFileError("Required file %r is missing." % name)
 
 
-def _max_upload_size() -> int:
+def max_upload_size() -> int:
+    """The largest request body the server takes, in bytes (GET /info says it)."""
     return config.config.get("max_upload_size") or DEFAULT_MAX_UPLOAD_SIZE
 
 
@@ -317,7 +318,7 @@ async def _body(request: Request) -> AsyncIterator[bytes]:
     The request body, in pieces of about a megabyte, refused once it is
     larger than the max_upload_size setting.
     """
-    limit = _max_upload_size()
+    limit = max_upload_size()
     too_large = HttpError(
         413,
         "RequestTooLargeError",

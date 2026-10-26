@@ -3,7 +3,8 @@ import threading
 import pytest
 
 from lithica import db, model
-from lithica.api import info_api
+from lithica.api import dependencies, info_api
+from lithica.func import mime
 from lithica.tests.api.http import assert_fits, ok
 
 
@@ -62,6 +63,13 @@ def test_info_api(
     db.session.add_all([post_factory(), post_factory()])
     db.session.flush()
 
+    # without modules: the engine's types; the limit unset, so the default
+    accepted = [
+        {"mime": [mime_type], "extensions": list(extensions)}
+        for mime_type, extensions in mime.ACCEPTED_TYPES
+    ]
+    limit = dependencies.DEFAULT_MAX_UPLOAD_SIZE
+
     expected_config_key = {
         "name": "test installation",
         "contactEmail": "test@example.com",
@@ -88,6 +96,8 @@ def test_info_api(
             "featuringUser": None,
             "serverTime": "2016-01-01T13:00:00Z",
             "modules": [],
+            "maxUploadSize": limit,
+            "acceptedTypes": accepted,
             "config": expected_config_key,
         }
     directory.join("test2.txt").write("abc")
@@ -100,6 +110,8 @@ def test_info_api(
             "featuringUser": None,
             "serverTime": "2016-01-03T13:01:00Z",
             "modules": [],
+            "maxUploadSize": limit,
+            "acceptedTypes": accepted,
             "config": expected_config_key,
         }
     with fake_datetime("2016-01-03 13:01"):
@@ -108,6 +120,8 @@ def test_info_api(
             "diskUsage": 6,  # cache expired
             "serverTime": "2016-01-03T13:01:00Z",
             "modules": [],
+            "maxUploadSize": limit,
+            "acceptedTypes": accepted,
             "config": expected_config_key,
         }
 
@@ -267,3 +281,37 @@ def test_info_with_a_trailing_slash(client, config_injector, tmpdir, monkeypatch
         }
     )
     assert ok(client.get("/info/"))["postCount"] == 0
+
+
+def test_info_says_the_upload_limit_the_server_checks(
+    client, config_injector, user_factory, monkeypatch
+):
+    monkeypatch.setattr(info_api, "_disk_usage", info_api._DiskUsage())
+    monkeypatch.setattr(info_api._DiskUsage, "_start_measuring", lambda self: None)
+    config_injector(
+        {
+            "name": "x",
+            "contact_email": None,
+            "enable_safety": True,
+            "user_name_regex": "1",
+            "password_regex": "2",
+            "tag_name_regex": "3",
+            "tag_category_name_regex": "4",
+            "default_rank": "regular",
+            "privileges": {
+                "posts:view:featured": "regular",
+                "uploads:create": "regular",
+            },
+            "smtp": {"host": None},
+            "max_upload_size": 2048,
+        }
+    )
+    user = user_factory(rank=model.User.RANK_REGULAR)
+    reported = ok(client.get("/info", user=user))["maxUploadSize"]
+    assert reported == 2048 == dependencies.max_upload_size()
+    # what is said is what is checked: one byte more is refused
+    response = client.post(
+        "/uploads", user=user, files={"content": b"x" * (reported + 1)}
+    )
+    assert response.status_code == 413
+    assert response.json()["name"] == "RequestTooLargeError"

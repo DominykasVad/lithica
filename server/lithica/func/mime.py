@@ -61,6 +61,26 @@ def get_mime_type(content: ContentLike) -> str:
     return "application/octet-stream"
 
 
+# The files the engine takes, by MIME type (what get_mime_type tells), with
+# their usual extensions, the one a stored file gets first. GET /info lists
+# them, with the file types of the modules that are switched on, as a hint
+# for clients: the server still decides by the file's content.
+ACCEPTED_TYPES: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("image/jpeg", ("jpg", "jpeg", "jpe")),
+    ("image/png", ("png",)),
+    ("image/gif", ("gif",)),
+    ("image/webp", ("webp",)),
+    ("image/bmp", ("bmp",)),
+    ("image/avif", ("avif",)),
+    ("image/heif", ("heif",)),
+    ("image/heic", ("heic",)),
+    ("video/mp4", ("mp4", "m4v")),
+    ("video/quicktime", ("mov",)),
+    ("video/webm", ("webm",)),
+    ("application/x-shockwave-flash", ("swf",)),
+)
+
+
 def get_extension(mime_type: str) -> str | None:
     extension_map = {
         "application/x-shockwave-flash": "swf",

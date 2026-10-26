@@ -24,6 +24,13 @@ export interface paths {
          *     on, in the order of its configuration; empty on a plain installation. A
          *     module's routes are under `modules/<name>/`.
          *
+         *     `<max-upload-size>` is the largest request the server takes, in bytes, and
+         *     `<accepted-types>` the types of file a post can be made from here (the
+         *     engine's, then those of the modules switched on), each with its MIME
+         *     type(s) and usual extensions: hints for a client, to point out at once a
+         *     file that would be refused. The server still decides by the file's
+         *     content.
+         *
          *     `<disk-usage>` is the size of the data directory. It is measured in the
          *     background and can be up to an hour old; it is null until the first
          *     measurement after a server start has finished. When several server processes
@@ -1373,6 +1380,19 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AcceptedType */
+        AcceptedType: {
+            /**
+             * Mime
+             * @description Its MIME type(s), as the post's `mimeType` says them.
+             */
+            mime?: string[];
+            /**
+             * Extensions
+             * @description Usual file name extensions, without the dot; the one a stored file gets first.
+             */
+            extensions?: string[];
+        };
         /** Card */
         Card: {
             /** Postid */
@@ -1493,6 +1513,16 @@ export interface components {
              */
             modules?: string[];
             config?: components["schemas"]["InfoConfig"];
+            /**
+             * Maxuploadsize
+             * @description The largest request the server takes, in bytes, as it checks it (`max_upload_size`); `null` if there is no limit. A larger one is refused with 413 `RequestTooLargeError`.
+             */
+            maxUploadSize?: number | null;
+            /**
+             * Acceptedtypes
+             * @description The types of file a post can be made from on this site: the engine's, then those of the modules switched on. A hint for clients, to point out at once a file that would be refused: the server decides by the file's content, not by its name or the type a browser gives it.
+             */
+            acceptedTypes?: components["schemas"]["AcceptedType"][];
             /** @description Present only if the requester may see the featured post. */
             featuredPost?: components["schemas"]["Post"] | null;
             featuringUser?: components["schemas"]["User"] | null;
