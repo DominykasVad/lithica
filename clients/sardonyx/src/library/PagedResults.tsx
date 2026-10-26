@@ -74,7 +74,12 @@ export function PagedResults({
               <TilePlaceholder key={i} layout={layout} />
             ))
           : results.map((post) => (
-              <PostTile key={post.id} post={post} layout={layout} />
+              <PostTile
+                key={post.id}
+                post={post}
+                layout={layout}
+                from={librarySearch(q, offset)}
+              />
             ))}
       </div>
       {page.isSuccess && results.length === 0 ? (

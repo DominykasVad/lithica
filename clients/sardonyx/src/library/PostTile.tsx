@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import type { TileLayout } from "./layout";
 import type { Post } from "./posts";
+import type { LibrarySearch } from "./search";
 
 // The thumbnail's URL as the API gives it, which may be relative to the
 // site: it is resolved against where the app is, never against the page.
@@ -21,14 +22,27 @@ function cardFacts(card: NonNullable<Post["card"]>): string {
     .join(" · ");
 }
 
-/** One post in the library: its thumbnail, and its card when it has one. */
-export function PostTile({ post, layout }: { post: Post; layout: TileLayout }) {
+/**
+ * One post in the library: its thumbnail, and its card when it has one.
+ * Its link carries the search and the place in it, for the post page's
+ * way back and its previous and next.
+ */
+export function PostTile({
+  post,
+  layout,
+  from,
+}: {
+  post: Post;
+  layout: TileLayout;
+  from: LibrarySearch;
+}) {
   const { card } = post;
   const badge = (card?.format ?? post.type ?? "").toUpperCase();
   return (
     <Link
       to="/posts/$id"
       params={{ id: String(post.id) }}
+      search={from}
       className="group flex flex-col gap-2 rounded-xl text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
       style={{ width: layout.tileWidth, height: layout.tileHeight }}
     >

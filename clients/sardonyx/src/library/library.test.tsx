@@ -108,6 +108,9 @@ function search(view: ReturnType<typeof renderApp>) {
   return (match?.search ?? {}) as { q?: string; at?: number };
 }
 
+/** Where the tiles lead, without the search they carry. */
+const paths = () => tiles().map((tile) => tile.getAttribute("href")?.split("?")[0]);
+
 function tiles() {
   return within(screen.getByRole("region", { name: "Results" }))
     .queryAllByRole("link")
@@ -281,7 +284,8 @@ describe("page mode", () => {
     expect(params(asked as Sent).get("limit")).toBe("50");
     // the URL says which page it is
     expect(search(view).at).toBe(100);
-    expect(tiles()[0]).toHaveAttribute("href", "/posts/101");
+    // the link carries the search and the page, for the way back
+    expect(tiles()[0]).toHaveAttribute("href", "/posts/101?at=100");
   });
 
   it("pages with a history entry each, from the top, and back returns", async () => {
@@ -354,9 +358,7 @@ describe("auto load", () => {
 
     await scrollTo(18 * ROW);
     await waitFor(() => expect(offsetsAsked(sent)).toEqual([0, 100, 200]));
-    await waitFor(() =>
-      expect(tiles().map((tile) => tile.getAttribute("href"))).toContain("/posts/101"),
-    );
+    await waitFor(() => expect(paths()).toContain("/posts/101"));
     expect(tiles().length).toBeLessThanOrEqual(7 * COLUMNS);
     expect(screen.getByText(`${18 * COLUMNS + 1} of 1000`)).toBeInTheDocument();
   });
@@ -366,9 +368,7 @@ describe("auto load", () => {
     renderApp("/posts?at=250");
     await waitFor(() => expect(window.scrollY).toBe((250 / COLUMNS) * ROW));
     expect(offsetsAsked(sent)[0]).toBe(200);
-    await waitFor(() =>
-      expect(tiles().map((tile) => tile.getAttribute("href"))).toContain("/posts/251"),
-    );
+    await waitFor(() => expect(paths()).toContain("/posts/251"));
     // then one batch each way, and nothing before the list got there
     await waitFor(() => expect(offsetsAsked(sent)).toEqual([200, 100, 300]));
 
@@ -383,9 +383,7 @@ describe("auto load", () => {
 
     // the row of result 9,001, at once, as a dragged scrollbar does
     await scrollTo((9000 / COLUMNS) * ROW);
-    await waitFor(() =>
-      expect(tiles().map((tile) => tile.getAttribute("href"))).toContain("/posts/9001"),
-    );
+    await waitFor(() => expect(paths()).toContain("/posts/9001"));
     expect(screen.getByText("9001 of 10000")).toBeInTheDocument();
     await new Promise((resolve) => setTimeout(resolve, 300));
     expect(offsetsAsked(sent)).toEqual([0, 100, 8900, 9000, 9100]);
@@ -403,7 +401,7 @@ describe("auto load", () => {
     await scrollTo((5000 / COLUMNS) * ROW);
     await waitFor(() => expect(screen.getByText("5001 of 10000")).toBeInTheDocument());
     await new Promise((resolve) => setTimeout(resolve, 300));
-    const hrefs = () => tiles().map((tile) => tile.getAttribute("href"));
+    const hrefs = paths;
     expect(hrefs()).not.toContain("/posts/5001");
     expect(document.querySelectorAll("[data-placeholder]").length).toBeGreaterThan(0);
     await act(async () => release());
@@ -457,7 +455,7 @@ describe("auto load", () => {
     // the failed batch is in the window from here on (an alert only then)
     await scrollTo(18 * ROW);
     expect(await screen.findByRole("alert")).toHaveTextContent("Try later.");
-    const hrefs = () => tiles().map((tile) => tile.getAttribute("href"));
+    const hrefs = paths;
     // the rows of the first batch are still there
     expect(hrefs()).toContain("/posts/96");
     expect(hrefs()).not.toContain("/posts/101");
@@ -489,15 +487,15 @@ describe("auto load", () => {
     library({ total: 1000 });
     const view = renderApp("/posts?at=250");
     const user = userEvent.setup();
-    await waitFor(() =>
-      expect(tiles().map((tile) => tile.getAttribute("href"))).toContain("/posts/251"),
+    await waitFor(() => expect(paths()).toContain("/posts/251"));
+    const tile = tiles().find(
+      (one) => one.getAttribute("href") === "/posts/251?at=250",
     );
-    const tile = tiles().find((one) => one.getAttribute("href") === "/posts/251");
     await user.click(tile as HTMLElement);
     expect(
       await screen.findByRole("heading", { name: "Post 251" }),
     ).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Back" }));
+    await user.click(screen.getByRole("link", { name: "Back to library" }));
     await waitFor(() => expect(search(view).at).toBe(250));
     await waitFor(() => expect(window.scrollY).toBe((250 / COLUMNS) * ROW));
   });

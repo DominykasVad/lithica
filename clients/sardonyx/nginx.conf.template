@@ -36,6 +36,19 @@ server {
 
     resolver ${RESOLVER} valid=10s ipv6=off;
 
+    # Compressed on the way out: the API's JSON (a card with a large
+    # lorebook is megabytes of it) and the app's scripts and styles. Not
+    # what is small enough not to gain, and not the uploads: pictures are
+    # compressed already, and a download is the stored file, byte for byte.
+    # (text/html is always on the list.) gzip_proxied: also when a proxy in
+    # front of this one asks.
+    gzip on;
+    gzip_comp_level 5;
+    gzip_min_length 1024;
+    gzip_proxied any;
+    gzip_vary on;
+    gzip_types application/json application/javascript text/javascript text/css image/svg+xml;
+
     # the API: everything under /api/ goes to the server, without the prefix
     location /api/ {
         proxy_pass http://${BACKEND_HOST}:6666$lithica_path;
