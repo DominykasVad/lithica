@@ -2,6 +2,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { CARD } from "@/card/fixtures";
+import { MAX_FIELD_HEIGHT } from "@/search/CompletionInput";
 import { fakeSite, INFO, renderApp, type Sent } from "@/test-utils";
 import { changes, draftOf, listed, parseTags } from "./edit";
 import { CATEGORIES, POST } from "./fixtures";
@@ -91,6 +92,24 @@ function site({
     "GET /tag-categories": { body: CATEGORIES },
     "GET /modules/cards/post/5": { body: CARD },
     "GET /posts": { body: { total: 0, results: [] } },
+    // completion: the tags of the site that start with what was typed
+    "GET /tags": (one: Sent) => {
+      const query = new URLSearchParams(one.path.split("?")[1]).get("query") ?? "";
+      const prefix = query.split("*")[0] ?? "";
+      const names = ["lighthouse", "lightning", "coastal", "cove"].filter((name) =>
+        name.startsWith(prefix),
+      );
+      return {
+        body: {
+          total: names.length,
+          results: names.map((name) => ({
+            names: [name],
+            category: "default",
+            usages: 1,
+          })),
+        },
+      };
+    },
   } as never);
   return { sent, state };
 }
@@ -108,7 +127,7 @@ describe("what is offered", () => {
     site({ rank: "regular" });
     renderApp("/posts/5");
     const { form } = await openEditor(/^Edit tags and source$/);
-    expect(within(form).getByRole("combobox", { name: /^Tags/ })).toHaveValue(
+    expect(within(form).getByRole("textbox", { name: /^Tags/ })).toHaveValue(
       "mira_vell coastal a:b",
     );
     expect(within(form).getByRole("textbox", { name: /^Source/ })).toBeInTheDocument();
@@ -176,7 +195,7 @@ describe("editing", () => {
     const { sent } = site();
     renderApp("/posts/5");
     const { user, form } = await openEditor();
-    const tags = within(form).getByRole("combobox", { name: /^Tags/ });
+    const tags = within(form).getByRole("textbox", { name: /^Tags/ });
     await user.clear(tags);
     await user.type(tags, "coastal a:b MIRA_VELL");
     expect(within(form).getByRole("button", { name: "Save" })).toBeDisabled();
@@ -232,7 +251,7 @@ describe("editing", () => {
       await screen.findByRole("heading", { name: "Mira Vell" }),
     ).toBeInTheDocument();
     const { user, form } = await openEditor();
-    const tags = within(form).getByRole("combobox", { name: /^Tags/ });
+    const tags = within(form).getByRole("textbox", { name: /^Tags/ });
     await user.clear(tags);
     await user.type(tags, "coastal lighthouse");
     await user.click(within(form).getByRole("button", { name: "Save" }));
@@ -321,7 +340,7 @@ describe("deleting", () => {
       name: "Delete post 5 (Mira Vell)?",
     });
     expect(sent.some((one) => one.method === "DELETE")).toBe(false);
-    await user.click(within(confirm).getByRole("button", { name: "Keep it" }));
+    await user.click(within(confirm).getByRole("button", { name: "Cancel" }));
     expect(screen.queryByRole("alertdialog")).toBeNull();
 
     await user.click(screen.getByRole("button", { name: "Delete post" }));
@@ -415,3 +434,143 @@ describe("the parts of an edit", () => {
     ).toEqual({});
   });
 });
+
+describe("focus", () => {
+  it("goes to the tags when the editor opens, and back to Edit on Cancel", async () => {
+    site();
+    renderApp("/posts/5");
+    const { user, form } = await openEditor();
+    expect(within(form).getByRole("textbox", { name: /^Tags/ })).toHaveFocus();
+    await user.click(within(form).getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("form")).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Edit tags, safety and source" }),
+    ).toHaveFocus();
+  });
+
+  it("goes back to Edit after a save", async () => {
+    site();
+    renderApp("/posts/5");
+    const { user, form } = await openEditor();
+    await user.click(within(form).getByRole("radio", { name: "Unsafe" }));
+    await user.click(within(form).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(screen.queryByRole("form")).toBeNull());
+    expect(
+      screen.getByRole("button", { name: "Edit tags, safety and source" }),
+    ).toHaveFocus();
+  });
+
+  it("closes the editor with Escape, but first the list of tags if it is open", async () => {
+    const { sent } = site();
+    renderApp("/posts/5");
+    const { user, form } = await openEditor();
+    await user.type(within(form).getByRole("textbox", { name: /^Tags/ }), " light");
+    await screen.findByRole("listbox", { name: "Tags" });
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("listbox", { name: "Tags" })).toBeNull();
+    expect(screen.getByRole("form", { name: "Edit post 5" })).toBeInTheDocument();
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("form")).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Edit tags, safety and source" }),
+    ).toHaveFocus();
+    expect(edits(sent)).toHaveLength(0);
+  });
+
+  it("goes to the first field a rank may change", async () => {
+    site({
+      rank: "power",
+      privileges: { ...PRIVILEGES, "posts:edit:tags": "moderator" },
+    });
+    renderApp("/posts/5");
+    const { form } = await openEditor(/^Edit safety and source$/);
+    expect(within(form).getByRole("radio", { name: "Sketchy" })).toHaveFocus();
+  });
+
+  it("goes to Cancel when a delete is to be confirmed, and back to Delete post", async () => {
+    site({ rank: "moderator" });
+    renderApp("/posts/5");
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Delete post" }));
+    const confirm = screen.getByRole("alertdialog");
+    expect(within(confirm).getByRole("button", { name: "Cancel" })).toHaveFocus();
+    await user.keyboard("{Enter}");
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(screen.getByRole("button", { name: "Delete post" })).toHaveFocus();
+
+    await user.click(screen.getByRole("button", { name: "Delete post" }));
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(screen.getByRole("button", { name: "Delete post" })).toHaveFocus();
+  });
+});
+
+describe("the tags field", () => {
+  const many = Array.from({ length: 30 }, (_, i) => ({
+    names: [`a_rather_long_tag_name_${String(i).padStart(2, "0")}`],
+    category: "default",
+    usages: 1,
+  }));
+
+  it("wraps a long list instead of scrolling sideways, and grows to a height", async () => {
+    const { state } = site();
+    state.post = { ...state.post, tags: many };
+    renderApp("/posts/5");
+    const { form } = await openEditor();
+    const field = within(form).getByRole("textbox", { name: /^Tags/ });
+    // a text area of one line of words: every tag in it, wrapped, never cut
+    expect(field.tagName).toBe("TEXTAREA");
+    expect(field).toHaveValue(many.map((tag) => tag.names[0]).join(" "));
+    expect(field).not.toHaveAttribute("wrap", "off");
+    expect(field).toHaveClass(
+      "whitespace-pre-wrap",
+      "wrap-anywhere",
+      "overflow-x-hidden",
+    );
+    expect(field).toHaveClass("overflow-y-auto");
+    expect(field.style.maxHeight).toBe(`${MAX_FIELD_HEIGHT}px`);
+  });
+
+  it("completes only the word at the cursor, in the middle of a wrapped list", async () => {
+    const { state } = site();
+    state.post = {
+      ...state.post,
+      tags: [...many.slice(0, 15), tag("lig"), ...many.slice(15)],
+    };
+    renderApp("/posts/5");
+    const { user, form } = await openEditor();
+    const field = within(form).getByRole("textbox", {
+      name: /^Tags/,
+    }) as HTMLTextAreaElement;
+    const before = field.value;
+    const at = before.indexOf(" lig ") + 4;
+    await user.type(field, "h", { initialSelectionStart: at, initialSelectionEnd: at });
+    await screen.findByRole("option", { name: /lighthouse/ });
+    await user.keyboard("{ArrowDown}{Enter}");
+    expect(field.value).toBe(before.replace(" lig ", " lighthouse "));
+    // Enter took the tag: no line break, and the form was not sent
+    expect(field.value).not.toMatch(/\n/);
+    expect(screen.getByRole("form", { name: "Edit post 5" })).toBeInTheDocument();
+  });
+
+  it("keeps the words on one line: Enter adds no break, a pasted one is a space", async () => {
+    site();
+    renderApp("/posts/5");
+    const { user, form } = await openEditor();
+    const field = within(form).getByRole("textbox", { name: /^Tags/ });
+    await user.type(field, "{Enter}");
+    expect(field).toHaveValue("mira_vell coastal a:b");
+    await user.paste("\nsea\r\nfoam");
+    // (a pasted CRLF reaches the field as one break: the browser makes it so)
+    expect(field).toHaveValue("mira_vell coastal a:b sea foam");
+    expect(
+      changes({ ...POST, version: 3 }, { ...draftOf(POST), tags: "a b" }, ["tags"]),
+    ).toEqual({
+      tags: ["a", "b"],
+    });
+  });
+});
+
+function tag(name: string) {
+  return { names: [name], category: "default", usages: 1 };
+}

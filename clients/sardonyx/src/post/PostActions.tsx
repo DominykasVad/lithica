@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { Pencil, RotateCcw, Trash2 } from "lucide-react";
-import { useId, useState } from "react";
+import { type KeyboardEvent, useEffect, useId, useRef, useState } from "react";
 import { api } from "@/api/client";
 import { asApiError, unwrap } from "@/api/errors";
 import { usePrivileges } from "@/app/privileges";
@@ -28,6 +28,16 @@ import { type Post, postQuery } from "./queries";
 
 const SAFETIES = ["safe", "sketchy", "unsafe"] as const;
 const SAFETY_LABELS = { safe: "Safe", sketchy: "Sketchy", unsafe: "Unsafe" } as const;
+
+/** Escape, unless something inside (the list of tags) took it first, cancels. */
+function escapeCancels(onCancel: () => void) {
+  return (event: KeyboardEvent) => {
+    if (event.key === "Escape" && !event.defaultPrevented) {
+      event.preventDefault();
+      onCancel();
+    }
+  };
+}
 
 /** An edit or a delete refused because the post changed since it was read. */
 const isConflict = (error: unknown) => asApiError(error).status === 409;
@@ -148,6 +158,15 @@ function Editor({
   const [unsaved, setUnsaved] = useState<{ base: Post; draft: Draft } | null>(null);
   const changed = changes(base, draft, fields);
   const dirty = Object.keys(changed).length > 0;
+  const form = useRef<HTMLFormElement>(null);
+
+  // opened, the focus goes to the first field: in the order shown, the
+  // tags, the chosen safety, the source
+  useEffect(() => {
+    form.current
+      ?.querySelector<HTMLElement>("textarea, [role=radio][aria-checked=true]")
+      ?.focus();
+  }, []);
 
   const save = useMutation({
     mutationFn: () =>
@@ -177,7 +196,9 @@ function Editor({
 
   return (
     <form
+      ref={form}
       aria-label={`Edit post ${postId}`}
+      onKeyDown={escapeCancels(onDone)}
       className="flex flex-col gap-4 rounded-xl border bg-card p-4"
       onSubmit={(event) => {
         event.preventDefault();
@@ -205,9 +226,9 @@ function Editor({
           <CompletionInput
             id={`${id}-tags`}
             mode="names"
+            multiline
             value={draft.tags}
             onChange={(tags) => setDraft((now) => ({ ...now, tags }))}
-            inputClassName="h-11"
           />
           {canCreateTags ? null : (
             <p className="text-muted-foreground text-xs">
@@ -299,6 +320,10 @@ function DeleteConfirmation({
   const navigate = useNavigate();
   const postId = post.id ?? 0;
   const what = name ? `post ${postId} (${name})` : `post ${postId}`;
+  const cancel = useRef<HTMLButtonElement>(null);
+
+  // opened, the focus goes to the safe choice
+  useEffect(() => cancel.current?.focus(), []);
 
   const remove = useMutation({
     mutationFn: () =>
@@ -323,6 +348,7 @@ function DeleteConfirmation({
   return (
     <section
       role="alertdialog"
+      onKeyDown={escapeCancels(onCancel)}
       aria-labelledby={`${id}-title`}
       aria-describedby={`${id}-text`}
       className="flex flex-col gap-3 rounded-xl border border-destructive bg-card p-4"
@@ -353,8 +379,8 @@ function DeleteConfirmation({
         >
           {remove.isPending ? "Deleting…" : `Delete ${what}`}
         </Button>
-        <Button variant="outline" onClick={onCancel}>
-          Keep it
+        <Button ref={cancel} variant="outline" onClick={onCancel}>
+          Cancel
         </Button>
       </div>
     </section>
@@ -382,6 +408,20 @@ export function PostActions({
   const fields = editableFields(can);
   const canDelete = can?.(DELETE_PRIVILEGE) ?? false;
   const [open, setOpen] = useState<"edit" | "delete" | null>(null);
+  const editButton = useRef<HTMLButtonElement>(null);
+  const deleteButton = useRef<HTMLButtonElement>(null);
+  // closed, the focus goes back to the button that opened it
+  const returnTo = useRef<"edit" | "delete" | null>(null);
+  useEffect(() => {
+    if (open === null && returnTo.current) {
+      (returnTo.current === "edit" ? editButton : deleteButton).current?.focus();
+      returnTo.current = null;
+    }
+  }, [open]);
+  const close = (which: "edit" | "delete") => {
+    returnTo.current = which;
+    setOpen(null);
+  };
   if (!fields.length && !canDelete) {
     return null;
   }
@@ -395,10 +435,11 @@ export function PostActions({
           fields={fields}
           postFields={postFields}
           canCreateTags={can?.("tags:create") ?? false}
-          onDone={() => setOpen(null)}
+          onDone={() => close("edit")}
         />
       ) : fields.length ? (
         <Button
+          ref={editButton}
           variant="outline"
           className="h-11 rounded-xl"
           onClick={() => setOpen("edit")}
@@ -413,10 +454,11 @@ export function PostActions({
           name={name}
           postFields={postFields}
           from={from}
-          onCancel={() => setOpen(null)}
+          onCancel={() => close("delete")}
         />
       ) : canDelete && open === null ? (
         <Button
+          ref={deleteButton}
           variant="ghost"
           className="h-11 rounded-xl text-destructive hover:text-destructive"
           onClick={() => setOpen("delete")}

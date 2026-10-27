@@ -20,6 +20,8 @@ import {
 
 // typing rests this long before the site is asked for tags
 const DEBOUNCE_MS = 150;
+// a multi-line field grows with its text up to this many pixels, then scrolls
+export const MAX_FIELD_HEIGHT = 192;
 const SUGGESTIONS = 10;
 
 function useDebounced<T>(value: T, delay: number): T {
@@ -37,12 +39,20 @@ function useDebounced<T>(value: T, delay: number): T {
  * or Tab takes, Escape closes). Its text is either a query in the engine's
  * syntax (a tag taken is escaped, named tokens are left alone) or a list
  * of tag names (`mode="names"`: every word a name, as it is).
+ *
+ * `multiline`: a field that wraps, for a long list of tags, growing with
+ * its text up to MAX_FIELD_HEIGHT and scrolling beyond. Its text is still
+ * one line of words separated by spaces: Enter adds no line break, and a
+ * pasted one becomes a space. A textarea cannot be a combobox (ARIA in
+ * HTML), so it is a text box that owns the list (aria-controls,
+ * aria-activedescendant), as a combobox does.
  */
 export function CompletionInput({
   id,
   value,
   onChange,
   mode = "query",
+  multiline = false,
   placeholder,
   className,
   inputClassName,
@@ -52,13 +62,14 @@ export function CompletionInput({
   value: string;
   onChange(next: string): void;
   mode?: "query" | "names";
+  multiline?: boolean;
   placeholder?: string;
   className?: string;
   inputClassName?: string;
 }) {
   const names = mode === "names";
   const listId = `${id}-tags`;
-  const input = useRef<HTMLInputElement>(null);
+  const input = useRef<HTMLInputElement & HTMLTextAreaElement>(null);
   const [target, setTarget] = useState<Completing | null>(null);
   const [active, setActive] = useState(-1);
   const cursor = useRef<number | null>(null);
@@ -99,6 +110,16 @@ export function CompletionInput({
     }
   });
 
+  // a multi-line field is as tall as its text, up to its most
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the height follows the text
+  useLayoutEffect(() => {
+    const field = input.current;
+    if (multiline && field) {
+      field.style.height = "auto";
+      field.style.height = `${Math.min(field.scrollHeight + 2, MAX_FIELD_HEIGHT)}px`;
+    }
+  }, [multiline, value]);
+
   const close = () => {
     setTarget(null);
     setActive(-1);
@@ -114,7 +135,13 @@ export function CompletionInput({
     close();
   };
 
-  const keyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+  const keyDown = (event: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    if (multiline && event.key === "Enter" && !(open && active >= 0)) {
+      // the text stays one line of words: no line break
+      event.preventDefault();
+      close();
+      return;
+    }
     if (!open) {
       return;
     }
@@ -146,36 +173,70 @@ export function CompletionInput({
 
   return (
     <div className={cn("relative min-w-0", className)}>
-      <input
-        ref={input}
-        id={id}
-        type={names ? "text" : "search"}
-        role="combobox"
-        aria-expanded={open}
-        aria-controls={listId}
-        aria-autocomplete="list"
-        aria-activedescendant={open && active >= 0 ? `${listId}-${active}` : undefined}
-        autoComplete="off"
-        spellCheck={false}
-        value={value}
-        onChange={(event) => {
-          onChange(event.target.value);
-          const at = event.target.selectionStart ?? event.target.value.length;
-          setTarget(
-            names
-              ? completingName(event.target.value, at)
-              : completing(event.target.value, at),
-          );
-          setActive(-1);
-        }}
-        onKeyDown={keyDown}
-        onBlur={close}
-        placeholder={placeholder}
-        className={cn(
-          "h-12 w-full rounded-xl border border-control-border bg-card px-4 font-mono text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring",
-          inputClassName,
-        )}
-      />
+      {multiline ? (
+        <textarea
+          ref={input}
+          id={id}
+          rows={1}
+          aria-controls={listId}
+          aria-autocomplete="list"
+          aria-activedescendant={
+            open && active >= 0 ? `${listId}-${active}` : undefined
+          }
+          autoComplete="off"
+          spellCheck={false}
+          value={value}
+          onChange={(event) => {
+            // a line break pasted in is a space: the same length, the cursor stays
+            const text = event.target.value.replace(/[\r\n]/g, " ");
+            onChange(text);
+            const at = event.target.selectionStart ?? text.length;
+            setTarget(names ? completingName(text, at) : completing(text, at));
+            setActive(-1);
+          }}
+          onKeyDown={keyDown}
+          onBlur={close}
+          placeholder={placeholder}
+          style={{ maxHeight: MAX_FIELD_HEIGHT }}
+          className={cn(
+            "block w-full resize-none overflow-x-hidden overflow-y-auto whitespace-pre-wrap wrap-anywhere rounded-xl border border-control-border bg-card px-4 py-2.5 font-mono text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            inputClassName,
+          )}
+        />
+      ) : (
+        <input
+          ref={input}
+          id={id}
+          type={names ? "text" : "search"}
+          role="combobox"
+          aria-expanded={open}
+          aria-controls={listId}
+          aria-autocomplete="list"
+          aria-activedescendant={
+            open && active >= 0 ? `${listId}-${active}` : undefined
+          }
+          autoComplete="off"
+          spellCheck={false}
+          value={value}
+          onChange={(event) => {
+            onChange(event.target.value);
+            const at = event.target.selectionStart ?? event.target.value.length;
+            setTarget(
+              names
+                ? completingName(event.target.value, at)
+                : completing(event.target.value, at),
+            );
+            setActive(-1);
+          }}
+          onKeyDown={keyDown}
+          onBlur={close}
+          placeholder={placeholder}
+          className={cn(
+            "h-12 w-full rounded-xl border border-control-border bg-card px-4 font-mono text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            inputClassName,
+          )}
+        />
+      )}
       <div
         id={listId}
         role="listbox"

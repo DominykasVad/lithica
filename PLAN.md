@@ -211,6 +211,8 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 - 2026-10-27 — 5.6 — /tags `?q=&category=&at=`, 50 a page, `sort:usages` unless the query sorts; needs `tags:list`
 - 2026-10-27 — 5.6 — "Create the creator category" on /tags: cards on, no `creator`, `tagCategories:create`; colour #7e2f22
 - 2026-10-27 — 5.6 — delete: inline confirmation naming post and card; DELETE with version; back to the library's q, at
+- 2026-10-27 — 5.6 — focus: editor → its first field, confirmation → Cancel; Escape cancels; closing → the button that opened it
+- 2026-10-27 — 5.6 — post tags: the completion field as a wrapping textarea (grows to 192 px, then scrolls); one line of words
 
 ---
 
