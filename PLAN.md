@@ -188,6 +188,7 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 - 2026-10-25 — 5.4 — lorebook URL `?filter=&kind=` (replace; filter once typing rests 300 ms); open entries are state
 - 2026-10-25 — 5.4 — lorebook mode: constant = always active; selective flag + secondary keys = selective; else keyword
 - 2026-10-25 — 5.4 — download: fetched with the session, saved as `Content-Disposition` names it, else `<id>.<ext>`
+- 2026-10-27 — 5.4 — download: the token goes only to the page's origin; the blob URL is revoked 60 s after the click
 - 2026-10-25 — 5.4b — Styled: card HTML in a frame sandboxed `allow-scripts allow-popups allow-popups-to-escape-sandbox`
 - 2026-10-25 — 5.4b — the frame takes its HTML by postMessage (from its parent only); the page takes only its height
 - 2026-10-25 — 5.4b — the frame's one script is named by sha256 hash, not 'self' (exact; 'self' in opaque frames varies)
