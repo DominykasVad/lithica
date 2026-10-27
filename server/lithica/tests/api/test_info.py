@@ -97,6 +97,8 @@ def test_info_api(
             "serverTime": "2016-01-01T13:00:00Z",
             "modules": [],
             "maxUploadSize": limit,
+            "visibility": "open",
+            "nsfwTag": "nsfw",
             "acceptedTypes": accepted,
             "config": expected_config_key,
         }
@@ -111,6 +113,8 @@ def test_info_api(
             "serverTime": "2016-01-03T13:01:00Z",
             "modules": [],
             "maxUploadSize": limit,
+            "visibility": "open",
+            "nsfwTag": "nsfw",
             "acceptedTypes": accepted,
             "config": expected_config_key,
         }
@@ -121,6 +125,8 @@ def test_info_api(
             "serverTime": "2016-01-03T13:01:00Z",
             "modules": [],
             "maxUploadSize": limit,
+            "visibility": "open",
+            "nsfwTag": "nsfw",
             "acceptedTypes": accepted,
             "config": expected_config_key,
         }

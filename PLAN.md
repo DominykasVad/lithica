@@ -178,6 +178,14 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 - 2026-10-27 — fix — `fields` is checked against the resource's serializer by a dependency, before the endpoint runs
 - 2026-10-27 — fix — a reset the site cannot mail: 500 `MailNotConfiguredError` (Server configuration error), before a token
 - 2026-10-27 — fix — a search's user is an argument of Executor.execute/get_around; executors and configs keep nothing
+- 2026-10-27 — 5.6b — `login`: anonymous has no privileges (no sign-up); an app dependency 403s all but /info, reset
+- 2026-10-27 — 5.6b — NSFW posts: the tag (any name) or any tag implying it, transitively; worked out once per request
+- 2026-10-27 — 5.6b — `nsfw-login` hides in one place: loader criteria on Post, Comment, Snapshot, PoolPost, PostFeature
+- 2026-10-27 — 5.6b — a request is filtered until get_user names somebody (fail closed); CLI and jobs are not
+- 2026-10-27 — 5.6b — post field `nsfw`, from the same tag set: the one answer to "is this post NSFW" for clients
+- 2026-10-27 — 5.6b — counts (tag usages, siblings, pool postCount, user counts) still count hidden posts; documented
+- 2026-10-27 — 5.6b — file links: secure_link_md5 of "<e></path under /data> <secret>"; e: day after tomorrow, UTC
+- 2026-10-27 — 5.6b — FILE_LINK_SECRET: [A-Za-z0-9_-]{32,}, checked by server and both images; one .env value
 - 2026-10-25 — fix — `GET /info` says `maxUploadSize` and `acceptedTypes` (engine + enabled modules), hints only
 - 2026-10-25 — 5.4 — card Markdown without a raw-HTML plugin; images as `[image: alt]`, never loaded
 - 2026-10-25 — 5.4 — Readable shows HTML as its text: no tags, style/script dropped, blocks as lines, entities decoded
@@ -384,12 +392,12 @@ in the dev stack, its results stated in the PR.
 **Done when:** editing, the 409 case and deleting work; actions the user lacks the privilege for are not offered.
 
 ### 5.6b NSFW
-- [ ] Server: a site setting `visibility`: `open` (default), `nsfw-login` (posts tagged with the NSFW tag need login), `login` (nothing but login and `GET /info` without login). The NSFW tag's name is a setting too (default `nsfw`). `GET /info` reports both.
-- [ ] `nsfw-login`: for anonymous users, searches leave NSFW posts out (as if `-nsfw` were in the query), and a NSFW post's page, `around`, card, download and featured answer as if it did not exist (404, not 403).
+- [x] Server: a site setting `visibility`: `open` (default), `nsfw-login` (posts tagged with the NSFW tag need login), `login` (nothing but login and `GET /info` without login). The NSFW tag's name is a setting too (default `nsfw`). `GET /info` reports both.
+- [x] `nsfw-login`: for anonymous users, searches leave NSFW posts out (as if `-nsfw` were in the query), and a NSFW post's page, `around`, card, download and featured answer as if it did not exist (404, not 403).
 - [ ] `login`: every route but login, password reset and `GET /info` needs a logged-in user; the client shows only the login page.
 - [ ] Client: a "Show NSFW" switch, per browser (later per account), default off. Off: NSFW tiles and pictures blurred with an "NSFW" label, revealed one at a time by a click; card text of a NSFW post behind the same click.
 - [ ] Upload: an "NSFW" checkbox per file, pre-checked when the card carries the NSFW tag; it adds or removes the tag.
-- [ ] Files under /data/ are not gated: their addresses cannot be guessed, but whoever has one can open it. Documented in the README; gating them (nginx asking the server per request) is a decision for a later phase.
+- [x] Signed file links: with `file_link_secret` set, every post file and thumbnail address the server gives out carries an expiry and a signature (nginx's `secure_link_md5`), valid until the start of the day after tomorrow (UTC); both client images refuse a post file or thumbnail without a valid one (403). Avatars are not signed. Unset: as before. README: what it protects and what not.
 
 **Done when:** in each of the three modes an anonymous visitor sees exactly what the mode allows (search, post, card, download, around); a logged-in user sees everything; the switch blurs and reveals as described.
 

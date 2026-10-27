@@ -4,7 +4,7 @@ from typing import Any
 import sqlalchemy.orm as sa_orm
 
 from lithica import db, model
-from lithica.func import diff, net, users, util
+from lithica.func import diff, net, users, util, visibility
 
 
 def get_tag_category_snapshot(category: model.TagCategory) -> dict[str, Any]:
@@ -87,7 +87,8 @@ def serialize_snapshot(
         "type": snapshot.resource_type,
         "id": snapshot.resource_name,
         "user": users.serialize_micro_user(snapshot.user, auth_user),
-        "data": snapshot.data,
+        # without the ids of posts the requester may not see
+        "data": visibility.redact_snapshot_data(snapshot),
         "time": snapshot.creation_time,
     }
 

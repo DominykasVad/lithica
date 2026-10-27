@@ -27,6 +27,9 @@ services:
       ## the dev stack runs with the modules on, Sardonyx's card pages among
       ## what it serves; set to "" here to try the engine alone
       MODULES: cards
+      ## signed file links (README): the same secret for the server and both
+      ## clients, from FILE_LINK_SECRET in .env; empty: not signed
+      FILE_LINK_SECRET: ${FILE_LINK_SECRET:-}
       #HOST: "::" (IPv4 and IPv6; "0.0.0.0" where IPv6 is disabled)
     volumes:
       - "data:/data"
@@ -38,6 +41,8 @@ services:
       target: development
     depends_on:
       - server
+    environment:
+      FILE_LINK_SECRET: ${FILE_LINK_SECRET:-}
     volumes:
       - "data:/data:ro"
       - "./legacy/client/:/opt/app/"
@@ -55,6 +60,8 @@ services:
       target: release
     depends_on:
       - server
+    environment:
+      FILE_LINK_SECRET: ${FILE_LINK_SECRET:-}
     volumes:
       - "data:/data:ro"
     ports:

@@ -18,7 +18,7 @@ from typing import Any
 
 import anyio
 import coloredlogs
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.openapi.utils import get_openapi
 from fastapi.routing import APIRoute
 from starlette.concurrency import run_in_threadpool
@@ -29,6 +29,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from lithica import config, db, openapi, registry
 from lithica.api import (
     comment_api,
+    dependencies,
     docs_api,
     error_handlers,
     info_api,
@@ -44,7 +45,7 @@ from lithica.api import (
     user_token_api,
 )
 from lithica.api.dependencies import LOG_USER_KEY
-from lithica.func import content, file_uploads, posts
+from lithica.func import content, file_uploads, posts, visibility
 from lithica.version import get_version
 
 logger = logging.getLogger(__name__)
@@ -122,6 +123,8 @@ class SessionScopeMiddleware:
             await self.app(scope, receive, send)
             return
         token = db.begin_scope()
+        # a request sees what anonymous users see until it is somebody's
+        visibility.begin_request()
         try:
             await self.app(scope, receive, send)
         finally:
@@ -255,6 +258,8 @@ def create_app(modules: Sequence[registry.Module] | None = None) -> FastAPI:
         servers=openapi.SERVERS,
         generate_unique_id_function=_operation_id,
         lifespan=_lifespan,
+        # on a site for its users only, nothing but logging in without logging in
+        dependencies=[Depends(dependencies.refuse_anonymous_on_a_login_site)],
         docs_url=None,
         redoc_url=None,
         openapi_url=None,

@@ -28,6 +28,30 @@ thumbnails:
 # off by default; the development image switches it on
 api_docs: false
 
+# who may see what without logging in:
+# - open: as the privileges below say (the default)
+# - nsfw-login: posts carrying nsfw_tag, or a tag that implies it, do not
+#   exist for anonymous users: not in searches, not by their id, not their
+#   card, comments or snapshots. numbers (tag usages, a pool's post count, a
+#   user's upload count) still count them; ids, addresses and files never
+#   come out
+# - login: nothing but logging in, password reset and GET /info; anonymous
+#   users have no privileges at all, so signing up is closed too
+visibility: open
+
+# the tag that marks a post as not safe for work, for nsfw-login and for
+# clients that blur such posts (any of the tag's names)
+nsfw_tag: nsfw
+
+# when set, every address of a post's file and thumbnail the server gives out
+# carries an expiry and a signature, and the web server in front refuses one
+# without a valid signature (403). the client images check it when they get
+# the same value as FILE_LINK_SECRET: set it once in .env, see the README.
+# letters, digits, - and _ only, at least 32 of them: openssl rand -hex 32.
+# unset: the addresses are as they always were, valid for good
+# the environment variable FILE_LINK_SECRET, when set, replaces this
+file_link_secret:
+
 # optional modules to switch on, by name: features layered on the engine.
 # a name that is not a module is an error and the server does not start.
 # a module's routes are served under modules/<name>/

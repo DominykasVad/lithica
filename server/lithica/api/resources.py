@@ -7,7 +7,7 @@ as required.
 """
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import ConfigDict, Field
 from pydantic.alias_generators import to_camel
@@ -187,6 +187,10 @@ class Post(Resource):
     thumbnail_url: str
     flags: list[str]
     tags: list[MicroTag]
+    nsfw: bool = Field(
+        description="Whether the post carries the site's NSFW tag (nsfwTag in "
+        "GET /info) or a tag that implies it, directly or through others."
+    )
     relations: list[MicroPost]
     user: MicroUser | None
     score: int
@@ -291,6 +295,15 @@ class Info(Resource):
         "engine's, then those of the modules switched on. A hint for clients, to "
         "point out at once a file that would be refused: the server decides by the "
         "file's content, not by its name or the type a browser gives it."
+    )
+    visibility: Literal["open", "nsfw-login", "login"] = Field(
+        description="Who sees what without logging in (`visibility`): `open`, as the "
+        "privileges say; `nsfw-login`, posts carrying `nsfwTag` (or a tag that "
+        "implies it) do not exist for anonymous users; `login`, nothing but logging "
+        "in, password reset and this."
+    )
+    nsfw_tag: str = Field(
+        description="The tag that marks a post as not safe for work (`nsfw_tag`)."
     )
     featured_post: Post | None = Field(
         description="Present only if the requester may see the featured post."

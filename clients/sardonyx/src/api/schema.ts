@@ -1525,6 +1525,17 @@ export interface components {
              * @description The types of file a post can be made from on this site: the engine's, then those of the modules switched on. A hint for clients, to point out at once a file that would be refused: the server decides by the file's content, not by its name or the type a browser gives it.
              */
             acceptedTypes?: components["schemas"]["AcceptedType"][];
+            /**
+             * Visibility
+             * @description Who sees what without logging in (`visibility`): `open`, as the privileges say; `nsfw-login`, posts carrying `nsfwTag` (or a tag that implies it) do not exist for anonymous users; `login`, nothing but logging in, password reset and this.
+             * @enum {string}
+             */
+            visibility?: "open" | "nsfw-login" | "login";
+            /**
+             * Nsfwtag
+             * @description The tag that marks a post as not safe for work (`nsfw_tag`).
+             */
+            nsfwTag?: string;
             /** @description Present only if the requester may see the featured post. */
             featuredPost?: components["schemas"]["Post"] | null;
             featuringUser?: components["schemas"]["User"] | null;
@@ -1893,6 +1904,11 @@ export interface components {
             flags?: string[];
             /** Tags */
             tags?: components["schemas"]["MicroTag"][];
+            /**
+             * Nsfw
+             * @description Whether the post carries the site's NSFW tag (nsfwTag in GET /info) or a tag that implies it, directly or through others.
+             */
+            nsfw?: boolean;
             /** Relations */
             relations?: components["schemas"]["MicroPost"][];
             user?: components["schemas"]["MicroUser"] | null;

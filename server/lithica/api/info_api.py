@@ -7,7 +7,7 @@ from lithica import config, registry
 from lithica.api import resources
 from lithica.api.dependencies import CurrentUser, max_upload_size
 from lithica.api.routing import ApiRouter
-from lithica.func import auth, file_types, mailer, posts, users, util
+from lithica.func import auth, file_types, mailer, posts, users, util, visibility
 
 router = ApiRouter(tags=["Info"])
 
@@ -109,6 +109,8 @@ def get_info(user: CurrentUser) -> dict[str, Any]:
         "serverTime": util.utcnow(),
         "modules": [module.name for module in registry.modules()],
         "maxUploadSize": max_upload_size(),
+        "visibility": visibility.mode(),
+        "nsfwTag": visibility.nsfw_tag(),
         "acceptedTypes": [
             {"mime": [mime_type], "extensions": extensions}
             for mime_type, extensions in file_types.accepted_types()

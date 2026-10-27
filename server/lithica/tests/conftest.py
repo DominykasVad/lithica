@@ -33,6 +33,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 from lithica import db, model, registry  # noqa: E402
 from lithica.api import dependencies, responses  # noqa: E402
 from lithica.app import app as lithica_app  # noqa: E402
+from lithica.func import visibility  # noqa: E402
 
 
 @pytest.fixture(scope="session")
@@ -263,6 +264,12 @@ def _serialize_with_mocks(obj: Any) -> str:
     return _serialize_default(obj)
 
 
+def _as_user(user: model.User) -> model.User:
+    """What authenticating does besides finding the user (dependencies.get_user)."""
+    visibility.set_viewer(user)
+    return user
+
+
 class ApiClient:
     """
     Calls the API over HTTP, in the application's own process.
@@ -301,7 +308,7 @@ class ApiClient:
             kwargs["json"] = body
         overrides = self._app.dependency_overrides
         if user is not None:
-            overrides[dependencies.get_user] = lambda: user
+            overrides[dependencies.get_user] = lambda: _as_user(user)
         try:
             with patch.object(responses, "_serialize_default", _serialize_with_mocks):
                 return self._client.request(method, path, **kwargs)

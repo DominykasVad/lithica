@@ -49,6 +49,44 @@ The [upstream szurubooru wiki](https://github.com/rr-/szurubooru/wiki) has
 more installation resources and related projects; they were written for
 szurubooru and may not match Lithica.
 
+## Who sees what
+
+A site decides what visitors who are not logged in may see (`visibility`
+in `server/config.yaml`; [doc/API.md](doc/API.md#visibility) has the
+details):
+
+- `open`, the default: as the privileges of the anonymous rank say.
+- `nsfw-login`: posts tagged with the NSFW tag (`nsfw_tag`, default
+  `nsfw`), or with a tag that implies it, do not exist for visitors who are
+  not logged in: not in searches, not by their address, not their card,
+  comments or snapshots. Numbers still count them: tag usages and the tags
+  shown beside a tag, a pool's post count, a user's upload and favourite
+  counts. Never their ids, addresses, files or cards. (Listing tags needs
+  the `tags:list` privilege, which visitors do not have by default.)
+- `login`: nothing but logging in and password reset without logging in;
+  signing up is closed too.
+
+### Signed file links
+
+The files of posts are served by the web server in front, not by the API,
+at addresses that are hard to guess but valid for good: whoever has one can
+open it, logged in or not, and so can anybody it is passed on to. With
+signed file links, every address the server gives out ends with an expiry
+and a signature, and the web server serves a post's file or thumbnail only
+to such an address, for one to two days. That keeps the files to those the
+API showed them to: a visitor of a `nsfw-login` site never gets an address
+of a NSFW post, and an address someone copied stops working.
+
+It does not take back a file someone has already downloaded, nor an address
+while it is valid. Avatars are not signed.
+
+To switch it on, set `FILE_LINK_SECRET` in `.env` to a long random string
+(letters, digits, `-` and `_`, at least 32; `openssl rand -hex 32` makes
+one). The compose files pass it to the server and to the client images,
+which check the links. Changing it ends every link handed out so far; the
+apps simply ask the API again. Without it, file addresses are as they
+always were.
+
 ## Screenshots
 
 Screenshots of the legacy client inherited from szurubooru.
