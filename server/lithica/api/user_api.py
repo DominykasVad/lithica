@@ -6,9 +6,9 @@ from lithica import db, model, search
 from lithica.api import resources
 from lithica.api.dependencies import (
     CurrentUser,
-    Fields,
     PageParams,
     RequestDataParam,
+    fields_of,
     read_body,
 )
 from lithica.api.dependencies import search as run_search
@@ -23,6 +23,9 @@ from lithica.api.schemas import (
     required,
 )
 from lithica.func import auth, users, versions
+
+# checked before the endpoint runs (see fields_of)
+CheckedFields = Annotated[list[str], Depends(fields_of(users.UserSerializer))]
 
 router = ApiRouter(tags=["Users"])
 
@@ -61,7 +64,7 @@ def _serialize(
 @router.get(
     "/users", response_model=resources.Paged[resources.User], summary="List users"
 )
-def get_users(auth_user: CurrentUser, fields: Fields, page: PageParams) -> Any:
+def get_users(auth_user: CurrentUser, fields: CheckedFields, page: PageParams) -> Any:
     """
     Searches for users.
 
@@ -85,7 +88,7 @@ def get_users(auth_user: CurrentUser, fields: Fields, page: PageParams) -> Any:
 )
 def create_user(
     auth_user: CurrentUser,
-    fields: Fields,
+    fields: CheckedFields,
     data: RequestDataParam,
     body: Annotated[UserCreate, Depends(read_body(UserCreate))],
 ) -> Any:
@@ -129,7 +132,7 @@ def create_user(
 
 
 @router.get("/user/{user_name}", response_model=resources.User, summary="Get a user")
-def get_user(user_name: str, auth_user: CurrentUser, fields: Fields) -> Any:
+def get_user(user_name: str, auth_user: CurrentUser, fields: CheckedFields) -> Any:
     """
     Retrieves information about an existing user.
 
@@ -153,7 +156,7 @@ def get_user(user_name: str, auth_user: CurrentUser, fields: Fields) -> Any:
 def update_user(
     user_name: str,
     auth_user: CurrentUser,
-    fields: Fields,
+    fields: CheckedFields,
     data: RequestDataParam,
     body: Annotated[UserUpdate, Depends(read_body(UserUpdate))],
 ) -> Any:

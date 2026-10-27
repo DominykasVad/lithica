@@ -221,6 +221,10 @@ should send a `GET` query like this:
 GET /posts/?fields=id,tags
 ```
 
+A field the resource does not have is a `ValidationError` (400), and the
+request is refused before it does anything: nothing is created, changed or
+deleted.
+
 ## Versioning
 
 To prevent problems with concurrent resource modification, szurubooru

@@ -4,7 +4,7 @@ from fastapi import Depends
 
 from lithica import db, model
 from lithica.api import resources
-from lithica.api.dependencies import CurrentUser, Fields, read_body, require
+from lithica.api.dependencies import CurrentUser, fields_of, read_body, require
 from lithica.api.routing import ApiRouter
 from lithica.api.schemas import (
     Int,
@@ -16,6 +16,11 @@ from lithica.api.schemas import (
     required,
 )
 from lithica.func import auth, snapshots, tag_categories, versions
+
+# checked before the endpoint runs (see fields_of)
+CheckedFields = Annotated[
+    list[str], Depends(fields_of(tag_categories.TagCategorySerializer))
+]
 
 router = ApiRouter(tags=["Tag categories"])
 
@@ -45,7 +50,7 @@ def _serialize(category: model.TagCategory, fields: list[str]) -> Any:
 )
 def get_tag_categories(
     _user: Annotated[model.User, Depends(require("tag_categories:list"))],
-    fields: Fields,
+    fields: CheckedFields,
 ) -> Any:
     """
     Lists all tag categories. Doesn't use paging.
@@ -68,7 +73,7 @@ def get_tag_categories(
 )
 def create_tag_category(
     auth_user: Annotated[model.User, Depends(require("tag_categories:create"))],
-    fields: Fields,
+    fields: CheckedFields,
     body: Annotated[TagCategoryCreate, Depends(read_body(TagCategoryCreate))],
 ) -> Any:
     """
@@ -102,7 +107,7 @@ def create_tag_category(
 def get_tag_category(
     category_name: str,
     _user: Annotated[model.User, Depends(require("tag_categories:view"))],
-    fields: Fields,
+    fields: CheckedFields,
 ) -> Any:
     """
     Retrieves information about an existing tag category.
@@ -125,7 +130,7 @@ def get_tag_category(
 def update_tag_category(
     category_name: str,
     auth_user: CurrentUser,
-    fields: Fields,
+    fields: CheckedFields,
     body: Annotated[TagCategoryUpdate, Depends(read_body(TagCategoryUpdate))],
 ) -> Any:
     """
@@ -200,7 +205,7 @@ def delete_tag_category(
 def set_tag_category_as_default(
     category_name: str,
     auth_user: Annotated[model.User, Depends(require("tag_categories:set_default"))],
-    fields: Fields,
+    fields: CheckedFields,
 ) -> Any:
     """
     Sets given tag category as default. All new tags created manually or

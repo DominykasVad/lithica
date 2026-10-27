@@ -4,7 +4,7 @@ from fastapi import Depends
 
 from lithica import db, model
 from lithica.api import resources
-from lithica.api.dependencies import CurrentUser, Fields, read_body, require
+from lithica.api.dependencies import CurrentUser, fields_of, read_body, require
 from lithica.api.routing import ApiRouter
 from lithica.api.schemas import (
     Int,
@@ -16,6 +16,11 @@ from lithica.api.schemas import (
     required,
 )
 from lithica.func import auth, pool_categories, snapshots, versions
+
+# checked before the endpoint runs (see fields_of)
+CheckedFields = Annotated[
+    list[str], Depends(fields_of(pool_categories.PoolCategorySerializer))
+]
 
 router = ApiRouter(tags=["Pool categories"])
 
@@ -43,7 +48,7 @@ def _serialize(category: model.PoolCategory, fields: list[str]) -> Any:
 )
 def get_pool_categories(
     _user: Annotated[model.User, Depends(require("pool_categories:list"))],
-    fields: Fields,
+    fields: CheckedFields,
 ) -> Any:
     """
     Lists all pool categories. Doesn't use paging.
@@ -66,7 +71,7 @@ def get_pool_categories(
 )
 def create_pool_category(
     auth_user: Annotated[model.User, Depends(require("pool_categories:create"))],
-    fields: Fields,
+    fields: CheckedFields,
     body: Annotated[PoolCategoryCreate, Depends(read_body(PoolCategoryCreate))],
 ) -> Any:
     """
@@ -99,7 +104,7 @@ def create_pool_category(
 def get_pool_category(
     category_name: str,
     _user: Annotated[model.User, Depends(require("pool_categories:view"))],
-    fields: Fields,
+    fields: CheckedFields,
 ) -> Any:
     """
     Retrieves information about an existing pool category.
@@ -122,7 +127,7 @@ def get_pool_category(
 def update_pool_category(
     category_name: str,
     auth_user: CurrentUser,
-    fields: Fields,
+    fields: CheckedFields,
     body: Annotated[PoolCategoryUpdate, Depends(read_body(PoolCategoryUpdate))],
 ) -> Any:
     """
@@ -194,7 +199,7 @@ def delete_pool_category(
 def set_pool_category_as_default(
     category_name: str,
     auth_user: Annotated[model.User, Depends(require("pool_categories:set_default"))],
-    fields: Fields,
+    fields: CheckedFields,
 ) -> Any:
     """
     Sets given pool category as default. All new pools created manually or

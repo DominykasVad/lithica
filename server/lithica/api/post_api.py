@@ -6,9 +6,9 @@ from lithica import db, errors, model, search
 from lithica.api import resources
 from lithica.api.dependencies import (
     CurrentUser,
-    Fields,
     PageParams,
     RequestDataParam,
+    fields_of,
     read_body,
     require,
 )
@@ -36,6 +36,9 @@ from lithica.func import (
     util,
     versions,
 )
+
+# checked before the endpoint runs (see fields_of)
+CheckedFields = Annotated[list[str], Depends(fields_of(posts.PostSerializer))]
 
 router = ApiRouter(tags=["Posts"])
 
@@ -126,7 +129,7 @@ def create_snapshots_for_post(
 )
 def get_posts(
     auth_user: Annotated[model.User, Depends(require("posts:list"))],
-    fields: Fields,
+    fields: CheckedFields,
     page: PageParams,
 ) -> Any:
     """
@@ -152,7 +155,7 @@ def get_posts(
 )
 def create_post(
     auth_user: CurrentUser,
-    fields: Fields,
+    fields: CheckedFields,
     data: RequestDataParam,
     body: Annotated[PostCreate, Depends(read_body(PostCreate))],
 ) -> Any:
@@ -226,7 +229,7 @@ def create_post(
 )
 def get_posts_by_image(
     auth_user: Annotated[model.User, Depends(require("posts:reverse_search"))],
-    fields: Fields,
+    fields: CheckedFields,
     data: RequestDataParam,
 ) -> Any:
     """
@@ -261,7 +264,7 @@ def get_posts_by_image(
 def get_post(
     post_id: str,
     auth_user: Annotated[model.User, Depends(require("posts:view"))],
-    fields: Fields,
+    fields: CheckedFields,
 ) -> Any:
     """
     Retrieves information about an existing post.
@@ -314,7 +317,7 @@ def get_post_content(
 def update_post(
     post_id: str,
     auth_user: CurrentUser,
-    fields: Fields,
+    fields: CheckedFields,
     data: RequestDataParam,
     body: Annotated[PostUpdate, Depends(read_body(PostUpdate))],
 ) -> Any:
@@ -428,7 +431,7 @@ def delete_post(
 )
 def merge_posts(
     auth_user: CurrentUser,
-    fields: Fields,
+    fields: CheckedFields,
     body: Annotated[PostMerge, Depends(read_body(PostMerge))],
 ) -> Any:
     """
@@ -468,7 +471,7 @@ def merge_posts(
 )
 def get_featured_post(
     auth_user: Annotated[model.User, Depends(require("posts:view:featured"))],
-    fields: Fields,
+    fields: CheckedFields,
 ) -> Any:
     """
     Retrieves the post that is currently featured on the main page in web
@@ -492,7 +495,7 @@ def get_featured_post(
 )
 def set_featured_post(
     auth_user: Annotated[model.User, Depends(require("posts:feature"))],
-    fields: Fields,
+    fields: CheckedFields,
     body: Annotated[PostFeature, Depends(read_body(PostFeature))],
 ) -> Any:
     """
@@ -523,7 +526,7 @@ def set_featured_post(
 def set_post_score(
     post_id: str,
     auth_user: Annotated[model.User, Depends(require("posts:score"))],
-    fields: Fields,
+    fields: CheckedFields,
     body: Annotated[ScoreUpdate, Depends(read_body(ScoreUpdate))],
 ) -> Any:
     """
@@ -551,7 +554,7 @@ def set_post_score(
 def delete_post_score(
     post_id: str,
     auth_user: Annotated[model.User, Depends(require("posts:score"))],
-    fields: Fields,
+    fields: CheckedFields,
 ) -> Any:
     """
     Removes the requester's rating of the post, as rating it with a score of
@@ -576,7 +579,7 @@ def delete_post_score(
 def add_post_to_favorites(
     post_id: str,
     auth_user: Annotated[model.User, Depends(require("posts:favorite"))],
-    fields: Fields,
+    fields: CheckedFields,
 ) -> Any:
     """
     Marks the post as favorite for authenticated user.
@@ -600,7 +603,7 @@ def add_post_to_favorites(
 def delete_post_from_favorites(
     post_id: str,
     auth_user: Annotated[model.User, Depends(require("posts:favorite"))],
-    fields: Fields,
+    fields: CheckedFields,
 ) -> Any:
     """
     Unmarks the post as favorite for authenticated user.
@@ -624,7 +627,7 @@ def delete_post_from_favorites(
 def get_posts_around(
     post_id: str,
     auth_user: Annotated[model.User, Depends(require("posts:list"))],
-    fields: Fields,
+    fields: CheckedFields,
     query: Annotated[
         str, Query(description="The search the post was found with.")
     ] = "",

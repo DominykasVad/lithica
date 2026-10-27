@@ -6,8 +6,8 @@ from lithica import db, model, search
 from lithica.api import resources
 from lithica.api.dependencies import (
     CurrentUser,
-    Fields,
     PageParams,
+    fields_of,
     read_body,
     require,
 )
@@ -22,6 +22,9 @@ from lithica.api.schemas import (
     required,
 )
 from lithica.func import auth, comments, posts, scores, util, versions
+
+# checked before the endpoint runs (see fields_of)
+CheckedFields = Annotated[list[str], Depends(fields_of(comments.CommentSerializer))]
 
 router = ApiRouter(tags=["Comments"])
 
@@ -63,7 +66,7 @@ def _serialize(comment: model.Comment, auth_user: model.User, fields: list[str])
 )
 def get_comments(
     auth_user: Annotated[model.User, Depends(require("comments:list"))],
-    fields: Fields,
+    fields: CheckedFields,
     page: PageParams,
 ) -> Any:
     """
@@ -91,7 +94,7 @@ def get_comments(
 )
 def create_comment(
     auth_user: Annotated[model.User, Depends(require("comments:create"))],
-    fields: Fields,
+    fields: CheckedFields,
     body: Annotated[CommentCreate, Depends(read_body(CommentCreate))],
 ) -> Any:
     """
@@ -120,7 +123,7 @@ def create_comment(
 def get_comment(
     comment_id: str,
     auth_user: Annotated[model.User, Depends(require("comments:view"))],
-    fields: Fields,
+    fields: CheckedFields,
 ) -> Any:
     """
     Retrieves information about an existing comment.
@@ -143,7 +146,7 @@ def get_comment(
 def update_comment(
     comment_id: str,
     auth_user: CurrentUser,
-    fields: Fields,
+    fields: CheckedFields,
     body: Annotated[CommentUpdate, Depends(read_body(CommentUpdate))],
 ) -> Any:
     """
@@ -206,7 +209,7 @@ def delete_comment(
 def set_comment_score(
     comment_id: str,
     auth_user: Annotated[model.User, Depends(require("comments:score"))],
-    fields: Fields,
+    fields: CheckedFields,
     body: Annotated[ScoreUpdate, Depends(read_body(ScoreUpdate))],
 ) -> Any:
     """
@@ -234,7 +237,7 @@ def set_comment_score(
 def delete_comment_score(
     comment_id: str,
     auth_user: Annotated[model.User, Depends(require("comments:score"))],
-    fields: Fields,
+    fields: CheckedFields,
 ) -> Any:
     """
     Removes the requester's rating of the comment, as rating it with a score

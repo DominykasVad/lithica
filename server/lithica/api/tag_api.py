@@ -6,8 +6,8 @@ from lithica import db, model, search
 from lithica.api import resources
 from lithica.api.dependencies import (
     CurrentUser,
-    Fields,
     PageParams,
+    fields_of,
     read_body,
     require,
 )
@@ -24,6 +24,9 @@ from lithica.api.schemas import (
     required,
 )
 from lithica.func import auth, snapshots, tags, util, versions
+
+# checked before the endpoint runs (see fields_of)
+CheckedFields = Annotated[list[str], Depends(fields_of(tags.TagSerializer))]
 
 router = ApiRouter(tags=["Tags"])
 
@@ -73,7 +76,7 @@ def _create_if_needed(tag_names: list[str], user: model.User) -> None:
 @router.get("/tags", response_model=resources.Paged[resources.Tag], summary="List tags")
 def get_tags(
     _user: Annotated[model.User, Depends(require("tags:list"))],
-    fields: Fields,
+    fields: CheckedFields,
     page: PageParams,
 ) -> Any:
     """
@@ -96,7 +99,7 @@ def get_tags(
 )
 def create_tag(
     auth_user: Annotated[model.User, Depends(require("tags:create"))],
-    fields: Fields,
+    fields: CheckedFields,
     body: Annotated[TagCreate, Depends(read_body(TagCreate))],
 ) -> Any:
     """
@@ -141,7 +144,7 @@ def create_tag(
 def get_tag(
     tag_name: str,
     _user: Annotated[model.User, Depends(require("tags:view"))],
-    fields: Fields,
+    fields: CheckedFields,
 ) -> Any:
     """
     Retrieves information about an existing tag.
@@ -164,7 +167,7 @@ def get_tag(
 def update_tag(
     tag_name: str,
     auth_user: CurrentUser,
-    fields: Fields,
+    fields: CheckedFields,
     body: Annotated[TagUpdate, Depends(read_body(TagUpdate))],
 ) -> Any:
     """
@@ -252,7 +255,7 @@ def delete_tag(
 )
 def merge_tags(
     auth_user: CurrentUser,
-    fields: Fields,
+    fields: CheckedFields,
     body: Annotated[TagMerge, Depends(read_body(TagMerge))],
 ) -> Any:
     """
@@ -289,7 +292,7 @@ def merge_tags(
 def get_tag_siblings(
     tag_name: str,
     _user: Annotated[model.User, Depends(require("tags:view"))],
-    fields: Fields,
+    fields: CheckedFields,
 ) -> Any:
     """
     Lists siblings of given tag, e.g. tags that were used in the same posts as
