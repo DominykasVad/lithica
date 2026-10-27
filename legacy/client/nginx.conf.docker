@@ -23,6 +23,28 @@ http {
         server __BACKEND__:6666;
     }
 
+    # Signed file links (the server's file_link_secret, given here as
+    # FILE_LINK_SECRET, filled in by docker-start.sh). The files of posts and
+    # their thumbnails are served only to an address the server signed:
+    # nginx's secure_link, ?e=<expiry>&s=<base64url of
+    # md5("<expiry><path> <secret>")>, <path> the file's path under /data.
+    # The same check as the Sardonyx image's, so that this port is no way
+    # around it. Avatars are not signed. Without a secret, as before.
+    map $uri $lithica_signed_path {
+        "~^/data(?<rest>/(posts|generated-thumbnails)/.+)$" $rest;
+        default "";
+    }
+    map "__FILE_LINK_SECRET__" $lithica_file_links_signed {
+        "" 0;
+        default 1;
+    }
+    map "$lithica_file_links_signed:$lithica_signed_path:$secure_link" $lithica_link_refused {
+        "~^0:" 0;
+        "~^1::" 0;
+        "~^1:/[^:]+:1$" 0;
+        default 1;
+    }
+
     server {
         listen 80 default_server;
         listen [::]:80 default_server;
@@ -51,6 +73,12 @@ http {
         }
 
         location /data/ {
+            secure_link $arg_s,$arg_e;
+            secure_link_md5 "$secure_link_expires$lithica_signed_path __FILE_LINK_SECRET__";
+            if ($lithica_link_refused) {
+                return 403 "Unauthorized";
+            }
+
             rewrite ^/data/(.*) /$1 break;
             root /data;
 

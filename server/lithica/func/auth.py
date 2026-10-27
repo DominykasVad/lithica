@@ -115,6 +115,12 @@ def has_privilege(user: model.User, privilege_name: str) -> bool:
     assert user
     all_ranks = list(RANK_MAP.keys())
     assert privilege_name in config.config["privileges"]
+    # a site that is for its users only: without logging in, nothing at all
+    if (
+        config.config.get("visibility") == "login"
+        and user.rank == model.User.RANK_ANONYMOUS
+    ):
+        return False
     assert user.rank in all_ranks
     minimal_rank = util.flip(RANK_MAP)[config.config["privileges"][privilege_name]]
     good_ranks = all_ranks[all_ranks.index(minimal_rank) :]

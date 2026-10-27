@@ -11,12 +11,24 @@ on:
       - "server/**"
       - "doc/openapi.json"
       - ".github/workflows/ci-server.yml"
+      # the web servers that check the file links the server signs
+      # (lithica/tests/test_file_links_nginx.py)
+      - "clients/sardonyx/nginx.conf.template"
+      - "clients/sardonyx/docker-entrypoint.d/**"
+      - "legacy/client/nginx.conf.docker"
+      - "legacy/client/docker-start.sh"
   push:
     branches: [main]
     paths:
       - "server/**"
       - "doc/openapi.json"
       - ".github/workflows/ci-server.yml"
+      # the web servers that check the file links the server signs
+      # (lithica/tests/test_file_links_nginx.py)
+      - "clients/sardonyx/nginx.conf.template"
+      - "clients/sardonyx/docker-entrypoint.d/**"
+      - "legacy/client/nginx.conf.docker"
+      - "legacy/client/docker-start.sh"
 
 permissions:
   contents: read
@@ -52,6 +64,9 @@ jobs:
 
     env:
       LITHICA_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5433/postgres
+      # the runner has Docker: the nginx checks of signed file links must
+      # run here, not be skipped
+      LITHICA_REQUIRE_DOCKER: "1"
 
     steps:
       - name: Checkout

@@ -27,10 +27,15 @@ from lithica import config
 
 
 class _Scope:
-    """Identity of one unit of work; also counts its queries for the log."""
+    """
+    Identity of one unit of work; also counts its queries for the log, and
+    keeps what the unit of work works out once and uses throughout (see
+    scope_values).
+    """
 
     def __init__(self) -> None:
         self.query_count = 0
+        self.values: dict[str, Any] = {}
 
 
 _scope: ContextVar[_Scope | None] = ContextVar("lithica_db_scope", default=None)
@@ -91,6 +96,15 @@ def get_session() -> Any:
 def set_sesssion(new_session: Any) -> None:
     global session
     session = new_session
+
+
+def scope_values() -> dict[str, Any] | None:
+    """
+    What the current unit of work keeps for itself: one request's own
+    values, gone with the request; None outside a scope.
+    """
+    scope = _scope.get()
+    return scope.values if scope is not None else None
 
 
 def reset_query_count() -> None:

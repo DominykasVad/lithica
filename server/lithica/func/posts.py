@@ -12,6 +12,7 @@ from lithica import config, db, errors, model, registry
 from lithica.func import (
     auth,
     comments,
+    file_links,
     file_types,
     files,
     image_hash,
@@ -25,6 +26,7 @@ from lithica.func import (
     tags,
     users,
     util,
+    visibility,
 )
 from lithica.func import content as content_module
 from lithica.func.content import ContentLike
@@ -48,7 +50,11 @@ class PostAlreadyFeaturedError(errors.ValidationError):
 
 
 class PostAlreadyUploadedError(errors.ValidationError):
-    def __init__(self, other_post: model.Post) -> None:
+    def __init__(self, other_post: model.Post | None) -> None:
+        if other_post is None:
+            # the post is one this user may not see: that it exists is all
+            super().__init__("Post already uploaded.")
+            return
         super().__init__(
             "Post already uploaded (%d)" % other_post.post_id,
             {
@@ -114,21 +120,20 @@ def get_post_security_hash(id: int) -> str:
 
 
 def get_post_content_url(post: model.Post) -> str:
+    """The file's address, signed when the site signs its file links."""
     assert post
-    return "%s/posts/%d_%s.%s" % (
-        config.config["data_url"].rstrip("/"),
-        post.post_id,
-        get_post_security_hash(post.post_id),
-        file_types.get_extension(post.mime_type) or "dat",
+    path = get_post_content_path(post)
+    return file_links.link(
+        "%s/%s" % (config.config["data_url"].rstrip("/"), path), path
     )
 
 
 def get_post_thumbnail_url(post: model.Post) -> str:
+    """The thumbnail's address, signed when the site signs its file links."""
     assert post
-    return "%s/generated-thumbnails/%d_%s.jpg" % (
-        config.config["data_url"].rstrip("/"),
-        post.post_id,
-        get_post_security_hash(post.post_id),
+    path = get_post_thumbnail_path(post)
+    return file_links.link(
+        "%s/%s" % (config.config["data_url"].rstrip("/"), path), path
     )
 
 
@@ -209,6 +214,7 @@ class PostSerializer(serialization.BaseSerializer):
             "contentUrl": self.serialize_content_url,
             "thumbnailUrl": self.serialize_thumbnail_url,
             "flags": self.serialize_flags,
+            "nsfw": self.serialize_nsfw,
             "tags": self.serialize_tags,
             "relations": self.serialize_relations,
             "user": self.serialize_user,
@@ -278,6 +284,9 @@ class PostSerializer(serialization.BaseSerializer):
 
     def serialize_flags(self) -> Any:
         return self.post.flags
+
+    def serialize_nsfw(self) -> Any:
+        return visibility.is_nsfw(self.post)
 
     def serialize_tags(self) -> Any:
         return [
@@ -852,13 +861,23 @@ def update_post_content(post: model.Post, content: ContentLike | None) -> None:
 
     post.checksum = util.get_sha1(content)
     post.checksum_md5 = util.get_md5(content)
-    other_post = (
-        db.session.query(model.Post)
+    # every post, also one this user may not see: a file is on the site once.
+    # Only its id: a post loaded here would stay in the session, where a
+    # lookup by id later in the request finds it without a query
+    same_ids = (
+        db.session.query(model.Post.post_id)
         .filter(model.Post.checksum == post.checksum)
         .filter(model.Post.post_id != post.post_id)
-        .one_or_none()
+        .execution_options(**{visibility.ALL_POSTS: True})
+        .all()
     )
-    if other_post and other_post.post_id and other_post.post_id != post.post_id:
+    # a new post gets its id only as the query flushes it: not itself
+    other_post_id = next(
+        (row.post_id for row in same_ids if row.post_id != post.post_id), None
+    )
+    if other_post_id:
+        # one this user may see is loaded as any other lookup
+        other_post = try_get_post_by_id(other_post_id)
         raise PostAlreadyUploadedError(other_post)
 
     # Before anything of the post goes to the session: a module may refuse

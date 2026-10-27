@@ -231,6 +231,7 @@ def test_serialize_post(
             "thumbnailUrl": "http://example.com/"
             "generated-thumbnails/1_244c8840887984c4.jpg",
             "flags": ["loop"],
+            "nsfw": False,
             "tags": [
                 {
                     "names": ["tag1", "tag2"],

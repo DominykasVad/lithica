@@ -642,7 +642,10 @@ def get_posts_around(
     - the post does not exist
     - privileges are too low
     """
-    around = _search_executor.get_around(query, _get_post_id(post_id), auth_user)
+    # the post itself first: one that is not there (or not for this user)
+    # has no neighbours either
+    post = _get_post(post_id)
+    around = _search_executor.get_around(query, post.post_id, auth_user)
     # the post search yields posts; either neighbour may be missing
     previous_post, next_post = cast(tuple[model.Post | None, model.Post | None], around)
     return {

@@ -48,6 +48,10 @@ def _environment_overrides() -> dict:
     overrides: dict = {}
     if os.getenv("API_DOCS"):
         overrides["api_docs"] = os.getenv("API_DOCS") not in ("0", "false", "no")
+    file_link_secret = os.getenv("FILE_LINK_SECRET")
+    if file_link_secret is not None:
+        # set but empty is unset: compose files pass it on as it is in .env
+        overrides["file_link_secret"] = file_link_secret or None
     modules = os.getenv("MODULES")
     if modules is not None:
         # Set means it decides, also when it is empty: that is how a compose
@@ -94,6 +98,42 @@ def validate_secret() -> None:
         )
 
 
+VISIBILITIES = ("open", "nsfw-login", "login")
+# the characters a file link secret may have: it goes into the web server's
+# configuration as it is, where anything else could change its meaning
+FILE_LINK_SECRET_PATTERN = re.compile(r"[A-Za-z0-9_-]{32,}")
+
+
+def validate_visibility() -> None:
+    if config.get("visibility", "open") not in VISIBILITIES:
+        raise errors.ConfigError(
+            "'visibility' must be one of %s." % ", ".join(VISIBILITIES)
+        )
+    nsfw_tag = config.get("nsfw_tag", "nsfw")
+    if not isinstance(nsfw_tag, str) or not nsfw_tag.strip():
+        raise errors.ConfigError("'nsfw_tag' must be the name of a tag.")
+
+
+def validate_file_link_secret() -> None:
+    secret = config.get("file_link_secret")
+    if secret is None:
+        if config.get("visibility", "open") != "open":
+            # what the API hides, its files still show: their addresses work
+            # for anyone who has them
+            logger.warning(
+                "'visibility' is %r but 'file_link_secret' is not set: post "
+                "files stay reachable by anyone with an address. Set it to "
+                "sign the file links (see the README, Signed file links).",
+                config["visibility"],
+            )
+        return
+    if not isinstance(secret, str) or not FILE_LINK_SECRET_PATTERN.fullmatch(secret):
+        raise errors.ConfigError(
+            "'file_link_secret' must be at least 32 letters, digits, - or _ "
+            "(for example the output of: openssl rand -hex 32), or unset."
+        )
+
+
 def validate_mail_domain() -> None:
     """
     Refuse to send mail without knowing our own address. Password reset
@@ -116,6 +156,8 @@ def validate() -> None:
     from lithica.func.auth import RANK_MAP
 
     validate_secret()
+    validate_visibility()
+    validate_file_link_secret()
 
     for privilege, rank in config["privileges"].items():
         if rank not in RANK_MAP.values():

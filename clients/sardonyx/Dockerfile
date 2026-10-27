@@ -44,8 +44,13 @@ ENV BACKEND_HOST=server
 # nginx resolves BACKEND_HOST anew while it runs, so that the server can be
 # restarted without the client; this is Docker's name server
 ENV RESOLVER=127.0.0.11
+# the secret of signed file links, the server's file_link_secret (README,
+# "Signed file links"); empty: file links are not checked. Defined either
+# way, so that the template always has it to fill in.
+ENV FILE_LINK_SECRET=
 
 COPY nginx.conf.template /etc/nginx/templates/default.conf.template
+COPY --chmod=755 docker-entrypoint.d/15-file-link-secret.sh /docker-entrypoint.d/
 COPY --from=build /app/dist /usr/share/nginx/html
 
 ARG BUILD_INFO=

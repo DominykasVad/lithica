@@ -18,6 +18,8 @@ with the client image in front, that is `/api/`.
 1. [General rules](#general-rules)
 
    - [Authentication](#authentication)
+   - [Visibility](#visibility)
+   - [Signed file links](#signed-file-links)
    - [User token authentication](#user-token-authentication)
    - [Basic requests](#basic-requests)
    - [File uploads](#file-uploads)
@@ -70,6 +72,48 @@ server's configuration.
 It is recommended to add `?bump-login` GET parameter to the first request in a
 client "session" (where the definition of a session is up to the client), so
 that the user's last login time is kept up to date.
+
+## Visibility
+
+What a visitor who is not logged in may see is the site's `visibility`
+setting, which `GET /info` reports as `visibility`, with the NSFW tag's name
+as `nsfwTag`:
+
+- `open` (the default): as the privileges of the anonymous rank say.
+- `nsfw-login`: the posts that carry the NSFW tag (any of its names), or a
+  tag that implies it, directly or through other tags, do not exist for
+  anonymous users. Searches and their totals leave them out, a request for
+  one by its id answers as for a post that is not there (404,
+  `PostNotFoundError`), and the same holds for its card, its comments, its
+  snapshots, its place in pools and its featuring; ids of such posts are
+  left out of snapshot data. Uploading a file such a post already has is
+  refused with `PostAlreadyUploadedError` without `otherPostId` and
+  `otherPostUrl`. Numbers are not adjusted: tag usages and siblings, a
+  pool's `postCount`, a user's upload and favourite counts still count
+  those posts (never their ids, addresses or files). Logged-in users see
+  what their privileges allow, as always.
+- `login`: an anonymous user has no privileges at all, and every request
+  of one is refused with 403 `AuthError` before the route does anything,
+  except `GET /info` and password reset. Logging in (`POST
+  /user-token/{name}` with the password) is a request of that user, not of
+  the anonymous one. Signing up is closed too: creating an account is a
+  privilege of the anonymous rank.
+
+## Signed file links
+
+A site may sign the addresses of its post files and thumbnails
+(`file_link_secret` in its config). Every `contentUrl` and `thumbnailUrl`
+the server gives out then ends with `?e=<expiry>&s=<signature>`, and the web
+server in front serves the file only to such an address (403 otherwise):
+
+    signature = base64url, without padding, of md5("<expiry><path> <secret>")
+
+where `<path>` is the file's path under the data directory
+(`/posts/5_0123456789abcdef.png`) and `<expiry>` the start of the day after
+tomorrow, UTC, in seconds since the epoch. An address is therefore the same
+for a whole day and valid for 24 to 48 hours; a client asks the API again
+for a newer one. Avatars are not signed. This is nginx's `secure_link_md5`;
+both client images check it when they are given the same secret.
 
 ## User token authentication
 
@@ -505,6 +549,7 @@ One file together with its metadata posted to the site.
     "thumbnailUrl":       <thumbnail-url>,
     "flags":              <flags>,
     "tags":               <tags>,
+    "nsfw":               <nsfw>,
     "relations":          <relations>,
     "notes":              <notes>,
     "user":               <user>,
@@ -571,12 +616,19 @@ One file together with its metadata posted to the site.
 - `<checksum-MD5>`: the MD5 file checksum.
 - `<canvas-width>` and `<canvas-height>`: the original width and height of the
   post content.
-- `<content-url>`: where the post content is located.
-- `<thumbnail-url>`: where the post thumbnail is located.
+- `<content-url>`: where the post content is located. On a site that signs
+  its file links (`file_link_secret`), with `?e=<expiry>&s=<signature>`:
+  see [Signed file links](#signed-file-links).
+- `<thumbnail-url>`: where the post thumbnail is located; signed as
+  `<content-url>` is.
 - `<flags>`: various flags such as whether the post is looped, represented as
   array of plain strings.
 - `<tags>`: list of tags the post is tagged with, serialized as [micro
   tag resource](#micro-tag).
+- `<nsfw>`: whether the post carries the site's NSFW tag (`nsfwTag` of
+  `GET /info`) or a tag that implies it, directly or through others: the one
+  answer the server gives to "is this post NSFW", the same it hides posts by
+  (see [Visibility](#visibility)).
 - `<relations>`: a list of related posts, serialized as [micro post
   resources](#micro-post). Links to related posts are shown
   to the user by the web client.

@@ -1,5 +1,6 @@
-# Sardonyx in its image. The nginx image fills in ${BACKEND_HOST} and
-# ${RESOLVER} from the environment when the container starts.
+# Sardonyx in its image. The nginx image fills in ${BACKEND_HOST},
+# ${RESOLVER} and ${FILE_LINK_SECRET} from the environment when the
+# container starts.
 
 # The path of an API request as the browser sent it, without /api: still
 # encoded, so that a tag called "a/b" (/api/tag/a%2Fb) reaches the server as
@@ -38,6 +39,29 @@ map "" $frame_images_csp {
 # load nothing, whatever it is or claims to be.
 map "" $upload_csp {
     default "default-src 'none'; sandbox";
+}
+
+# Signed file links (the server's file_link_secret, given here as
+# FILE_LINK_SECRET; README, "Signed file links"). The files of posts and
+# their thumbnails are served only to an address the server signed: nginx's
+# secure_link, ?e=<expiry>&s=<base64url of md5("<expiry><path> <secret>")>,
+# where <path> is the file's path under /data (/posts/5_abc.png), as the
+# server signs it. Avatars are not signed. Without a secret, as before.
+map $uri $lithica_signed_path {
+    "~^/data(?<rest>/(posts|generated-thumbnails)/.+)$" $rest;
+    default "";
+}
+map "${FILE_LINK_SECRET}" $lithica_file_links_signed {
+    "" 0;
+    default 1;
+}
+# refused: links are signed, the file is one that is signed, and its
+# signature is missing, wrong or expired ($secure_link is 1 only if valid)
+map "$lithica_file_links_signed:$lithica_signed_path:$secure_link" $lithica_link_refused {
+    "~^0:" 0;
+    "~^1::" 0;
+    "~^1:/[^:]+:1$" 0;
+    default 1;
 }
 
 server {
@@ -81,6 +105,11 @@ server {
     # the uploaded files and their thumbnails, from the data volume, read-only
     location /data/ {
         alias /data/;
+        secure_link $arg_s,$arg_e;
+        secure_link_md5 "$secure_link_expires$lithica_signed_path ${FILE_LINK_SECRET}";
+        if ($lithica_link_refused) {
+            return 403;
+        }
         # somebody's upload: a browser must not guess at what it is, and
         # opened by itself it can run nothing
         add_header X-Content-Type-Options nosniff always;

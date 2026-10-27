@@ -25,7 +25,15 @@ from starlette.requests import ClientDisconnect
 from lithica import config, db, errors, model
 from lithica.api.error_handlers import HttpError
 from lithica.api.schemas import READ_AS_INT, Bool, RequestModel
-from lithica.func import auth, file_uploads, net, serialization, user_tokens, users
+from lithica.func import (
+    auth,
+    file_uploads,
+    net,
+    serialization,
+    user_tokens,
+    users,
+    visibility,
+)
 from lithica.func import content as content_module
 from lithica.func.content import Content, ContentLike
 from lithica.search.executor import Executor
@@ -134,10 +142,37 @@ def get_user(
     header = request.headers.get("Authorization")
     user = _authenticate(header, bump_login) if header else _anonymous_user()
     request.scope[LOG_USER_KEY] = user.name
+    # what the request may see of the posts follows from who it is
+    visibility.set_viewer(user)
     return user
 
 
 CurrentUser = Annotated[model.User, Depends(get_user)]
+
+# what an anonymous user may still ask a site whose visibility is `login`:
+# what the site is, and getting back into an account (logging in itself is
+# a request of somebody, not of the anonymous user)
+LOGIN_FREE_ROUTES = frozenset(
+    {
+        ("GET", "/info"),
+        ("GET", "/password-reset/{user_name}"),
+        ("POST", "/password-reset/{user_name}"),
+    }
+)
+
+
+def refuse_anonymous_on_a_login_site(request: Request, user: CurrentUser) -> None:
+    """
+    On a site for its users only, an anonymous request is refused before the
+    route does anything, as for a missing privilege: nothing is looked up,
+    and so nothing is told by a 404 or a 400 either.
+    """
+    if visibility.mode() != visibility.LOGIN or user.rank != model.User.RANK_ANONYMOUS:
+        return
+    route = request.scope.get("route")
+    if (request.method, getattr(route, "path", None)) in LOGIN_FREE_ROUTES:
+        return
+    raise errors.AuthError("Log in to use this site.")
 
 
 def require(privilege: str) -> Callable[[model.User], model.User]:
