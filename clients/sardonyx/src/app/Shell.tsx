@@ -17,7 +17,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useCanUpload } from "./privileges";
+import { useCanUpload, usePrivileges } from "./privileges";
 import { type Theme, useTheme } from "./theme";
 
 function ThemeMenu() {
@@ -106,9 +106,25 @@ function UploadLink() {
   ) : null;
 }
 
+/** The tags page, for those who may list the tags. */
+function useCanListTags(): boolean {
+  return usePrivileges()?.("tags:list") ?? false;
+}
+
+function TagsLink() {
+  return useCanListTags() ? (
+    <Button asChild variant="ghost" size="sm" className="max-sm:hidden">
+      <Link to="/tags" activeProps={{ "aria-current": "page" }}>
+        Tags
+      </Link>
+    </Button>
+  ) : null;
+}
+
 /** The pages of the navigation, folded into one button on a phone. */
 function NavMenu() {
   const canUpload = useCanUpload();
+  const canListTags = useCanListTags();
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -130,6 +146,11 @@ function NavMenu() {
         <DropdownMenuItem asChild>
           <Link to="/posts">Library</Link>
         </DropdownMenuItem>
+        {canListTags ? (
+          <DropdownMenuItem asChild>
+            <Link to="/tags">Tags</Link>
+          </DropdownMenuItem>
+        ) : null}
         {canUpload ? (
           <DropdownMenuItem asChild>
             <Link to="/upload">Upload</Link>
@@ -174,6 +195,7 @@ export function Shell() {
                 Library
               </Link>
             </Button>
+            <TagsLink />
             <UploadLink />
             <CardsOnly>
               <span className="rounded-full bg-accent px-2 max-sm:hidden py-0.5 text-accent-foreground text-xs">

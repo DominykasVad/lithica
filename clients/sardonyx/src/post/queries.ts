@@ -11,6 +11,8 @@ export type LorebookEntry = components["schemas"]["LorebookEntry"];
 export function postFields(hasCards: boolean): string {
   return [
     "id",
+    // what an edit or a delete is made on
+    "version",
     "type",
     "mimeType",
     "safety",

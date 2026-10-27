@@ -204,6 +204,13 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 - 2026-10-25 — 5.5 — the Upload link and page need `uploads:create` and `posts:create:identified` at the user's rank
 - 2026-10-27 — 5.5 — Cancel stops the sending only; POST /posts is never aborted, and its outcome is shown ("Creating…")
 - 2026-10-27 — 5.5 — the NSFW box reads at most 10,000 PNG chunks and none past the file's end; beyond that, unchecked
+- 2026-10-27 — 5.6 — edit: a field only under its own privilege (`posts:edit:tags`/`safety`/`source`); only changes sent
+- 2026-10-27 — 5.6 — a 409 offers Reload: the fields show the post as it now is, the unsaved edit beside them; never merged
+- 2026-10-27 — 5.6 — privilege names as GET /info gives them (camelCase); a test holds them to config.yaml.dist
+- 2026-10-27 — 5.6 — after a save, list entries take the post's new values and lists are marked stale; a delete drops it
+- 2026-10-27 — 5.6 — /tags `?q=&category=&at=`, 50 a page, `sort:usages` unless the query sorts; needs `tags:list`
+- 2026-10-27 — 5.6 — "Create the creator category" on /tags: cards on, no `creator`, `tagCategories:create`; colour #7e2f22
+- 2026-10-27 — 5.6 — delete: inline confirmation naming post and card; DELETE with version; back to the library's q, at
 
 ---
 
@@ -365,9 +372,9 @@ in the dev stack, its results stated in the PR.
 **Done when:** a mixed batch (cards, a plain image, a duplicate, a hostile ZIP fixture) uploads with the right result for each file.
 
 ### 5.6 Editing
-- [ ] Edit a post's tags (autocomplete), safety and source; optimistic locking via the post's `version` (a 409 is shown as "changed meanwhile, reload").
-- [ ] Tag list page with categories; create the `creator` category from the UI if missing (admin).
-- [ ] Delete a post (with confirmation; only with the privilege).
+- [x] Edit a post's tags (autocomplete), safety and source; optimistic locking via the post's `version` (a 409 is shown as "changed meanwhile, reload").
+- [x] Tag list page with categories; create the `creator` category from the UI if missing (admin).
+- [x] Delete a post (with confirmation; only with the privilege).
 - [ ] Out of scope in phase 5: pools, comments, users and admin screens beyond the above.
 
 **Done when:** editing, the 409 case and deleting work; actions the user lacks the privilege for are not offered.

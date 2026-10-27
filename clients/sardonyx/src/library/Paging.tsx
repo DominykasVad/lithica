@@ -11,7 +11,7 @@ const step =
 
 /** The list a pager moves in: its page, and its search at an offset. */
 export interface PagedList {
-  to: "/posts";
+  to: "/posts" | "/tags";
   searchAt(offset: number): object;
 }
 

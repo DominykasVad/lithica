@@ -48,28 +48,43 @@ export function useRank(): string | null {
   return account.data?.rank ?? null;
 }
 
-/** What uploading takes: putting a file up, and making a post of it. */
-export const UPLOAD_PRIVILEGES = ["uploads:create", "posts:create:identified"] as const;
-
-/** Whether this user may upload: null while the site or the rank is not known. */
-export function useCanUpload(): boolean | null {
+/**
+ * What this user may do, by the site's privilege table: `can(name)` for a
+ * privilege; null while the site or the rank is not known. Only what the
+ * user can do is offered; the site still decides each request.
+ */
+export function usePrivileges(): ((name: string) => boolean) | null {
   const info = useQuery(infoQuery);
   const rank = useRank();
   if (!info.data || rank === null) {
     return null;
   }
-  return UPLOAD_PRIVILEGES.every((name) =>
-    hasPrivilege(info.data.config?.privileges, name, rank),
-  );
+  const privileges = info.data.config?.privileges;
+  return (name) => hasPrivilege(privileges, name, rank);
+}
+
+/** What uploading takes: putting a file up, and making a post of it. */
+export const UPLOAD_PRIVILEGES = ["uploads:create", "posts:create:identified"] as const;
+
+/** Whether this user may upload: null while the site or the rank is not known. */
+export function useCanUpload(): boolean | null {
+  const can = usePrivileges();
+  return can ? UPLOAD_PRIVILEGES.every(can) : null;
+}
+
+/** The lowest rank that has all these privileges here, for saying so. */
+export function lowestRank(
+  privileges: Record<string, unknown> | undefined,
+  names: readonly string[],
+): string | null {
+  const ranks = names.map((name) => RANKS.indexOf(privileges?.[name] as never));
+  const highest = Math.max(...ranks);
+  return highest >= 0 ? (RANKS[highest] ?? null) : null;
 }
 
 /** The lowest rank that may upload here, for saying so. */
 export function uploadRank(
   privileges: Record<string, unknown> | undefined,
 ): string | null {
-  const ranks = UPLOAD_PRIVILEGES.map((name) =>
-    RANKS.indexOf(privileges?.[name] as never),
-  );
-  const highest = Math.max(...ranks);
-  return highest >= 0 ? (RANKS[highest] ?? null) : null;
+  return lowestRank(privileges, UPLOAD_PRIVILEGES);
 }
