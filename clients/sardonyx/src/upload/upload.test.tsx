@@ -5,6 +5,7 @@ import { fakeSite, INFO, renderApp, type Sent } from "@/test-utils";
 import { cardSaysNsfw } from "./cardTags";
 import { refusal } from "./files";
 import { charxCard, FakeXhr, pngCard } from "./fixtures";
+import { send } from "./send";
 import { tagsFor } from "./UploadPage";
 
 const TOKEN = "f5a2c0de-0000-4000-8000-000000000001";
@@ -180,6 +181,18 @@ describe("the NSFW box", () => {
     ).toBe(false);
   });
 
+  it("walks no more than 10,000 chunks of a PNG, nor past its end", async () => {
+    const withPadding = (padding: number) =>
+      cardSaysNsfw(file("a.png", pngCard(["nsfw"], "chara", { padding })));
+    // IHDR, the padding and the card's chunk: within the bound, it is read
+    expect(await withPadding(9_997)).toBe(true);
+    // beyond it, the walk stops and the box starts unchecked
+    expect(await withPadding(10_000)).toBe(false);
+    expect(
+      await cardSaysNsfw(file("a.png", pngCard(["nsfw"], "chara", { overlong: true }))),
+    ).toBe(false);
+  }, 20_000);
+
   it("is checked and held for a card that says NSFW, and sets the tag it is sent with", async () => {
     const sent = site();
     renderApp("/upload");
@@ -345,6 +358,60 @@ describe("sending", () => {
     await user.click(within(row("4.png")).getByRole("button", { name: "Try again" }));
     await waitFor(() => expect(FakeXhr.all).toHaveLength(4));
     expect(FakeXhr.all[3]?.file.name).toBe("4.png");
+  });
+
+  it("lets a post being made finish, and shows how it ended", async () => {
+    let answer: () => void = () => {};
+    const sent = site({
+      created: () =>
+        new Promise((resolve) => {
+          answer = () =>
+            resolve({
+              body: { id: 41, type: "image", thumbnailUrl: "data/x.jpg", card: null },
+            });
+        }) as never,
+    });
+    renderApp("/upload");
+    const user = userEvent.setup();
+    await choose(file("1.png"), file("2.png"), file("3.png"));
+    await user.click(screen.getByRole("button", { name: "Upload 3 files" }));
+    await waitFor(() => expect(FakeXhr.all).toHaveLength(2));
+    await act(async () => FakeXhr.all[0]?.respond(200, { token: "token-1" }));
+    // its upload done, the post is being made: no cancelling it
+    const creating = await within(row("1.png")).findByRole("button", {
+      name: "Creating…",
+    });
+    expect(creating).toBeDisabled();
+    expect(within(row("1.png")).queryByRole("button", { name: "Cancel" })).toBeNull();
+    // the rest is cancelled, that one is left to finish
+    await user.click(screen.getByRole("button", { name: "Cancel the rest" }));
+    for (const name of ["2.png", "3.png"]) {
+      expect(await within(row(name)).findByText("Cancelled")).toBeInTheDocument();
+    }
+    expect(FakeXhr.all[1]?.aborted).toBe(true);
+    const post = postsSent(sent)[0];
+    expect(post?.aborted).toBe(false);
+    await act(async () => answer());
+    expect(
+      await within(row("1.png")).findByRole("link", { name: "post 41" }),
+    ).toBeInTheDocument();
+    expect(post?.aborted).toBe(false);
+    // only the one post was asked for
+    expect(postsSent(sent)).toHaveLength(1);
+  });
+
+  it("sends nothing for a file cancelled before it went", async () => {
+    const cancelled = new AbortController();
+    cancelled.abort();
+    const sent = site();
+    const outcome = await send(
+      file("1.png"),
+      { safety: "safe", tags: [] },
+      { signal: cancelled.signal, cards: true, onProgress() {}, onCreating() {} },
+    );
+    expect(outcome).toEqual({ kind: "cancelled" });
+    expect(FakeXhr.all).toHaveLength(0);
+    expect(postsSent(sent)).toHaveLength(0);
   });
 
   it("asks before leaving while files are on their way", async () => {

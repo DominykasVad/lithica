@@ -300,6 +300,10 @@ function Uploader() {
 
   const cancel = (item: Item) => {
     const controller = running.current.get(item.id);
+    if (item.step === "creating") {
+      // the post is being made: it is let finish, and shows how it ended
+      return;
+    }
     if (controller) {
       controller.abort();
     } else if (item.step === "waiting") {
@@ -476,6 +480,10 @@ function Uploader() {
                     onClick={() => remove(item)}
                   >
                     <X />
+                  </Button>
+                ) : item.step === "creating" ? (
+                  <Button variant="outline" size="sm" disabled>
+                    Creating…
                   </Button>
                 ) : item.step !== "done" ? (
                   <Button variant="outline" size="sm" onClick={() => cancel(item)}>

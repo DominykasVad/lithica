@@ -10,6 +10,8 @@
 const PNG_SIGNATURE = [137, 80, 78, 71, 13, 10, 26, 10];
 // the most of a card's JSON (and of a chunk holding it) read here
 const MAX_CARD_BYTES = 8 * 1024 * 1024;
+// the most chunks of a PNG looked at: a card's come before its picture
+const MAX_PNG_CHUNKS = 10_000;
 // a CHARX's central directory is read from at most this much of its end
 const MAX_DIRECTORY_BYTES = 1024 * 1024;
 
@@ -41,10 +43,19 @@ async function pngCard(file: Blob): Promise<unknown> {
   }
   const found: Record<string, string> = {};
   let at = 8;
+  let chunks = 0;
   while (at + 8 <= file.size) {
+    // too many chunks, or one longer than the rest of the file: not read
+    // any further, and not taken for a card
+    if (++chunks > MAX_PNG_CHUNKS) {
+      return null;
+    }
     const header = await bytes(file, at, at + 8);
     const length = new DataView(header.buffer).getUint32(0);
     const type = latin1(header.subarray(4, 8));
+    if (at + 12 + length > file.size) {
+      return null;
+    }
     if (type === "IEND") {
       break;
     }

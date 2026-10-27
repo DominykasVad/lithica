@@ -51,6 +51,10 @@ function putUp(
   onProgress: (sent: number) => void,
   signal: AbortSignal,
 ): Promise<{ token: string } | Outcome> {
+  // cancelled before it went: nothing is sent
+  if (signal.aborted) {
+    return Promise.resolve({ kind: "cancelled" });
+  }
   return new Promise((resolve) => {
     const request = new XMLHttpRequest();
     request.open("POST", `${API_BASE_URL}/uploads`);
@@ -111,7 +115,8 @@ function putUp(
 
 /**
  * Sends the file and makes its post; resolves to how it ended, never
- * throws. `onProgress` gets the share of the file sent, 0 to 1; `onCreating`
+ * throws. `signal` cancels the sending only: once the post is being made
+ * (`onCreating`), it is let finish, and its outcome is the site's. `onProgress` gets the share of the file sent, 0 to 1; `onCreating`
  * says when the post is being made. `cards`: the site has the cards module.
  */
 export async function send(
@@ -141,7 +146,8 @@ export async function send(
     const { data, error, response } = await api.POST("/posts", {
       params: { query: { fields: cards ? `${CREATED_FIELDS},card` : CREATED_FIELDS } },
       body: { safety: batch.safety, tags: batch.tags, contentToken: upload.token },
-      signal,
+      // never aborted: a post the site has begun to make may be made all the
+      // same, and only its answer says
     });
     if (data && response.ok) {
       return { kind: "created", post: data };
@@ -152,8 +158,6 @@ export async function send(
     }
     return answered(apiError(error, response));
   } catch (cause) {
-    return signal.aborted
-      ? { kind: "cancelled" }
-      : { kind: "failed", error: unreachable(cause) };
+    return { kind: "failed", error: unreachable(cause) };
   }
 }

@@ -202,6 +202,8 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 - 2026-10-25 — 5.5 — NSFW box per file sets `nsfw` in the tags sent; card tags are read in the browser, only where cards is on
 - 2026-10-25 — 5.5 — a card whose own tags say NSFW: box checked and held, with a note (auto-tags are a union; server unchanged)
 - 2026-10-25 — 5.5 — the Upload link and page need `uploads:create` and `posts:create:identified` at the user's rank
+- 2026-10-27 — 5.5 — Cancel stops the sending only; POST /posts is never aborted, and its outcome is shown ("Creating…")
+- 2026-10-27 — 5.5 — the NSFW box reads at most 10,000 PNG chunks and none past the file's end; beyond that, unchecked
 
 ---
 

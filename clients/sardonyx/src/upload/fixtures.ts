@@ -21,29 +21,37 @@ function card(tags: unknown): string {
   return JSON.stringify({ spec: "chara_card_v2", data: { name: "Probe", tags } });
 }
 
-/** A PNG with a V2 card in its `chara` chunk (or a `ccv3` one). */
+/**
+ * A PNG with a V2 card in its `chara` chunk (or a `ccv3` one); `padding`
+ * empty chunks before it; `overlong`, a last chunk that says it is longer
+ * than the file.
+ */
 export function pngCard(
   tags: unknown,
   keyword: "chara" | "ccv3" = "chara",
+  { padding = 0, overlong = false }: { padding?: number; overlong?: boolean } = {},
 ): Uint8Array {
   const text = new Uint8Array([
     ...encoder.encode(keyword),
     0,
     ...encoder.encode(btoa(card(tags))),
   ]);
-  return new Uint8Array([
-    137,
-    80,
-    78,
-    71,
-    13,
-    10,
-    26,
-    10,
-    ...chunk("IHDR", new Uint8Array(13)),
-    ...chunk("tEXt", text),
-    ...chunk("IEND", new Uint8Array()),
-  ]);
+  const empty = chunk("zzZz", new Uint8Array());
+  const parts = [
+    [137, 80, 78, 71, 13, 10, 26, 10],
+    chunk("IHDR", new Uint8Array(13)),
+    ...Array.from({ length: padding }, () => empty),
+    ...(overlong ? [[...u32(1_000_000), ...encoder.encode("zzZz"), 1, 2, 3]] : []),
+    chunk("tEXt", text),
+    chunk("IEND", new Uint8Array()),
+  ];
+  const out = new Uint8Array(parts.reduce((sum, part) => sum + part.length, 0));
+  let at = 0;
+  for (const part of parts) {
+    out.set(part, at);
+    at += part.length;
+  }
+  return out;
 }
 
 async function deflate(data: Uint8Array): Promise<Uint8Array> {
