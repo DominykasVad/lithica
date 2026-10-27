@@ -229,7 +229,7 @@ def test_search_builds_the_paged_response():
     page = dependencies.Page("query text", 20, 5)
     with patch.object(executor, "execute", return_value=(7, ["a", "b"])) as execute:
         result = dependencies.search(executor, page, str.upper)
-        execute.assert_called_once_with("query text", 20, 5)
+        execute.assert_called_once_with("query text", 20, 5, None)
     assert result == {
         "query": "query text",
         "offset": 20,

@@ -219,6 +219,29 @@ def nontransacted_session(query_logger, postgresql_db):
 
 
 @pytest.fixture
+def committing_session(transacted_postgresql_db, postgresql_db, _pg_engine):
+    """
+    Each request with a session of its own, as the server runs, on tables
+    whose rows are committed: what one request commits another sees. For
+    tests of requests that run at the same time. The test's own transaction
+    is given up first; its uncommitted tables would hold up the ones made
+    here.
+    """
+    transacted_postgresql_db.reset_db()
+    postgresql_db.create_table(*model.Base.metadata.sorted_tables)
+    test_session = db.session
+    # the server's scoped session, on the test database
+    db.session = sa_orm.scoped_session(
+        sa_orm.sessionmaker(_pg_engine, autoflush=False),
+        scopefunc=db._current_scope,
+    )
+    try:
+        yield
+    finally:
+        db.session = test_session
+
+
+@pytest.fixture
 def scoped_db_session(session):
     """Put the real, scope-bound lithica.db.session back for one test."""
     db.session = REAL_DB_SESSION

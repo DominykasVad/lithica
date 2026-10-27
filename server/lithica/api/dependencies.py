@@ -226,9 +226,10 @@ def search(
     page: Page,
     # each executor yields entities of its own config's model
     serializer: Callable[[Any], Any],
+    user: model.User | None = None,
 ) -> dict[str, Any]:
-    """Run a search and build the paged response."""
-    count, entities = executor.execute(page.query, page.offset, page.limit)
+    """Run a search made by `user` and build the paged response."""
+    count, entities = executor.execute(page.query, page.offset, page.limit, user)
     return {
         "query": page.query,
         "offset": page.offset,
