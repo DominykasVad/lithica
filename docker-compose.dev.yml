@@ -24,6 +24,9 @@ services:
       #POSTGRES_PORT: 5432
       #LOG_SQL: 0 (1 for verbose SQL logs)
       THREADS:
+      ## the dev stack runs with the modules on, Sardonyx's card pages among
+      ## what it serves; set to "" here to try the engine alone
+      MODULES: cards
       #HOST: "::" (IPv4 and IPv6; "0.0.0.0" where IPv6 is disabled)
     volumes:
       - "data:/data"
