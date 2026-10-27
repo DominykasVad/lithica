@@ -17,6 +17,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useCanUpload } from "./privileges";
 import { type Theme, useTheme } from "./theme";
 
 function ThemeMenu() {
@@ -94,8 +95,20 @@ function UserMenu() {
   );
 }
 
+/** Upload, for those who may: the link is not there for anyone else. */
+function UploadLink() {
+  return useCanUpload() ? (
+    <Button asChild variant="ghost" size="sm" className="max-sm:hidden">
+      <Link to="/upload" activeProps={{ "aria-current": "page" }}>
+        Upload
+      </Link>
+    </Button>
+  ) : null;
+}
+
 /** The pages of the navigation, folded into one button on a phone. */
 function NavMenu() {
+  const canUpload = useCanUpload();
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -117,6 +130,11 @@ function NavMenu() {
         <DropdownMenuItem asChild>
           <Link to="/posts">Library</Link>
         </DropdownMenuItem>
+        {canUpload ? (
+          <DropdownMenuItem asChild>
+            <Link to="/upload">Upload</Link>
+          </DropdownMenuItem>
+        ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -156,6 +174,7 @@ export function Shell() {
                 Library
               </Link>
             </Button>
+            <UploadLink />
             <CardsOnly>
               <span className="rounded-full bg-accent px-2 max-sm:hidden py-0.5 text-accent-foreground text-xs">
                 Character cards

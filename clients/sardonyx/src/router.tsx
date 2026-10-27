@@ -65,12 +65,19 @@ export const lorebookRoute = createRoute({
   component: lazyRouteComponent(() => import("./card/LorebookPage"), "LorebookPage"),
 });
 
+export const uploadRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/upload",
+  component: lazyRouteComponent(() => import("./upload/UploadPage"), "UploadPage"),
+});
+
 export const routeTree = rootRoute.addChildren([
   homeRoute,
   loginRoute,
   libraryRoute,
   postRoute,
   lorebookRoute,
+  uploadRoute,
 ]);
 
 // The search part of a URL as plain `key=value` pairs: `?q=coastal&at=100`.
