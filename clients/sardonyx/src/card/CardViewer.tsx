@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { ArrowLeft, ArrowRight } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { LibrarySearch } from "@/library/search";
@@ -12,8 +12,10 @@ import {
   TextModeSwitch,
   useTextMode,
 } from "@/text/CardText";
+import { CardImages, ImagesBar } from "@/text/StyledFrame";
+import { imageHosts } from "@/text/styled";
 import { EntryRow } from "./EntryRow";
-import { countsOf, formatNumber } from "./lorebook";
+import { cardTexts, countsOf, formatNumber } from "./lorebook";
 
 // how many lorebook entries the tab shows before the lorebook page
 const PREVIEW_ENTRIES = 20;
@@ -222,6 +224,10 @@ export function CardViewer({
   from: LibrarySearch;
 }) {
   const [mode, setMode] = useTextMode();
+  // the card's pictures load in Styled only when asked, for this card only
+  // (the viewer is made anew for another card)
+  const [images, setImages] = useState(false);
+  const hosts = useMemo(() => imageHosts(cardTexts(card)), [card]);
   const tabs = tabsOf(card);
   const current = tabs.find((one) => one.id === tab) ?? tabs[0];
   if (!current) {
@@ -229,59 +235,70 @@ export function CardViewer({
   }
   return (
     <TextModeProvider mode={mode}>
-      <Tabs
-        value={current.id}
-        onValueChange={onTab}
-        className="min-w-0 rounded-2xl border bg-card"
-      >
-        <div className="flex flex-wrap items-end justify-between gap-2 border-b">
-          <TabsList aria-label="Card sections" className="border-b-0">
-            {tabs.map((one) => (
-              <TabsTrigger key={one.id} value={one.id}>
-                {one.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-          <div className="px-3 py-2">
-            <TextModeSwitch mode={mode} onChange={setMode} />
+      <CardImages allowed={images}>
+        <Tabs
+          value={current.id}
+          onValueChange={onTab}
+          className="min-w-0 rounded-2xl border bg-card"
+        >
+          <div className="flex flex-wrap items-end justify-between gap-2 border-b">
+            <TabsList aria-label="Card sections" className="border-b-0">
+              {tabs.map((one) => (
+                <TabsTrigger key={one.id} value={one.id}>
+                  {one.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+            <div className="px-3 py-2">
+              <TextModeSwitch mode={mode} onChange={setMode} />
+            </div>
           </div>
-        </div>
-        <div className="px-5 pt-7 pb-10 sm:px-9">
-          <TabsContent value="overview">
-            <Fields
-              fields={[
-                ["Description", card.description],
-                ["Personality", card.personality],
-                ["Scenario", card.scenario],
-              ]}
-            />
-            <p className="mt-7 text-muted-foreground text-sm">
-              Placeholders such as <span className="font-mono">{"{{user}}"}</span> are
-              shown as the card writes them; the chat program fills them in.
-            </p>
-          </TabsContent>
-          <TabsContent value="greetings">
-            <Greetings card={card} />
-          </TabsContent>
-          <TabsContent value="examples">
-            <Examples text={card.exampleMessages ?? ""} />
-          </TabsContent>
-          <TabsContent value="notes">
-            <Fields fields={[["Creator notes", card.creatorNotes]]} />
-          </TabsContent>
-          <TabsContent value="prompts">
-            <Fields
-              fields={[
-                ["System prompt", card.systemPrompt],
-                ["Post-history instructions", card.postHistoryInstructions],
-              ]}
-            />
-          </TabsContent>
-          <TabsContent value="lorebook">
-            <LorebookTab card={card} postId={postId} from={from} />
-          </TabsContent>
-        </div>
-      </Tabs>
+          {mode === "styled" ? (
+            <div className="border-b px-5 py-3 sm:px-9">
+              <ImagesBar
+                hosts={hosts}
+                allowed={images}
+                onAllow={() => setImages(true)}
+              />
+            </div>
+          ) : null}
+          <div className="px-5 pt-7 pb-10 sm:px-9">
+            <TabsContent value="overview">
+              <Fields
+                fields={[
+                  ["Description", card.description],
+                  ["Personality", card.personality],
+                  ["Scenario", card.scenario],
+                ]}
+              />
+              <p className="mt-7 text-muted-foreground text-sm">
+                Placeholders such as <span className="font-mono">{"{{user}}"}</span> are
+                shown as the card writes them; the chat program fills them in.
+              </p>
+            </TabsContent>
+            <TabsContent value="greetings">
+              <Greetings card={card} />
+            </TabsContent>
+            <TabsContent value="examples">
+              <Examples text={card.exampleMessages ?? ""} />
+            </TabsContent>
+            <TabsContent value="notes">
+              <Fields fields={[["Creator notes", card.creatorNotes]]} />
+            </TabsContent>
+            <TabsContent value="prompts">
+              <Fields
+                fields={[
+                  ["System prompt", card.systemPrompt],
+                  ["Post-history instructions", card.postHistoryInstructions],
+                ]}
+              />
+            </TabsContent>
+            <TabsContent value="lorebook">
+              <LorebookTab card={card} postId={postId} from={from} />
+            </TabsContent>
+          </div>
+        </Tabs>
+      </CardImages>
     </TextModeProvider>
   );
 }

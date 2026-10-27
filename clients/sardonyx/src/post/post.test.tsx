@@ -1,8 +1,9 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { setCredentials } from "@/api/client";
 import { fakeSite, INFO, renderApp, type Sent } from "@/test-utils";
-import { fallbackName, fileNameOf } from "./download";
+import { BLOB_URL_LIFETIME, download, fallbackName, fileNameOf } from "./download";
 import { CATEGORIES, POST } from "./fixtures";
 
 const TOKEN = "f5a2c0de-0000-4000-8000-000000000001";
@@ -276,6 +277,54 @@ describe("downloading", () => {
       .setup()
       .click(await screen.findByRole("button", { name: /Download the original/ }));
     await waitFor(() => expect(saved[0]?.name).toBe("5.png"));
+  });
+
+  it("sends the token to this site only, never to another host", async () => {
+    setCredentials({ user: "ada", token: TOKEN });
+    const asked: Request[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (request: Request) => {
+        asked.push(request);
+        return new Response(new Uint8Array([1]));
+      }),
+    );
+    try {
+      await download(`${window.location.origin}/data/posts/5.png`, "5.png");
+      await download("data/posts/6.png", "6.png");
+      await download("https://files.example.com/posts/7.png", "7.png");
+      await download("//files.example.com/posts/8.png", "8.png");
+    } finally {
+      vi.unstubAllGlobals();
+      setCredentials(null);
+    }
+    expect(asked.map((request) => request.headers.get("Authorization"))).toEqual([
+      expect.stringMatching(/^Token /),
+      expect.stringMatching(/^Token /),
+      null,
+      null,
+    ]);
+    expect(saved.map((one) => one.name)).toEqual(["5.png", "6.png", "7.png", "8.png"]);
+  });
+
+  it("keeps the file's blob URL for a minute after the click", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(new Uint8Array([1]))),
+    );
+    vi.useFakeTimers({ toFake: ["setTimeout"] });
+    try {
+      await download("data/posts/5.png", "5.png");
+      expect(saved).toHaveLength(1);
+      vi.advanceTimersByTime(BLOB_URL_LIFETIME - 1);
+      expect(URL.revokeObjectURL).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(1);
+      expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:test/0");
+    } finally {
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
+    expect(BLOB_URL_LIFETIME).toBe(60_000);
   });
 
   it("shows why a download failed", async () => {

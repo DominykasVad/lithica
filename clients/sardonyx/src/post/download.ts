@@ -1,6 +1,7 @@
 /**
- * Downloading a post's file: fetched with the session's token (a site may
- * show posts only to users), saved under the name the site gives it.
+ * Downloading a post's file: fetched with the session's token when it is
+ * on this site (a site may show posts only to users), saved under the name
+ * the site gives it.
  */
 import { authorization, getCredentials } from "@/api/client";
 import { apiError, unreachable } from "@/api/errors";
@@ -38,13 +39,30 @@ export function fallbackName(id: number, contentUrl: string | undefined): string
   return extension ? `${id}.${extension}` : String(id);
 }
 
-/** Fetches the file at `url` and has the browser save it. */
+// how long a saved file's blob URL is kept: the browser reads the blob after
+// the click, in its own time, and a large file may take a while
+export const BLOB_URL_LIFETIME = 60_000;
+
+/** Whether `url` is on the page's own origin, the one the session is for. */
+export function isOwnSite(url: string): boolean {
+  try {
+    return new URL(url, window.location.href).origin === window.location.origin;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Fetches the file at `url` and has the browser save it. The token goes
+ * only to this site: a file elsewhere (a site may serve its files from
+ * another host) is asked for without it.
+ */
 export async function download(url: string, fallback: string): Promise<void> {
-  const credentials = getCredentials();
+  const credentials = isOwnSite(url) ? getCredentials() : null;
   let response: Response;
   try {
     response = await fetch(
-      new Request(url, {
+      new Request(new URL(url, window.location.href), {
         headers: credentials ? { Authorization: authorization(credentials) } : {},
       }),
     );
@@ -64,6 +82,5 @@ export async function download(url: string, fallback: string): Promise<void> {
   document.body.append(link);
   link.click();
   link.remove();
-  // after the click has been handled: the browser has the file by then
-  setTimeout(() => URL.revokeObjectURL(link.href));
+  setTimeout(() => URL.revokeObjectURL(link.href), BLOB_URL_LIFETIME);
 }

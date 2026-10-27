@@ -257,9 +257,15 @@ them in `.github/workflows/ci-sardonyx.yml`.
 - Never render content from the server as raw HTML: no
   `dangerouslySetInnerHTML`. Card text and other user text is shown as plain
   text, or as Markdown through react-markdown with rehype-sanitize and
-  without a raw-HTML plugin.
-- Never fetch a URL found inside card data (icons, links, assets). Use only
-  the URLs the API gives for posts and thumbnails.
+  without a raw-HTML plugin. The one exception is Styled mode: a card's
+  HTML and CSS as written, inside the sandboxed frame
+  (`public/frame/card-text.html`), never in the app's page.
+- Nothing from card data (icons, links, assets) is fetched by the app
+  itself; the app uses only the URLs the API gives for posts and
+  thumbnails. In Styled mode, a card's images and fonts load only inside
+  the sandboxed frame, only from https, and only after the viewer asked,
+  for that card. Card HTML never runs script and never reaches the app's
+  page, session or storage.
 - The client learns what a site offers from `GET /info` (`modules`). Card UI
   is shown only when `cards` is listed. No build-time feature flags.
 - Branding (the name "Sardonyx", colours, logo) lives in the client, not in
