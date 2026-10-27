@@ -1,5 +1,6 @@
 from collections.abc import Callable
 
+from lithica import model
 from lithica.search import criteria, tokens
 from lithica.search.query import SearchQuery
 from lithica.search.typing import SaColumn, SaQuery
@@ -12,8 +13,14 @@ class BaseSearchConfig:
     SORT_ASC = tokens.SortToken.SORT_ASC
     SORT_DESC = tokens.SortToken.SORT_DESC
 
-    def on_search_query_parsed(self, search_query: SearchQuery) -> None:
-        pass
+    def on_search_query_parsed(
+        self, search_query: SearchQuery, user: model.User | None
+    ) -> None:
+        """
+        A hook for the parsed query of one search, made by `user` (None: by
+        nobody in particular). A config is shared by every request: what is
+        one search's, as its user, comes in here and is not kept.
+        """
 
     def create_filter_query(self, _disable_eager_loads: bool) -> SaQuery:
         raise NotImplementedError()

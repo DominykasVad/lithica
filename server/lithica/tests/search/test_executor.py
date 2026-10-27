@@ -3,13 +3,13 @@ import pytest
 from lithica import db, search
 
 
-def _query_key(executor, query_text, offset, limit):
+def _query_key(executor, query_text, offset, limit, user=None):
     """
     Identity of a search: the parsed query as the config sees it, plus the
     page. Two searches with the same key ask the database the same thing.
     """
     search_query = executor.parser.parse(query_text)
-    executor.config.on_search_query_parsed(search_query)
+    executor.config.on_search_query_parsed(search_query, user)
     return (hash(search_query), offset, limit)
 
 
@@ -104,13 +104,12 @@ def test_auth_dependent_queries_differ_by_user(user_factory, input):
     executor = search.Executor(config)
     hashes = []
 
-    config.user = user_factory()
-    hashes.append(_query_key(executor, input, 1, 1))
+    first, second = user_factory(), user_factory()
+    hashes.append(_query_key(executor, input, 1, 1, first))
     assert len(set(hashes)) == 1
 
-    config.user = user_factory()
-    hashes.append(_query_key(executor, input, 1, 1))
+    hashes.append(_query_key(executor, input, 1, 1, second))
     assert len(set(hashes)) == 2
 
-    hashes.append(_query_key(executor, input, 1, 1))
+    hashes.append(_query_key(executor, input, 1, 1, second))
     assert len(set(hashes)) == 2
