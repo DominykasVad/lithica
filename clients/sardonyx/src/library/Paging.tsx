@@ -2,7 +2,6 @@ import { Link } from "@tanstack/react-router";
 import { ChevronFirst, ChevronLast, ChevronLeft, ChevronRight } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
-import { librarySearch } from "./search";
 
 // pages either side of the current one that get a number
 const AROUND = 2;
@@ -10,15 +9,21 @@ const AROUND = 2;
 const step =
   "flex h-11 min-w-11 items-center justify-center rounded-lg border px-3 text-sm";
 
+/** The list a pager moves in: its page, and its search at an offset. */
+export interface PagedList {
+  to: "/posts" | "/tags";
+  searchAt(offset: number): object;
+}
+
 function PageLink({
-  q,
+  list,
   page,
   size,
   label,
   current = false,
   children,
 }: {
-  q: string;
+  list: PagedList;
   page: number;
   size: number;
   label: string;
@@ -27,8 +32,9 @@ function PageLink({
 }) {
   return (
     <Link
-      to="/posts"
-      search={librarySearch(q, page * size)}
+      to={list.to}
+      // the search of the list's own route, which its searchAt writes
+      search={list.searchAt(page * size) as never}
       aria-label={label}
       aria-current={current ? "page" : undefined}
       className={cn(
@@ -54,12 +60,12 @@ function Unavailable({ label, children }: { label: string; children: ReactNode }
 
 /** First, previous, the pages around this one, next and last. */
 export function Paging({
-  q,
+  list,
   page,
   size,
   total,
 }: {
-  q: string;
+  list: PagedList;
   page: number;
   size: number;
   total: number;
@@ -76,7 +82,7 @@ export function Paging({
     target < 0 || target > last || target === page ? (
       <Unavailable label={label}>{icon}</Unavailable>
     ) : (
-      <PageLink q={q} page={target} size={size} label={label}>
+      <PageLink list={list} page={target} size={size} label={label}>
         {icon}
       </PageLink>
     );
@@ -87,7 +93,7 @@ export function Paging({
       {numbers.map((number) => (
         <PageLink
           key={number}
-          q={q}
+          list={list}
           page={number}
           size={size}
           label={`Page ${number + 1}`}

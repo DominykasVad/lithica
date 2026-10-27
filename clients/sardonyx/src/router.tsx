@@ -12,6 +12,7 @@ import { NotFound, Shell } from "./app/Shell";
 import { Library } from "./library/Library";
 import { validateLibrarySearch } from "./library/search";
 import { validateLorebookSearch, validatePostSearch } from "./post/search";
+import { validateTagsSearch } from "./tags/search";
 
 const rootRoute = createRootRoute({
   component: Shell,
@@ -71,6 +72,13 @@ export const uploadRoute = createRoute({
   component: lazyRouteComponent(() => import("./upload/UploadPage"), "UploadPage"),
 });
 
+export const tagsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/tags",
+  validateSearch: validateTagsSearch,
+  component: lazyRouteComponent(() => import("./tags/TagsPage"), "TagsPage"),
+});
+
 export const routeTree = rootRoute.addChildren([
   homeRoute,
   loginRoute,
@@ -78,6 +86,7 @@ export const routeTree = rootRoute.addChildren([
   postRoute,
   lorebookRoute,
   uploadRoute,
+  tagsRoute,
 ]);
 
 // The search part of a URL as plain `key=value` pairs: `?q=coastal&at=100`.

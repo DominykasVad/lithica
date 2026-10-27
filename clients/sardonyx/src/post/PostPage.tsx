@@ -12,8 +12,10 @@ import { cn } from "@/lib/utils";
 import type { LibrarySearch } from "@/library/search";
 import { writeFilter } from "@/search/cardFilters";
 import { escapeValue } from "@/search/query";
+import { inOrder, swatch } from "@/tags/categories";
 import { isWebUrl } from "@/text/rehype";
 import { download, fallbackName } from "./download";
+import { PostActions } from "./PostActions";
 import {
   aroundQuery,
   type Card,
@@ -113,14 +115,6 @@ function Picture({ post, title }: { post: Post; title: string }) {
   );
 }
 
-/** A colour the site set for a category, if it is one a style can take. */
-function swatch(color: string | undefined): string | null {
-  if (!color || color === "default") {
-    return null;
-  }
-  return /^(#[0-9a-f]{3,8}|[a-z]+)$/i.test(color) ? color : null;
-}
-
 /**
  * The post's tags under their categories, in the categories' order: the
  * one list of tags on the page. The default category has no heading.
@@ -131,9 +125,7 @@ function TagGroups({ tags }: { tags: NonNullable<Post["tags"]> }) {
   if (categories.isPending) {
     return null;
   }
-  const known = [...(categories.data?.results ?? [])].sort(
-    (x, y) => (x.order ?? 0) - (y.order ?? 0),
-  );
+  const known = inOrder(categories.data?.results);
   const names = [
     ...known.map((category) => category.name ?? ""),
     // a category the site no longer lists, after those it does
@@ -417,11 +409,13 @@ function CardHeader({ card }: { card: Card }) {
 /** The card part of a post page: its header and its viewer, once loaded. */
 function CardParts({
   post,
+  fields,
   tab,
   onTab,
   from,
 }: {
   post: Post;
+  fields: string;
   tab: string | undefined;
   onTab(tab: string): void;
   from: LibrarySearch;
@@ -440,6 +434,12 @@ function CardParts({
         <Picture post={post} title={card.data.name || `Post ${id}`} />
         <CardHeader card={card.data} />
         <DownloadButton post={post} card={card.data} />
+        <PostActions
+          post={post}
+          name={card.data.name || null}
+          postFields={fields}
+          from={from}
+        />
         <PostDetails post={post} />
       </aside>
       <div className="min-w-0 flex-1">
@@ -505,8 +505,9 @@ export function PostPage() {
   const info = useQuery(infoQuery);
   const hasCards = useHasCards();
   const known = info.isSuccess || info.isError;
+  const fields = postFields(hasCards);
   const post = useQuery({
-    ...postQuery(id, postFields(hasCards)),
+    ...postQuery(id, fields),
     enabled: valid && known,
   });
 
@@ -549,7 +550,13 @@ export function PostPage() {
       <Breadcrumb title={title} id={id} from={from} />
       {hasCard ? (
         <CardsOnly>
-          <CardParts post={data} tab={search.tab} onTab={onTab} from={from} />
+          <CardParts
+            post={data}
+            fields={fields}
+            tab={search.tab}
+            onTab={onTab}
+            from={from}
+          />
         </CardsOnly>
       ) : (
         <div className="flex flex-col gap-8 lg:flex-row lg:items-start">
@@ -559,6 +566,7 @@ export function PostPage() {
           <aside className="flex flex-col gap-5 lg:w-80 lg:shrink-0">
             <h1 className="font-semibold font-serif text-3xl">{title}</h1>
             <DownloadButton post={data} card={null} />
+            <PostActions post={data} name={null} postFields={fields} from={from} />
             <PostDetails post={data} />
           </aside>
         </div>
