@@ -54,21 +54,29 @@ def executor():
 
 
 @pytest.fixture
-def auth_executor(executor, user_factory):
+def searcher():
+    """Who the searches of a test are made by: nobody, until auth_executor."""
+    return {"user": None}
+
+
+@pytest.fixture
+def auth_executor(executor, user_factory, searcher):
     def wrapper():
         auth_user = user_factory()
         db.session.add(auth_user)
         db.session.flush()
-        executor.config.user = auth_user
+        searcher["user"] = auth_user
         return auth_user
 
     return wrapper
 
 
 @pytest.fixture
-def verify_unpaged(executor):
+def verify_unpaged(executor, searcher):
     def verify(input, expected_post_ids, test_order=False):
-        actual_count, actual_posts = executor.execute(input, offset=0, limit=100)
+        actual_count, actual_posts = executor.execute(
+            input, offset=0, limit=100, user=searcher["user"]
+        )
         actual_post_ids = list([p.post_id for p in actual_posts])
         if not test_order:
             actual_post_ids = sorted(actual_post_ids)

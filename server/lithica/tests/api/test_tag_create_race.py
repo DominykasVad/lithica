@@ -8,7 +8,6 @@ from unittest.mock import patch
 import httpx2
 import pytest
 import sqlalchemy.exc as sa_exc
-import sqlalchemy.orm as sa_orm
 
 from lithica import db, model
 from lithica.app import app as lithica_app
@@ -43,32 +42,15 @@ def site(config_injector, tmpdir):
 
 
 @pytest.fixture
-def committing_db(transacted_postgresql_db, postgresql_db, _pg_engine):
-    """
-    Each request with a session of its own, as the server runs, on tables
-    whose rows are committed: what one request commits the other sees. The
-    test's own transaction is given up first; its uncommitted tables would
-    hold up the ones made here.
-    """
-    transacted_postgresql_db.reset_db()
-    postgresql_db.create_table(*model.Base.metadata.sorted_tables)
-    test_session = db.session
-    # the server's scoped session, on the test database
-    db.session = sa_orm.scoped_session(
-        sa_orm.sessionmaker(_pg_engine, autoflush=False),
-        scopefunc=db._current_scope,
-    )
-    try:
-        with db.session_scope():
-            category = model.TagCategory("default")
-            category.color = "dummy"
-            category.order = 1
-            category.default = True
-            db.session.add(category)
-            db.session.commit()
-        yield
-    finally:
-        db.session = test_session
+def committing_db(committing_session):
+    """Committed tables, a session per request, and the default tag category."""
+    with db.session_scope():
+        category = model.TagCategory("default")
+        category.color = "dummy"
+        category.order = 1
+        category.default = True
+        db.session.add(category)
+        db.session.commit()
 
 
 def _post_concurrently(contents: list[bytes], tag_names: list[str]) -> list:

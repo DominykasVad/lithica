@@ -153,18 +153,17 @@ def _category_filter(
 
 
 class PostSearchConfig(BaseSearchConfig):
-    def __init__(self) -> None:
-        self.user: model.User | None = None
-
-    def on_search_query_parsed(self, search_query: SearchQuery) -> SaQuery:
+    def on_search_query_parsed(
+        self, search_query: SearchQuery, user: model.User | None
+    ) -> None:
         new_special_tokens = []
         for token in search_query.special_tokens:
             if token.value in ("fav", "liked", "disliked"):
-                assert self.user
-                if self.user.rank == "anonymous":
+                # the user of this search, never one kept from another
+                if user is None or user.rank == model.User.RANK_ANONYMOUS:
                     raise errors.SearchError("Must be logged in to use this feature.")
                 criterion = criteria.PlainCriterion(
-                    original_text=self.user.name, value=self.user.name
+                    original_text=user.name, value=user.name
                 )
                 criterion.internal = True
                 search_query.named_tokens.append(

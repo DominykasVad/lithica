@@ -42,8 +42,8 @@ CheckedFields = Annotated[list[str], Depends(fields_of(posts.PostSerializer))]
 
 router = ApiRouter(tags=["Posts"])
 
-_search_executor_config = search.configs.PostSearchConfig()
-_search_executor = search.Executor(_search_executor_config)
+# shared by every request: it keeps nothing of one (the user is passed per search)
+_search_executor = search.Executor(search.configs.PostSearchConfig())
 
 
 class PostCreate(RequestModel):
@@ -141,9 +141,11 @@ def get_posts(
 
     - privileges are too low
     """
-    _search_executor_config.user = auth_user
     return run_search(
-        _search_executor, page, lambda post: _serialize_post(post, auth_user, fields)
+        _search_executor,
+        page,
+        lambda post: _serialize_post(post, auth_user, fields),
+        auth_user,
     )
 
 
@@ -640,8 +642,7 @@ def get_posts_around(
     - the post does not exist
     - privileges are too low
     """
-    _search_executor_config.user = auth_user
-    around = _search_executor.get_around(query, _get_post_id(post_id))
+    around = _search_executor.get_around(query, _get_post_id(post_id), auth_user)
     # the post search yields posts; either neighbour may be missing
     previous_post, next_post = cast(tuple[model.Post | None, model.Post | None], around)
     return {

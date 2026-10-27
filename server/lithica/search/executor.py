@@ -35,10 +35,10 @@ class Executor:
         self.parser = parser.Parser()
 
     def get_around(
-        self, query_text: str, entity_id: int
+        self, query_text: str, entity_id: int, user: model.User | None = None
     ) -> tuple[model.Base, model.Base]:
         search_query = self.parser.parse(query_text)
-        self.config.on_search_query_parsed(search_query)
+        self.config.on_search_query_parsed(search_query, user)
         filter_query = self.config.create_around_query().options(sa_orm.lazyload("*"))
         filter_query = self._prepare_db_query(filter_query, search_query, False)
         prev_filter_query = (
@@ -59,10 +59,18 @@ class Executor:
         )
 
     def execute(
-        self, query_text: str, offset: int, limit: int
+        self,
+        query_text: str,
+        offset: int,
+        limit: int,
+        user: model.User | None = None,
     ) -> tuple[int, list[model.Base]]:
+        """
+        One search, made by `user`: an executor and its config are shared by
+        every request, so what is this search's comes in here, not kept.
+        """
         search_query = self.parser.parse(query_text)
-        self.config.on_search_query_parsed(search_query)
+        self.config.on_search_query_parsed(search_query, user)
 
         if offset < 0:
             limit = max(0, limit + offset)

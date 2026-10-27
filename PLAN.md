@@ -177,6 +177,7 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 - 2026-10-25 — fix — implicit tags are inserted at once in a connection savepoint (Core); on a name conflict, the tag that won
 - 2026-10-27 — fix — `fields` is checked against the resource's serializer by a dependency, before the endpoint runs
 - 2026-10-27 — fix — a reset the site cannot mail: 500 `MailNotConfiguredError` (Server configuration error), before a token
+- 2026-10-27 — fix — a search's user is an argument of Executor.execute/get_around; executors and configs keep nothing
 - 2026-10-25 — fix — `GET /info` says `maxUploadSize` and `acceptedTypes` (engine + enabled modules), hints only
 - 2026-10-25 — 5.4 — card Markdown without a raw-HTML plugin; images as `[image: alt]`, never loaded
 - 2026-10-25 — 5.4 — Readable shows HTML as its text: no tags, style/script dropped, blocks as lines, entities decoded
