@@ -18,8 +18,8 @@ import { type Batch, type Outcome, send } from "./send";
 
 /** Files sent at the same time. */
 export const PARALLEL = 2;
-/** The tag a NSFW post carries (a site setting later, 5.6b). */
-export const NSFW_TAG = "nsfw";
+/** The tag a NSFW post carries when the site does not say (`nsfwTag` of GET /info). */
+export const DEFAULT_NSFW_TAG = "nsfw";
 
 const SAFETIES = ["safe", "sketchy", "unsafe"] as const;
 const SAFETY_LABELS = { safe: "Safe", sketchy: "Sketchy", unsafe: "Unsafe" } as const;
@@ -40,14 +40,17 @@ interface Item {
   outcome?: Outcome;
 }
 
-/** The tags a file is sent with: the batch's, with the NSFW tag as its box says. */
-export function tagsFor(batchTags: string, nsfw: boolean): string[] {
+/**
+ * The tags a file is sent with: the batch's, with the site's NSFW tag as
+ * its box says.
+ */
+export function tagsFor(batchTags: string, nsfw: boolean, nsfwTag: string): string[] {
   const names = batchTags
     .split(/\s+/)
     .filter(Boolean)
-    .filter((name) => name.toLowerCase() !== NSFW_TAG);
+    .filter((name) => name.toLowerCase() !== nsfwTag.toLowerCase());
   const unique = names.filter((name, i) => names.indexOf(name) === i);
-  return nsfw ? [...unique, NSFW_TAG] : unique;
+  return nsfw ? [...unique, nsfwTag] : unique;
 }
 
 let nextId = 1;
@@ -200,6 +203,7 @@ export function UploadPage() {
 function Uploader() {
   const info = useQuery(infoQuery);
   const hasCards = useHasCards();
+  const nsfwTag = info.data?.nsfwTag || DEFAULT_NSFW_TAG;
   const id = useId();
   const picker = useRef<HTMLInputElement>(null);
   const [safety, setSafety] = useState<Batch["safety"]>("safe");
@@ -230,7 +234,7 @@ function Uploader() {
         continue;
       }
       // what the card itself says; it wins over a box unchecked meanwhile
-      cardSaysNsfw(item.file).then((nsfw) => {
+      cardSaysNsfw(item.file, nsfwTag).then((nsfw) => {
         if (nsfw) {
           update(item.id, { nsfw: true, cardNsfw: true });
         }
@@ -267,7 +271,7 @@ function Uploader() {
       update(item.id, { step: "uploading", sent: 0 });
       send(
         item.file,
-        { safety, tags: tagsFor(tags, item.nsfw) },
+        { safety, tags: tagsFor(tags, item.nsfw, nsfwTag) },
         {
           signal: controller.signal,
           cards: hasCards,
@@ -510,7 +514,7 @@ function Uploader() {
               </Button>
             ) : null}
             <span className="text-muted-foreground text-sm">
-              Checked NSFW adds the tag {NSFW_TAG}.
+              Checked NSFW adds the tag {nsfwTag}.
             </span>
           </div>
         </section>

@@ -15,8 +15,6 @@ const MAX_PNG_CHUNKS = 10_000;
 // a CHARX's central directory is read from at most this much of its end
 const MAX_DIRECTORY_BYTES = 1024 * 1024;
 
-const NSFW = "nsfw";
-
 async function bytes(file: Blob, start: number, end: number): Promise<Uint8Array> {
   return new Uint8Array(await file.slice(start, end).arrayBuffer());
 }
@@ -166,12 +164,17 @@ async function charxCard(file: Blob): Promise<unknown> {
   return null;
 }
 
-/** Whether the file is a card (PNG or CHARX) whose own tags include NSFW. */
-export async function cardSaysNsfw(file: File): Promise<boolean> {
+/**
+ * Whether the file is a card (PNG or CHARX) whose own tags include the
+ * site's NSFW tag: the module puts a card's tags on its post, so the post
+ * will carry it whatever the box says.
+ */
+export async function cardSaysNsfw(file: File, nsfwTag: string): Promise<boolean> {
   try {
     const name = file.name.toLowerCase();
     const card = name.endsWith(".charx") ? await charxCard(file) : await pngCard(file);
-    return tagsOf(card).some((tag) => tag.trim().toLowerCase() === NSFW);
+    const wanted = nsfwTag.trim().toLowerCase();
+    return tagsOf(card).some((tag) => tag.trim().toLowerCase() === wanted);
   } catch {
     // not a card, or not one this can read: the box starts unchecked
     return false;

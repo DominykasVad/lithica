@@ -41,6 +41,7 @@ function site({
   rank = "regular",
   loggedIn = true,
   modules = ["cards"],
+  info = {},
   created = (sent: Sent) => ({
     body: {
       id:
@@ -55,6 +56,8 @@ function site({
   rank?: string;
   loggedIn?: boolean;
   modules?: string[];
+  /** more of GET /info, or other values */
+  info?: Record<string, unknown>;
   created?: (sent: Sent) => { status?: number; body: unknown };
 } = {}) {
   if (loggedIn) {
@@ -64,7 +67,7 @@ function site({
     );
   }
   return fakeSite({
-    "GET /info": { body: { ...SITE_INFO, modules } },
+    "GET /info": { body: { ...SITE_INFO, modules, ...info } },
     "GET /user/ada": { body: { name: "ada", rank } },
     "GET /posts": { body: { total: 0, results: [] } },
     "POST /posts": created,
@@ -156,26 +159,25 @@ describe("files the site would refuse", () => {
   });
 });
 
+// on a site whose NSFW tag is the default one
+const says = (one: File) => cardSaysNsfw(one, "nsfw");
+
 describe("the NSFW box", () => {
   it("reads a card's own tags from a PNG or a CHARX, and nothing else", async () => {
-    expect(await cardSaysNsfw(file("a.png", pngCard(["Fantasy", " NSFW "])))).toBe(
-      true,
-    );
-    expect(await cardSaysNsfw(file("a.png", pngCard(["nsfw"], "ccv3")))).toBe(true);
-    expect(await cardSaysNsfw(file("a.png", pngCard(["fantasy"])))).toBe(false);
-    expect(await cardSaysNsfw(file("a.charx", await charxCard(["NSFW"])))).toBe(true);
+    expect(await says(file("a.png", pngCard(["Fantasy", " NSFW "])))).toBe(true);
+    expect(await says(file("a.png", pngCard(["nsfw"], "ccv3")))).toBe(true);
+    expect(await says(file("a.png", pngCard(["fantasy"])))).toBe(false);
+    expect(await says(file("a.charx", await charxCard(["NSFW"])))).toBe(true);
     expect(
-      await cardSaysNsfw(
-        file("a.charx", await charxCard(["nsfw"], { deflated: false })),
-      ),
+      await says(file("a.charx", await charxCard(["nsfw"], { deflated: false }))),
     ).toBe(true);
-    expect(await cardSaysNsfw(file("a.charx", await charxCard(["sfw"])))).toBe(false);
+    expect(await says(file("a.charx", await charxCard(["sfw"])))).toBe(false);
     // not cards, broken cards, cards past the limits: simply no
-    expect(await cardSaysNsfw(file("a.jpg", "not a picture"))).toBe(false);
-    expect(await cardSaysNsfw(file("a.png", pngCard("not a list")))).toBe(false);
-    expect(await cardSaysNsfw(file("a.charx", "PK not a zip"))).toBe(false);
+    expect(await says(file("a.jpg", "not a picture"))).toBe(false);
+    expect(await says(file("a.png", pngCard("not a list")))).toBe(false);
+    expect(await says(file("a.charx", "PK not a zip"))).toBe(false);
     expect(
-      await cardSaysNsfw(
+      await says(
         file("a.charx", await charxCard(["nsfw"], { declaredSize: 100_000_000 })),
       ),
     ).toBe(false);
@@ -183,13 +185,13 @@ describe("the NSFW box", () => {
 
   it("walks no more than 10,000 chunks of a PNG, nor past its end", async () => {
     const withPadding = (padding: number) =>
-      cardSaysNsfw(file("a.png", pngCard(["nsfw"], "chara", { padding })));
+      says(file("a.png", pngCard(["nsfw"], "chara", { padding })));
     // IHDR, the padding and the card's chunk: within the bound, it is read
     expect(await withPadding(9_997)).toBe(true);
     // beyond it, the walk stops and the box starts unchecked
     expect(await withPadding(10_000)).toBe(false);
     expect(
-      await cardSaysNsfw(file("a.png", pngCard(["nsfw"], "chara", { overlong: true }))),
+      await says(file("a.png", pngCard(["nsfw"], "chara", { overlong: true }))),
     ).toBe(false);
   }, 20_000);
 
@@ -289,9 +291,51 @@ describe("the NSFW box", () => {
     expect(post?.body).toMatchObject({ tags: [] });
   });
 
+  it("uses the site's NSFW tag, as GET /info names it", async () => {
+    const sent = site({ info: { nsfwTag: "explicit" } });
+    renderApp("/upload");
+    const user = userEvent.setup();
+    await user.type(await screen.findByRole("combobox", { name: /^Tags/ }), "sea");
+    await choose(
+      file("lewd.png", pngCard(["Explicit"])),
+      file("other.png", pngCard(["nsfw"])),
+    );
+    const box = (name: string) =>
+      within(row(name)).getByRole("checkbox", { name: "NSFW" });
+    // the card that carries the site's tag; "nsfw" is just a tag on this site
+    await waitFor(() => expect(box("lewd.png")).toBeChecked());
+    expect(box("lewd.png")).toBeDisabled();
+    expect(box("other.png")).not.toBeChecked();
+    expect(screen.getByText("Checked NSFW adds the tag explicit.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Upload 2 files" }));
+    for (let i = 0; i < 2; i++) {
+      await waitFor(() => expect(FakeXhr.all.length).toBeGreaterThan(i));
+      await act(async () => FakeXhr.all[i]?.respond(200, { token: `token-${i}` }));
+    }
+    await waitFor(() => expect(postsSent(sent)).toHaveLength(2));
+    const tags = Object.fromEntries(
+      postsSent(sent).map((one) => {
+        const body = one.body as { contentToken: string; tags: string[] };
+        return [body.contentToken, body.tags];
+      }),
+    );
+    expect(tags).toEqual({ "token-0": ["sea", "explicit"], "token-1": ["sea"] });
+  });
+
+  it("reads the site's NSFW tag in a card, whatever its case", async () => {
+    expect(await cardSaysNsfw(file("a.png", pngCard([" EXPLICIT "])), "explicit")).toBe(
+      true,
+    );
+    expect(await cardSaysNsfw(file("a.png", pngCard(["nsfw"])), "explicit")).toBe(
+      false,
+    );
+    expect(tagsFor("a Explicit nsfw", false, "explicit")).toEqual(["a", "nsfw"]);
+    expect(tagsFor("a", true, "explicit")).toEqual(["a", "explicit"]);
+  });
+
   it("keeps what the viewer chose over what the card says", () => {
-    expect(tagsFor("a b a nsfw NSFW", false)).toEqual(["a", "b"]);
-    expect(tagsFor("", true)).toEqual(["nsfw"]);
+    expect(tagsFor("a b a nsfw NSFW", false, "nsfw")).toEqual(["a", "b"]);
+    expect(tagsFor("", true, "nsfw")).toEqual(["nsfw"]);
   });
 });
 

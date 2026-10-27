@@ -67,12 +67,12 @@ describe("the app shell", () => {
     const user = userEvent.setup();
     expect(document.documentElement).not.toHaveClass("dark");
 
-    await user.click(await screen.findByRole("button", { name: "Theme" }));
+    await user.click(await screen.findByRole("button", { name: "Display" }));
     await user.click(await screen.findByRole("menuitemradio", { name: "Dark" }));
     expect(document.documentElement).toHaveClass("dark");
     expect(localStorage.getItem("sardonyx.theme")).toBe("dark");
 
-    await user.click(screen.getByRole("button", { name: "Theme" }));
+    await user.click(screen.getByRole("button", { name: "Display" }));
     await user.click(
       await screen.findByRole("menuitemradio", { name: "As the system" }),
     );
@@ -94,7 +94,7 @@ describe("the app shell", () => {
     }
     for (const kept of [
       within(banner).getByRole("link", { name: "Sardonyx" }),
-      within(banner).getByRole("button", { name: "Theme" }),
+      within(banner).getByRole("button", { name: "Display" }),
       within(banner).getByRole("link", { name: "Log in" }),
     ]) {
       expect(kept.className).not.toMatch(/(^|\s)(max-sm:)?hidden/);
@@ -124,7 +124,7 @@ describe("the app shell", () => {
     for (const kept of [
       within(banner).getByRole("link", { name: "Sardonyx" }),
       within(banner).getByRole("button", { name: "Menu" }),
-      within(banner).getByRole("button", { name: "Theme" }),
+      within(banner).getByRole("button", { name: "Display" }),
     ]) {
       expect(kept).toHaveClass("shrink-0");
     }

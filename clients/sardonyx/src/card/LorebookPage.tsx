@@ -12,9 +12,10 @@ import {
   useState,
 } from "react";
 import { infoQuery, useHasCards } from "@/app/info";
+import { HiddenText, useNsfwHidden } from "@/app/nsfw";
 import { ApiErrorMessage } from "@/components/ApiErrorMessage";
 import { cn } from "@/lib/utils";
-import { cardQuery } from "@/post/queries";
+import { cardQuery, postQuery } from "@/post/queries";
 import { fromLibrary, KINDS, type Kind } from "@/post/search";
 import { TextModeProvider, TextModeSwitch, useTextMode } from "@/text/CardText";
 import { CardImages, ImagesBar } from "@/text/StyledFrame";
@@ -103,6 +104,9 @@ export function LorebookPage() {
   const info = useQuery(infoQuery);
   const hasCards = useHasCards();
   const card = useQuery({ ...cardQuery(id), enabled: valid && hasCards });
+  // whether the post is NSFW: its entries are hidden as its card text is
+  const post = useQuery({ ...postQuery(id, "id,nsfw"), enabled: valid && hasCards });
+  const { hidden, reveal } = useNsfwHidden(post.data);
   const [mode, setMode] = useTextMode();
   // pictures in Styled only when asked, for this page of this card
   const [images, setImages] = useState(false);
@@ -250,11 +254,27 @@ export function LorebookPage() {
       </main>
     );
   }
-  if (!card.data) {
+  if (post.isError) {
+    return (
+      <main className="mx-auto flex max-w-[1100px] flex-col gap-5 px-4 py-6 sm:px-8">
+        {breadcrumb}
+        <ApiErrorMessage error={post.error} />
+      </main>
+    );
+  }
+  if (!card.data || !post.data) {
     return (
       <main className="mx-auto flex max-w-[1100px] flex-col gap-5 px-4 py-6 sm:px-8">
         {breadcrumb}
         <p className="text-muted-foreground">Loading the lorebook…</p>
+      </main>
+    );
+  }
+  if (hidden) {
+    return (
+      <main className="mx-auto flex max-w-[1100px] flex-col gap-5 px-4 py-6 sm:px-8">
+        {breadcrumb}
+        <HiddenText onReveal={reveal} />
       </main>
     );
   }

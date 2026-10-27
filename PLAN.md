@@ -188,6 +188,10 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 - 2026-10-27 — 5.6b — FILE_LINK_SECRET: [A-Za-z0-9_-]{32,}, checked by server and both images; one .env value
 - 2026-10-27 — 5.6b — ALL_POSTS queries select columns, never entities (the identity map would hand them out)
 - 2026-10-27 — 5.6b — not `open` and no file_link_secret: a warning at start, not a refusal; files stay reachable
+- 2026-10-27 — 5.6b — client blurs by the post field `nsfw` only; a tile keeps its card's name and creator in sight
+- 2026-10-27 — 5.6b — Show NSFW: localStorage per browser, off by default; a reveal lasts the tab's session
+- 2026-10-27 — 5.6b — login mode: the shell draws only the login form until logged in; no page before /info answers
+- 2026-10-27 — 5.6b — upload: the NSFW tag's name from /info; a card pre-checks the box only with the site's tag
 - 2026-10-25 — fix — `GET /info` says `maxUploadSize` and `acceptedTypes` (engine + enabled modules), hints only
 - 2026-10-25 — 5.4 — card Markdown without a raw-HTML plugin; images as `[image: alt]`, never loaded
 - 2026-10-25 — 5.4 — Readable shows HTML as its text: no tags, style/script dropped, blocks as lines, entities decoded
@@ -396,9 +400,9 @@ in the dev stack, its results stated in the PR.
 ### 5.6b NSFW
 - [x] Server: a site setting `visibility`: `open` (default), `nsfw-login` (posts tagged with the NSFW tag need login), `login` (nothing but login and `GET /info` without login). The NSFW tag's name is a setting too (default `nsfw`). `GET /info` reports both.
 - [x] `nsfw-login`: for anonymous users, searches leave NSFW posts out (as if `-nsfw` were in the query), and a NSFW post's page, `around`, card, download and featured answer as if it did not exist (404, not 403).
-- [ ] `login`: every route but login, password reset and `GET /info` needs a logged-in user; the client shows only the login page.
-- [ ] Client: a "Show NSFW" switch, per browser (later per account), default off. Off: NSFW tiles and pictures blurred with an "NSFW" label, revealed one at a time by a click; card text of a NSFW post behind the same click.
-- [ ] Upload: an "NSFW" checkbox per file, pre-checked when the card carries the NSFW tag; it adds or removes the tag.
+- [x] `login`: every route but login, password reset and `GET /info` needs a logged-in user; the client shows only the login page.
+- [x] Client: a "Show NSFW" switch, per browser (later per account), default off. Off: NSFW tiles and pictures blurred with an "NSFW" label, revealed one at a time by a click; card text of a NSFW post behind the same click.
+- [x] Upload: an "NSFW" checkbox per file, pre-checked when the card carries the NSFW tag; it adds or removes the tag.
 - [x] Signed file links: with `file_link_secret` set, every post file and thumbnail address the server gives out carries an expiry and a signature (nginx's `secure_link_md5`), valid until the start of the day after tomorrow (UTC); both client images refuse a post file or thumbnail without a valid one (403). Avatars are not signed. Unset: as before. README: what it protects and what not.
 
 **Done when:** in each of the three modes an anonymous visitor sees exactly what the mode allows (search, post, card, download, around); a logged-in user sees everything; the switch blurs and reveals as described.
