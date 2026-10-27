@@ -43,12 +43,16 @@ def start_password_reset(user_name: str) -> Any:
 
     - the user does not exist
     - the user hasn't provided an email address
+    - the site cannot send mail (no mail server is set up): 500
+      `MailNotConfiguredError`; `canSendMails` of `GET /info` says so ahead
     """
     user = users.get_user_by_name_or_email(user_name)
     if not user.email:
         raise errors.ValidationError(
             "User %r hasn't supplied email. Cannot reset password." % (user_name)
         )
+    # before a token is made: a reset the site cannot mail leaves nothing
+    mailer.verify_can_send_mail()
     token = password_reset.create_token(user)
 
     # The link is built from the configured domain only. Origin and Referer

@@ -7,7 +7,7 @@ from lithica import config, registry
 from lithica.api import resources
 from lithica.api.dependencies import CurrentUser, max_upload_size
 from lithica.api.routing import ApiRouter
-from lithica.func import auth, file_types, posts, users, util
+from lithica.func import auth, file_types, mailer, posts, users, util
 
 router = ApiRouter(tags=["Info"])
 
@@ -122,7 +122,7 @@ def get_info(user: CurrentUser) -> dict[str, Any]:
             "defaultUserRank": config.config["default_rank"],
             "enableSafety": config.config["enable_safety"],
             "contactEmail": config.config["contact_email"],
-            "canSendMails": bool(config.config["smtp"]["host"]),
+            "canSendMails": mailer.can_send_mail(),
             "privileges": util.snake_case_to_lower_camel_case_keys(
                 config.config["privileges"]
             ),

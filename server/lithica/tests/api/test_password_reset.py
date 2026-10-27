@@ -19,7 +19,9 @@ def inject_config(config_injector):
             "domain": "http://example.com",
             "name": "Test instance",
             "password_reset_token_lifetime": 3600,
+            # a site that sends mail (the tests catch the mail itself)
             "smtp": {
+                "host": "mail.example.com",
                 "from": "noreply@example.com",
             },
         }
@@ -104,7 +106,7 @@ def test_reset_link_tolerates_trailing_slash_in_domain(client, user, config_inje
             "domain": "http://example.com/",
             "name": "Test instance",
             "password_reset_token_lifetime": 3600,
-            "smtp": {"from": "noreply@example.com"},
+            "smtp": {"host": "mail.example.com", "from": "noreply@example.com"},
         }
     )
     with patch("lithica.func.mailer.send_mail"):
@@ -136,6 +138,27 @@ def test_token_lifetime_comes_from_config(user, request_token, fake_datetime):
 
 def test_trying_to_reset_non_existing(client):
     assert_error(client.get("/password-reset/u1"), errors.NotFoundError)
+
+
+def test_trying_to_reset_on_a_site_that_cannot_send_mail(client, user, config_injector):
+    config_injector(
+        {
+            "secret": "x",
+            "domain": "http://example.com",
+            "name": "Test instance",
+            "smtp": {"host": None, "from": "noreply@example.com"},
+        }
+    )
+    # no mail server, and nothing patched: the reset says so
+    response = client.get("/password-reset/u1")
+    body = assert_error(response, mailer.MailNotConfiguredError)
+    assert response.status_code == 500
+    assert body["title"] == "Server configuration error"
+    assert "cannot send mail" in body["description"]
+    # refused before a token was made
+    assert db.session.query(model.PasswordResetToken).count() == 0
+    # what GET /info says as canSendMails
+    assert mailer.can_send_mail() is False
 
 
 def test_trying_to_reset_without_email(client, user_factory):

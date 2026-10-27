@@ -1042,7 +1042,7 @@
           "Password reset"
         ],
         "summary": "Request a password reset",
-        "description": "Sends a confirmation email to given user. The email contains link containing\na token. The token cannot be guessed, thus using such link proves that the\nperson who requested to reset the password also owns the mailbox, which is a\nstrong indication they are the rightful owner of the account.\n\nThe token is random, works once and expires after the time set in\n`password_reset_token_lifetime` (one hour by default). Requesting another\nemail makes the previous token stop working.\n\nErrors:\n\n- the user does not exist\n- the user hasn't provided an email address",
+        "description": "Sends a confirmation email to given user. The email contains link containing\na token. The token cannot be guessed, thus using such link proves that the\nperson who requested to reset the password also owns the mailbox, which is a\nstrong indication they are the rightful owner of the account.\n\nThe token is random, works once and expires after the time set in\n`password_reset_token_lifetime` (one hour by default). Requesting another\nemail makes the previous token stop working.\n\nErrors:\n\n- the user does not exist\n- the user hasn't provided an email address\n- the site cannot send mail (no mail server is set up): 500\n  `MailNotConfiguredError`; `canSendMails` of `GET /info` says so ahead",
         "operationId": "start_password_reset",
         "security": [
           {
