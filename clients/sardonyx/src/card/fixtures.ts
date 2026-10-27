@@ -72,16 +72,20 @@ export function cardSite({
   card = CARD as unknown,
   summary = SUMMARY as unknown,
   modules = ["cards"],
+  post = {},
 }: {
   card?: unknown;
   summary?: unknown;
   modules?: string[];
+  /** more of the post, or other values */
+  post?: Record<string, unknown>;
 } = {}) {
   return fakeSite({
     "GET /info": { body: { ...INFO, modules } },
     "GET /post/5": (sent: Sent) => ({
       body: {
         ...POST,
+        ...post,
         card: sent.path.includes("card") ? summary : undefined,
       },
     }),

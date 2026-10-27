@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, Download } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import { API_BASE_URL } from "@/api/client";
 import { infoQuery, useHasCards } from "@/app/info";
+import { BLURRED, HiddenText, NsfwCover, useNsfwHidden } from "@/app/nsfw";
 import { CardViewer } from "@/card/CardViewer";
 import { ApiErrorMessage } from "@/components/ApiErrorMessage";
 import { CardsOnly } from "@/components/CardsOnly";
@@ -55,13 +56,34 @@ export function formatSize(bytes: number): string {
     : `${value.toFixed(value < 10 ? 1 : 0)} ${units[unit]}`;
 }
 
+/** A NSFW post kept out of sight: its thumbnail, blurred, under the cover. */
+function HiddenPicture({ post, onReveal }: { post: Post; onReveal(): void }) {
+  return (
+    <div className="relative aspect-square w-full max-w-md self-center overflow-hidden rounded-xl border bg-muted">
+      {post.thumbnailUrl ? (
+        <img
+          src={siteUrl(post.thumbnailUrl)}
+          alt=""
+          className={cn("size-full object-cover", BLURRED)}
+        />
+      ) : null}
+      <NsfwCover onReveal={onReveal} />
+    </div>
+  );
+}
+
 /**
  * The post's picture at the largest size that fits, a click away from its
  * full size; a video with the browser's controls; a CHARX card (or any
- * other file) as its thumbnail.
+ * other file) as its thumbnail. A NSFW post, while hidden, as a blurred
+ * thumbnail: its file is not loaded until it is revealed.
  */
 function Picture({ post, title }: { post: Post; title: string }) {
   const [full, setFull] = useState(false);
+  const { hidden, reveal } = useNsfwHidden(post);
+  if (hidden) {
+    return <HiddenPicture post={post} onReveal={reveal} />;
+  }
   if (post.type === "video" && post.contentUrl) {
     return (
       // biome-ignore lint/a11y/useMediaCaption: the site has no captions for its videos
@@ -422,6 +444,7 @@ function CardParts({
 }) {
   const id = post.id ?? 0;
   const card = useQuery(cardQuery(id));
+  const { hidden, reveal } = useNsfwHidden(post);
   if (card.isError) {
     return <ApiErrorMessage error={card.error} />;
   }
@@ -443,15 +466,19 @@ function CardParts({
         <PostDetails post={post} />
       </aside>
       <div className="min-w-0 flex-1">
-        <CardViewer
-          // another card is another viewer: its pictures start not loaded
-          key={id}
-          card={card.data}
-          postId={id}
-          tab={tab}
-          onTab={onTab}
-          from={from}
-        />
+        {hidden ? (
+          <HiddenText onReveal={reveal} />
+        ) : (
+          <CardViewer
+            // another card is another viewer: its pictures start not loaded
+            key={id}
+            card={card.data}
+            postId={id}
+            tab={tab}
+            onTab={onTab}
+            from={from}
+          />
+        )}
       </div>
     </div>
   );

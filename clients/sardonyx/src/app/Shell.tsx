@@ -1,4 +1,11 @@
-import { Link, Outlet, useNavigate } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import {
+  Link,
+  Navigate,
+  Outlet,
+  useLocation,
+  useNavigate,
+} from "@tanstack/react-router";
 import { LogIn, LogOut, Menu, Monitor, Moon, Sun, UserRound } from "lucide-react";
 import { useState } from "react";
 import { ApiError } from "@/api/errors";
@@ -9,6 +16,7 @@ import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
@@ -17,16 +25,21 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { infoQuery } from "./info";
+import { Login } from "./Login";
+import { useShowNsfw } from "./nsfw";
 import { useCanUpload, usePrivileges } from "./privileges";
 import { type Theme, useTheme } from "./theme";
 
-function ThemeMenu() {
+/** How this browser shows the site: the theme, and whether NSFW posts are shown. */
+function DisplayMenu() {
   const { theme, setTheme } = useTheme();
+  const [showNsfw, setShowNsfw] = useShowNsfw();
   const Icon = theme === "dark" ? Moon : theme === "light" ? Sun : Monitor;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label="Theme" className="shrink-0">
+        <Button variant="ghost" size="icon" aria-label="Display" className="shrink-0">
           <Icon />
         </Button>
       </DropdownMenuTrigger>
@@ -40,6 +53,13 @@ function ThemeMenu() {
           <DropdownMenuRadioItem value="dark">Dark</DropdownMenuRadioItem>
           <DropdownMenuRadioItem value="system">As the system</DropdownMenuRadioItem>
         </DropdownMenuRadioGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuCheckboxItem
+          checked={showNsfw}
+          onCheckedChange={(checked) => setShowNsfw(checked === true)}
+        >
+          Show NSFW
+        </DropdownMenuCheckboxItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -168,9 +188,46 @@ const SESSION_ENDED = new ApiError(
   403,
 );
 
+/**
+ * On a site that shows nothing without logging in (`visibility: login`),
+ * whether this visitor is kept out: not logged in. Null while the site
+ * has not said.
+ */
+function useLockedOut(): boolean | null {
+  const auth = useAuth();
+  const info = useQuery(infoQuery);
+  // only until the site first answers: a page asking again after a failure
+  // makes the query pending once more, and must not be taken off the page
+  if (info.data === undefined && info.errorUpdateCount === 0) {
+    return null;
+  }
+  // a site that did not answer is not taken for a closed one: its pages
+  // say what fails
+  return info.data?.visibility === "login" && !auth.user;
+}
+
+/**
+ * What a visitor kept out gets in place of any page: the login form, at
+ * /login, and back to the page they asked for once logged in. No page of
+ * the app is drawn for them, not even for a moment while the address
+ * changes, so none asks the site for anything.
+ */
+function LockedOut() {
+  const location = useLocation();
+  if (location.pathname !== "/login") {
+    return <Navigate to="/login" search={{ redirect: location.href }} replace />;
+  }
+  const { redirect } = location.search as { redirect?: unknown };
+  return <Login redirect={typeof redirect === "string" ? redirect : undefined} />;
+}
+
 /** Every page: the header with the name, the navigation and the user, then the page. */
 export function Shell() {
   const auth = useAuth();
+  const lockedOut = useLockedOut();
+  // nothing of a page is drawn (or asked for) before the site has said
+  // whether it is closed
+  const page = lockedOut === null ? null : lockedOut ? <LockedOut /> : <Outlet />;
   return (
     <div className="min-h-svh bg-background text-foreground">
       <header className="border-b">
@@ -179,32 +236,36 @@ export function Shell() {
             <Logo className="size-7" />
             Sardonyx
           </Link>
-          <nav aria-label="Main" className="flex flex-1 items-center gap-1 text-sm">
-            <NavMenu />
-            <Button asChild variant="ghost" size="sm" className="max-sm:hidden">
-              <Link
-                to="/"
-                activeOptions={{ exact: true }}
-                activeProps={{ "aria-current": "page" }}
-              >
-                Home
-              </Link>
-            </Button>
-            <Button asChild variant="ghost" size="sm" className="max-sm:hidden">
-              <Link to="/posts" activeProps={{ "aria-current": "page" }}>
-                Library
-              </Link>
-            </Button>
-            <TagsLink />
-            <UploadLink />
-            <CardsOnly>
-              <span className="rounded-full bg-accent px-2 max-sm:hidden py-0.5 text-accent-foreground text-xs">
-                Character cards
-              </span>
-            </CardsOnly>
-          </nav>
-          <ThemeMenu />
-          <UserMenu />
+          {lockedOut ? (
+            <span className="flex-1" />
+          ) : (
+            <nav aria-label="Main" className="flex flex-1 items-center gap-1 text-sm">
+              <NavMenu />
+              <Button asChild variant="ghost" size="sm" className="max-sm:hidden">
+                <Link
+                  to="/"
+                  activeOptions={{ exact: true }}
+                  activeProps={{ "aria-current": "page" }}
+                >
+                  Home
+                </Link>
+              </Button>
+              <Button asChild variant="ghost" size="sm" className="max-sm:hidden">
+                <Link to="/posts" activeProps={{ "aria-current": "page" }}>
+                  Library
+                </Link>
+              </Button>
+              <TagsLink />
+              <UploadLink />
+              <CardsOnly>
+                <span className="rounded-full bg-accent px-2 max-sm:hidden py-0.5 text-accent-foreground text-xs">
+                  Character cards
+                </span>
+              </CardsOnly>
+            </nav>
+          )}
+          <DisplayMenu />
+          {lockedOut ? null : <UserMenu />}
         </div>
       </header>
       {auth.ended && !auth.user ? (
@@ -212,7 +273,7 @@ export function Shell() {
           <ApiErrorMessage error={SESSION_ENDED} />
         </div>
       ) : null}
-      <Outlet />
+      {page}
     </div>
   );
 }

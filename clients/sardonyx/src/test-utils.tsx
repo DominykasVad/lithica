@@ -7,6 +7,7 @@ import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { render } from "@testing-library/react";
 import { StrictMode } from "react";
 import { vi } from "vitest";
+import { NsfwProvider } from "./app/nsfw";
 import { ThemeProvider } from "./app/theme";
 import { AuthProvider } from "./auth/AuthProvider";
 import { makeRouter } from "./router";
@@ -100,7 +101,9 @@ export function renderApp(path = "/") {
       <ThemeProvider>
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
-            <RouterProvider router={router} />
+            <NsfwProvider>
+              <RouterProvider router={router} />
+            </NsfwProvider>
           </AuthProvider>
         </QueryClientProvider>
       </ThemeProvider>

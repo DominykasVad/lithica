@@ -23,6 +23,8 @@ export function postFields(hasCards: boolean): string {
     "contentUrl",
     "thumbnailUrl",
     "tags",
+    // blurred unless NSFW is shown
+    "nsfw",
     "user",
     "creationTime",
     "lastEditTime",

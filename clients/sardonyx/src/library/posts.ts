@@ -7,9 +7,14 @@ export type Post = components["schemas"]["Post"];
 /** The API's largest page: what auto load asks for at a time. */
 export const BATCH = 100;
 
-/** Only what a tile shows: its card summary only where there are cards. */
+/**
+ * Only what a tile shows: whether it is NSFW (to blur it), and its card
+ * summary only where there are cards.
+ */
 export function tileFields(hasCards: boolean): string {
-  return ["id", "type", "thumbnailUrl", ...(hasCards ? ["card"] : [])].join(",");
+  return ["id", "type", "thumbnailUrl", "nsfw", ...(hasCards ? ["card"] : [])].join(
+    ",",
+  );
 }
 
 export function fetchPosts(

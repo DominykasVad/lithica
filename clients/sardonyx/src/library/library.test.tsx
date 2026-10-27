@@ -149,7 +149,7 @@ describe("the library", () => {
     renderApp("/posts");
     await waitFor(() => expect(postRequests(sent)).toHaveLength(1));
     expect(params(postRequests(sent)[0] as Sent).get("fields")).toBe(
-      "id,type,thumbnailUrl,card",
+      "id,type,thumbnailUrl,nsfw,card",
     );
   });
 
@@ -158,7 +158,7 @@ describe("the library", () => {
     renderApp("/posts");
     await waitFor(() => expect(tiles().length).toBeGreaterThan(0));
     expect(params(postRequests(sent)[0] as Sent).get("fields")).toBe(
-      "id,type,thumbnailUrl",
+      "id,type,thumbnailUrl,nsfw",
     );
     expect(screen.queryByRole("complementary", { name: "Card filters" })).toBeNull();
     expect(screen.queryByRole("button", { name: /^Filters/ })).toBeNull();
