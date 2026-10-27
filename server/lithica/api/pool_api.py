@@ -6,8 +6,8 @@ from lithica import db, model, search
 from lithica.api import resources
 from lithica.api.dependencies import (
     CurrentUser,
-    Fields,
     PageParams,
+    fields_of,
     read_body,
     require,
 )
@@ -25,6 +25,9 @@ from lithica.api.schemas import (
     required,
 )
 from lithica.func import auth, pools, snapshots, util, versions
+
+# checked before the endpoint runs (see fields_of)
+CheckedFields = Annotated[list[str], Depends(fields_of(pools.PoolSerializer))]
 
 router = ApiRouter(tags=["Pools"])
 
@@ -71,7 +74,7 @@ def _get_pool(pool_id: str) -> model.Pool:
 )
 def get_pools(
     _user: Annotated[model.User, Depends(require("pools:list"))],
-    fields: Fields,
+    fields: CheckedFields,
     page: PageParams,
 ) -> Any:
     """
@@ -94,7 +97,7 @@ def get_pools(
 )
 def create_pool(
     auth_user: Annotated[model.User, Depends(require("pools:create"))],
-    fields: Fields,
+    fields: CheckedFields,
     body: Annotated[PoolCreate, Depends(read_body(PoolCreate))],
 ) -> Any:
     """
@@ -130,7 +133,7 @@ def create_pool(
 def get_pool(
     pool_id: str,
     _user: Annotated[model.User, Depends(require("pools:view"))],
-    fields: Fields,
+    fields: CheckedFields,
 ) -> Any:
     """
     Retrieves information about an existing pool.
@@ -153,7 +156,7 @@ def get_pool(
 def update_pool(
     pool_id: str,
     auth_user: CurrentUser,
-    fields: Fields,
+    fields: CheckedFields,
     body: Annotated[PoolUpdate, Depends(read_body(PoolUpdate))],
 ) -> Any:
     """
@@ -237,7 +240,7 @@ def delete_pool(
 )
 def merge_pools(
     auth_user: CurrentUser,
-    fields: Fields,
+    fields: CheckedFields,
     body: Annotated[PoolMerge, Depends(read_body(PoolMerge))],
 ) -> Any:
     """

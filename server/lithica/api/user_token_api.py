@@ -4,7 +4,7 @@ from fastapi import Depends
 
 from lithica import db, model
 from lithica.api import resources
-from lithica.api.dependencies import CurrentUser, Fields, read_body
+from lithica.api.dependencies import CurrentUser, fields_of, read_body
 from lithica.api.routing import ApiRouter
 from lithica.api.schemas import (
     Bool,
@@ -16,6 +16,11 @@ from lithica.api.schemas import (
     required,
 )
 from lithica.func import auth, user_tokens, users, versions
+
+# checked before the endpoint runs (see fields_of)
+CheckedFields = Annotated[
+    list[str], Depends(fields_of(user_tokens.UserTokenSerializer))
+]
 
 router = ApiRouter(tags=["User tokens"])
 
@@ -45,7 +50,9 @@ def _serialize(
     response_model=resources.Unpaged[resources.UserToken],
     summary="List the login tokens of a user",
 )
-def get_user_tokens(user_name: str, auth_user: CurrentUser, fields: Fields) -> Any:
+def get_user_tokens(
+    user_name: str, auth_user: CurrentUser, fields: CheckedFields
+) -> Any:
     """
     Searches for user tokens for the given user.
 
@@ -71,7 +78,7 @@ def get_user_tokens(user_name: str, auth_user: CurrentUser, fields: Fields) -> A
 def create_user_token(
     user_name: str,
     auth_user: CurrentUser,
-    fields: Fields,
+    fields: CheckedFields,
     body: Annotated[UserTokenCreate, Depends(read_body(UserTokenCreate))],
 ) -> Any:
     """
@@ -105,7 +112,7 @@ def update_user_token(
     user_name: str,
     user_token: str,
     auth_user: CurrentUser,
-    fields: Fields,
+    fields: CheckedFields,
     body: Annotated[UserTokenUpdate, Depends(read_body(UserTokenUpdate))],
 ) -> Any:
     """

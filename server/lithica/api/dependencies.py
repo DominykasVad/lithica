@@ -25,7 +25,7 @@ from starlette.requests import ClientDisconnect
 from lithica import config, db, errors, model
 from lithica.api.error_handlers import HttpError
 from lithica.api.schemas import READ_AS_INT, Bool, RequestModel
-from lithica.func import auth, file_uploads, net, user_tokens, users
+from lithica.func import auth, file_uploads, net, serialization, user_tokens, users
 from lithica.func import content as content_module
 from lithica.func.content import Content, ContentLike
 from lithica.search.executor import Executor
@@ -175,7 +175,22 @@ def get_fields(
     return fields.split(",") if "," in fields else [fields]
 
 
-Fields = Annotated[list[str], Depends(get_fields)]
+def fields_of(
+    serializer: type[serialization.BaseSerializer],
+) -> Callable[[list[str]], list[str]]:
+    """
+    The `fields` of an endpoint whose answer `serializer` writes, checked
+    before the endpoint runs: a request is refused for a field the answer
+    would not have before anything is created, changed or deleted, not after.
+    """
+
+    def checked_fields(
+        fields: Annotated[list[str], Depends(get_fields)],
+    ) -> list[str]:
+        serializer.check_fields(fields)
+        return fields
+
+    return checked_fields
 
 
 @dataclasses.dataclass(frozen=True)

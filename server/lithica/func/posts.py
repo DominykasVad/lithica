@@ -176,8 +176,13 @@ class PostSerializer(serialization.BaseSerializer):
         # the fields the loaded modules add to a post
         module_fields = {**registry.post_fields(), **registry.requested_post_fields()}
         for name, serialize in module_fields.items():
-            serializers[name] = functools.partial(serialize, self.post, self.auth_user)
+            serializers[name] = functools.partial(
+                self._serialize_module_field, serialize
+            )
         return serializers
+
+    def _serialize_module_field(self, serialize: registry.PostField) -> Any:
+        return serialize(self.post, self.auth_user)
 
     def serialize(self, options: list[str]) -> Any:
         if not options:

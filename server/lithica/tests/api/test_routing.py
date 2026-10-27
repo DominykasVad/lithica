@@ -12,9 +12,9 @@ from fastapi.testclient import TestClient
 from lithica import errors, search
 from lithica.api import dependencies, error_handlers
 from lithica.api.dependencies import (
-    Fields,
     PageParams,
     RequestDataParam,
+    get_fields,
     read_body,
 )
 from lithica.api.routing import ApiRouter
@@ -61,7 +61,9 @@ def client():
     router = ApiRouter()
 
     @router.get("/things", response_model=_Thing)
-    def get_things(fields: Fields, page: PageParams) -> dict[str, Any]:
+    def get_things(
+        fields: Annotated[list[str], Depends(get_fields)], page: PageParams
+    ) -> dict[str, Any]:
         return {"fields": fields, "page": [page.query, page.offset, page.limit]}
 
     @router.get("/thing/{name:path}")

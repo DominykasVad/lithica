@@ -14,16 +14,29 @@ class BaseSerializer:
         field_factories = self._serializers()
         if not options:
             options = list(field_factories.keys())
-        ret = {}
-        for key in options:
-            if key not in field_factories:
-                raise errors.ValidationError(
-                    "Invalid key: %r. Valid keys: %r."
-                    % (key, list(sorted(field_factories.keys())))
-                )
-            factory = field_factories[key]
-            ret[key] = factory()
-        return ret
+        _check(options, list(field_factories))
+        return {key: field_factories[key]() for key in options}
+
+    @classmethod
+    def field_names(cls) -> list[str]:
+        """
+        The fields this serializer knows, without a resource to serialize:
+        the factories are bound methods, listed here and never called.
+        """
+        return list(cls.__new__(cls)._serializers())
+
+    @classmethod
+    def check_fields(cls, options: list[str]) -> None:
+        """Refuses fields this serializer does not know, as serialize() would."""
+        _check(options, cls.field_names())
 
     def _serializers(self) -> dict[str, Callable[[], Any]]:
         raise NotImplementedError()
+
+
+def _check(options: list[str], known: list[str]) -> None:
+    for key in options:
+        if key not in known:
+            raise errors.ValidationError(
+                "Invalid key: %r. Valid keys: %r." % (key, list(sorted(known)))
+            )
