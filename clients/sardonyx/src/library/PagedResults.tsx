@@ -89,7 +89,14 @@ export function PagedResults({
           <NoResults q={q} />
         )
       ) : null}
-      {total ? <Paging q={q} page={offset / size} size={size} total={total} /> : null}
+      {total ? (
+        <Paging
+          list={{ to: "/posts", searchAt: (at) => librarySearch(q, at) }}
+          page={offset / size}
+          size={size}
+          total={total}
+        />
+      ) : null}
     </>
   );
 }
