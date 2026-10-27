@@ -117,6 +117,15 @@ def validate_visibility() -> None:
 def validate_file_link_secret() -> None:
     secret = config.get("file_link_secret")
     if secret is None:
+        if config.get("visibility", "open") != "open":
+            # what the API hides, its files still show: their addresses work
+            # for anyone who has them
+            logger.warning(
+                "'visibility' is %r but 'file_link_secret' is not set: post "
+                "files stay reachable by anyone with an address. Set it to "
+                "sign the file links (see the README, Signed file links).",
+                config["visibility"],
+            )
         return
     if not isinstance(secret, str) or not FILE_LINK_SECRET_PATTERN.fullmatch(secret):
         raise errors.ConfigError(

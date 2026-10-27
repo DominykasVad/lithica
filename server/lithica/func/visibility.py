@@ -33,7 +33,10 @@ OPEN = "open"
 NSFW_LOGIN = "nsfw-login"
 LOGIN = "login"
 
-# a query that must see every post (the duplicate check of an upload) says so
+# a query that must see every post (the duplicate check of an upload) says
+# so. It selects columns only: an entity it loaded would stay in the session,
+# and a lookup by primary key or a many-to-one relationship later in the
+# request takes it from there without a query, so without the criteria
 ALL_POSTS = "lithica_all_posts"
 
 _REQUEST = "visibility.request"
@@ -146,12 +149,11 @@ def hidden_post_ids(post_ids: Iterable[int]) -> set[int]:
 
 @sa_event.listens_for(sa_orm.Session, "do_orm_execute")
 def _leave_out_hidden_posts(state: sa_orm.ORMExecuteState) -> None:
-    if (
-        not state.is_select
-        or state.is_column_load
-        or state.is_relationship_load
-        or state.execution_options.get(ALL_POSTS)
-    ):
+    if not state.is_select or state.is_column_load or state.is_relationship_load:
+        return
+    if state.execution_options.get(ALL_POSTS):
+        if _loads_entities(state.statement):
+            raise RuntimeError("A query of all posts selects columns, not entities.")
         return
     values = db.scope_values()
     # the tags' own queries, while the hiding tags are worked out
@@ -215,6 +217,15 @@ def _leave_out_hidden_posts(state: sa_orm.ORMExecuteState) -> None:
             ),
             include_aliases=True,
         ),
+    )
+
+
+def _loads_entities(statement: Any) -> bool:
+    # an entity (or an alias of one) is described as its own entity; a
+    # column as an expression of one
+    return any(
+        one.get("entity") is not None and one.get("expr") is one.get("entity")
+        for one in getattr(statement, "column_descriptions", [])
     )
 
 

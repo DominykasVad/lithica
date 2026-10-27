@@ -186,6 +186,8 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 - 2026-10-27 — 5.6b — counts (tag usages, siblings, pool postCount, user counts) still count hidden posts; documented
 - 2026-10-27 — 5.6b — file links: secure_link_md5 of "<e></path under /data> <secret>"; e: day after tomorrow, UTC
 - 2026-10-27 — 5.6b — FILE_LINK_SECRET: [A-Za-z0-9_-]{32,}, checked by server and both images; one .env value
+- 2026-10-27 — 5.6b — ALL_POSTS queries select columns, never entities (the identity map would hand them out)
+- 2026-10-27 — 5.6b — not `open` and no file_link_secret: a warning at start, not a refusal; files stay reachable
 - 2026-10-25 — fix — `GET /info` says `maxUploadSize` and `acceptedTypes` (engine + enabled modules), hints only
 - 2026-10-25 — 5.4 — card Markdown without a raw-HTML plugin; images as `[image: alt]`, never loaded
 - 2026-10-25 — 5.4 — Readable shows HTML as its text: no tags, style/script dropped, blocks as lines, entities decoded

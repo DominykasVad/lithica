@@ -66,6 +66,10 @@ details):
 - `login`: nothing but logging in and password reset without logging in;
   signing up is closed too.
 
+Without a `file_link_secret`, post files stay reachable by anyone who has
+their address; the server warns of it at start. See
+[Signed file links](#signed-file-links).
+
 ### Signed file links
 
 The files of posts are served by the web server in front, not by the API,

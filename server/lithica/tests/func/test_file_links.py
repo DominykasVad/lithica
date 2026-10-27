@@ -1,5 +1,6 @@
 """Signed addresses of post files and thumbnails (file_link_secret)."""
 
+import logging
 import shutil
 import subprocess
 from datetime import datetime, timedelta
@@ -124,3 +125,32 @@ def test_a_good_secret_and_none_are_taken(config_injector):
     config.validate_file_link_secret()
     config_injector({"file_link_secret": None})
     config.validate_file_link_secret()
+
+
+@pytest.mark.parametrize("visibility", ["nsfw-login", "login"])
+def test_a_closed_site_without_a_secret_is_warned_of(
+    config_injector, caplog, visibility
+):
+    config_injector({"visibility": visibility, "file_link_secret": None})
+    with caplog.at_level(logging.WARNING, logger="lithica.config"):
+        config.validate_file_link_secret()
+    assert len(caplog.records) == 1
+    assert "reachable by anyone with an address" in caplog.records[0].getMessage()
+
+
+@pytest.mark.parametrize(
+    "settings",
+    [
+        {"visibility": "open", "file_link_secret": None},
+        {"file_link_secret": None},
+        {"visibility": "nsfw-login", "file_link_secret": SECRET},
+        {"visibility": "login", "file_link_secret": SECRET},
+    ],
+)
+def test_an_open_site_or_signed_links_are_not_warned_of(
+    config_injector, caplog, settings
+):
+    config_injector(settings)
+    with caplog.at_level(logging.WARNING, logger="lithica.config"):
+        config.validate_file_link_secret()
+    assert caplog.records == []

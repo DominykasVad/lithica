@@ -861,17 +861,24 @@ def update_post_content(post: model.Post, content: ContentLike | None) -> None:
 
     post.checksum = util.get_sha1(content)
     post.checksum_md5 = util.get_md5(content)
-    # every post, also one this user may not see: a file is on the site once
-    other_post = (
-        db.session.query(model.Post)
+    # every post, also one this user may not see: a file is on the site once.
+    # Only its id: a post loaded here would stay in the session, where a
+    # lookup by id later in the request finds it without a query
+    same_ids = (
+        db.session.query(model.Post.post_id)
         .filter(model.Post.checksum == post.checksum)
         .filter(model.Post.post_id != post.post_id)
         .execution_options(**{visibility.ALL_POSTS: True})
-        .one_or_none()
+        .all()
     )
-    if other_post and other_post.post_id and other_post.post_id != post.post_id:
-        hidden = visibility.hidden_post_ids([other_post.post_id])
-        raise PostAlreadyUploadedError(None if hidden else other_post)
+    # a new post gets its id only as the query flushes it: not itself
+    other_post_id = next(
+        (row.post_id for row in same_ids if row.post_id != post.post_id), None
+    )
+    if other_post_id:
+        # one this user may see is loaded as any other lookup
+        other_post = try_get_post_by_id(other_post_id)
+        raise PostAlreadyUploadedError(other_post)
 
     # Before anything of the post goes to the session: a module may refuse
     # the file here, and a refused file must leave nothing behind.

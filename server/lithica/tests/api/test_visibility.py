@@ -12,15 +12,18 @@ must be refused as for a post that is not there.
 
 import re
 from collections.abc import Mapping, Sequence
-from typing import Any
+from typing import Any, cast
 from unittest.mock import patch
 
 import pytest
+import sqlalchemy as sa
+import sqlalchemy.orm as sa_orm
 import yaml
 
 from lithica import config, db, model, registry
+from lithica.api.post_api import _search_executor
 from lithica.app import create_app
-from lithica.func import auth, posts, snapshots, util
+from lithica.func import auth, posts, snapshots, util, visibility
 from lithica.tests.conftest import ApiClient
 from lithica.tests.modules import cards
 
@@ -590,6 +593,69 @@ def test_the_duplicate_of_a_hidden_post_says_only_that_it_is_there(nsfw_site):
         db.session.query(model.Post).filter(model.Post.checksum == checksum).count()
         == 1
     )
+
+
+def test_what_the_duplicate_check_loaded_stays_hidden_in_its_request(nsfw_site):
+    # one anonymous request, in the functions: the upload's duplicate check
+    # looks at every post, the hidden one too; whatever that query loaded
+    # must not come back to anything later in the same request
+    _client, site = nsfw_site
+    _fresh()
+    # a scope of its own, as the middleware opens; the session is the test's
+    token = db.begin_scope()
+    try:
+        visibility.begin_request()
+        anonymous = model.User()
+        anonymous.rank = model.User.RANK_ANONYMOUS
+        visibility.set_viewer(anonymous)
+        assert visibility.hides_nsfw()
+        post = model.Post()
+        post.post_id = 9100099
+        # kept until the end: its traceback holds the check's frame, and with
+        # it anything the check loaded, as any reference would (the session
+        # itself holds what it loaded only weakly)
+        with pytest.raises(posts.PostAlreadyUploadedError) as raised:
+            posts.update_post_content(post, site.hidden_content)
+
+        with pytest.raises(posts.PostNotFoundError):
+            posts.get_post_by_id(HIDDEN[0])
+        assert posts.try_get_post_by_id(HIDDEN[0]) is None
+        assert posts.get_posts_by_ids([HIDDEN[0]]) == []
+        assert db.session.get(model.Post, HIDDEN[0]) is None
+        for query in ("id:%d" % HIDDEN[0], ""):
+            _count, found = _search_executor.execute(query, 0, 100, None)
+            found_posts = cast(list[model.Post], found)
+            assert HIDDEN[0] not in [one.post_id for one in found_posts]
+        # a row that points at the post, loaded later: its post is not handed
+        # out of the session either
+        scores = db.session.query(model.PostScore).all()
+        # (the admin's score of it is there: scores are not filtered)
+        assert [score.post for score in scores if score.post_id == HIDDEN[0]] == [None]
+        # and the error itself names nothing of it
+        assert not raised.value.extra_fields
+    finally:
+        db.end_scope(token)
+
+
+def test_a_query_of_all_posts_may_not_load_them(nsfw_site):
+    # what it loaded would stay in the session (see above): columns only
+    _client, _site = nsfw_site
+    token = db.begin_scope()
+    try:
+        visibility.begin_request()
+        everything = {visibility.ALL_POSTS: True}
+        for statement in (
+            sa.select(model.Post),
+            sa.select(sa_orm.aliased(model.Post)),
+        ):
+            with pytest.raises(RuntimeError, match="columns, not entities"):
+                db.session.execute(statement, execution_options=everything)
+        found = db.session.execute(
+            sa.select(model.Post.post_id), execution_options=everything
+        ).scalars()
+        assert set(HIDDEN) <= set(found)
+    finally:
+        db.end_scope(token)
 
 
 def test_a_logged_in_user_sees_them_all(nsfw_site, user_factory):
