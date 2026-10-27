@@ -255,6 +255,8 @@ export interface paths {
          *
          *     - the user does not exist
          *     - the user hasn't provided an email address
+         *     - the site cannot send mail (no mail server is set up): 500
+         *       `MailNotConfiguredError`; `canSendMails` of `GET /info` says so ahead
          */
         get: operations["start_password_reset"];
         put?: never;
