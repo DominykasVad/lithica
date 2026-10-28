@@ -43,6 +43,34 @@ const loginRoute = createRoute({
   },
 });
 
+const startResetRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/password-reset",
+  component: lazyRouteComponent(() => import("./account/PasswordReset"), "StartReset"),
+});
+
+// the link of the mail: its token is taken off the address at once
+const resetLinkRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/password-reset/$nameToken",
+  component: lazyRouteComponent(() => import("./account/PasswordReset"), "ResetLink"),
+});
+
+const confirmResetRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/password-reset/confirm",
+  component: lazyRouteComponent(
+    () => import("./account/PasswordReset"),
+    "ConfirmReset",
+  ),
+});
+
+const accountRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/account",
+  component: lazyRouteComponent(() => import("./account/AccountPage"), "AccountPage"),
+});
+
 export const libraryRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/posts",
@@ -82,6 +110,10 @@ export const tagsRoute = createRoute({
 export const routeTree = rootRoute.addChildren([
   homeRoute,
   loginRoute,
+  startResetRoute,
+  resetLinkRoute,
+  confirmResetRoute,
+  accountRoute,
   libraryRoute,
   postRoute,
   lorebookRoute,

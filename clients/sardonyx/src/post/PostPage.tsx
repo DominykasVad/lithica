@@ -4,7 +4,15 @@ import { ArrowLeft, ArrowRight, Download } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import { API_BASE_URL } from "@/api/client";
 import { infoQuery, useHasCards } from "@/app/info";
-import { BLURRED, HiddenText, NsfwCover, useNsfwHidden } from "@/app/nsfw";
+import {
+  BLURRED,
+  HiddenText,
+  NSFW_CARD_NAME,
+  NsfwCover,
+  useNsfwHidden,
+  useNsfwNamesHidden,
+} from "@/app/nsfw";
+import { useDocumentTitle } from "@/app/title";
 import { CardViewer } from "@/card/CardViewer";
 import { ApiErrorMessage } from "@/components/ApiErrorMessage";
 import { CardsOnly } from "@/components/CardsOnly";
@@ -32,6 +40,9 @@ import { fromLibrary } from "./search";
 // where the app is, never against the page.
 const SITE = new URL(import.meta.env.BASE_URL, document.baseURI);
 const siteUrl = (url: string) => new URL(url, SITE).href;
+
+// where the cards module files a card's creator
+const CREATOR_CATEGORY = "creator";
 
 const DATE = new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" });
 
@@ -141,7 +152,14 @@ function Picture({ post, title }: { post: Post; title: string }) {
  * The post's tags under their categories, in the categories' order: the
  * one list of tags on the page. The default category has no heading.
  */
-function TagGroups({ tags }: { tags: NonNullable<Post["tags"]> }) {
+function TagGroups({
+  tags,
+  hideCreators,
+}: {
+  tags: NonNullable<Post["tags"]>;
+  /** a NSFW card's creator is hidden: the `creator` category is left out */
+  hideCreators: boolean;
+}) {
   const categories = useQuery(categoriesQuery);
   // in the categories' order once the site has said it (or could not)
   if (categories.isPending) {
@@ -163,7 +181,8 @@ function TagGroups({ tags }: { tags: NonNullable<Post["tags"]> }) {
         : name === "default",
       tags: tags.filter((tag) => (tag.category ?? "") === name && tag.names?.[0]),
     }))
-    .filter((group) => group.tags.length > 0);
+    .filter((group) => group.tags.length > 0)
+    .filter((group) => !(hideCreators && group.name === CREATOR_CATEGORY));
   if (!groups.length) {
     return <p className="text-muted-foreground text-sm">No tags.</p>;
   }
@@ -355,7 +374,15 @@ function PrevNext({ id, from }: { id: number; from: LibrarySearch }) {
   );
 }
 
-function DownloadButton({ post, card }: { post: Post; card: Card | null }) {
+function DownloadButton({
+  post,
+  card,
+  hideName = false,
+}: {
+  post: Post;
+  card: Card | null;
+  hideName?: boolean;
+}) {
   const id = post.id ?? 0;
   const save = useMutation({
     mutationFn: () =>
@@ -366,9 +393,12 @@ function DownloadButton({ post, card }: { post: Post; card: Card | null }) {
           )
         : download(siteUrl(post.contentUrl ?? ""), fallbackName(id, post.contentUrl)),
   });
-  const label = card?.name
-    ? `Download ${card.name}.${card.format ?? "png"}`
-    : "Download the original";
+  const label =
+    card?.name && !hideName
+      ? `Download ${card.name}.${card.format ?? "png"}`
+      : card
+        ? "Download the card"
+        : "Download the original";
   return (
     <div className="flex flex-col gap-2">
       <Button
@@ -389,7 +419,7 @@ function DownloadButton({ post, card }: { post: Post; card: Card | null }) {
  * listed here: the module puts them on the post, and the post's tags are
  * the page's one list.
  */
-function CardHeader({ card }: { card: Card }) {
+function CardHeader({ card, hideNames }: { card: Card; hideNames: boolean }) {
   const entries = card.lorebook?.entries?.length ?? 0;
   const greetings =
     (card.firstMessage?.trim() ? 1 : 0) +
@@ -398,10 +428,12 @@ function CardHeader({ card }: { card: Card }) {
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-1.5">
         <h1 className="font-semibold font-serif text-4xl leading-tight">
-          {card.name || "Unnamed card"}
+          {hideNames ? NSFW_CARD_NAME : card.name || "Unnamed card"}
         </h1>
         <p className="text-sm">
-          {card.creator ? (
+          {hideNames ? (
+            "Creator hidden"
+          ) : card.creator ? (
             <>
               by{" "}
               <Link
@@ -445,6 +477,7 @@ function CardParts({
   const id = post.id ?? 0;
   const card = useQuery(cardQuery(id));
   const { hidden, reveal } = useNsfwHidden(post);
+  const namesHidden = useNsfwNamesHidden(post);
   if (card.isError) {
     return <ApiErrorMessage error={card.error} />;
   }
@@ -454,16 +487,19 @@ function CardParts({
   return (
     <div className="flex flex-col gap-8 lg:flex-row lg:items-start">
       <aside className="flex flex-col gap-5 lg:w-[340px] lg:shrink-0">
-        <Picture post={post} title={card.data.name || `Post ${id}`} />
-        <CardHeader card={card.data} />
-        <DownloadButton post={post} card={card.data} />
+        <Picture
+          post={post}
+          title={namesHidden ? NSFW_CARD_NAME : card.data.name || `Post ${id}`}
+        />
+        <CardHeader card={card.data} hideNames={namesHidden} />
+        <DownloadButton post={post} card={card.data} hideName={namesHidden} />
         <PostActions
           post={post}
-          name={card.data.name || null}
+          name={namesHidden ? null : card.data.name || null}
           postFields={fields}
           from={from}
         />
-        <PostDetails post={post} />
+        <PostDetails post={post} hideCreators={namesHidden} />
       </aside>
       <div className="min-w-0 flex-1">
         {hidden ? (
@@ -484,11 +520,11 @@ function CardParts({
   );
 }
 
-function PostDetails({ post }: { post: Post }) {
+function PostDetails({ post, hideCreators }: { post: Post; hideCreators: boolean }) {
   return (
     <>
       <Facts post={post} />
-      <TagGroups tags={post.tags ?? []} />
+      <TagGroups tags={post.tags ?? []} hideCreators={hideCreators} />
     </>
   );
 }
@@ -537,6 +573,13 @@ export function PostPage() {
     ...postQuery(id, fields),
     enabled: valid && known,
   });
+  const namesHidden = useNsfwNamesHidden(post.data);
+  const title = post.data
+    ? namesHidden
+      ? NSFW_CARD_NAME
+      : post.data.card?.name || `Post ${id}`
+    : `Post ${param}`;
+  useDocumentTitle(title);
 
   // the tab is in the URL, without a history entry of its own
   const onTab = (tab: string) =>
@@ -571,7 +614,6 @@ export function PostPage() {
   }
   const data = post.data;
   const hasCard = hasCards && data.card != null;
-  const title = data.card?.name || `Post ${id}`;
   return (
     <main className="mx-auto max-w-[1360px] px-4 py-6 sm:px-8">
       <Breadcrumb title={title} id={id} from={from} />
@@ -594,7 +636,7 @@ export function PostPage() {
             <h1 className="font-semibold font-serif text-3xl">{title}</h1>
             <DownloadButton post={data} card={null} />
             <PostActions post={data} name={null} postFields={fields} from={from} />
-            <PostDetails post={data} />
+            <PostDetails post={data} hideCreators={false} />
           </aside>
         </div>
       )}

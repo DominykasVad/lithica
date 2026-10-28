@@ -6,6 +6,8 @@ import { fakeSite, INFO, renderApp, type Sent } from "@/test-utils";
 // What the tests' window gives the list: 1024 px wide (five columns of
 // 180 px tiles with 20 px between), 768 px high; a row is 332 px.
 const ROW = 332;
+// a row of posts without cards: their caption is one line, not three
+const PLAIN_ROW = 288;
 const COLUMNS = 5;
 
 function params(sent: Sent): URLSearchParams {
@@ -21,6 +23,8 @@ interface SiteOptions {
   tags?: (query: string) => string[] | Promise<string[]>;
   /** answer this request for posts only once the promise is settled */
   hold?: (offset: number) => Promise<void> | null;
+  /** whether the posts asked for from this offset on are cards (the odd ones) */
+  cardsFrom?: number;
 }
 
 /** A site with `total` posts; with cards, each odd one is a card. */
@@ -30,6 +34,7 @@ function library({
   fails,
   tags,
   hold,
+  cardsFrom = 0,
 }: SiteOptions = {}) {
   return fakeSite({
     "GET /info": { body: cards ? INFO : { ...INFO, modules: [] } },
@@ -55,7 +60,7 @@ function library({
           ...(withCard
             ? {
                 card:
-                  i % 2
+                  i % 2 && i >= cardsFrom
                     ? {
                         name: `Card ${i + 1}`,
                         creator: "ashwyn",
@@ -683,6 +688,61 @@ describe("card filters", () => {
       expect(search(view).q).toBe(
         "sea  -nsfw card-creator:Ann*Marie card-lorebook:no card-greetings:2..",
       ),
+    );
+  });
+});
+
+describe("the height of rows", () => {
+  const tileHeights = () => tiles().map((tile) => Number.parseFloat(tile.style.height));
+
+  it("in page mode, is a card's caption only for a tile of a card", async () => {
+    pageMode(50);
+    library();
+    renderApp("/posts");
+    await waitFor(() => expect(tiles().length).toBe(50));
+    // the even posts are not cards, the odd ones are
+    expect(tileHeights().slice(0, 4)).toEqual([268, 312, 268, 312]);
+  });
+
+  it("in auto load, is one line for a search whose first batch has no card", async () => {
+    library({ total: 1000, cardsFrom: 10_000 });
+    renderApp("/posts");
+    await waitFor(() => expect(tiles().length).toBeGreaterThan(0));
+    const row = screen.getByTestId("auto-list").firstElementChild as HTMLElement;
+    expect(row.style.height).toBe(`${PLAIN_ROW}px`);
+    expect(screen.getByTestId("auto-list").style.height).toBe(
+      `${(1000 / COLUMNS) * PLAIN_ROW}px`,
+    );
+  });
+
+  it("in auto load, opens at `at` with the height it keeps", async () => {
+    const sent = library({ total: 1000, cardsFrom: 300 });
+    renderApp("/posts?at=250");
+    await waitFor(() => expect(window.scrollY).toBe((250 / COLUMNS) * PLAIN_ROW));
+    await waitFor(() => expect(paths()).toContain("/posts/251"));
+    // later batches, with cards (from 300 on) or not, change nothing of it
+    await waitFor(() => expect(offsetsAsked(sent)).toEqual([200, 100, 300]));
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+    expect(window.scrollY).toBe((250 / COLUMNS) * PLAIN_ROW);
+    expect(screen.getByTestId("auto-list").style.height).toBe(
+      `${(1000 / COLUMNS) * PLAIN_ROW}px`,
+    );
+  });
+
+  it("in auto load, keeps a card's caption when the first batch has a card", async () => {
+    library({ total: 1000 });
+    renderApp("/posts?at=250");
+    await waitFor(() => expect(window.scrollY).toBe((250 / COLUMNS) * ROW));
+  });
+
+  it("on a site without cards, is one line", async () => {
+    library({ total: 1000, cards: false });
+    renderApp("/posts");
+    await waitFor(() => expect(tiles().length).toBeGreaterThan(0));
+    expect(screen.getByTestId("auto-list").style.height).toBe(
+      `${(1000 / COLUMNS) * PLAIN_ROW}px`,
     );
   });
 });

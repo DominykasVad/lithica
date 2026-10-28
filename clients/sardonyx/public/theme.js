@@ -8,8 +8,11 @@
   } catch {
     // storage may be blocked; the system's theme then
   }
+  // Dracula is a dark theme: it is drawn as dark, in its own colours
   const dark =
     preference === "dark" ||
+    preference === "dracula" ||
     (preference === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
   document.documentElement.classList.toggle("dark", dark);
+  document.documentElement.classList.toggle("dracula", preference === "dracula");
 })();

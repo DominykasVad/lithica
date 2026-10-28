@@ -112,6 +112,8 @@ def validate_visibility() -> None:
     nsfw_tag = config.get("nsfw_tag", "nsfw")
     if not isinstance(nsfw_tag, str) or not nsfw_tag.strip():
         raise errors.ConfigError("'nsfw_tag' must be the name of a tag.")
+    if not isinstance(config.get("nsfw_hide_names", False), bool):
+        raise errors.ConfigError("'nsfw_hide_names' must be true or false.")
 
 
 def validate_file_link_secret() -> None:

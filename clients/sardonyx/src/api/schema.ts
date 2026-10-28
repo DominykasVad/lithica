@@ -1536,6 +1536,11 @@ export interface components {
              * @description The tag that marks a post as not safe for work (`nsfw_tag`).
              */
             nsfwTag?: string;
+            /**
+             * Nsfwhidesnames
+             * @description Whether clients hide the name and creator of a NSFW post's card, as they hide its picture and text, from a viewer who has not chosen to see NSFW posts (`nsfw_hide_names`). A hint for clients: the API gives the names either way.
+             */
+            nsfwHidesNames?: boolean;
             /** @description Present only if the requester may see the featured post. */
             featuredPost?: components["schemas"]["Post"] | null;
             featuringUser?: components["schemas"]["User"] | null;

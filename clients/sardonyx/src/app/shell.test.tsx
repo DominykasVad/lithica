@@ -80,6 +80,27 @@ describe("the app shell", () => {
     expect(localStorage.getItem("sardonyx.theme")).toBeNull();
   });
 
+  it("has Dracula, a dark theme in its own colours, kept as the others", async () => {
+    fakeSite({ "GET /info": { body: INFO }, "GET /posts": { body: { total: 0 } } });
+    const view = renderApp("/");
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Display" }));
+    await user.click(await screen.findByRole("menuitemradio", { name: "Dracula" }));
+    expect(document.documentElement).toHaveClass("dark", "dracula");
+    expect(localStorage.getItem("sardonyx.theme")).toBe("dracula");
+    view.unmount();
+
+    // the next visit starts in it; another choice leaves it
+    renderApp("/");
+    await user.click(await screen.findByRole("button", { name: "Display" }));
+    expect(
+      await screen.findByRole("menuitemradio", { name: "Dracula" }),
+    ).toHaveAttribute("aria-checked", "true");
+    await user.click(screen.getByRole("menuitemradio", { name: "Light" }));
+    expect(document.documentElement).not.toHaveClass("dark");
+    expect(document.documentElement).not.toHaveClass("dracula");
+  });
+
   it("on a phone, has the pages in a menu, and the rest of the header beside it", async () => {
     fakeSite({ "GET /info": { body: INFO }, "GET /posts": { body: { total: 0 } } });
     const view = renderApp("/");

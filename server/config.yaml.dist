@@ -43,6 +43,12 @@ visibility: open
 # clients that blur such posts (any of the tag's names)
 nsfw_tag: nsfw
 
+# whether clients hide the name and creator of a NSFW post's card, as they
+# hide its picture and text, while the viewer has not chosen to see NSFW
+# posts (true or false). only a hint for clients: the API gives the names
+# to anyone who may see the post either way
+nsfw_hide_names: false
+
 # when set, every address of a post's file and thumbnail the server gives out
 # carries an expiry and a signature, and the web server in front refuses one
 # without a valid signature (403). the client images check it when they get

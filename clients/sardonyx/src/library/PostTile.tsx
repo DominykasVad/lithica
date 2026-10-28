@@ -1,5 +1,11 @@
 import { Link } from "@tanstack/react-router";
-import { BLURRED, NsfwCover, useNsfwHidden } from "@/app/nsfw";
+import {
+  BLURRED,
+  NSFW_CARD_NAME,
+  NsfwCover,
+  useNsfwHidden,
+  useNsfwNamesHidden,
+} from "@/app/nsfw";
 import { cn } from "@/lib/utils";
 import type { TileLayout } from "./layout";
 import type { Post } from "./posts";
@@ -42,6 +48,9 @@ export function PostTile({
   const { card } = post;
   const badge = (card?.format ?? post.type ?? "").toUpperCase();
   const { hidden, reveal } = useNsfwHidden(post);
+  // on a site that asks for it, the name and creator too, until revealed
+  const namesHidden = useNsfwNamesHidden(post);
+  const oneLine = layout.textHeight < 64;
   return (
     // the cover is beside the link, over its picture: a button is not put
     // inside a link
@@ -73,13 +82,18 @@ export function PostTile({
             </span>
           ) : null}
         </div>
-        <div className="flex h-16 min-w-0 flex-col">
-          {card ? (
+        <div className="flex min-w-0 flex-col" style={{ height: layout.textHeight }}>
+          {card && oneLine ? (
+            // a card among posts without cards, where the rows have one line
+            <span className="truncate font-semibold font-serif leading-tight group-hover:text-primary">
+              {namesHidden ? NSFW_CARD_NAME : card.name || "Unnamed card"}
+            </span>
+          ) : card ? (
             <>
               <span className="truncate font-semibold font-serif text-lg leading-tight group-hover:text-primary">
-                {card.name || "Unnamed card"}
+                {namesHidden ? NSFW_CARD_NAME : card.name || "Unnamed card"}
               </span>
-              {card.creator ? (
+              {card.creator && !namesHidden ? (
                 <span className="truncate text-muted-foreground text-sm">
                   by {card.creator}
                 </span>

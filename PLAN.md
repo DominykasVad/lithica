@@ -192,6 +192,12 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 - 2026-10-27 — 5.6b — Show NSFW: localStorage per browser, off by default; a reveal lasts the tab's session
 - 2026-10-27 — 5.6b — login mode: the shell draws only the login form until logged in; no page before /info answers
 - 2026-10-27 — 5.6b — upload: the NSFW tag's name from /info; a card pre-checks the box only with the site's tag
+- 2026-10-28 — 5.7 — nsfw_hide_names: a client hint in /info, not a filter; the reveal shows the names too
+- 2026-10-28 — 5.7 — reset link: token kept in memory, address replaced; nginx: no access log, no-referrer for that page
+- 2026-10-28 — 5.7 — reset start: the same answer for any account or none; only MailNotConfiguredError is said
+- 2026-10-28 — 5.7 — /account checks the current password by reading the account with it (Basic), then PUTs with version
+- 2026-10-28 — 5.7 — auto load row height: fixed per search from its first batch (cards or not), before any row is drawn
+- 2026-10-28 — 5.7 — Dracula: .dracula with .dark; destructive #ff7979, control edges #8087a8 (contrast test)
 - 2026-10-25 — fix — `GET /info` says `maxUploadSize` and `acceptedTypes` (engine + enabled modules), hints only
 - 2026-10-25 — 5.4 — card Markdown without a raw-HTML plugin; images as `[image: alt]`, never loaded
 - 2026-10-25 — 5.4 — Readable shows HTML as its text: no tags, style/script dropped, blocks as lines, entities decoded
@@ -408,11 +414,14 @@ in the dev stack, its results stated in the PR.
 **Done when:** in each of the three modes an anonymous visitor sees exactly what the mode allows (search, post, card, download, around); a logged-in user sees everything; the switch blurs and reveals as described.
 
 ### 5.7 Release `v0.3.0`
+- [x] NSFW names: a site setting `nsfw_hide_names` (default false, `nsfwHidesNames` in `GET /info`); when true and Show NSFW is off, a NSFW card's name and creator are behind the same "Show this post" click (tile, heading, tab title, breadcrumb, lorebook page).
+- [x] Password reset in Sardonyx: `/password-reset` (start), `/password-reset/<user>:<token>` (the mail's link; confirm, the new password shown once), "Forgot your password?" on the login form when the site can send mail; reachable in `login` mode. `/account`: change the password.
+- [x] Tile rows: a row without cards does not reserve a card's caption (page mode per row; auto load per search, from its first batch).
 - [ ] `doc/INSTALL.md`: running Sardonyx (compose service, image, dev mode).
 - [ ] `docker-compose.yml`: Sardonyx is the default client; the legacy client stays available as an optional service.
 - [ ] `doc/UPGRADING.md`: 0.2.0 → 0.3.0.
 - [ ] Version `0.3.0`; images `lithica-server`, `lithica-client` (Sardonyx), `lithica-client-legacy`.
-- [ ] Optional theme Dracula in the theme menu (values below), passing the contrast test.
+- [x] Optional theme Dracula in the theme menu (values below), passing the contrast test.
   - Dracula: bg `#282A36`, card `#343746`, border `#4D5066`, fg `#F8F8F2`, muted `#A9B1D6`, primary `#BD93F9` on `#282A36`, selected `#3E3755`, link `#8BE9FD`, macro bg `#2C3B48`, ok `#50FA7B`, warn `#FFB86C`.
 
 **Done when (phase 5 exit):** in the compose stack with `MODULES=cards`: import `scratch/sample-cards/`; log in; search with text and card filters; open a V2 PNG, a V3 PNG and a CHARX card and read greetings and a large lorebook; download; upload new files and see results incl. a refused hostile ZIP; edit tags; log out. Results per step in the PR.

@@ -6332,6 +6332,11 @@
             "title": "Nsfwtag",
             "description": "The tag that marks a post as not safe for work (`nsfw_tag`)."
           },
+          "nsfwHidesNames": {
+            "type": "boolean",
+            "title": "Nsfwhidesnames",
+            "description": "Whether clients hide the name and creator of a NSFW post's card, as they hide its picture and text, from a viewer who has not chosen to see NSFW posts (`nsfw_hide_names`). A hint for clients: the API gives the names either way."
+          },
           "featuredPost": {
             "anyOf": [
               {

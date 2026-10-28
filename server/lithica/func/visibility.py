@@ -53,6 +53,11 @@ def nsfw_tag() -> str:
     return config.config.get("nsfw_tag") or "nsfw"
 
 
+def nsfw_hides_names() -> bool:
+    """Whether clients hide a NSFW card's name and creator as its picture."""
+    return config.config.get("nsfw_hide_names") is True
+
+
 def begin_request() -> None:
     """A request starts: nobody is known yet, so it sees what anonymous users see."""
     values = db.scope_values()

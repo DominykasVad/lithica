@@ -6,7 +6,17 @@ import {
   useLocation,
   useNavigate,
 } from "@tanstack/react-router";
-import { LogIn, LogOut, Menu, Monitor, Moon, Sun, UserRound } from "lucide-react";
+import {
+  LogIn,
+  LogOut,
+  Menu,
+  Monitor,
+  Moon,
+  Palette,
+  Settings,
+  Sun,
+  UserRound,
+} from "lucide-react";
 import { useState } from "react";
 import { ApiError } from "@/api/errors";
 import { useAuth } from "@/auth/AuthProvider";
@@ -35,7 +45,14 @@ import { type Theme, useTheme } from "./theme";
 function DisplayMenu() {
   const { theme, setTheme } = useTheme();
   const [showNsfw, setShowNsfw] = useShowNsfw();
-  const Icon = theme === "dark" ? Moon : theme === "light" ? Sun : Monitor;
+  const Icon =
+    theme === "dark"
+      ? Moon
+      : theme === "dracula"
+        ? Palette
+        : theme === "light"
+          ? Sun
+          : Monitor;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -51,6 +68,7 @@ function DisplayMenu() {
         >
           <DropdownMenuRadioItem value="light">Light</DropdownMenuRadioItem>
           <DropdownMenuRadioItem value="dark">Dark</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="dracula">Dracula</DropdownMenuRadioItem>
           <DropdownMenuRadioItem value="system">As the system</DropdownMenuRadioItem>
         </DropdownMenuRadioGroup>
         <DropdownMenuSeparator />
@@ -88,6 +106,12 @@ function UserMenu() {
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Logged in as {auth.user}</DropdownMenuLabel>
             <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <Link to="/account">
+                <Settings />
+                Account
+              </Link>
+            </DropdownMenuItem>
             <DropdownMenuItem onSelect={logOut}>
               <LogOut />
               Log out
@@ -214,6 +238,10 @@ function useLockedOut(): boolean | null {
  */
 function LockedOut() {
   const location = useLocation();
+  // resetting a password needs no login (the site allows it too)
+  if (location.pathname.startsWith("/password-reset")) {
+    return <Outlet />;
+  }
   if (location.pathname !== "/login") {
     return <Navigate to="/login" search={{ redirect: location.href }} replace />;
   }

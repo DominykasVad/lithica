@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";
-import { useTileLayout } from "./layout";
+import { useTileLayout, withCaptions } from "./layout";
 import { Paging } from "./Paging";
 import { PostTile, TilePlaceholder } from "./PostTile";
 import type { PerPage } from "./perPage";
@@ -62,7 +62,7 @@ export function PagedResults({
       ) : null}
       <div
         ref={grid}
-        className="grid justify-start"
+        className="grid items-start justify-start"
         style={{
           gridTemplateColumns: `repeat(auto-fill, ${layout.tileWidth}px)`,
           gap: 20,
@@ -77,7 +77,9 @@ export function PagedResults({
               <PostTile
                 key={post.id}
                 post={post}
-                layout={layout}
+                // each tile as high as its caption: a row is as high as its
+                // highest, so a row without cards is lower
+                layout={withCaptions(layout, post.card ? "card" : "plain")}
                 from={librarySearch(q, offset)}
               />
             ))}

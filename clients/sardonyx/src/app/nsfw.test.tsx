@@ -201,3 +201,141 @@ describe("a NSFW post's page", () => {
     );
   });
 });
+
+describe("a NSFW card's name and creator", () => {
+  /** A library of one NSFW card on a site that hides names or not. */
+  function cardLibrary(hide: boolean) {
+    return fakeSite({
+      "GET /info": { body: { ...INFO, nsfwHidesNames: hide } },
+      "GET /posts": {
+        body: {
+          query: "",
+          offset: 0,
+          limit: 100,
+          total: 1,
+          results: [
+            {
+              id: 7,
+              type: "image",
+              thumbnailUrl: "data/generated-thumbnails/7.jpg",
+              nsfw: true,
+              card: {
+                name: "Velvet Name",
+                creator: "Hidden Maker",
+                spec: "v2",
+                format: "png",
+                greetingCount: 1,
+                lorebookEntryCount: 0,
+              },
+            },
+          ],
+        },
+      },
+    } as never);
+  }
+
+  const tileOf = async () => {
+    await waitFor(() => expect(results().getAllByRole("link")).toHaveLength(1));
+    return tile(7);
+  };
+
+  it("stand behind the click on a site that asks for it", async () => {
+    cardLibrary(true);
+    renderApp("/posts");
+    const one = await tileOf();
+    expect(one).toHaveTextContent("NSFW card");
+    expect(one).not.toHaveTextContent("Velvet Name");
+    expect(one).not.toHaveTextContent("Hidden Maker");
+    await userEvent
+      .setup()
+      .click(within(one).getByRole("button", { name: "Show this post" }));
+    expect(tile(7)).toHaveTextContent("Velvet Name");
+    expect(tile(7)).toHaveTextContent("by Hidden Maker");
+  });
+
+  it("are shown on a site that does not, the picture still blurred", async () => {
+    cardLibrary(false);
+    renderApp("/posts");
+    const one = await tileOf();
+    expect(blurred(one)).toBe(true);
+    expect(one).toHaveTextContent("Velvet Name");
+    expect(one).toHaveTextContent("by Hidden Maker");
+    expect(one).not.toHaveTextContent("NSFW card");
+  });
+
+  it("are shown with Show NSFW on, whatever the site asks", async () => {
+    localStorage.setItem("sardonyx.showNsfw", "true");
+    cardLibrary(true);
+    renderApp("/posts");
+    expect(await tileOf()).toHaveTextContent("Velvet Name");
+  });
+
+  const creatorTag = { names: ["ann_marie"], category: "creator", usages: 4 };
+
+  it("stand behind the click on the post page: heading, tab title, breadcrumb, tags", async () => {
+    cardSite({
+      post: { nsfw: true, tags: [...POST.tags, creatorTag] },
+      info: { nsfwHidesNames: true },
+    });
+    renderApp("/posts/5");
+    await screen.findByRole("heading", { level: 1, name: "NSFW card" });
+    const main = within(screen.getByRole("main"));
+    expect(main.queryByText(/Mira Vell/)).toBeNull();
+    expect(main.queryByText(/Ann Marie/)).toBeNull();
+    // the tags are there (once the categories are), the creator's not
+    expect(await main.findByRole("link", { name: /^coastal/ })).toBeInTheDocument();
+    expect(main.queryByRole("link", { name: /ann_marie/ })).toBeNull();
+    expect(main.getByText(/^Creator hidden/)).toBeInTheDocument();
+    expect(main.getByRole("button", { name: "Download the card" })).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("navigation", { name: "Breadcrumb" })).getByText(
+        "NSFW card",
+      ),
+    ).toBeInTheDocument();
+    expect(document.title).toBe("NSFW card · Sardonyx");
+
+    await userEvent
+      .setup()
+      .click(main.getAllByRole("button", { name: "Show this post" })[0] as HTMLElement);
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Mira Vell" }),
+    ).toBeInTheDocument();
+    expect(main.getByRole("link", { name: "Ann Marie" })).toBeInTheDocument();
+    expect(main.getByRole("link", { name: /ann_marie/ })).toBeInTheDocument();
+    expect(document.title).toBe("Mira Vell · Sardonyx");
+  });
+
+  it("are shown on the post page of a site that does not hide them", async () => {
+    cardSite({
+      post: { nsfw: true, tags: [...POST.tags, creatorTag] },
+      info: { nsfwHidesNames: false },
+    });
+    renderApp("/posts/5");
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Mira Vell" }),
+    ).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: /ann_marie/ })).toBeInTheDocument();
+    expect(document.title).toBe("Mira Vell · Sardonyx");
+    // the text is still behind the click
+    expect(
+      screen.getByRole("region", { name: "Card text hidden" }),
+    ).toBeInTheDocument();
+  });
+
+  it("stand behind the click on the lorebook page", async () => {
+    cardSite({ post: { nsfw: true }, info: { nsfwHidesNames: true } });
+    renderApp("/posts/5/lorebook");
+    const crumbs = within(
+      await screen.findByRole("navigation", { name: "Breadcrumb" }),
+    );
+    await screen.findByRole("region", { name: "Card text hidden" });
+    expect(crumbs.getByRole("link", { name: "NSFW card" })).toBeInTheDocument();
+    expect(screen.queryByText(/Mira Vell/)).toBeNull();
+    expect(document.title).toBe("Lorebook of NSFW card · Sardonyx");
+    await userEvent
+      .setup()
+      .click(screen.getByRole("button", { name: "Show this post" }));
+    expect(await crumbs.findByRole("link", { name: "Mira Vell" })).toBeInTheDocument();
+    expect(document.title).toBe("Lorebook of Mira Vell · Sardonyx");
+  });
+});

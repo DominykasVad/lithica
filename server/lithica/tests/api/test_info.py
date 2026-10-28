@@ -99,6 +99,7 @@ def test_info_api(
             "maxUploadSize": limit,
             "visibility": "open",
             "nsfwTag": "nsfw",
+            "nsfwHidesNames": False,
             "acceptedTypes": accepted,
             "config": expected_config_key,
         }
@@ -115,6 +116,7 @@ def test_info_api(
             "maxUploadSize": limit,
             "visibility": "open",
             "nsfwTag": "nsfw",
+            "nsfwHidesNames": False,
             "acceptedTypes": accepted,
             "config": expected_config_key,
         }
@@ -127,6 +129,7 @@ def test_info_api(
             "maxUploadSize": limit,
             "visibility": "open",
             "nsfwTag": "nsfw",
+            "nsfwHidesNames": False,
             "acceptedTypes": accepted,
             "config": expected_config_key,
         }
@@ -321,3 +324,27 @@ def test_info_says_the_upload_limit_the_server_checks(
     )
     assert response.status_code == 413
     assert response.json()["name"] == "RequestTooLargeError"
+
+
+@pytest.mark.parametrize("hide", [True, False])
+def test_info_says_whether_clients_hide_nsfw_names(
+    client, config_injector, tmpdir, monkeypatch, hide
+):
+    monkeypatch.setattr(info_api, "_disk_usage", info_api._DiskUsage())
+    config_injector(
+        {
+            "name": "n",
+            "contact_email": None,
+            "enable_safety": True,
+            "data_dir": str(tmpdir),
+            "user_name_regex": "1",
+            "password_regex": "2",
+            "tag_name_regex": "3",
+            "tag_category_name_regex": "4",
+            "default_rank": "regular",
+            "privileges": {"posts:view:featured": "regular"},
+            "smtp": {"host": None},
+            "nsfw_hide_names": hide,
+        }
+    )
+    assert ok(client.get("/info"))["nsfwHidesNames"] is hide
