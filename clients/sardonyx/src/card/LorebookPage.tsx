@@ -12,7 +12,13 @@ import {
   useState,
 } from "react";
 import { infoQuery, useHasCards } from "@/app/info";
-import { HiddenText, useNsfwHidden } from "@/app/nsfw";
+import {
+  HiddenText,
+  NSFW_CARD_NAME,
+  useNsfwHidden,
+  useNsfwNamesHidden,
+} from "@/app/nsfw";
+import { useDocumentTitle } from "@/app/title";
 import { ApiErrorMessage } from "@/components/ApiErrorMessage";
 import { cn } from "@/lib/utils";
 import { cardQuery, postQuery } from "@/post/queries";
@@ -107,6 +113,7 @@ export function LorebookPage() {
   // whether the post is NSFW: its entries are hidden as its card text is
   const post = useQuery({ ...postQuery(id, "id,nsfw"), enabled: valid && hasCards });
   const { hidden, reveal } = useNsfwHidden(post.data);
+  const namesHidden = useNsfwNamesHidden(post.data);
   const [mode, setMode] = useTextMode();
   // pictures in Styled only when asked, for this page of this card
   const [images, setImages] = useState(false);
@@ -208,7 +215,13 @@ export function LorebookPage() {
       resetScroll: false,
     });
 
-  const name = card.data?.name || `Post ${param}`;
+  // the name once the post says whether it may be shown: never for a moment before
+  const name = !post.data
+    ? `Post ${param}`
+    : namesHidden
+      ? NSFW_CARD_NAME
+      : card.data?.name || `Post ${param}`;
+  useDocumentTitle(`Lorebook of ${name}`);
   const breadcrumb = (
     <nav
       aria-label="Breadcrumb"

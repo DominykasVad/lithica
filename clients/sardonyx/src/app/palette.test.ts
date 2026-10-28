@@ -151,8 +151,8 @@ describe.each(themes)("the theme %s", (_selector, properties) => {
   });
 });
 
-it("finds the light and the dark theme", () => {
+it("finds the light, the dark and the Dracula theme", () => {
   expect(themes.map(([selector]) => selector)).toEqual(
-    expect.arrayContaining([":root", ".dark"]),
+    expect.arrayContaining([":root", ".dark", ".dracula"]),
   );
 });

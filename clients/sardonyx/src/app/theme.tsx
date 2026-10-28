@@ -1,13 +1,13 @@
 import { createContext, type ReactNode, useContext, useEffect, useState } from "react";
 
-export type Theme = "light" | "dark" | "system";
+export type Theme = "light" | "dark" | "dracula" | "system";
 
 const STORAGE_KEY = "sardonyx.theme";
 
 function storedTheme(): Theme {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored === "light" || stored === "dark") {
+    if (stored === "light" || stored === "dark" || stored === "dracula") {
       return stored;
     }
   } catch {
@@ -29,18 +29,23 @@ const ThemeContext = createContext<{
 } | null>(null);
 
 /**
- * Light, dark, or as the system is. The choice is this browser's, kept in
+ * Light, dark, Dracula, or as the system is. The choice is this browser's, kept in
  * localStorage; public/theme.js applies it before the page is drawn.
  */
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(storedTheme);
 
   useEffect(() => {
-    const apply = () =>
+    // Dracula is a dark theme: drawn as dark, in its own colours
+    const apply = () => {
       document.documentElement.classList.toggle(
         "dark",
-        theme === "dark" || (theme === "system" && systemIsDark()),
+        theme === "dark" ||
+          theme === "dracula" ||
+          (theme === "system" && systemIsDark()),
       );
+      document.documentElement.classList.toggle("dracula", theme === "dracula");
+    };
     apply();
     if (theme !== "system" || typeof matchMedia !== "function") {
       return;

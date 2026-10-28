@@ -4,7 +4,7 @@ import { useWindowVirtualizer } from "@tanstack/react-virtual";
 import { ArrowUp } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { GAP, useTileLayout } from "./layout";
+import { type Captions, GAP, useTileLayout, withCaptions } from "./layout";
 import { PostTile, TilePlaceholder } from "./PostTile";
 import type { PerPage } from "./perPage";
 import { BATCH, fetchPosts, type Post } from "./posts";
@@ -47,9 +47,12 @@ export function AutoResults({
 }) {
   const navigate = useNavigate();
   const list = useRef<HTMLDivElement>(null);
-  const layout = useTileLayout(list);
-  const { columns } = layout;
-  const rowHeight = layout.tileHeight + GAP;
+  // The rows' height, fixed for the search (the list needs it before the
+  // rows are drawn): captions for cards when the first batch to arrive has
+  // a card, one line when it has none. That batch is also the one that
+  // gives the total, so the list scrolls to `at` with the height it keeps.
+  const captions = useRef<Captions | null>(null);
+  const tileLayout = useTileLayout(list);
   // loading starts with the batch that holds `at` when the list opens
   const [start] = useState(() => Math.floor(at / BATCH));
   const [asked, setAsked] = useState<number[]>(() => [start]);
@@ -77,6 +80,17 @@ export function AutoResults({
     }
   }
   const total = known.current?.total ?? null;
+  // decided in the render that first has a batch, before the list has a
+  // row: the list never holds rows of another height
+  if (captions.current === null) {
+    const first = batches.find((batch) => batch.data !== undefined)?.data;
+    if (first) {
+      captions.current = first.results?.some((post) => post.card) ? "card" : "plain";
+    }
+  }
+  const layout = withCaptions(tileLayout, captions.current ?? "card");
+  const { columns } = layout;
+  const rowHeight = layout.tileHeight + GAP;
 
   const byIndex = useMemo(() => {
     const found = new Map<number, Post>();

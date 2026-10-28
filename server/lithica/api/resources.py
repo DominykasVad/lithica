@@ -305,6 +305,12 @@ class Info(Resource):
     nsfw_tag: str = Field(
         description="The tag that marks a post as not safe for work (`nsfw_tag`)."
     )
+    nsfw_hides_names: bool = Field(
+        description="Whether clients hide the name and creator of a NSFW post's "
+        "card, as they hide its picture and text, from a viewer who has not chosen "
+        "to see NSFW posts (`nsfw_hide_names`). A hint for clients: the API gives "
+        "the names either way."
+    )
     featured_post: Post | None = Field(
         description="Present only if the requester may see the featured post."
     )

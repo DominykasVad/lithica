@@ -203,3 +203,33 @@ def test_modules_variable_ignores_whitespace_and_empty_entries(
     monkeypatch.setenv("MODULES", value)
     assert config._environment_overrides()["modules"] == expected
     assert read_config({"modules": ["from_file"]})["modules"] == expected
+
+
+@pytest.mark.parametrize("visibility", ["open", "nsfw-login", "login"])
+def test_takes_each_visibility(config_injector, visibility):
+    config_injector({"visibility": visibility})
+    config.validate_visibility()
+
+
+def test_refuses_an_unknown_visibility(config_injector):
+    config_injector({"visibility": "members"})
+    with pytest.raises(errors.ConfigError, match="'visibility' must be one of"):
+        config.validate_visibility()
+
+
+@pytest.mark.parametrize("hide", [True, False])
+def test_takes_nsfw_hide_names_true_or_false(config_injector, hide):
+    config_injector({"nsfw_hide_names": hide})
+    config.validate_visibility()
+
+
+def test_nsfw_hide_names_may_be_left_out(config_injector):
+    config_injector({})
+    config.validate_visibility()
+
+
+@pytest.mark.parametrize("hide", ["yes", 1, None, "true"])
+def test_refuses_nsfw_hide_names_that_is_not_true_or_false(config_injector, hide):
+    config_injector({"nsfw_hide_names": hide})
+    with pytest.raises(errors.ConfigError, match="'nsfw_hide_names' must be true"):
+        config.validate_visibility()

@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { EyeOff } from "lucide-react";
 import {
   type CSSProperties,
@@ -8,6 +9,7 @@ import {
 } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { infoQuery } from "./info";
 
 const SHOW_KEY = "sardonyx.showNsfw";
 const REVEALED_KEY = "sardonyx.revealedNsfw";
@@ -110,6 +112,22 @@ export function useNsfwHidden(post: { id?: number; nsfw?: boolean } | undefined)
       }
     },
   };
+}
+
+/** What stands in for a hidden card's name. */
+export const NSFW_CARD_NAME = "NSFW card";
+
+/**
+ * Whether this post's card name and creator are kept out of sight too: the
+ * post is hidden (see useNsfwHidden) and the site asks for it
+ * (`nsfwHidesNames` of GET /info, read only from there).
+ */
+export function useNsfwNamesHidden(
+  post: { id?: number; nsfw?: boolean } | undefined,
+): boolean {
+  const { hidden } = useNsfwHidden(post);
+  const info = useQuery(infoQuery);
+  return hidden && info.data?.nsfwHidesNames === true;
 }
 
 /** How a hidden picture is drawn: blurred past knowing, larger so its edges stay soft. */

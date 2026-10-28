@@ -111,6 +111,7 @@ def get_info(user: CurrentUser) -> dict[str, Any]:
         "maxUploadSize": max_upload_size(),
         "visibility": visibility.mode(),
         "nsfwTag": visibility.nsfw_tag(),
+        "nsfwHidesNames": visibility.nsfw_hides_names(),
         "acceptedTypes": [
             {"mime": [mime_type], "extensions": extensions}
             for mime_type, extensions in file_types.accepted_types()

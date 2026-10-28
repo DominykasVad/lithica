@@ -73,15 +73,18 @@ export function cardSite({
   summary = SUMMARY as unknown,
   modules = ["cards"],
   post = {},
+  info = {},
 }: {
   card?: unknown;
   summary?: unknown;
   modules?: string[];
   /** more of the post, or other values */
   post?: Record<string, unknown>;
+  /** more of GET /info, or other values */
+  info?: Record<string, unknown>;
 } = {}) {
   return fakeSite({
-    "GET /info": { body: { ...INFO, modules } },
+    "GET /info": { body: { ...INFO, modules, ...info } },
     "GET /post/5": (sent: Sent) => ({
       body: {
         ...POST,

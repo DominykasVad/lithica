@@ -66,6 +66,10 @@ details):
 - `login`: nothing but logging in and password reset without logging in;
   signing up is closed too.
 
+With `nsfw_hide_names: true`, Sardonyx also hides a NSFW card's name and
+creator until the viewer reveals the post or turns on Show NSFW (a hint to
+clients: the API still gives the names to whoever may see the post).
+
 Without a `file_link_secret`, post files stay reachable by anyone who has
 their address; the server warns of it at start. See
 [Signed file links](#signed-file-links).

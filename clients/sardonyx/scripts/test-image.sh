@@ -65,6 +65,21 @@ for path in / /some/page "$asset"; do
 done
 check "a path of the app is the app" "$(curl -s "$base/")" "$(curl -s "$base/some/page")"
 
+# the link of a password reset mail: the app, and its token kept out of the
+# access log and out of the Referer of the requests the page makes
+# made here, not written down: a token-like literal is what a secret scan looks for
+reset_token=$(openssl rand -hex 16)
+reset_path="/password-reset/someone:$reset_token"
+check "a reset link is the app" "$(curl -s "$base/")" "$(curl -s "$base$reset_path")"
+check "a reset link has the app's policy" "$app_csp" "$(header "$reset_path" Content-Security-Policy)"
+check "a reset link sends no referrer" no-referrer "$(header "$reset_path" Referrer-Policy)"
+check "a reset link is not stored" no-store "$(header "$reset_path" Cache-Control)"
+check "a reset link may not be framed" DENY "$(header "$reset_path" X-Frame-Options)"
+logged=$(docker logs "$container" 2>&1 | grep -c "$reset_token" || true)
+check "a reset link is not in the access log" 0 "$logged"
+check "other pages are in the access log" 1 \
+  "$(docker logs "$container" 2>&1 | grep -c "GET /some/page " | awk '{print ($1 > 0)}')"
+
 check "an uploaded file is served" "a stored file" "$(curl -s "$base/data/posts/1_test.png")"
 check "an uploaded file has nosniff" nosniff "$(header /data/posts/1_test.png X-Content-Type-Options)"
 check "an uploaded file may run nothing" "default-src 'none'; sandbox" \

@@ -1,4 +1,5 @@
-import { useNavigate } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { type FormEvent, useState } from "react";
 import { useAuth } from "@/auth/AuthProvider";
 import { ApiErrorMessage } from "@/components/ApiErrorMessage";
@@ -7,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { infoQuery } from "./info";
 
 /**
  * Logging in. The password goes to the site once, to make a login token,
@@ -15,6 +17,7 @@ import { Label } from "@/components/ui/label";
 export function Login({ redirect }: { redirect?: string }) {
   const auth = useAuth();
   const navigate = useNavigate();
+  const info = useQuery(infoQuery);
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
 
@@ -75,6 +78,14 @@ export function Login({ redirect }: { redirect?: string }) {
             <Button type="submit" disabled={busy}>
               {busy ? "Logging in…" : "Log in"}
             </Button>
+            {info.data?.config?.canSendMails ? (
+              <Link
+                to="/password-reset"
+                className="text-link text-sm underline-offset-4 hover:underline"
+              >
+                Forgot your password?
+              </Link>
+            ) : null}
           </form>
         </CardContent>
       </Card>

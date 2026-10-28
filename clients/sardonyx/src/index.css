@@ -140,6 +140,50 @@
   --sidebar-ring: #d9826f;
 }
 
+/* Dracula, an optional dark theme: on the page with .dark, so what is
+   drawn for dark is drawn for it too, and after .dark, so its colours win.
+   The values of PLAN.md 5.7; destructive (#ff5555 reaches 3.75 on the card)
+   and the edges of controls (the border is too faint for one) are lighter. */
+.dracula {
+  --background: #282a36;
+  --foreground: #f8f8f2;
+  --card: #343746;
+  --card-foreground: #f8f8f2;
+  --popover: #343746;
+  --popover-foreground: #f8f8f2;
+  --primary: #bd93f9;
+  --primary-foreground: #282a36;
+  --secondary: #3b3e51;
+  --secondary-foreground: #f8f8f2;
+  --muted: #3b3e51;
+  --muted-foreground: #a9b1d6;
+  --accent: #3e3755;
+  --accent-foreground: #bd93f9;
+  --destructive: #ff7979;
+  --border: #4d5066;
+  --input: #4d5066;
+  --control-border: #8087a8;
+  --ring: #bd93f9;
+  --link: #8be9fd;
+  --macro: #2c3b48;
+  --macro-foreground: #8be9fd;
+  --ok: #50fa7b;
+  --warn: #ffb86c;
+  --chart-1: #bd93f9;
+  --chart-2: #8be9fd;
+  --chart-3: #ffb86c;
+  --chart-4: #50fa7b;
+  --chart-5: #a9b1d6;
+  --sidebar: #343746;
+  --sidebar-foreground: #f8f8f2;
+  --sidebar-primary: #bd93f9;
+  --sidebar-primary-foreground: #282a36;
+  --sidebar-accent: #3e3755;
+  --sidebar-accent-foreground: #bd93f9;
+  --sidebar-border: #4d5066;
+  --sidebar-ring: #bd93f9;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

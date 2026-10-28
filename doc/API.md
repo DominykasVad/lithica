@@ -99,6 +99,11 @@ as `nsfwTag`:
   the anonymous one. Signing up is closed too: creating an account is a
   privilege of the anonymous rank.
 
+`nsfwHidesNames` (the `nsfw_hide_names` setting, false by default) asks
+clients to hide the name and creator of a NSFW post's card, as they hide
+its picture and text, from a viewer who has not chosen to see NSFW posts.
+It is a hint for clients only: the API gives the names either way.
+
 ## Signed file links
 
 A site may sign the addresses of its post files and thumbnails
