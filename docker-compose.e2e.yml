@@ -1,0 +1,91 @@
+## The stack the browser tests of Sardonyx run against (clients/sardonyx/e2e),
+## on top of the dev stack: docker-compose.dev.yml, then this file. Started
+## and stopped by clients/sardonyx/e2e/stack.sh, under a project name of its
+## own, so that it never touches a dev stack running beside it:
+##
+##   clients/sardonyx/e2e/stack.sh up      (then pnpm e2e in clients/sardonyx)
+##   clients/sardonyx/e2e/stack.sh down
+##
+## What it adds, for the tests only:
+## - the server's configuration, written by stack.sh with a random secret
+##   (e2e/.stack/, git-ignored), mounted over the dev one;
+## - a mail catcher (Mailpit) the server sends its mail to: the tests read
+##   the password reset mail through its API;
+## - a second server and Sardonyx in front of it, on the same database and
+##   data, configured with `visibility: nsfw-login`;
+## - the cards the tests import, read-only.
+services:
+
+  server:
+    environment:
+      POSTGRES_USER: lithica
+      POSTGRES_PASSWORD: e2e
+      MODULES: cards
+      FILE_LINK_SECRET: ${E2E_FILE_LINK_SECRET:?stack.sh sets it}
+    volumes:
+      - "./clients/sardonyx/e2e/.stack/config.yaml:/opt/app/config.yaml:ro"
+      - "./clients/sardonyx/e2e/fixtures:/e2e-fixtures:ro"
+      # what the tests make to import (stack.sh's folder, git-ignored)
+      - "./clients/sardonyx/e2e/.stack:/e2e-stack:ro"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen(urllib.request.Request('http://localhost:6666/info', headers={'Accept': 'application/json'}))"
+      interval: 2s
+      timeout: 5s
+      retries: 90
+
+  # the same server, the same database and data, seen as a site in
+  # nsfw-login; the first server has migrated the database by then
+  server-nsfw:
+    build:
+      context: ./server
+      target: development
+    depends_on:
+      server:
+        condition: service_healthy
+    command: ["python", "-m", "lithica.serve"]
+    environment:
+      POSTGRES_HOST: sql
+      POSTGRES_USER: lithica
+      POSTGRES_PASSWORD: e2e
+      MODULES: cards
+      FILE_LINK_SECRET: ${E2E_FILE_LINK_SECRET:?stack.sh sets it}
+    volumes:
+      - "data:/data"
+      - "./server/:/opt/app/"
+      - "./clients/sardonyx/e2e/.stack/config-nsfw.yaml:/opt/app/config.yaml:ro"
+
+  sardonyx:
+    environment:
+      FILE_LINK_SECRET: ${E2E_FILE_LINK_SECRET:?stack.sh sets it}
+
+  sardonyx-nsfw:
+    build:
+      context: ./clients/sardonyx
+      target: release
+    depends_on:
+      - server-nsfw
+    environment:
+      BACKEND_HOST: server-nsfw
+      FILE_LINK_SECRET: ${E2E_FILE_LINK_SECRET:?stack.sh sets it}
+    volumes:
+      - "data:/data:ro"
+    ports:
+      - "${E2E_NSFW_PORT:-8093}:80"
+
+  sql:
+    environment:
+      POSTGRES_USER: lithica
+      POSTGRES_PASSWORD: e2e
+
+  mailpit:
+    image: axllent/mailpit:v1.31.5
+    environment:
+      # the server always logs in, and without TLS: any login is taken
+      MP_SMTP_AUTH_ACCEPT_ANY: "1"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "1"
+    ports:
+      - "${E2E_MAIL_PORT:-8095}:8025"

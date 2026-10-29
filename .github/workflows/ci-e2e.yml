@@ -1,0 +1,95 @@
+name: CI (e2e)
+
+# The browser tests of Sardonyx (clients/sardonyx/e2e) against the e2e
+# stack: the dev stack's server, Sardonyx and PostgreSQL built from this
+# commit, with MODULES=cards and FILE_LINK_SECRET set, a mail catcher and a
+# second site in nsfw-login (docker-compose.e2e.yml). With the trigger
+# pattern of the other checks: on a pull request that is ready for review
+# and on main, when the client, the server or the stack has changed.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "clients/sardonyx/**"
+      - "!clients/sardonyx/docs/**"
+      - "server/**"
+      - "docker-compose.dev.yml"
+      - "docker-compose.e2e.yml"
+      - "docker-compose.yml"
+      - ".github/workflows/ci-e2e.yml"
+  push:
+    branches: [main]
+    paths:
+      - "clients/sardonyx/**"
+      - "!clients/sardonyx/docs/**"
+      - "server/**"
+      - "docker-compose.dev.yml"
+      - "docker-compose.e2e.yml"
+      - "docker-compose.yml"
+      - ".github/workflows/ci-e2e.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    name: Browser tests (Chromium, Firefox, WebKit)
+    if: github.event.pull_request.draft != true
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: clients/sardonyx
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6.1.0
+        with:
+          package_json_file: clients/sardonyx/package.json
+
+      - name: Install Node
+        uses: actions/setup-node@v7.1.0
+        with:
+          node-version-file: clients/sardonyx/.nvmrc
+          cache: pnpm
+          cache-dependency-path: clients/sardonyx/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # the browsers of the Playwright version in the lockfile, and what
+      # they need of the system
+      - name: Install the browsers
+        run: pnpm exec playwright install --with-deps chromium firefox webkit
+
+      - name: Start the e2e stack
+        run: e2e/stack.sh up
+
+      - name: Browser tests
+        run: pnpm e2e
+
+      - name: Logs of the stack
+        if: failure()
+        run: e2e/stack.sh logs --no-color --tail 300
+
+      # the report, and the traces and screenshots of what failed
+      - name: Keep the report
+        if: failure()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: playwright-report
+          path: |
+            clients/sardonyx/playwright-report/
+            clients/sardonyx/test-results/
+          retention-days: 7
+
+      - name: Stop the e2e stack
+        if: always()
+        run: e2e/stack.sh down
