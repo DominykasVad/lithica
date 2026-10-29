@@ -14,7 +14,9 @@ export default defineConfig({
   workers: 1,
   fullyParallel: false,
   forbidOnly: CI,
-  retries: CI ? 1 : 0,
+  // no retries: a test that fails once in CI is a bug of the test or of
+  // the app, to be found, not passed over
+  retries: 0,
   timeout: 60_000,
   expect: { timeout: 10_000 },
   reporter: CI ? [["list"], ["html", { open: "never" }]] : [["list"]],
