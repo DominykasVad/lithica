@@ -113,7 +113,8 @@ test("download a card", async ({ page, request }) => {
   const downloading = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download Harbour Keeper.png" }).click();
   const download = await downloading;
-  expect(download.suggestedFilename()).toBe("Harbour Keeper.png");
+  // the name the app gives it; WebKit on Linux saves spaces as underscores
+  expect(download.suggestedFilename()).toMatch(/^Harbour[ _]Keeper\.png$/);
   const saved = readFileSync(await download.path());
   // the card as it was imported, byte for byte
   expect(saved.equals(readFileSync(path.join(FIXTURES, "harbour-keeper-v2.png")))).toBe(
