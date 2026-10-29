@@ -121,7 +121,7 @@ Commands are run from `clients/sardonyx/`.
 | Lint and format check | `clients/sardonyx/` | `pnpm check` (what CI runs) |
 | Type check | `clients/sardonyx/` | `pnpm typecheck` |
 | Tests | `clients/sardonyx/` | `pnpm test` |
-| Browser tests | `clients/sardonyx/` | `e2e/stack.sh up`, then `pnpm e2e` (one browser: `pnpm e2e --project chromium`); `e2e/stack.sh down` after. The browsers: `pnpm exec playwright install chromium firefox webkit` |
+| Browser tests | `clients/sardonyx/` | `e2e/stack.sh up`, then `pnpm e2e` (Chromium, Firefox and WebKit; CI runs the first two; one browser: `pnpm e2e --project chromium`); `e2e/stack.sh down` after. The browsers: `pnpm exec playwright install chromium firefox webkit` |
 | Browser test cards | `clients/sardonyx/` | `node e2e/make-fixtures.ts` — writes `e2e/fixtures/cards` |
 | Regenerate the API types | `clients/sardonyx/` | `pnpm api:generate` — after every change of `doc/openapi.json` |
 | Check the API types | `clients/sardonyx/` | `pnpm api:check` (what CI runs) |

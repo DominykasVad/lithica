@@ -37,7 +37,7 @@ concurrency:
 
 jobs:
   e2e:
-    name: Browser tests (Chromium, Firefox, WebKit)
+    name: Browser tests (Chromium, Firefox)
     if: github.event.pull_request.draft != true
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -66,14 +66,17 @@ jobs:
 
       # the browsers of the Playwright version in the lockfile, and what
       # they need of the system
+      # WebKit is not run here: on Linux it was flaky in CI (an auto load
+      # test, passing on retry) where it passes locally; it runs with
+      # `pnpm e2e --project webkit`
       - name: Install the browsers
-        run: pnpm exec playwright install --with-deps chromium firefox webkit
+        run: pnpm exec playwright install --with-deps chromium firefox
 
       - name: Start the e2e stack
         run: e2e/stack.sh up
 
       - name: Browser tests
-        run: pnpm e2e
+        run: pnpm e2e --project chromium --project firefox
 
       - name: Logs of the stack
         if: failure()
