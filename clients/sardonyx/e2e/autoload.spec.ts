@@ -29,12 +29,20 @@ test("opens at `at`, and comes back there from a post", async ({ page }) => {
   // scroll a little further, let the place settle into the address
   await page.evaluate(() => window.scrollBy(0, 700));
   await expect(page).not.toHaveURL(/at=120\b/);
+  // the place in the address is the first result in view, once scrolling
+  // has rested (a scroll may arrive in steps: wait for the last)
   const scrolled = await where(page);
+  const first = Number(scrolled.counter?.split(" ")[0]) - 1;
+  await expect(page).toHaveURL(new RegExp(`at=${first}$`));
 
   // a post, then back
+  // a tile in view: one of the rows drawn above it (the list draws a few
+  // beyond the window) would be scrolled to first, and that is a new place
   const tiles = page.getByRole("region", { name: "Results" }).getByRole("link");
-  const first = tiles.first();
-  await first.click();
+  const inView = await tiles.evaluateAll((links) =>
+    links.findIndex((link) => link.getBoundingClientRect().top >= 0),
+  );
+  await tiles.nth(inView).click();
   await expect(page).toHaveURL(/\/posts\/\d+/);
   await page.goBack();
   await expect(page).toHaveURL(/\/posts\?/);
