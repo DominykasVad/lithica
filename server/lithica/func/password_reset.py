@@ -25,6 +25,24 @@ def _tokens_of(user: model.User) -> sa_orm.Query:
     )
 
 
+def mailed_recently(user: model.User) -> bool:
+    """
+    Whether the user was sent a reset link less than
+    `password_reset_mail_interval` ago. The pending token's creation time
+    says when: a new request replaces it, and a used one is gone, so a
+    password just reset does not hold the next request back. Locks the
+    user's row until the end of the transaction, so that of two requests at
+    once only one finds no recent link.
+    """
+    assert user
+    db.session.refresh(user, with_for_update=True)
+    since = util.utcnow() - timedelta(
+        seconds=config.config["password_reset_mail_interval"]
+    )
+    recent = _tokens_of(user).filter(model.PasswordResetToken.creation_time > since)
+    return db.session.query(recent.exists()).scalar()
+
+
 def create_token(user: model.User) -> str:
     """
     Start a password reset for the user and return the token to mail them.

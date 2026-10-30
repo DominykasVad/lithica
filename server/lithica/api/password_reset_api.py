@@ -1,13 +1,16 @@
+import logging
 from typing import Annotated, Any
 
-from fastapi import Depends
+from fastapi import BackgroundTasks, Depends
 
-from lithica import config, db, errors
+from lithica import config, db
 from lithica.api import resources
 from lithica.api.dependencies import read_body
 from lithica.api.routing import ApiRouter
 from lithica.api.schemas import RequestModel, Str, request_body, required
 from lithica.func import mailer, password_reset, users, versions
+
+logger = logging.getLogger(__name__)
 
 router = ApiRouter(tags=["Password reset"])
 
@@ -28,7 +31,7 @@ class PasswordResetConfirmation(RequestModel):
     response_model=resources.Empty,
     summary="Request a password reset",
 )
-def start_password_reset(user_name: str) -> Any:
+def start_password_reset(user_name: str, background: BackgroundTasks) -> Any:
     """
     Sends a confirmation email to given user. The email contains link containing
     a token. The token cannot be guessed, thus using such link proves that the
@@ -39,20 +42,24 @@ def start_password_reset(user_name: str) -> Any:
     `password_reset_token_lifetime` (one hour by default). Requesting another
     email makes the previous token stop working.
 
+    The answer is the same 200 `{}` whether the account exists, has an email
+    or not, and whether a mail was sent: it does not tell who has an account
+    on the site. The mail goes out after the answer. An account is sent at
+    most one mail per `password_reset_mail_interval` (five minutes by
+    default); a request sooner sends nothing and leaves the link already
+    sent working.
+
     Errors:
 
-    - the user does not exist
-    - the user hasn't provided an email address
     - the site cannot send mail (no mail server is set up): 500
       `MailNotConfiguredError`; `canSendMails` of `GET /info` says so ahead
     """
-    user = users.get_user_by_name_or_email(user_name)
-    if not user.email:
-        raise errors.ValidationError(
-            "User %r hasn't supplied email. Cannot reset password." % (user_name)
-        )
-    # before a token is made: a reset the site cannot mail leaves nothing
+    # first, for any name: that the site sends no mail is the site's to say,
+    # and says nothing about the account
     mailer.verify_can_send_mail()
+    user = users.try_get_user_by_name_or_email(user_name)
+    if not user or not user.email or password_reset.mailed_recently(user):
+        return {}
     token = password_reset.create_token(user)
 
     # The link is built from the configured domain only. Origin and Referer
@@ -63,16 +70,28 @@ def start_password_reset(user_name: str) -> Any:
         user.name,
         token,
     )
+    recipient = user.email
+    db.session.commit()
 
-    mailer.send_mail(
-        config.config["smtp"]["from"],
-        user.email,
+    # after the answer: an account that gets a mail is answered as soon as
+    # one that does not
+    background.add_task(
+        _send_reset_mail,
+        recipient,
         MAIL_SUBJECT.format(name=config.config["name"]),
         MAIL_BODY.format(name=config.config["name"], url=url),
     )
-    db.session.commit()
-
     return {}
+
+
+def _send_reset_mail(recipient: str, subject: str, body: str) -> None:
+    try:
+        mailer.send_mail(config.config["smtp"]["from"], recipient, subject, body)
+    except Exception as e:
+        # the requester was answered already. Only the kind of failure is
+        # logged: the mail holds the link, and an SMTP error may hold the
+        # recipient's address
+        logger.error("A password reset mail could not be sent: %s", type(e).__name__)
 
 
 @router.post(

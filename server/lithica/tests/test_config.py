@@ -103,6 +103,9 @@ def test_shipped_settings_with_a_secret_are_valid(valid_config):
         ({"password_reset_token_lifetime": 0}, "positive number of seconds"),
         ({"password_reset_token_lifetime": "3600"}, "positive number of seconds"),
         ({"password_reset_token_lifetime": True}, "positive number of seconds"),
+        ({"password_reset_mail_interval": -1}, "number of seconds, 0 or more"),
+        ({"password_reset_mail_interval": "300"}, "number of seconds, 0 or more"),
+        ({"password_reset_mail_interval": False}, "number of seconds, 0 or more"),
     ],
 )
 def test_refuses_invalid_settings(valid_config, change, message):

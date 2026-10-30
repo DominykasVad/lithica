@@ -108,6 +108,9 @@ cors_origins: [] # example: [https://booru-client.example.com]
 
 # how long a password reset link stays valid, in seconds
 password_reset_token_lifetime: 3600
+# at most one password reset mail per account in this many seconds; a request
+# sooner is answered as any other and sends nothing (0: no limit)
+password_reset_mail_interval: 300
 
 contact_email: # example: bob@example.com. Meant for manual password reset procedures
 

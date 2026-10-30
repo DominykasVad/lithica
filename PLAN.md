@@ -122,6 +122,12 @@ Additions only; nothing existing changes shape.
    `InvalidTokenError`, a kind of `AuthError` (was `AuthError`). The token
    of a user who does not exist is 403, as any token that does not work
    (was 404 `UserNotFoundError`). Basic authentication is unchanged.
+2. `GET /password-reset/{name}` answers 200 `{}` for an unknown account and
+   for one without an email (was 404 `UserNotFoundError` and 400
+   `ValidationError`), and for an account mailed within
+   `password_reset_mail_interval` (new, five minutes by default), which is
+   sent nothing. The mail is sent after the answer. `MailNotConfiguredError`
+   is the one error left, for any name.
 
 ### Allowed dialect exceptions
 
@@ -204,6 +210,8 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 - 2026-10-29 — 5.7 — e2e mail: Mailpit v1.31.5 in the test stack only; read through its API
 - 2026-10-29 — 5.7 — e2e in CI: Chromium and Firefox; WebKit was flaky on Linux CI (2 of 3 runs), runs locally only
 - 2026-10-29 — 5.7 — auto load: the place a scroll goes is taken when it is made (the first batch's margin is stale)
+- 2026-10-30 — fix — reset mail window: the pending token's creation time, no table; a used token ends the window
+- 2026-10-30 — fix — a reset mail failing after the answer is logged by its error's class only, not link or address
 - 2026-10-25 — fix — `GET /info` says `maxUploadSize` and `acceptedTypes` (engine + enabled modules), hints only
 - 2026-10-25 — 5.4 — card Markdown without a raw-HTML plugin; images as `[image: alt]`, never loaded
 - 2026-10-25 — 5.4 — Readable shows HTML as its text: no tags, style/script dropped, blocks as lines, entities decoded

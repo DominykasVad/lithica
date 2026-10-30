@@ -21,6 +21,7 @@ with the client image in front, that is `/api/`.
    - [Visibility](#visibility)
    - [Signed file links](#signed-file-links)
    - [User token authentication](#user-token-authentication)
+   - [Password reset](#password-reset)
    - [Basic requests](#basic-requests)
    - [File uploads](#file-uploads)
    - [Error handling](#error-handling)
@@ -137,6 +138,22 @@ The benefit of token authentication is that beyond the initial login to acquire
 the first token, there is no need to transmit the user password in plaintext
 via basic auth. Additionally tokens can be revoked at anytime allowing a
 cleaner interface for isolating clients from user credentials.
+
+## Password reset
+
+`GET /password-reset/{name}` (a user name or email) mails the account a link
+with a random token, which `POST /password-reset/{name}` with that token
+exchanges for a new password. The token works once and expires after
+`password_reset_token_lifetime`.
+
+The request is answered 200 `{}` whether the account exists, has an email or
+not, and whether a mail was sent: nothing in the answer, its status or its
+errors tells who has an account on the site. The mail goes out after the
+answer. An account gets at most one mail per `password_reset_mail_interval`
+(five minutes by default); a request within it sends nothing and the link
+already sent keeps working. The one error is the site's own: a site that
+cannot send mail answers 500 `MailNotConfiguredError` for any name, and says
+so ahead in `canSendMails` of `GET /info`.
 
 ## Basic requests
 

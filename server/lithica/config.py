@@ -215,6 +215,12 @@ def validate() -> None:
             "password_reset_token_lifetime must be a positive number of seconds"
         )
 
+    interval = config["password_reset_mail_interval"]
+    if isinstance(interval, bool) or not isinstance(interval, int) or interval < 0:
+        raise errors.ConfigError(
+            "password_reset_mail_interval must be a number of seconds, 0 or more"
+        )
+
     validate_mail_domain()
 
     if config["smtp"]["host"]:
