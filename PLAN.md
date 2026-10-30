@@ -438,7 +438,7 @@ in the dev stack, its results stated in the PR.
 - [x] Browser tests in CI (Playwright; Chromium and Firefox, WebKit locally) against the dev stack with `MODULES=cards`, `FILE_LINK_SECRET` and a mail catcher: the phase-5 exit check one test per step, and what jsdom cannot test (no sideways scroll at 375 px, auto load's place and back, the Styled frame's isolation, signed links, `nsfw-login`, a password reset from the mail to the changed password).
 - [x] `lithica-admin create-user <name> [--rank] [--email] [--password-stdin]`: the first account without a sign-up page (Sardonyx has none). Administrator when the site has no account, else regular; the password asked twice on a terminal or read from stdin, never an argument; the site's rules apply; any `visibility`.
 - [ ] `doc/INSTALL.md`: running Sardonyx (compose service, image, dev mode).
-- [ ] `docker-compose.yml`: Sardonyx is the default client; the legacy client stays available as an optional service.
+- [x] `docker-compose.yml`: Sardonyx is the default client; the legacy client stays available as an optional service.
 - [ ] `doc/UPGRADING.md`: 0.2.0 → 0.3.0.
 - [ ] Version `0.3.0`; images `lithica-server`, `lithica-client` (Sardonyx), `lithica-client-legacy`.
 - [x] Optional theme Dracula in the theme menu (values below), passing the contrast test.
