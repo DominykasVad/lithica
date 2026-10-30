@@ -50,6 +50,7 @@ ENV RESOLVER=127.0.0.11
 ENV FILE_LINK_SECRET=
 
 COPY nginx.conf.template /etc/nginx/templates/default.conf.template
+COPY --chmod=755 docker-entrypoint.d/10-base-url.sh /docker-entrypoint.d/
 COPY --chmod=755 docker-entrypoint.d/15-file-link-secret.sh /docker-entrypoint.d/
 COPY --from=build /app/dist /usr/share/nginx/html
 

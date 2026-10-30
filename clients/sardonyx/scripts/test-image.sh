@@ -4,7 +4,8 @@
 # headers, an uploaded file is served with its own policy, temporary uploads
 # are not served at all, and a path of the app is answered with the app.
 # Then, with FILE_LINK_SECRET set, that a post's file and thumbnail are
-# served only to a signed link, and an avatar as before.
+# served only to a signed link, and an avatar as before; and that a
+# BASE_URL is warned about at start.
 #
 #   scripts/test-image.sh          (from clients/sardonyx)
 set -euo pipefail
@@ -99,6 +100,11 @@ sign() {
   printf '%s%s %s' "$2" "$1" "$secret" | openssl md5 -binary | openssl base64 |
     tr '+/' '-_' | tr -d '='
 }
+# a base path is the legacy client's: here it is ignored, and said so
+base_url_log() { docker run --rm "$@" "$image" nginx -t 2>&1 | grep -c "BASE_URL is set" || true; }
+check "BASE_URL under a path is warned about" 1 "$(base_url_log -e BASE_URL=/lithica/)"
+check "BASE_URL of the root is not" 0 "$(base_url_log -e BASE_URL=/)"
+check "no BASE_URL is not" 0 "$(base_url_log)"
 check "a short secret is refused at start" 1 \
   "$(docker run --rm -e FILE_LINK_SECRET=short "$image" nginx -t >/dev/null 2>&1; echo $?)"
 docker run -d --name "$signed" -p "127.0.0.1:$signed_port:80" -v "$data:/data:ro" \
