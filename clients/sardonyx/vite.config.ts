@@ -20,6 +20,8 @@ export default defineConfig({
     },
   },
   test: {
+    // the unit tests; the browser tests (e2e/) are Playwright's
+    include: ["src/**/*.test.{ts,tsx}"],
     environment: "jsdom",
     setupFiles: ["./src/test-setup.ts"],
     // the tests say what they want from fetch; nothing goes out

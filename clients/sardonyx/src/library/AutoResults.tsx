@@ -156,6 +156,10 @@ export function AutoResults({
     const timer = setTimeout(() => {
       done = true;
       virtualizer.scrollToIndex(row, { align: "start" });
+      // where the window went is where the list was going: the target
+      // above came from the render that had the first batch, which may
+      // still have measured the list below the placeholders it replaces
+      heading.current = virtualizer.scrollElement?.scrollY ?? target;
     });
     return () => {
       clearTimeout(timer);

@@ -103,8 +103,13 @@ Commands are run from `clients/sardonyx/`.
   are never hand-edited; regenerate them after any change of the server's
   API. No hand-written types for API data.
 - **Lint and format:** Biome, one tool for both, as ruff is on the server.
-- **Tests:** Vitest and Testing Library for units and components. Playwright
-  for end-to-end tests later, not before the owner asks.
+- **Tests:** Vitest and Testing Library for units and components
+  (`src/**/*.test.ts(x)`). Playwright (Apache-2.0) for the browser tests
+  (`e2e/`), against the e2e stack: the dev stack with
+  `docker-compose.e2e.yml` on top (a mail catcher, a second site in
+  `nsfw-login`), its own project name, so a dev stack beside it is left
+  alone. Their cards are made by `e2e/cards.ts`: nothing third-party is
+  committed.
 
 | Task | Run from | Command |
 |---|---|---|
@@ -116,6 +121,8 @@ Commands are run from `clients/sardonyx/`.
 | Lint and format check | `clients/sardonyx/` | `pnpm check` (what CI runs) |
 | Type check | `clients/sardonyx/` | `pnpm typecheck` |
 | Tests | `clients/sardonyx/` | `pnpm test` |
+| Browser tests | `clients/sardonyx/` | `e2e/stack.sh up`, then `pnpm e2e` (Chromium, Firefox and WebKit; CI runs the first two; one browser: `pnpm e2e --project chromium`); `e2e/stack.sh down` after. The browsers: `pnpm exec playwright install chromium firefox webkit` |
+| Browser test cards | `clients/sardonyx/` | `node e2e/make-fixtures.ts` — writes `e2e/fixtures/cards` |
 | Regenerate the API types | `clients/sardonyx/` | `pnpm api:generate` — after every change of `doc/openapi.json` |
 | Check the API types | `clients/sardonyx/` | `pnpm api:check` (what CI runs) |
 | Image | repo root | `docker build clients/sardonyx`; the dev stack serves it on port 8082 |
