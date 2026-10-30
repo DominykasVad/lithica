@@ -440,7 +440,7 @@ in the dev stack, its results stated in the PR.
 - [ ] `doc/INSTALL.md`: running Sardonyx (compose service, image, dev mode).
 - [x] `docker-compose.yml`: Sardonyx is the default client; the legacy client stays available as an optional service.
 - [ ] `doc/UPGRADING.md`: 0.2.0 → 0.3.0.
-- [ ] Version `0.3.0`; images `lithica-server`, `lithica-client` (Sardonyx), `lithica-client-legacy`.
+- [x] Version `0.3.0`; images `lithica-server`, `lithica-client` (Sardonyx), `lithica-client-legacy`.
 - [x] Optional theme Dracula in the theme menu (values below), passing the contrast test.
   - Dracula: bg `#282A36`, card `#343746`, border `#4D5066`, fg `#F8F8F2`, muted `#A9B1D6`, primary `#BD93F9` on `#282A36`, selected `#3E3755`, link `#8BE9FD`, macro bg `#2C3B48`, ok `#50FA7B`, warn `#FFB86C`.
 
