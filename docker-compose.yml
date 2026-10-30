@@ -53,6 +53,10 @@ services:
     environment:
       BACKEND_HOST: server
       FILE_LINK_SECRET: ${FILE_LINK_SECRET:-}
+      ## Not used: passed only so that the image can warn at start when it
+      ## is set to a path, which Sardonyx cannot serve under (see
+      ## client-legacy below)
+      BASE_URL: ${BASE_URL:-}
     volumes:
       - "${MOUNT_DATA}:/data:ro"
     ports:
