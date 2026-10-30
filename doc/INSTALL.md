@@ -78,37 +78,51 @@ from your existing data.
     To run the published release images instead of building, see
     [Using published images](#using-published-images).
 
-5. Start it. The first time, start the database on its own and give it a
-   moment to initialise:
+5. Start the database and the server, **not the clients yet**. Until the
+   first account exists, whoever reaches the site first could sign up
+   through the API (`POST /api/users`, or the legacy client's registration
+   page) and would become its administrator. The server has no port of its
+   own: with no client running, nobody outside can reach it.
+
+    The first time, start the database on its own and give it a moment to
+    initialise:
 
     ```console
     user@host:lithica$ docker compose up -d sql
-    user@host:lithica$ docker compose up -d
+    user@host:lithica$ docker compose up -d server
     ```
 
-    The server creates and updates its database tables by itself every time
-    it starts. Watch the log with:
+    The server creates and updates its database tables every time it
+    starts, before it serves. Wait until its log says it is serving:
 
     ```console
-    user@host:lithica$ docker compose logs -f
+    user@host:lithica$ until docker compose logs server | grep -q 'Starting Lithica API'; do sleep 2; done
     ```
 
-6. Create the first account, the administrator, from the command line. It
-   asks for the password twice:
+    (or watch `docker compose logs -f server` for the line `Starting
+    Lithica API`). If the server stops instead, its log says why.
+
+6. Create the first account, the administrator, in the running server
+   container. It asks for the password twice:
 
     ```console
-    user@host:lithica$ docker compose run --rm server ./lithica-admin create-user <name>
+    user@host:lithica$ docker compose exec server ./lithica-admin create-user <name>
     ```
 
     With no account on the site yet, the account is an administrator;
-    `--rank` gives another rank, `--email` an email address. Then open
-    `http://<host>:<PORT>/` and log in to Sardonyx with it.
+    `--rank` gives another rank, `--email` an email address.
 
-    Sardonyx has no sign-up page. Signing up through the API (`POST
-    /api/users`, or the legacy client's registration page) still makes the
-    first account of a site its administrator, which on a server others
-    can reach means whoever signs up first. On a public server, the command
-    is the safe way.
+7. Start the clients, and with them the rest:
+
+    ```console
+    user@host:lithica$ docker compose up -d
+    ```
+
+    Open `http://<host>:<PORT>/` and log in to Sardonyx with the account.
+    Sardonyx has no sign-up page; whether visitors may sign up through the
+    API is the `users:create:self` privilege (anonymous by default), and
+    with `visibility: login` nobody may. Watch the log with
+    `docker compose logs -f`.
 
 ## Using published images
 
@@ -193,7 +207,8 @@ library: a card's text, greetings and lorebook, filters for the `card-`
 search tokens, the download under the card's name. Logging in, a password
 reset by mail and changing one's password are in it too. It has no pages for
 pools, comments, users or the site's administration, and no sign-up page
-(see step 6 of [Install](#install)).
+(see steps 5 to 7 of [Install](#install): the first account is made
+before the clients start).
 
 Sardonyx is served at the root of its host: `https://booru.example.com/`,
 not `https://example.com/booru/`. It has no base path, and `BASE_URL` does
