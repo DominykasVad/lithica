@@ -58,6 +58,16 @@ Confirmed by the owner on 2026-10-10.
 - An extractor returns at most 64 results. A payload may be 1 MiB of JSON unless its kind asks for more (`ContentKind.max_payload_size`, hard cap 32 MiB; more is a startup error). Beyond a limit, or with one bad result, the extractor counts as failed and all its results for the file are dropped.
 - An extractor or a detector refuses a file on purpose by raising `registry.FileRejected`: the upload is refused with its message. Anything else a detector raises counts as "not mine", and anything else an extractor raises is logged and skipped. On `reextract` a refusal counts as a failure and the rows are kept. Extraction runs before a post's signature is made, so a refused file leaves nothing in the session.
 - `post_content.payload` is a deferred column: rows load without it, and it is fetched when read (a payload may be megabytes).
+- `lithica-admin import`: each file is its own transaction; a duplicate is skipped by the upload path's checksum check. "Refused" is a validation or processing error of the file (exit 0), "failed" anything else (exit 1). Files and folders whose names start with a dot are left out; symlinked folders are not followed. No privilege of `--user` is asked (the command is the administrator's); snapshots are the user's. `--dry-run` checks duplicates, the file type and module refusals; it does not decode pictures.
+- `lithica-admin create-user`: administrator on a site with no account, else regular; the password asked twice on a terminal or read from stdin (`--password-stdin`), never an argument, never read off a pipe unasked; the site's name and password rules; any `visibility`.
+- A login token that does not work is `InvalidTokenError` (403), also for an unknown user, so clients need not read text.
+- Module post fields are in the contract: `post_field_schemas` per module, nullable, on `Post`.
+- `GET /info` says `maxUploadSize` and `acceptedTypes` (engine + enabled modules): hints for clients only.
+- Implicit tags are inserted at once in a connection savepoint (Core); on a name conflict, the tag that won is taken.
+- `fields` is checked against the resource's serializer by a dependency, before the endpoint runs.
+- A search's user is an argument of `Executor.execute`/`get_around`; executors and configs keep nothing.
+- Password reset: a site that cannot mail answers 500 `MailNotConfiguredError` (Server configuration error), for any name and before a token is made. Otherwise the request answers 200 `{}` whatever the account, and the confirmation one `InvalidPasswordResetTokenError` whatever was wrong (one query, no account lookup first). The mail is sent after the answer; one that fails is logged by its error's class only. At most one mail per account per `password_reset_mail_interval` (300 s), read from the pending token's creation time (no table); a used token ends the window.
+- Development: `--reload` watches only the `lithica` package, by watchfiles events (dev dependency group), not polling.
 - `MODULES` (comma-separated, in the environment) replaces `modules` of the config files when set; empty means none.
 - Module file types (`registry.FileType`): asked only about files the engine refuses as `application/octet-stream`, in config order. The post type may not be an engine type nor one of its `type:` search aliases (`gif`, `webm`, ...); the MIME type must fit the 32 characters of `post."mime-type"` (checked at startup, no migration) and may not be the engine's. The stored file is the upload, byte for byte.
 - Posts of a module file type: no canvas size, no default flags; found by `type:<post type>`. The thumbnail is the picture the module's hook returns, which must be an engine image type of at most 32 MiB; otherwise the engine's existing empty thumbnail (`EMPTY_PIXEL`). A signature, and so similar-image search, exists only with such a picture.
@@ -71,15 +81,50 @@ Confirmed by the owner on 2026-10-10.
 
 Settled during phase 4 (owner decisions marked).
 
-- **Formats.** PNG: `tEXt` chunks `ccv3` (V3) and `chara` (V2, V1); `zTXt` and `iTXt` are read the same way. `ccv3` wins when both are readable; an unreadable `ccv3` makes way for a readable `chara` (owner). `ccv3` holds V3 cards only; a card in `chara` is of the version its `spec` says (no `spec`: V1). CHARX: a ZIP with a V3 `card.json` at the root, stored as `application/x-charx`, extension `charx`, post type `charx`.
+- **Formats.** PNG: `tEXt` chunks `ccv3` (V3) and `chara` (V2, V1); `zTXt` and `iTXt` are read the same way. Order of reading: the first readable `ccv3`, else the first readable `chara`; of several chunks with one keyword the first readable one is the card (Chub writes its current version first, the original's chunk behind it); position decides, never size (owner). `ccv3` holds V3 cards only; a card in `chara` is of the version its `spec` says (no `spec`: V1). CHARX: a ZIP with a V3 `card.json` at the root, stored as `application/x-charx`, extension `charx`, post type `charx`.
 - **What a card is.** A card needs a name (V1: and one more V1 field); other missing fields are fine, as real cards leave them out. Malformed card data in a picture means no card, and the picture is an ordinary picture.
-- **Payload** (schema version 2): `{format, chunk, card, assets, summary}`. `card` is the JSON as given, minus embedded binary data: a base64 data URI becomes `{"embedded": {type, name, size}}`, and inside a longer text it is cut out and marked. NUL characters and lone surrogates are removed (PostgreSQL cannot store them). `assets` lists paths and sizes only (PNG: `chara-ext-asset_:` chunks, at most 1000; CHARX: the archive's entries besides `card.json`). `chunk` is null for CHARX. `summary` is name, creator, greetings and lorebookEntries; search and the `card` post field read only it.
+- **Payload** (schema version 3): `{format, chunk, card, assets, summary, ignoredChunks}`. `ignoredChunks` lists the card chunks not used: keyword, position (chunk number in the file), size. `card` is the JSON as given, minus embedded binary data: a base64 data URI becomes `{"embedded": {type, name, size}}`, and inside a longer text it is cut out and marked. NUL characters and lone surrogates are removed (PostgreSQL cannot store them). `assets` lists paths and sizes only (PNG: `chara-ext-asset_:` chunks, at most 1000; CHARX: the archive's entries besides `card.json`). `chunk` is null for CHARX. `summary` is name, creator, greetings and lorebookEntries; search and the `card` post field read only it.
 - **Size** (owner). The card kinds ask for 16 MiB of payload. A card over that refuses the upload, PNG and CHARX alike, and so does a card chunk over the 32 MiB that are read of one. A CHARX post is never stored without its card.
 - **ZIP safety.** Entries are read from the archive into memory, never extracted. Limits: 1000 entries, 512 MiB unpacked, 100:1 per entry, `card.json` 8 MiB, table of contents 1 MiB, icon 16 MiB; stored and deflate only; no encrypted entries, no absolute or `..` paths, no archive as the icon. Only a ZIP with a root `card.json` is judged by the limits; any other archive is refused as an unknown file.
 - **Thumbnail of a CHARX post.** The icon named `main`, else the first icon, from `embeded://`, `embedded://`, `__asset:` or a base64 `data:` URI. An icon elsewhere (`https:`) is never fetched.
 - **Tags.** Creator → category `creator` (made by the site's admin; else the engine's missing-category rule), the card's own tags → the default category; lower case, whitespace as `_`. A post gets the creator and at most 99 of the card's tags, because the engine takes 100 tags from one module.
 - **Search.** Greetings = the first message, if not empty, plus the alternate greetings; group-only greetings do not count. `card-lorebook:yes` means at least one entry. `card-creator:` matches the creator as the card has it, not the tag. The tokens are unindexed JSON lookups: fine for a personal library, no index for now.
 - **Download.** A plain route, not an `ApiRouter` one: it needs no `Accept: application/json`, and its errors are JSON. Names: at most 100 characters, NFC, no control or format characters, no path or Windows-reserved characters; ASCII `filename` plus `filename*`; fallback `card-<id>`. The name comes from the summary; the card is not read for a download.
+
+### Visibility and signed file links
+
+Settled in phase 5 (5.6b, 5.7).
+
+- **`visibility`**: `open`, `nsfw-login`, `login`. In `login` the anonymous rank has no privileges (so no sign-up), and an app dependency answers 403 to everything but `GET /info`, logging in and password reset.
+- **NSFW posts**: those with `nsfw_tag` (any of its names) or any tag implying it, transitively; worked out once per request. The post field `nsfw`, from the same set, is the one answer to "is this post NSFW" for clients.
+- **`nsfw-login` hides in one place**: loader criteria on Post, Comment, Snapshot, PoolPost and PostFeature. A request is filtered until `get_user` names somebody (fail closed); the CLI and background jobs are not filtered. Queries that select all posts select columns, never entities (the identity map would hand hidden ones out). Counts (tag usages, siblings, a pool's `postCount`, user counts) still count hidden posts; documented.
+- **`nsfw_hide_names`**: a hint for clients in `/info`, not a filter; revealing a post shows the names too.
+- **Signed file links**: nginx's `secure_link_md5` of `"<e></path under /data> <secret>"`, `e` the start of the day after tomorrow, UTC. `FILE_LINK_SECRET` is `[A-Za-z0-9_-]{32,}`, checked by the server and both client images; one `.env` value for all three. Not `open` and no secret: a warning at start, not a refusal.
+
+### Sardonyx
+
+Settled in phase 5, for `clients/sardonyx`.
+
+- **Toolchain.** TypeScript 6.0, not 7 (openapi-typescript needs the compiler API 7 does not have). pnpm 12.15.0; in the image pnpm's own binary, checked by SHA-256 (Node 26 has no corepack). shadcn/ui's `cn` package replaces clsx + tailwind-merge. Code-based TanStack routes. The API base URL is `api/` beside the app, made absolute.
+- **Image.** nginx passes `/api/` on as sent (still encoded) and resolves the server at each request; gzip for JSON, JS, CSS and SVG from 1 KB, uploads and downloads sent as stored. Served at the root of its host: no base path; a `BASE_URL` with a path is warned about at start and ignored. Dev stack: the image on port 8082; `pnpm dev` proxies to the stack's client on 8080 (`LITHICA_URL`).
+- **Session.** `sardonyx.session`: sessionStorage, the token expires in 24 h; "remember me": localStorage, 90 days. The session ends on an `InvalidTokenError` only, by its name; a refused privilege (`AuthError`) leaves it. Logout forgets the token here first, then deletes it on the site; a failure there is shown, not fatal.
+- **Look.** Theme light, dark, system or Dracula, per browser (`sardonyx.theme`), applied by `public/theme.js` (no inline script under the CSP). The palette comes from the design reference, with the roles `link`, `macro`, `ok`, `warn`; components use roles only. Every theme passes `src/app/palette.test.ts`: text roles reach 4.5:1 on their backgrounds, control edges (`--control-border`) 3:1 (WCAG 1.4.11). Dracula: `.dracula` with `.dark`, destructive `#ff7979`, control edges `#8087a8`. Errors: everything a request throws is an `ApiError` (title, description, status), shown by one component. The design reference in `docs/design/` is read-only, outside lint, the image and CI.
+- **Library.** `/posts` (`/` stays the start page); one URL for both modes, `?q=<query>&at=<offset of the first result>`. "Per page" 50, 100 or Auto load, per browser (`sardonyx.perPage`, default Auto load). A page change or a new search pushes a history entry; scrolling in auto load replaces `at`. Auto load asks 100 at a time, batches aligned to multiples of 100, one query per batch keyed by offset, the batches in the window ±1 asked once scrolling rests 150 ms, the total of the newest answer; the row height is fixed per search from its first batch (cards or not); the place a scroll goes is taken when it is made. Below `sm` the header's pages fold into a menu, below `md` the card filters behind "Filters (n)".
+- **Search.** The query text is the only truth: card filters are read from it and change only their own `card-*` tokens; the creator filter writes spaces as `*` and shows `*` as a space. Completion: the token at the cursor; `<prefix>* sort:usages`, 10, after 150 ms; the tag escaped.
+- **Post page and card text.** URL `?q=&at=&tab=` (q and at are the way back and prev/next; tab replaces). Tags shown once: the post's, by category; the default category has no heading. Card text modes Readable, Source and Styled per browser (`sardonyx.cardText`, default Readable; old "formatted"/"plain" read as readable/source). Markdown without a raw-HTML plugin; images as `[image: alt]`, never loaded; Readable shows HTML as its text. Links show their URL; only http(s) is a link (new tab, `noopener noreferrer nofollow ugc`). Macros `{{…}}` shown as written in the macro role, never replaced. Lorebook URL `?filter=&kind=` (replace; filter once typing rests 300 ms); mode: constant = always active, selective flag + secondary keys = selective, else keyword.
+- **Download.** Fetched with the session, saved as `Content-Disposition` names it, else `<id>.<ext>`; the token goes only to the page's origin; the blob URL is revoked 60 s after the click.
+- **Styled.** Card HTML in a frame sandboxed `allow-scripts allow-popups allow-popups-to-escape-sandbox`, which takes its HTML by postMessage from its parent only; the page takes only its height. The frame's one script is named by sha256 hash, not `'self'`. Two frame policies, one page under two paths: images off (`data:` only) and on (`https: data:`). Card pictures load only when the viewer asks, per card; hosts read from the text; the choice is not kept. The frame drops script, meta, base, link, frames, objects, `on*` and non-http(s) link hrefs.
+- **Upload.** `POST /uploads` by XMLHttpRequest (real progress), then `POST /posts` with the token, 2 at a time. Up front a file is refused only when sure: over `maxUploadSize`, or a well-known extension not listed. Cancel stops the sending only; `POST /posts` is never aborted and its outcome is shown. The link and page need `uploads:create` and `posts:create:identified`. The NSFW box per file sets the site's NSFW tag in the tags sent; a card whose own tags carry it pre-checks and holds the box, with a note; card tags are read in the browser (at most 10,000 PNG chunks, none past the file's end), only where `cards` is on.
+- **Editing.** A field only under its own privilege (`posts:edit:tags`/`safety`/`source`); only changes are sent. A 409 offers Reload: the fields show the post as it now is, the unsaved edit beside them; never merged. After a save, list entries take the post's new values and lists are marked stale; a delete drops it. Delete: an inline confirmation naming post and card; DELETE with version; back to the library's q and at. Focus: editor → its first field, confirmation → Cancel; Escape cancels; closing → the button that opened it. Tags: the completion field as a wrapping textarea (grows to 192 px). Privilege names as `GET /info` gives them (camelCase), held to `config.yaml.dist` by a test. `/tags` `?q=&category=&at=`, 50 a page, `sort:usages` unless the query sorts, needs `tags:list`; "Create the creator category" with cards on, no `creator` and `tagCategories:create`, colour `#7e2f22`.
+- **NSFW.** Blurred by the post field `nsfw` only; a tile keeps its card's name and creator unless `nsfwHidesNames`. Show NSFW: localStorage per browser, off by default; a reveal lasts the tab's session. In `login` mode the shell draws only the login form (and password reset) until logged in; no page before `/info` answers.
+- **Password reset and account.** The mail's link: the token is taken off the address at once (history entry replaced) and kept in memory; the image's nginx keeps that page out of the access log, with no referrer. Every answer of the request but `MailNotConfiguredError` reads as "sent". `/account` checks the current password by reading the account with it (Basic), then PUTs with the version.
+- **Browser tests.** Playwright against the dev stack + `docker-compose.e2e.yml` (project `lithica-e2e`, secrets made by `e2e/stack.sh`): Mailpit v1.31.5 in the test stack only, read through its API; `nsfw-login` as a second server and Sardonyx on the same database and data. Cards synthetic (`e2e/cards.ts`), small ones committed, none third-party. CI runs Chromium and Firefox with no retries; WebKit was flaky on Linux CI and runs locally only.
+
+### Later
+
+Not phase tasks; for a future phase to take up.
+
+- Base path support in Sardonyx (serving it under a path, as the legacy client's `BASE_URL` does).
 
 ### Intentional API changes (phases 0–3)
 
@@ -147,112 +192,7 @@ respect). One line each, max ~120 characters: `date — task — decision (reaso
 No status notes, no "left untouched", no results — those go in commit messages.
 When a whole phase is finished (its last sub-phase merged), its entries are folded into the tables above or deleted.
 
-- 2026-10-12 — 5.0 — import: each file is its own transaction; a duplicate is skipped by the upload path's checksum check
-- 2026-10-12 — 5.0 — import: "refused" is a validation or processing error of the file (exit 0); "failed" is anything else (exit 1)
-- 2026-10-12 — 5.0 — import: files and folders whose names start with a dot are left out; symlinked folders are not followed
-- 2026-10-12 — 5.0 — import: no privilege of `--user` is asked (the command is the administrator's); snapshots are the user's
-- 2026-10-12 — 5.0 — `--dry-run` checks duplicates, the file type and module refusals; it does not decode pictures
-- 2026-10-13 — cards — several chunks with the same keyword: the first readable one is the card (Chub writes its current version first; the original's chunk stays behind it)
-- 2026-10-13 — cards — order of reading: first readable `ccv3`, else first readable `chara`; position decides, never size
-- 2026-10-13 — cards — payload lists unused card chunks as `ignoredChunks` (keyword, position = chunk number in the file, size); schema version 3
-- 2026-10-24 — 5.1 — TypeScript 6.0, not 7: openapi-typescript needs the compiler API TypeScript 7 does not have
-- 2026-10-24 — 5.1 — pnpm 12.15.0; in the image it is pnpm's own binary, checked by SHA-256 (Node 26 has no corepack)
-- 2026-10-24 — 5.1 — shadcn/ui's `cn` package (from shadcn) replaces clsx + tailwind-merge, as its CLI now sets up
-- 2026-10-24 — 5.1 — code-based TanStack routes for now; the API base URL is `api/` beside the app, made absolute
-- 2026-10-24 — 5.1 — the image's nginx passes `/api/` on as sent (still encoded), and resolves the server at each request
-- 2026-10-24 — 5.1 — dev stack: Sardonyx's image on port 8082; `pnpm dev` proxies to the stack's client on 8080 (`LITHICA_URL`)
-- 2026-10-24 — fix — a token that does not work is `InvalidTokenError` (403), also for an unknown user, so clients need not read text
-- 2026-10-24 — fix — module post fields are in the contract: `post_field_schemas` per module, nullable, on `Post`
-- 2026-10-24 — 5.2 — session `sardonyx.session`: sessionStorage, token expires in 24 h; "remember me": localStorage, 90 days
-- 2026-10-24 — 5.2 — the session ends on an `InvalidTokenError` only, by its name; a refused privilege (`AuthError`) leaves it
-- 2026-10-24 — 5.2 — logout forgets the token here first, then deletes it on the site; a failure there is shown, not fatal
-- 2026-10-24 — 5.2 — theme light/dark/system per browser (`sardonyx.theme`), applied by public/theme.js (no inline script under the CSP)
-- 2026-10-24 — 5.2 — errors: everything a request throws is an `ApiError` (title, description, status) and shown by one component
-- 2026-10-24 — 5.2 — design reference in `clients/sardonyx/docs/design/`: read-only, out of lint, image and client CI
-- 2026-10-24 — 5.2 — palette from the design reference (hex), roles `link` `macro` `ok` `warn` added; components use roles only
-- 2026-10-24 — 5.2 — every theme in index.css passes `src/app/palette.test.ts`: text roles on their backgrounds reach WCAG 4.5:1
-- 2026-10-24 — 5.7 — Gruvbox dropped; Dracula is the one optional theme
-- 2026-10-24 — 5.3 — the library is `/posts`; `/` stays the site's start page
-- 2026-10-24 — 5.3 — one URL for both list modes: `?q=<query>&at=<offset of the first result>`, plain key=value pairs
-- 2026-10-24 — 5.3 — "Per page" 50 / 100 / Auto load, per browser (`sardonyx.perPage`), default Auto load
-- 2026-10-24 — 5.3 — a page change or a new search pushes a history entry; scrolling in auto load replaces `at`
-- 2026-10-24 — 5.3 — auto load asks 100 at a time (the API's maximum), batches aligned to multiples of 100
-- 2026-10-25 — 5.3 — auto load: one query per batch, keyed by offset; the batches in the window ±1, asked once scrolling rests 150 ms; the total of the newest answer
-- 2026-10-24 — 5.3 — the query text is the only truth: card filters are read from it and change only their own `card-*` tokens
-- 2026-10-24 — 5.3 — completion: the token at the cursor, not a named one; `<prefix>* sort:usages`, 10, after 150 ms; tag escaped
-- 2026-10-24 — 5.3 — the creator filter writes spaces as `*` (a token has no spaces); `*` is shown as a space again
-- 2026-10-25 — 5.3 — control edges (checkbox, radio, field, select) use `--control-border`, held to 3:1 on background and card (WCAG 1.4.11); text pairs stay at 4.5
-- 2026-10-25 — 5.3 — below `sm` the header's pages fold into a menu; below `md` the card filters fold behind "Filters (n)", n counting set and custom controls
-- 2026-10-25 — fix — dev `--reload` watches only the `lithica` package, by watchfiles events (dev group), not polling
-- 2026-10-25 — fix — implicit tags are inserted at once in a connection savepoint (Core); on a name conflict, the tag that won
-- 2026-10-27 — fix — `fields` is checked against the resource's serializer by a dependency, before the endpoint runs
-- 2026-10-27 — fix — a reset the site cannot mail: 500 `MailNotConfiguredError` (Server configuration error), before a token
-- 2026-10-27 — fix — a search's user is an argument of Executor.execute/get_around; executors and configs keep nothing
-- 2026-10-27 — 5.6b — `login`: anonymous has no privileges (no sign-up); an app dependency 403s all but /info, reset
-- 2026-10-27 — 5.6b — NSFW posts: the tag (any name) or any tag implying it, transitively; worked out once per request
-- 2026-10-27 — 5.6b — `nsfw-login` hides in one place: loader criteria on Post, Comment, Snapshot, PoolPost, PostFeature
-- 2026-10-27 — 5.6b — a request is filtered until get_user names somebody (fail closed); CLI and jobs are not
-- 2026-10-27 — 5.6b — post field `nsfw`, from the same tag set: the one answer to "is this post NSFW" for clients
-- 2026-10-27 — 5.6b — counts (tag usages, siblings, pool postCount, user counts) still count hidden posts; documented
-- 2026-10-27 — 5.6b — file links: secure_link_md5 of "<e></path under /data> <secret>"; e: day after tomorrow, UTC
-- 2026-10-27 — 5.6b — FILE_LINK_SECRET: [A-Za-z0-9_-]{32,}, checked by server and both images; one .env value
-- 2026-10-27 — 5.6b — ALL_POSTS queries select columns, never entities (the identity map would hand them out)
-- 2026-10-27 — 5.6b — not `open` and no file_link_secret: a warning at start, not a refusal; files stay reachable
-- 2026-10-27 — 5.6b — client blurs by the post field `nsfw` only; a tile keeps its card's name and creator in sight
-- 2026-10-27 — 5.6b — Show NSFW: localStorage per browser, off by default; a reveal lasts the tab's session
-- 2026-10-27 — 5.6b — login mode: the shell draws only the login form until logged in; no page before /info answers
-- 2026-10-27 — 5.6b — upload: the NSFW tag's name from /info; a card pre-checks the box only with the site's tag
-- 2026-10-28 — 5.7 — nsfw_hide_names: a client hint in /info, not a filter; the reveal shows the names too
-- 2026-10-28 — 5.7 — reset link: token kept in memory, address replaced; nginx: no access log, no-referrer for that page
-- 2026-10-28 — 5.7 — reset start: the same answer for any account or none; only MailNotConfiguredError is said
-- 2026-10-28 — 5.7 — /account checks the current password by reading the account with it (Basic), then PUTs with version
-- 2026-10-28 — 5.7 — auto load row height: fixed per search from its first batch (cards or not), before any row is drawn
-- 2026-10-28 — 5.7 — Dracula: .dracula with .dark; destructive #ff7979, control edges #8087a8 (contrast test)
-- 2026-10-29 — 5.7 — e2e: the dev stack + docker-compose.e2e.yml, project lithica-e2e; secrets made by stack.sh
-- 2026-10-29 — 5.7 — e2e cards are synthetic (e2e/cards.ts), small ones committed; no third-party card in the repo
-- 2026-10-29 — 5.7 — e2e nsfw-login: a second server and Sardonyx on the same database and data, not a restart
-- 2026-10-29 — 5.7 — e2e mail: Mailpit v1.31.5 in the test stack only; read through its API
-- 2026-10-29 — 5.7 — e2e in CI: Chromium and Firefox; WebKit was flaky on Linux CI (2 of 3 runs), runs locally only
-- 2026-10-29 — 5.7 — auto load: the place a scroll goes is taken when it is made (the first batch's margin is stale)
-- 2026-10-30 — fix — reset mail window: the pending token's creation time, no table; a used token ends the window
-- 2026-10-30 — fix — a reset mail failing after the answer is logged by its error's class only, not link or address
-- 2026-10-25 — fix — `GET /info` says `maxUploadSize` and `acceptedTypes` (engine + enabled modules), hints only
-- 2026-10-25 — 5.4 — card Markdown without a raw-HTML plugin; images as `[image: alt]`, never loaded
-- 2026-10-25 — 5.4 — Readable shows HTML as its text: no tags, style/script dropped, blocks as lines, entities decoded
-- 2026-10-25 — 5.4 — card links show their URL; only http(s) is a link (new tab, `noopener noreferrer nofollow ugc`)
-- 2026-10-25 — 5.4 — macros `{{…}}` shown as written in the macro role, in Readable and Source alike; never replaced
-- 2026-10-25 — 5.4 — card text Readable / Source per browser (`sardonyx.cardText`, default Readable); one list of modes
-- 2026-10-25 — 5.4 — an old `sardonyx.cardText` of "formatted" or "plain" is read as "readable" or "source"
-- 2026-10-25 — 5.4 — tags shown once: the post's, by category; no card tag list; the default category has no heading
-- 2026-10-25 — 5.4 — the Sardonyx image gzips JSON, JS, CSS and SVG from 1 KB; uploads and downloads are sent as stored
-- 2026-10-25 — 5.4 — post URL `?q=&at=&tab=`: q and at are the way back and prev/next; tab replaces
-- 2026-10-25 — 5.4 — lorebook URL `?filter=&kind=` (replace; filter once typing rests 300 ms); open entries are state
-- 2026-10-25 — 5.4 — lorebook mode: constant = always active; selective flag + secondary keys = selective; else keyword
-- 2026-10-25 — 5.4 — download: fetched with the session, saved as `Content-Disposition` names it, else `<id>.<ext>`
-- 2026-10-27 — 5.4 — download: the token goes only to the page's origin; the blob URL is revoked 60 s after the click
-- 2026-10-25 — 5.4b — Styled: card HTML in a frame sandboxed `allow-scripts allow-popups allow-popups-to-escape-sandbox`
-- 2026-10-25 — 5.4b — the frame takes its HTML by postMessage (from its parent only); the page takes only its height
-- 2026-10-25 — 5.4b — the frame's one script is named by sha256 hash, not 'self' (exact; 'self' in opaque frames varies)
-- 2026-10-25 — 5.4b — two frame policies, one page under two paths: images off (data: only) and on (https: data:)
-- 2026-10-25 — 5.4b — card pictures load only when the viewer asks, per card; hosts are read from the text; not kept
-- 2026-10-25 — 5.4b — the frame also drops script, meta, base, link, frames, objects, on* and non-http(s) link hrefs
-- 2026-10-25 — 5.4b — AGENTS.md: the app fetches nothing of card data; Styled loads https images in the frame, if asked
-- 2026-10-25 — 5.5 — upload: POST /uploads by XMLHttpRequest (real progress), then POST /posts with the token; 2 at a time
-- 2026-10-25 — 5.5 — up front, a file is refused only when sure: over maxUploadSize, or a well-known extension not listed
-- 2026-10-25 — 5.5 — NSFW box per file sets `nsfw` in the tags sent; card tags are read in the browser, only where cards is on
-- 2026-10-25 — 5.5 — a card whose own tags say NSFW: box checked and held, with a note (auto-tags are a union; server unchanged)
-- 2026-10-25 — 5.5 — the Upload link and page need `uploads:create` and `posts:create:identified` at the user's rank
-- 2026-10-27 — 5.5 — Cancel stops the sending only; POST /posts is never aborted, and its outcome is shown ("Creating…")
-- 2026-10-27 — 5.5 — the NSFW box reads at most 10,000 PNG chunks and none past the file's end; beyond that, unchecked
-- 2026-10-27 — 5.6 — edit: a field only under its own privilege (`posts:edit:tags`/`safety`/`source`); only changes sent
-- 2026-10-27 — 5.6 — a 409 offers Reload: the fields show the post as it now is, the unsaved edit beside them; never merged
-- 2026-10-27 — 5.6 — privilege names as GET /info gives them (camelCase); a test holds them to config.yaml.dist
-- 2026-10-27 — 5.6 — after a save, list entries take the post's new values and lists are marked stale; a delete drops it
-- 2026-10-27 — 5.6 — /tags `?q=&category=&at=`, 50 a page, `sort:usages` unless the query sorts; needs `tags:list`
-- 2026-10-27 — 5.6 — "Create the creator category" on /tags: cards on, no `creator`, `tagCategories:create`; colour #7e2f22
-- 2026-10-27 — 5.6 — delete: inline confirmation naming post and card; DELETE with version; back to the library's q, at
-- 2026-10-27 — 5.6 — focus: editor → its first field, confirmation → Cancel; Escape cancels; closing → the button that opened it
-- 2026-10-27 — 5.6 — post tags: the completion field as a wrapping textarea (grows to 192 px, then scrolls); one line of words
+None yet.
 
 ---
 
@@ -343,107 +283,28 @@ field, card endpoint and download. Client work was out of scope.
 
 ---
 
-## Phase 5 — Sardonyx client and bulk import (current)
+## Phase 5 — done (PRs #22, #24, #25, #27, #29, #32, #35, #38, #39, #42, #43, #44, #45 and #47; fixes in #23, #26, #28, #30, #31, #33, #34, #36, #37, #40, #41 and #46; release `v0.3.0`)
 
-Goal: a web client to browse, search, view, upload and tag cards, plus a way
-to bring an existing collection in. Ends in release `v0.3.0`.
+Sardonyx and bulk import: `lithica-admin import` and `create-user`; the web
+client `clients/sardonyx` (MIT), the default client of `docker-compose.yml`
+and the image `lithica-client`, with login, the library with search and
+card filters, the post page and card viewer (Readable, Source and a
+sandboxed Styled mode, large lorebooks), download, upload, editing and
+deleting, the tags page, NSFW blurring, password reset and the account page;
+on the server the site settings `visibility`, `nsfw_tag`, `nsfw_hide_names`,
+`password_reset_mail_interval` and signed file links (`file_link_secret`);
+browser tests in CI. The legacy client is the optional service
+`client-legacy` (profile `legacy`). Pools, comments, users and admin screens
+are not in Sardonyx.
 
-One sub-phase = one branch (`phase-5.N`) = one PR; start the next only after
-the previous one is merged. Client rules: AGENTS.md "Client" and "Licences".
-Tests: unit and component tests (Vitest, Testing Library); no end-to-end
-browser tests in this phase. Every client sub-phase ends with a manual check
-in the dev stack, its results stated in the PR.
-
-### 5.0 Bulk import (server)
-- [x] `lithica-admin import <folder>`: an engine command, not a cards one. Creates a post per file (recursive, sorted), as a named user (`--user`, required) with an explicit `--safety safe|sketchy|unsafe` (required), optional `--tags a,b`. Runs the normal upload path, so modules extract and auto-tag as for an upload.
-- [x] Exact duplicates (same checksum) are skipped, not errors. Files nobody accepts are reported, not fatal. Output: a summary (created, skipped, refused, failed) and a list of problems with file names; exit code non-zero if anything failed.
-- [x] `--dry-run` reports what would happen without creating posts.
-- [x] Safe to re-run: a second run over the same folder creates nothing.
-
-**Done when:** tests cover duplicates, refused files, the dry run and a re-run; importing `scratch/sample-cards/` locally gives one post per card with its card content and tags.
-
-### 5.1 Scaffold
-- [x] `clients/sardonyx/`: Vite, React, TypeScript strict, Tailwind v4, shadcn/ui, Biome, Vitest; Node 26 and pnpm pinned as AGENTS.md says.
-- [x] API types generated from `doc/openapi.json` (openapi-typescript) into a committed file; openapi-fetch client wrapper with the base URL and auth header. A pnpm script regenerates the types; CI fails when they are out of date.
-- [x] CI for the client: add `.github/workflows/ci-sardonyx.yml` with the same trigger pattern as `ci-server.yml` (pull requests ready for review, and pushes to `main`), paths `clients/sardonyx/**`, `doc/openapi.json` and the workflow file itself. It installs with the frozen lockfile and runs Biome, typecheck, tests, build and the type drift check. A future client gets a workflow of its own, never a shared `clients/**` one.
-- [x] Serving: a `clients/sardonyx/Dockerfile` that builds the client and serves it with nginx, with `/data/` (read-only, from the data volume) and `/api/` (proxy to the server) like the legacy image, written new. New image `lithica-client` in the release workflow.
-- [x] Dev: `pnpm dev` with a proxy of `/api` and `/data` to a running dev stack; documented.
-- [x] Fill in the client commands table in AGENTS.md.
-
-**Done when:** a blank app builds, is served by its image next to the legacy client in the dev stack, and calls `GET /info` through the typed client.
-
-### 5.2 App shell and login
-- [x] Layout, navigation, light/dark theme, "Sardonyx" branding (name, colours, logo in the client).
-- [x] `GET /info` on start; module detection (`modules`); card UI only when `cards` is listed.
-- [x] Login with user name and password once, to create a user token (`POST /user-token/<user>`); the token then authenticates every request; the password is not kept. "Remember me" writes the token to localStorage; logout deletes the token on the server and locally.
-- [x] API errors shown in a consistent way (the error body's `title` and `description`).
-
-**Done when:** log in (with and without "remember me"), reload, log out; a site without `cards` shows no card UI; an API error is shown readably.
-
-### 5.3 Post list and search
-- [x] Grid of thumbnails: pages of 50 or 100, or auto load (virtualised), chosen per browser.
-- [x] Search box with the engine's query syntax and tag autocomplete.
-- [x] When `cards` is enabled: filters for the `card-*` tokens (creator, spec, format, has lorebook, greeting count) that build the query text; the card summary (`fields=…,card`) on the tiles.
-- [x] Search state lives in the URL (back button and links work).
-
-**Done when:** searching by tag, by text and by each card filter gives the expected posts; paging, scrolling, reload and the back button keep the search and position.
-
-### 5.4 Post page and card viewer
-- [x] Post page: the picture (or thumbnail for CHARX), tags by category, safety, source, size, dates; previous/next within the current search.
-- [x] Card viewer (cards enabled, post has a card): name, creator, version, description, personality, scenario, first message and alternate greetings (switchable), example messages, creator notes, system prompt, post-history instructions, tags.
-- [x] Lorebook view for large lorebooks: entry list with filter by key/content, collapsed entries, virtualised so thousands of entries stay fast.
-- [x] Download button (the cards download endpoint).
-- [x] Text rendering per AGENTS.md (plain text or sanitised Markdown; macros like `{{char}}` shown as written).
-
-**Done when:** a V2 PNG, a V3 PNG and a CHARX card show every field; the 2500-entry lorebook sample opens, filters and scrolls without stalling; the download saves the original file under the card's name.
-
-### 5.4b Styled card text (sandboxed)
-- [x] A third text mode, "Styled", for every card text field (description, personality, scenario, greetings, examples, creator notes, prompts, lorebook entries): the card's HTML and CSS shown as written, in a sandboxed iframe (no allow-same-origin; allow-scripts for the frame's own script only, named by hash: card HTML runs no script), so it cannot reach the page, the session or the app's storage.
-- [x] Images and other remote resources in card HTML are not loaded until the viewer asks, per card ("Load images from <hosts>"); the choice is not remembered across cards. AGENTS.md's rule on URLs in card data changes to say exactly this.
-- [x] The app's security policy allows what the frame needs and nothing more; the main page's policy does not get weaker.
-- [x] The frame's height: the height the frame's own script reports, up to 80% of the window, with its own scroll beyond it.
-- [x] Tests that card HTML cannot touch the parent page, the token or the network before the viewer allows images.
-
-**Done when:** a Chub card with styled creator notes and images in greetings shows styled; nothing outside the frame changes; no request leaves for a card's image host until the viewer asks; Readable and Source unchanged.
-
-### 5.5 Upload
-- [x] Drag-and-drop of one or many files (PNG, CHARX, other images), safety per batch, optional tags; progress per file.
-- [x] Results per file: created (link), duplicate (link to the existing post), refused (the server's reason, e.g. a ZIP limit).
-- [x] No card preview before upload: the server reads the card; the client shows what it found afterwards.
-
-**Done when:** a mixed batch (cards, a plain image, a duplicate, a hostile ZIP fixture) uploads with the right result for each file.
-
-### 5.6 Editing
-- [x] Edit a post's tags (autocomplete), safety and source; optimistic locking via the post's `version` (a 409 is shown as "changed meanwhile, reload").
-- [x] Tag list page with categories; create the `creator` category from the UI if missing (admin).
-- [x] Delete a post (with confirmation; only with the privilege).
-- [ ] Out of scope in phase 5: pools, comments, users and admin screens beyond the above.
-
-**Done when:** editing, the 409 case and deleting work; actions the user lacks the privilege for are not offered.
-
-### 5.6b NSFW
-- [x] Server: a site setting `visibility`: `open` (default), `nsfw-login` (posts tagged with the NSFW tag need login), `login` (nothing but login and `GET /info` without login). The NSFW tag's name is a setting too (default `nsfw`). `GET /info` reports both.
-- [x] `nsfw-login`: for anonymous users, searches leave NSFW posts out (as if `-nsfw` were in the query), and a NSFW post's page, `around`, card, download and featured answer as if it did not exist (404, not 403).
-- [x] `login`: every route but login, password reset and `GET /info` needs a logged-in user; the client shows only the login page.
-- [x] Client: a "Show NSFW" switch, per browser (later per account), default off. Off: NSFW tiles and pictures blurred with an "NSFW" label, revealed one at a time by a click; card text of a NSFW post behind the same click.
-- [x] Upload: an "NSFW" checkbox per file, pre-checked when the card carries the NSFW tag; it adds or removes the tag.
-- [x] Signed file links: with `file_link_secret` set, every post file and thumbnail address the server gives out carries an expiry and a signature (nginx's `secure_link_md5`), valid until the start of the day after tomorrow (UTC); both client images refuse a post file or thumbnail without a valid one (403). Avatars are not signed. Unset: as before. README: what it protects and what not.
-
-**Done when:** in each of the three modes an anonymous visitor sees exactly what the mode allows (search, post, card, download, around); a logged-in user sees everything; the switch blurs and reveals as described.
-
-### 5.7 Release `v0.3.0`
-- [x] NSFW names: a site setting `nsfw_hide_names` (default false, `nsfwHidesNames` in `GET /info`); when true and Show NSFW is off, a NSFW card's name and creator are behind the same "Show this post" click (tile, heading, tab title, breadcrumb, lorebook page).
-- [x] Password reset in Sardonyx: `/password-reset` (start), `/password-reset/<user>:<token>` (the mail's link; confirm, the new password shown once), "Forgot your password?" on the login form when the site can send mail; reachable in `login` mode. `/account`: change the password.
-- [x] Tile rows: a row without cards does not reserve a card's caption (page mode per row; auto load per search, from its first batch).
-- [x] Browser tests in CI (Playwright; Chromium and Firefox, WebKit locally) against the dev stack with `MODULES=cards`, `FILE_LINK_SECRET` and a mail catcher: the phase-5 exit check one test per step, and what jsdom cannot test (no sideways scroll at 375 px, auto load's place and back, the Styled frame's isolation, signed links, `nsfw-login`, a password reset from the mail to the changed password).
-- [ ] `doc/INSTALL.md`: running Sardonyx (compose service, image, dev mode).
-- [ ] `docker-compose.yml`: Sardonyx is the default client; the legacy client stays available as an optional service.
-- [ ] `doc/UPGRADING.md`: 0.2.0 → 0.3.0.
-- [ ] Version `0.3.0`; images `lithica-server`, `lithica-client` (Sardonyx), `lithica-client-legacy`.
-- [x] Optional theme Dracula in the theme menu (values below), passing the contrast test.
-  - Dracula: bg `#282A36`, card `#343746`, border `#4D5066`, fg `#F8F8F2`, muted `#A9B1D6`, primary `#BD93F9` on `#282A36`, selected `#3E3755`, link `#8BE9FD`, macro bg `#2C3B48`, ok `#50FA7B`, warn `#FFB86C`.
-
-**Done when (phase 5 exit):** in the compose stack with `MODULES=cards`: import `scratch/sample-cards/`; log in; search with text and card filters; open a V2 PNG, a V3 PNG and a CHARX card and read greetings and a large lorebook; download; upload new files and see results incl. a refused hostile ZIP; edit tags; log out. Results per step in the PR.
+- No migration: the head is still `e2b8d4f6a1c3`.
+- The phase-5 exit check was run by hand on the compose stack (release
+  images, `MODULES=cards`); its results per step are in PR #47, beside the
+  browser-test job's.
+- Browser tests: `clients/sardonyx/e2e`, run by `.github/workflows/ci-e2e.yml`
+  (Chromium, Firefox); WebKit locally. AGENTS.md has the commands.
+- The decisions of the phase are in the sections above: the cards module,
+  Further defaults, Visibility and signed file links, Sardonyx.
 
 ---
 

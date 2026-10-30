@@ -13,7 +13,10 @@ in the configuration.
 
 `v0.1.0` was the engine, modernised, and the module system. `v0.2.0` adds the
 first module, `cards`: character cards for AI chat programs as posts, from
-PNG pictures and CHARX files. Versions are `v0.x` until the project is called
+PNG pictures and CHARX files. `v0.3.0` adds Sardonyx, a new web client and
+the default one, which is a card library when `cards` is on; the bulk
+import of a folder; and settings for what visitors see without logging in.
+The legacy client stays available beside it. Versions are `v0.x` until the project is called
 stable; [PLAN.md](PLAN.md) has the roadmap.
 
 ## Features

@@ -1,3 +1,4 @@
+import io
 from datetime import datetime
 from importlib.machinery import SourceFileLoader
 from importlib.util import module_from_spec, spec_from_loader
@@ -7,7 +8,7 @@ from unittest.mock import patch
 import pytest
 
 from lithica import db, model
-from lithica.func import files, posts, util
+from lithica.func import auth, files, posts, util
 
 ADMIN_PATH = Path(__file__).resolve().parent.parent.parent / "lithica-admin"
 
@@ -375,3 +376,118 @@ def test_reextract_changes_nothing_but_the_extracted_content(
     assert [tag.first_name for tag in post.tags] == ["by_hand"]
     assert "auto_tag" not in probe.calls
     assert db.session.query(model.Snapshot).count() == 0
+
+
+@pytest.fixture
+def user_rules(config_injector):
+    config_injector(
+        {
+            "secret": "test",
+            "user_name_regex": r"^[a-zA-Z0-9_-]{1,32}$",
+            "password_regex": r"^.{5,}$",
+            "default_rank": "power",
+            # whatever the site lets visitors do, the command is the admin's
+            "visibility": "login",
+            "privileges": {"users:create:self": "nobody"},
+        }
+    )
+
+
+class _Terminal(io.StringIO):
+    def isatty(self):
+        return True
+
+
+def _create_user(admin, monkeypatch, args, stdin):
+    monkeypatch.setattr("sys.stdin", stdin)
+    return admin.main(["create-user", *args])
+
+
+def _user(name):
+    return db.session.query(model.User).filter(model.User.name == name).one()
+
+
+def test_create_user_makes_the_first_administrator(
+    admin, user_rules, monkeypatch, capsys
+):
+    answers = iter(["first-pass", "first-pass"])
+    with patch.object(admin, "getpass", lambda _prompt: next(answers)):
+        assert _create_user(admin, monkeypatch, ["boss"], _Terminal()) == 0
+    user = _user("boss")
+    assert user.rank == model.User.RANK_ADMINISTRATOR
+    assert user.email is None
+    assert auth.is_valid_password(user, "first-pass")
+    output = capsys.readouterr()
+    assert "Created user 'boss' with rank administrator" in output.out
+    # the password is nowhere in what the command printed
+    assert "first-pass" not in output.out + output.err
+
+
+def test_create_user_later_is_regular_or_the_rank_given(
+    admin, user_rules, user_factory, monkeypatch
+):
+    db.session.add(user_factory(name="boss", rank=model.User.RANK_ADMINISTRATOR))
+    db.session.commit()
+    stdin = io.StringIO("plain-pass\n")
+    assert _create_user(admin, monkeypatch, ["plain", "--password-stdin"], stdin) == 0
+    # regular, not the site's default_rank: the command says so in --help
+    assert _user("plain").rank == model.User.RANK_REGULAR
+    stdin = io.StringIO("mod-pass\nignored\n")
+    args = ["mod", "--rank", "moderator", "--email", "mod@example.com"]
+    assert _create_user(admin, monkeypatch, [*args, "--password-stdin"], stdin) == 0
+    user = _user("mod")
+    assert user.rank == model.User.RANK_MODERATOR
+    assert user.email == "mod@example.com"
+    assert auth.is_valid_password(user, "mod-pass")
+
+
+def test_create_user_refuses_an_existing_name(
+    admin, user_rules, user_factory, monkeypatch, capsys
+):
+    db.session.add(user_factory(name="boss", rank=model.User.RANK_ADMINISTRATOR))
+    db.session.commit()
+    stdin = io.StringIO("other-pass\n")
+    assert _create_user(admin, monkeypatch, ["BOSS", "--password-stdin"], stdin) == 1
+    assert "already exists" in capsys.readouterr().err
+    assert db.session.query(model.User).count() == 1
+
+
+def test_create_user_refuses_a_weak_password(admin, user_rules, monkeypatch, capsys):
+    stdin = io.StringIO("abc\n")
+    assert _create_user(admin, monkeypatch, ["boss", "--password-stdin"], stdin) == 1
+    assert "password" in capsys.readouterr().err.lower()
+    assert db.session.query(model.User).count() == 0
+
+
+def test_create_user_refuses_passwords_that_differ(
+    admin, user_rules, monkeypatch, capsys
+):
+    answers = iter(["first-pass", "other-pass"])
+    with patch.object(admin, "getpass", lambda _prompt: next(answers)):
+        assert _create_user(admin, monkeypatch, ["boss"], _Terminal()) == 1
+    assert "do not match" in capsys.readouterr().err
+    assert db.session.query(model.User).count() == 0
+
+
+def test_create_user_does_not_read_a_pipe_unasked(
+    admin, user_rules, monkeypatch, capsys
+):
+    stdin = io.StringIO("piped-pass\n")
+    with patch.object(admin, "getpass") as getpass:
+        assert _create_user(admin, monkeypatch, ["boss"], stdin) == 1
+        getpass.assert_not_called()
+    assert "--password-stdin" in capsys.readouterr().err
+    assert db.session.query(model.User).count() == 0
+
+
+def test_create_user_takes_no_password_argument(admin, user_rules, capsys):
+    with pytest.raises(SystemExit):
+        admin.main(["create-user", "boss", "--password", "secret-pass"])
+    assert db.session.query(model.User).count() == 0
+
+
+def test_create_user_refuses_ranks_that_are_not_accounts(admin, user_rules, capsys):
+    for rank in ["anonymous", "nobody"]:
+        with pytest.raises(SystemExit):
+            admin.main(["create-user", "boss", "--rank", rank, "--password-stdin"])
+    assert db.session.query(model.User).count() == 0

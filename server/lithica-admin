@@ -13,7 +13,7 @@ from getpass import getpass
 from sys import stderr
 
 from lithica import config, db, errors, model, registry
-from lithica.func import files, images, post_import
+from lithica.func import auth, files, images, post_import, util
 from lithica.func import posts as postfuncs
 from lithica.func import users as userfuncs
 
@@ -30,6 +30,51 @@ def reset_password(username: str) -> None:
     userfuncs.update_user_password(user, new_password)
     db.get_session().commit()
     print("Sucessfully changed password for '%s'" % user.name)
+
+
+# the ranks an account can have; anonymous and nobody are not accounts
+USER_RANKS = [
+    rank
+    for internal, rank in auth.RANK_MAP.items()
+    if internal not in (model.User.RANK_ANONYMOUS, model.User.RANK_NOBODY)
+]
+
+
+def _read_new_password(name: str, from_stdin: bool) -> str:
+    if from_stdin:
+        return sys.stdin.readline().rstrip("\r\n")
+    # never an argument (the shell's history, the process list) and never
+    # read silently off a pipe: asked twice on the terminal, or --password-stdin
+    if not sys.stdin.isatty():
+        raise errors.ValidationError(
+            "No terminal to ask the password on: give it on standard input "
+            "with --password-stdin."
+        )
+    password = getpass("Password for '%s': " % name)
+    if getpass("Re-enter password: ") != password:
+        raise errors.ValidationError("Passwords do not match")
+    return password
+
+
+def create_user(
+    name: str, rank: str | None, email: str | None, password_stdin: bool
+) -> bool:
+    try:
+        password = _read_new_password(name, password_stdin)
+        first = userfuncs.get_user_count() == 0
+        # the site's rules for names, passwords and emails, as for a sign-up
+        user = userfuncs.create_user(name, password, email or "")
+        if rank is None:
+            rank = "administrator" if first else "regular"
+        user.rank = util.flip(auth.RANK_MAP)[rank]
+        db.session.add(user)
+        db.session.commit()
+    except errors.BaseError as e:
+        db.session.rollback()
+        print(e, file=sys.stderr)
+        return False
+    print("Created user '%s' with rank %s" % (user.name, rank))
+    return True
 
 
 def check_audio() -> None:
@@ -295,6 +340,30 @@ def main(args: list[str] | None = None) -> int:
         "finds duplicates, files of an unknown type and files a module "
         "refuses; a picture that is broken is found by the import only",
     )
+    parser_create_user = subparsers.add_parser(
+        "create-user",
+        help="create an account, such as the site's first administrator",
+        description="Create an account, whatever the site's visibility and "
+        "sign-up settings. The password is asked twice on the terminal, or "
+        "read from the first line of standard input with --password-stdin; "
+        "it is never an argument. The name, password and email must meet "
+        "the site's rules (user_name_regex, password_regex).",
+    )
+    parser_create_user.add_argument("name", help="the name of the account")
+    parser_create_user.add_argument(
+        "--rank",
+        choices=USER_RANKS,
+        help="the rank of the account; by default administrator when the "
+        "site has no account yet, else regular",
+    )
+    parser_create_user.add_argument(
+        "--email", metavar="<email>", help="the email of the account"
+    )
+    parser_create_user.add_argument(
+        "--password-stdin",
+        action="store_true",
+        help="read the password from the first line of standard input",
+    )
     for module_command in module_commands.values():
         parser_module = subparsers.add_parser(
             module_command.name,
@@ -355,6 +424,14 @@ def main(args: list[str] | None = None) -> int:
                     command.safety,
                     command.tags,
                     command.dry_run,
+                ):
+                    return 1
+            elif command.subcommand == "create-user":
+                if not create_user(
+                    command.name,
+                    command.rank,
+                    command.email,
+                    command.password_stdin,
                 ):
                     return 1
             elif command.subcommand in module_commands:

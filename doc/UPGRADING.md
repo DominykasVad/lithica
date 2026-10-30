@@ -1,12 +1,149 @@
 # Upgrading
 
-- [After 0.2.0](#after-020)
+- [From 0.2.0 to 0.3.0](#from-020-to-030)
 - [From 0.1.0 to 0.2.0](#from-010-to-020)
 - [From szurubooru to Lithica 0.1.0](#from-szurubooru-to-lithica-010)
 
-## After 0.2.0
+## From 0.2.0 to 0.3.0
 
-Notes for the release after 0.2.0, kept here until it has its number.
+0.3.0 brings a new web client, **Sardonyx**, and makes it the site's client
+in `docker-compose.yml`. The legacy client is still there, as an optional
+service. The database has no change to make.
+
+Coming from szurubooru? Do the [upgrade to 0.1.0](#from-szurubooru-to-lithica-010)
+below with `v0.3.0` in the place of `v0.1.0`, then read this section for what
+your client and `.env` need.
+
+> **Is your site served under a path (`BASE_URL` set, e.g.
+> `https://example.com/lithica/`)?** Sardonyx cannot do that: it is served
+> at the root of its host. Choose one before you upgrade:
+>
+> - **Keep the legacy client as the site's client.** In `.env`, add
+>   `COMPOSE_PROFILES=legacy` and `LEGACY_PORT=` with the value your `PORT`
+>   has now, and give `PORT` another free port, e.g. `127.0.0.1:8082`.
+>   Keep `BASE_URL`. `docker compose up -d` then starts the `client-legacy`
+>   service where your client was, and your reverse proxy needs no change;
+>   Sardonyx runs beside it on the new `PORT`, which nothing points at.
+> - **Move the site to a host or subdomain of its own**
+>   (`https://booru.example.com/`) to use Sardonyx, and drop the path from
+>   your reverse proxy and `BASE_URL`.
+>
+> Sardonyx's image says in its log at start when it is given a `BASE_URL`
+> with a path, which it ignores.
+
+### Steps
+
+1. **Back up** the uploads directory, the database and `server/config.yaml`.
+
+2. **Get the release.** `docker-compose.yml` has changed: if you edited
+   yours, put your changes into the new one (the `client` service is
+   Sardonyx now; the legacy client is `client-legacy`).
+
+    ```console
+    user@host:lithica$ git fetch --tags && git checkout v0.3.0
+    ```
+
+3. **Look at `.env`** (compare with `doc/example.env`): `PORT` is where
+   Sardonyx listens now. Add `FILE_LINK_SECRET` if you want signed file
+   links, and the legacy client's lines if you run it (see the note above
+   and [The web clients](INSTALL.md#the-web-clients)).
+
+4. **Build or pull, and start:**
+
+    ```console
+    user@host:lithica$ docker compose build     # or: docker compose pull
+    user@host:lithica$ docker compose up -d
+    ```
+
+    If you run the published images, set the tag to `v0.3.0` in
+    `docker-compose.yml` for the server and the client, and for
+    `client-legacy` if you run it. The client's image is new:
+    `ghcr.io/dominykasvad/lithica-client` is Sardonyx;
+    `lithica-client-legacy` is the legacy client, as before.
+
+5. **With the `cards` module on**, have it read the cards again, once (see
+   [below](#the-cards-module-stores-more-about-a-picture)):
+
+    ```console
+    user@host:lithica$ docker compose run --rm server ./lithica-admin reextract
+    ```
+
+Accounts, posts and settings carry over: users log in to Sardonyx with the
+name and password they had.
+
+### What is new
+
+- **Sardonyx**, the web client, on `PORT`: browsing, search with card
+  filters, the card viewer with greetings and large lorebooks, upload,
+  editing of tags, safety and source, deleting, password reset by mail and
+  changing one's password. It has no sign-up page and no pages for pools,
+  comments, users or administration: use the legacy client for those. See
+  [The web clients](INSTALL.md#the-web-clients).
+- **The legacy client** is the `client-legacy` service, started only with
+  the `legacy` profile, on `LEGACY_PORT` (8081 by default).
+- **`lithica-admin create-user`** makes an account from the command line,
+  whatever the site allows: the way to make an account on a site without
+  sign-up. See [Administration from the command
+  line](INSTALL.md#administration-from-the-command-line).
+- **`lithica-admin import <folder>`** makes a post of every file in a
+  folder, as an upload would. See [Importing a
+  folder](INSTALL.md#importing-a-folder).
+
+### New settings
+
+Each one leaves the site as it was until you set it, but the last.
+
+| Setting | Default | What it does |
+|---|---|---|
+| `visibility` | `open` | What visitors who are not logged in see: `open`, `nsfw-login` (NSFW posts need a login) or `login` (everything needs a login; sign-up is closed). See [Who sees what](INSTALL.md#who-sees-what). |
+| `nsfw_tag` | `nsfw` | The tag that marks a post as NSFW, for `nsfw-login` and for clients that blur NSFW posts. |
+| `nsfw_hide_names` | `false` | Asks clients to hide a NSFW card's name and creator as well as its picture. |
+| `file_link_secret`, or `FILE_LINK_SECRET` in `.env` | empty | Signed file links: the files of posts are served only to addresses the server signed. |
+| `password_reset_mail_interval` | `300` | At most one password reset mail per account in this many seconds. The one that acts by default: a request within the window is answered as any other and sends nothing. `0` turns it off. |
+
+**`FILE_LINK_SECRET` goes to the server and to both client images**, the
+same value: the server signs the addresses, the client's nginx checks them.
+`docker-compose.yml` gives it to all three from `.env`. If you run the
+images some other way, give it to each, to the legacy client as well when
+you run it: a client image without the secret serves files without
+checking, and one with a different secret refuses every file. The
+[README](../README.md#signed-file-links) says what signed links protect and
+what not.
+
+### API changes
+
+For clients of the API other than the two web clients:
+
+- A login token that does not work (unknown, disabled, expired, or of a
+  user who does not exist) is refused with the error name
+  `InvalidTokenError`, a kind of `AuthError` (was `AuthError`), and the
+  token of a user who does not exist is 403 like any other (was 404
+  `UserNotFoundError`). Basic authentication is unchanged.
+- Password reset tells no account from another. `GET /password-reset/{name}`
+  answers 200 `{}` for an unknown account and one without an email (was
+  404 and 400), and for an account mailed within
+  `password_reset_mail_interval`, which is sent nothing; the mail is sent
+  after the answer. `POST /password-reset/{name}` refuses an unknown
+  account with 400 `InvalidPasswordResetTokenError` (was 404), the error of
+  a wrong, used or expired token. See [Password
+  reset](API.md#password-reset).
+- Added, nothing removed: `GET /info` has `visibility`, `nsfwTag`,
+  `nsfwHidesNames`, `maxUploadSize` and `acceptedTypes`; posts have the
+  field `nsfw`, and with `cards` the card summary `card` (by `fields`).
+  With `file_link_secret` set, `contentUrl` and `thumbnailUrl` end with
+  `?e=…&s=…`. In `nsfw-login` and `login`, what a visitor may not see
+  answers as [API.md](API.md#visibility) says.
+
+### For development
+
+The development stack (`docker-compose.dev.yml`) reloads the server on file
+events, watching only the `lithica` package: it no longer polls every file
+under `server/`, virtual environment included, which kept the idle server at
+about half a CPU core on Docker Desktop. It needs the dev dependencies
+(`watchfiles`), which the development image installs; rebuild it once
+(`docker compose -f docker-compose.dev.yml build server`). The stack also
+runs Sardonyx's image on port 8082 (`SARDONYX_PORT`) beside the legacy
+client.
 
 ### The cards module stores more about a picture
 

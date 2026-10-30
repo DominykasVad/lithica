@@ -9,7 +9,7 @@ services:
       context: ./server
     ## To use a published release image instead of building, comment out
     ## "build" above and set a release tag here:
-    #image: ghcr.io/dominykasvad/lithica-server:v0.2.0
+    #image: ghcr.io/dominykasvad/lithica-server:v0.3.0
     depends_on:
       - sql
     environment:
@@ -37,13 +37,43 @@ services:
       - "${MOUNT_DATA}:/data"
       - "./server/config.yaml:/opt/app/config.yaml"
 
+  ## The web client, Sardonyx: nginx serving the app and passing /api/ on
+  ## to the server. It is served at the root of its host; it has no base
+  ## path (BASE_URL is the legacy client's).
   client:
+    build:
+      context: ./clients/sardonyx
+      target: release
+      args:
+        BUILD_INFO: ${BUILD_INFO:-latest}
+    ## Published release image, as for the server:
+    #image: ghcr.io/dominykasvad/lithica-client:v0.3.0
+    depends_on:
+      - server
+    environment:
+      BACKEND_HOST: server
+      FILE_LINK_SECRET: ${FILE_LINK_SECRET:-}
+      ## Not used: passed only so that the image can warn at start when it
+      ## is set to a path, which Sardonyx cannot serve under (see
+      ## client-legacy below)
+      BASE_URL: ${BASE_URL:-}
+    volumes:
+      - "${MOUNT_DATA}:/data:ro"
+    ports:
+      - "${PORT}:80"
+
+  ## The legacy web client, optional: started only with the "legacy"
+  ## profile (docker compose --profile legacy up -d, or COMPOSE_PROFILES=legacy
+  ## in .env), on LEGACY_PORT. It is the one that can serve the site under a
+  ## path (BASE_URL), and the one with pools, comments and user pages.
+  client-legacy:
+    profiles: [legacy]
     build:
       context: ./legacy/client
       args:
         BUILD_INFO: ${BUILD_INFO:-latest}
-    ## Published release image, as for the server:
-    #image: ghcr.io/dominykasvad/lithica-client-legacy:v0.2.0
+    ## Published release image:
+    #image: ghcr.io/dominykasvad/lithica-client-legacy:v0.3.0
     depends_on:
       - server
     environment:
@@ -53,7 +83,7 @@ services:
     volumes:
       - "${MOUNT_DATA}:/data:ro"
     ports:
-      - "${PORT}:80"
+      - "${LEGACY_PORT:-8081}:80"
 
   sql:
     image: postgres:17

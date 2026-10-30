@@ -1,9 +1,11 @@
 # Installing Lithica
 
 Lithica runs as three containers: the **server** (the API, Python 3.13 on
-Debian), the **client** (nginx serving the web client and passing `/api/` on
-to the server) and **PostgreSQL 17**. Uploaded files live in one directory on
-the host, the database in another.
+Debian), the **client** (nginx serving the web client, Sardonyx, and passing
+`/api/` on to the server) and **PostgreSQL 17**. Uploaded files live in one
+directory on the host, the database in another. The legacy web client can
+run beside Sardonyx as an optional fourth container; see
+[The web clients](#the-web-clients).
 
 Coming from szurubooru? Read [UPGRADING.md](UPGRADING.md) instead; it starts
 from your existing data.
@@ -12,6 +14,8 @@ from your existing data.
 - [Install](#install)
 - [Using published images](#using-published-images)
 - [Configuration](#configuration)
+- [The web clients](#the-web-clients)
+- [Who sees what](#who-sees-what)
 - [Modules](#modules)
 - [Administration from the command line](#administration-from-the-command-line)
 - [Deployment notes](#deployment-notes)
@@ -33,7 +37,7 @@ from your existing data.
    configuration template, also when you run published images:
 
     ```console
-    user@host:~$ git clone --branch v0.2.0 https://github.com/DominykasVad/lithica.git lithica
+    user@host:~$ git clone --branch v0.3.0 https://github.com/DominykasVad/lithica.git lithica
     user@host:~$ cd lithica
     ```
 
@@ -74,43 +78,74 @@ from your existing data.
     To run the published release images instead of building, see
     [Using published images](#using-published-images).
 
-5. Start it. The first time, start the database on its own and give it a
-   moment to initialise:
+5. Start the database and the server, **not the clients yet**. Until the
+   first account exists, whoever reaches the site first could sign up
+   through the API (`POST /api/users`, or the legacy client's registration
+   page) and would become its administrator. The server has no port of its
+   own: with no client running, nobody outside can reach it.
+
+    The first time, start the database on its own and give it a moment to
+    initialise:
 
     ```console
     user@host:lithica$ docker compose up -d sql
+    user@host:lithica$ docker compose up -d server
+    ```
+
+    The server creates and updates its database tables every time it
+    starts, before it serves. Wait until its log says it is serving:
+
+    ```console
+    user@host:lithica$ until docker compose logs server | grep -q 'Starting Lithica API'; do sleep 2; done
+    ```
+
+    (or watch `docker compose logs -f server` for the line `Starting
+    Lithica API`). If the server stops instead, its log says why.
+
+6. Create the first account, the administrator, in the running server
+   container. It asks for the password twice:
+
+    ```console
+    user@host:lithica$ docker compose exec server ./lithica-admin create-user <name>
+    ```
+
+    With no account on the site yet, the account is an administrator;
+    `--rank` gives another rank, `--email` an email address.
+
+7. Start the clients, and with them the rest:
+
+    ```console
     user@host:lithica$ docker compose up -d
     ```
 
-    The server creates and updates its database tables by itself every time
-    it starts. Watch the log with:
-
-    ```console
-    user@host:lithica$ docker compose logs -f
-    ```
-
-6. Open `http://<host>:<PORT>/` and register. **The first account that is
-   registered becomes the administrator.**
+    Open `http://<host>:<PORT>/` and log in to Sardonyx with the account.
+    Sardonyx has no sign-up page; whether visitors may sign up through the
+    API is the `users:create:self` privilege (anonymous by default), and
+    with `visibility: login` nobody may. Watch the log with
+    `docker compose logs -f`.
 
 ## Using published images
 
 Release images are published to the GitHub Container Registry when a release
 is made, tagged with the release version:
 
-- `ghcr.io/dominykasvad/lithica-server:<version>`
-- `ghcr.io/dominykasvad/lithica-client-legacy:<version>`
+- `ghcr.io/dominykasvad/lithica-server:<version>`: the server
+- `ghcr.io/dominykasvad/lithica-client:<version>`: Sardonyx, the web client
+- `ghcr.io/dominykasvad/lithica-client-legacy:<version>`: the legacy web
+  client
 
 `latest` points at the newest release that is not a pre-release. To use the
-images, edit `docker-compose.yml`: in the `server` and `client` services,
-comment out the `build` section and uncomment the `image` line below it,
-setting the version you want. Then pull instead of building:
+images, edit `docker-compose.yml`: in the `server` and `client` services
+(and `client-legacy`, if you run it), comment out the `build` section and
+uncomment the `image` line below it, setting the version you want. Then pull
+instead of building:
 
 ```console
 user@host:lithica$ docker compose pull
 user@host:lithica$ docker compose up -d
 ```
 
-Use the same version for both images, and the `docker-compose.yml` and
+Use the same version for all images, and the `docker-compose.yml` and
 `server/config.yaml.dist` of that version's source.
 
 ## Configuration
@@ -132,6 +167,9 @@ sites touch:
 | `max_upload_size` | The largest request, 1 GiB by default. The nginx of the client image allows the same; a reverse proxy in front must allow it too. |
 | `cors_origins` | Other websites that may call the API from a browser. Leave empty when you use the bundled client. |
 | `allow_private_downloads` | Whether "upload from URL" may fetch from private network addresses. Off by default. |
+| `visibility` | What visitors who are not logged in see: `open`, `nsfw-login` or `login`. See [Who sees what](#who-sees-what). |
+| `nsfw_tag`, `nsfw_hide_names` | The tag that marks a post as NSFW, and whether clients hide a NSFW card's name too. See [Who sees what](#who-sees-what). |
+| `file_link_secret` | Signed file links; in the containers, set `FILE_LINK_SECRET` in `.env` instead. See [Who sees what](#who-sees-what). |
 | `modules` | The optional modules to switch on. See [Modules](#modules). |
 | `api_docs` | Serves the API's OpenAPI document and browsable documentation under `/api/docs`. Off by default. |
 
@@ -144,11 +182,13 @@ environment and anything you write for them in `config.yaml` is ignored.
 |---|---|
 | `POSTGRES_USER`, `POSTGRES_PASSWORD` | Database credentials. The database is created with them on first start. |
 | `MOUNT_DATA`, `MOUNT_SQL` | Host directories for the uploads and for the database files. |
-| `PORT` | Where the client listens, e.g. `8080`, or `127.0.0.1:8080` behind a reverse proxy. |
-| `BASE_URL` | The path the site is served under, `/` by default. See [Deployment notes](#deployment-notes). |
+| `PORT` | Where the web client, Sardonyx, listens, e.g. `8080`, or `127.0.0.1:8080` behind a reverse proxy. |
+| `FILE_LINK_SECRET` | The secret of signed file links, for the server and the client images alike. Empty: links are not signed. See [Who sees what](#who-sees-what). |
+| `COMPOSE_PROFILES`, `LEGACY_PORT` | `COMPOSE_PROFILES=legacy` starts the legacy client too, on `LEGACY_PORT` (8081 by default). See [The web clients](#the-web-clients). |
+| `BASE_URL` | The path the site is served under, `/` by default. The legacy client's only: Sardonyx is served at the root of its host. See [Deployment notes](#deployment-notes). |
 | `THREADS` | How many requests one server process works on at once. Default 4. |
 | `WORKERS` | How many server processes to start. Leave at 1: running several has not been verified yet. |
-| `BUILD_INFO` | A text shown on the home page when you build the client yourself. |
+| `BUILD_INFO` | The version label of the client images you build yourself; the legacy client shows it on its home page. |
 
 Further variables can be set on the `server` service in `docker-compose.yml`:
 `POSTGRES_HOST`, `POSTGRES_PORT` and `POSTGRES_DB` for a database elsewhere,
@@ -156,6 +196,86 @@ Further variables can be set on the `server` service in `docker-compose.yml`:
 `MODULES` (see [Modules](#modules)).
 
 After changing either file, restart: `docker compose up -d`.
+
+## The web clients
+
+**Sardonyx** is the web client: the `client` service of
+`docker-compose.yml`, built from `clients/sardonyx` or run from the image
+`lithica-client`, served on `PORT`. It browses, searches, shows, uploads,
+edits and deletes posts, and with the `cards` module on it is a card
+library: a card's text, greetings and lorebook, filters for the `card-`
+search tokens, the download under the card's name. Logging in, a password
+reset by mail and changing one's password are in it too. It has no pages for
+pools, comments, users or the site's administration, and no sign-up page
+(see steps 5 to 7 of [Install](#install): the first account is made
+before the clients start).
+
+Sardonyx is served at the root of its host: `https://booru.example.com/`,
+not `https://example.com/booru/`. It has no base path, and `BASE_URL` does
+nothing to it; its image says so in its log at start when `BASE_URL` is set
+to a path.
+
+**The legacy client**, the web client Lithica inherited from szurubooru, is
+still there: the `client-legacy` service, image `lithica-client-legacy`. It
+is started only with the `legacy` profile:
+
+```console
+user@host:lithica$ docker compose --profile legacy up -d
+```
+
+or every time, with `COMPOSE_PROFILES=legacy` in `.env`. It listens on
+`LEGACY_PORT` (8081 by default), beside Sardonyx, on the same server and
+data. Use it for what Sardonyx does not have yet, and for a site that must
+be served under a path (`BASE_URL`). Its code is frozen: it gets fixes to
+keep working, no new features, and it does not show what Sardonyx shows of
+cards.
+
+Both client images take `FILE_LINK_SECRET` and `BACKEND_HOST` (the server's
+container, `server`); give them the same values.
+
+**Working on Sardonyx.** The development stack
+(`docker compose -f docker-compose.dev.yml up`) runs the server with live
+reload and `MODULES=cards`, the legacy client on `PORT` and Sardonyx's image
+on 8082 (`SARDONYX_PORT`). For live reload of Sardonyx itself, run
+`pnpm dev` in `clients/sardonyx`: it serves the app and passes `/api` and
+`/data` on to the stack. [AGENTS.md](../AGENTS.md) has the client's
+commands.
+
+## Who sees what
+
+`visibility` in `server/config.yaml` sets what a visitor who is not logged
+in may see. It is `open` by default.
+
+- `open`: what the `privileges` of the anonymous rank allow, as before.
+- `nsfw-login`: posts that carry the NSFW tag (`nsfw_tag`, `nsfw` by
+  default), or a tag that implies it, do not exist for visitors: they are
+  left out of searches, and their pages, cards, downloads, comments and
+  snapshots answer as if there were no such post. Counts (a tag's usages,
+  a pool's post count) still count them.
+- `login`: nothing but logging in, password reset and `GET /api/info`.
+  Visitors have no privileges at all, so signing up is closed too; accounts
+  are made with [`lithica-admin create-user`](#administration-from-the-command-line).
+  Sardonyx shows only its login and password reset pages.
+
+Clients blur NSFW posts until the viewer chooses to see them (Sardonyx's
+"Show NSFW", per browser, off by default). With `nsfw_hide_names: true`
+they hide the name and creator of a NSFW post's card as well. This is a
+hint to clients, not a rule: the API gives the names to whoever may see the
+post.
+
+**Signed file links.** `visibility` decides what the API gives out, but the
+files of posts are served by the client's nginx straight from the data
+directory: whoever has a file's address can fetch it. Set
+`FILE_LINK_SECRET` in `.env` (letters, digits, `-` and `_`, at least 32:
+`openssl rand -hex 32`) and every address of a post's file and thumbnail the
+server gives out is signed and valid for one to two days; the client images
+refuse a file without a valid signature (403). The server and **both**
+client images must get the same value, which `docker-compose.yml` does from
+`.env`; a client image without it serves files unsigned. Avatars are not
+signed. Changing the secret ends every link handed out so far; the clients
+ask for new ones. With `visibility` other than `open` and no secret, the
+server warns at start. The [README](../README.md#signed-file-links) says
+what this protects and what not.
 
 ## Modules
 
@@ -277,6 +397,7 @@ user@host:lithica$ docker compose run --rm server ./lithica-admin --help
 
 | Command | What it does |
 |---|---|
+| `create-user <name> [--rank <rank>] [--email <email>]` | Creates an account, whatever `visibility` says: the site's first administrator, or an account on a site without sign-up. The password is asked twice, or read from standard input with `--password-stdin` (`docker compose run --rm -T server ...` then); it is never an argument. The rank is administrator on a site with no account yet, else regular. |
 | `--change-password <user>` | Sets a new password for a user, e.g. when mail is not set up. |
 | `backfill signatures`, `backfill md5`, `backfill all` | Computes data that older posts lack: image signatures for the similar-image search, MD5 checksums. |
 | `import <folder> --user <user> --safety <safety>` | Makes a post of every file in a folder. See [Importing a folder](#importing-a-folder). |
@@ -358,14 +479,16 @@ privileges: the command is yours, whatever rank `--user` has.
 
     Set `domain` in `config.yaml` to the public address.
 
-2. **Under a path instead of a domain of its own.** To serve the site at
-   `https://example.com/lithica/`, set `BASE_URL=/lithica/` in `.env` and
-   have the reverse proxy pass that path on:
+2. **Under a path instead of a domain of its own.** Only the legacy client
+   can do this; Sardonyx is served at the root of its host (a subdomain of
+   its own works). To serve the site at `https://example.com/lithica/`, run
+   the legacy client (`COMPOSE_PROFILES=legacy`), set `BASE_URL=/lithica/`
+   in `.env` and have the reverse proxy pass that path on to `LEGACY_PORT`:
 
     ```nginx
     location /lithica {
         proxy_http_version 1.1;
-        proxy_pass http://127.0.0.1:8080/;
+        proxy_pass http://127.0.0.1:8081/;
         proxy_set_header Host              $http_host;
         proxy_set_header X-Real-IP         $remote_addr;
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
@@ -431,8 +554,9 @@ user@host:server$ uv run python -m lithica.serve
 ```
 
 The API listens on port 6666 (`PORT`). It serves no web pages and no
-uploaded files: a web server in front does that, as the client image's
-`legacy/client/nginx.conf.docker` shows.
+uploaded files: a web server in front does that, as the client images'
+`clients/sardonyx/nginx.conf.template` and `legacy/client/nginx.conf.docker`
+show.
 
 A development stack with live reload, the test suite and the rules of the
 code base are described in [AGENTS.md](../AGENTS.md):
