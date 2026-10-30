@@ -1042,7 +1042,7 @@
           "Password reset"
         ],
         "summary": "Request a password reset",
-        "description": "Sends a confirmation email to given user. The email contains link containing\na token. The token cannot be guessed, thus using such link proves that the\nperson who requested to reset the password also owns the mailbox, which is a\nstrong indication they are the rightful owner of the account.\n\nThe token is random, works once and expires after the time set in\n`password_reset_token_lifetime` (one hour by default). Requesting another\nemail makes the previous token stop working.\n\nErrors:\n\n- the user does not exist\n- the user hasn't provided an email address\n- the site cannot send mail (no mail server is set up): 500\n  `MailNotConfiguredError`; `canSendMails` of `GET /info` says so ahead",
+        "description": "Sends a confirmation email to given user. The email contains link containing\na token. The token cannot be guessed, thus using such link proves that the\nperson who requested to reset the password also owns the mailbox, which is a\nstrong indication they are the rightful owner of the account.\n\nThe token is random, works once and expires after the time set in\n`password_reset_token_lifetime` (one hour by default). Requesting another\nemail makes the previous token stop working.\n\nThe answer is the same 200 `{}` whether the account exists, has an email\nor not, and whether a mail was sent: it does not tell who has an account\non the site. The mail goes out after the answer. An account is sent at\nmost one mail per `password_reset_mail_interval` (five minutes by\ndefault); a request sooner sends nothing and leaves the link already\nsent working.\n\nErrors:\n\n- the site cannot send mail (no mail server is set up): 500\n  `MailNotConfiguredError`; `canSendMails` of `GET /info` says so ahead",
         "operationId": "start_password_reset",
         "security": [
           {
@@ -1104,7 +1104,7 @@
           "Password reset"
         ],
         "summary": "Confirm a password reset",
-        "description": "Generates a new password for given user. Password is sent as plain-text, so\nit is recommended to connect through HTTPS.\n\nErrors:\n\n- the token is missing\n- the token is invalid, expired or already used\n- the user does not exist",
+        "description": "Generates a new password for given user. Password is sent as plain-text, so\nit is recommended to connect through HTTPS.\n\nErrors:\n\n- the token is missing\n- 400 `InvalidPasswordResetTokenError`: the token is not one mailed to\n  this account, has expired or was used. The same error, with the same\n  message, for a name that has no account: the answer does not tell\n  which part was wrong",
         "operationId": "finish_password_reset",
         "security": [
           {

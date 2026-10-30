@@ -251,10 +251,15 @@ export interface paths {
          *     `password_reset_token_lifetime` (one hour by default). Requesting another
          *     email makes the previous token stop working.
          *
+         *     The answer is the same 200 `{}` whether the account exists, has an email
+         *     or not, and whether a mail was sent: it does not tell who has an account
+         *     on the site. The mail goes out after the answer. An account is sent at
+         *     most one mail per `password_reset_mail_interval` (five minutes by
+         *     default); a request sooner sends nothing and leaves the link already
+         *     sent working.
+         *
          *     Errors:
          *
-         *     - the user does not exist
-         *     - the user hasn't provided an email address
          *     - the site cannot send mail (no mail server is set up): 500
          *       `MailNotConfiguredError`; `canSendMails` of `GET /info` says so ahead
          */
@@ -268,8 +273,10 @@ export interface paths {
          *     Errors:
          *
          *     - the token is missing
-         *     - the token is invalid, expired or already used
-         *     - the user does not exist
+         *     - 400 `InvalidPasswordResetTokenError`: the token is not one mailed to
+         *       this account, has expired or was used. The same error, with the same
+         *       message, for a name that has no account: the answer does not tell
+         *       which part was wrong
          */
         post: operations["finish_password_reset"];
         delete?: never;
