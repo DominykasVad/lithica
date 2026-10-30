@@ -155,6 +155,11 @@ already sent keeps working. The one error is the site's own: a site that
 cannot send mail answers 500 `MailNotConfiguredError` for any name, and says
 so ahead in `canSendMails` of `GET /info`.
 
+The confirmation is refused with one error, 400
+`InvalidPasswordResetTokenError` with the same message, whatever was wrong:
+a name with no account, an account without an email or no reset pending, a
+wrong, used or expired token. A token that works gives the new password.
+
 ## Basic requests
 
 Every request must use `Content-Type: application/json` and `Accept:
@@ -232,6 +237,9 @@ List of possible error names:
 - `InvalidTokenError` (an `AuthError`: the login token of the request does not
   work, because it is unknown, disabled or expired, or its user does not
   exist; the client's session is over)
+- `InvalidPasswordResetTokenError` (the token of a password reset
+  confirmation does not work, or the name has no account; see [Password
+  reset](#password-reset))
 - `PostNotFoundError`
 - `PostAlreadyFeaturedError`
 - `PostAlreadyUploadedError`

@@ -113,12 +113,13 @@ def finish_password_reset(
     Errors:
 
     - the token is missing
-    - the token is invalid, expired or already used
-    - the user does not exist
+    - 400 `InvalidPasswordResetTokenError`: the token is not one mailed to
+      this account, has expired or was used. The same error, with the same
+      message, for a name that has no account: the answer does not tell
+      which part was wrong
     """
-    user = users.get_user_by_name_or_email(user_name)
     token = body.require("token")
-    password_reset.consume_token(user, token)
+    user = password_reset.consume_token(user_name, token)
     new_password = users.reset_user_password(user)
     versions.bump_version(user)
     db.session.commit()

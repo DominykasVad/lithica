@@ -273,8 +273,10 @@ export interface paths {
          *     Errors:
          *
          *     - the token is missing
-         *     - the token is invalid, expired or already used
-         *     - the user does not exist
+         *     - 400 `InvalidPasswordResetTokenError`: the token is not one mailed to
+         *       this account, has expired or was used. The same error, with the same
+         *       message, for a name that has no account: the answer does not tell
+         *       which part was wrong
          */
         post: operations["finish_password_reset"];
         delete?: never;

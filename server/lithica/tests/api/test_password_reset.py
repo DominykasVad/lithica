@@ -8,7 +8,7 @@ from fastapi import BackgroundTasks
 
 from lithica import config, db, errors, model
 from lithica.api import password_reset_api
-from lithica.func import auth, mailer
+from lithica.func import auth, mailer, password_reset
 from lithica.tests.api.http import assert_error, ok
 
 URL_PREFIX = "http://example.com/password-reset/u1:"
@@ -348,8 +348,38 @@ def test_tokens_are_deleted_with_the_user(user, request_token):
     assert db.session.query(model.PasswordResetToken).count() == 0
 
 
-def test_trying_to_confirm_non_existing(client):
-    assert_error(client.post("/password-reset/u1"), errors.NotFoundError)
+def test_confirmation_does_not_tell_what_was_wrong(
+    client, user, user_factory, request_token, fake_datetime
+):
+    db.session.add(user_factory(name="u2", rank=model.User.RANK_REGULAR, email=None))
+    db.session.flush()
+    with fake_datetime("1997-01-01 12:00:00"):
+        expired = request_token()
+    with fake_datetime("1997-01-01 14:00:00"):
+        used = request_token()
+        ok(_confirm(client, used))
+    old_hash = user.password_hash
+    with fake_datetime("1997-01-01 15:00:00"):
+        valid = request_token()
+        attempts = {
+            "unknown name": _confirm(client, valid, "nobody"),
+            "unknown email": _confirm(client, valid, "nobody@example.com"),
+            "account without email": _confirm(client, valid, "u2"),
+            "wrong token": _confirm(client, "x" * 43),
+            "used token": _confirm(client, used),
+            "expired token": _confirm(client, expired),
+        }
+        for response in attempts.values():
+            assert_error(
+                response,
+                password_reset.InvalidPasswordResetTokenError,
+                "Invalid password reset token.",
+            )
+        assert len({_answer(response) for response in attempts.values()}) == 1
+        # none of them changed the password, nor used up the valid token
+        assert user.password_hash == old_hash
+        result = ok(_confirm(client, valid))
+    assert auth.is_valid_password(user, result["password"]) is True
 
 
 def test_trying_to_confirm_without_token(client, user):

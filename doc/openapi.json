@@ -1104,7 +1104,7 @@
           "Password reset"
         ],
         "summary": "Confirm a password reset",
-        "description": "Generates a new password for given user. Password is sent as plain-text, so\nit is recommended to connect through HTTPS.\n\nErrors:\n\n- the token is missing\n- the token is invalid, expired or already used\n- the user does not exist",
+        "description": "Generates a new password for given user. Password is sent as plain-text, so\nit is recommended to connect through HTTPS.\n\nErrors:\n\n- the token is missing\n- 400 `InvalidPasswordResetTokenError`: the token is not one mailed to\n  this account, has expired or was used. The same error, with the same\n  message, for a name that has no account: the answer does not tell\n  which part was wrong",
         "operationId": "finish_password_reset",
         "security": [
           {

@@ -122,12 +122,16 @@ Additions only; nothing existing changes shape.
    `InvalidTokenError`, a kind of `AuthError` (was `AuthError`). The token
    of a user who does not exist is 403, as any token that does not work
    (was 404 `UserNotFoundError`). Basic authentication is unchanged.
-2. `GET /password-reset/{name}` answers 200 `{}` for an unknown account and
-   for one without an email (was 404 `UserNotFoundError` and 400
+2. Password reset tells no account from another. `GET
+   /password-reset/{name}` answers 200 `{}` for an unknown account and for
+   one without an email (was 404 `UserNotFoundError` and 400
    `ValidationError`), and for an account mailed within
    `password_reset_mail_interval` (new, five minutes by default), which is
    sent nothing. The mail is sent after the answer. `MailNotConfiguredError`
-   is the one error left, for any name.
+   is the one error left, for any name. `POST /password-reset/{name}`
+   refuses an unknown account with 400 `InvalidPasswordResetTokenError` (was
+   404 `UserNotFoundError`), the error and message of a wrong, used or
+   expired token.
 
 ### Allowed dialect exceptions
 
