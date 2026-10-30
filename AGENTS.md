@@ -27,11 +27,10 @@ Never relicense, never strip headers or credits.
 
 ## Current phase
 
-Phases 0–4 of PLAN.md are finished (`v0.2.0` is released). The current
-phase is **phase 5** (Sardonyx client and bulk import), sub-phases in order,
-starting with 5.0. Work only on the phase PLAN.md marks as current. If it
-marks none, take only tasks the owner gives explicitly. Anything not in
-PLAN.md is **out of scope**.
+Phases 0–5 of PLAN.md are finished (phase 5 ends in `v0.3.0`). No phase
+is current: take only tasks the owner gives explicitly. Work only on the
+phase PLAN.md marks as current, when it marks one. Anything not in PLAN.md
+is **out of scope**.
 
 ## Layout
 
