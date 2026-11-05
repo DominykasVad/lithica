@@ -301,6 +301,18 @@ them in `.github/workflows/ci-sardonyx.yml`.
 - Commit messages: `<area>: <imperative summary>` where area is `server`,
   `client`, `ci`, `docker`, `doc`, or a module name. Body explains *why*.
 
+## Design decisions
+
+Larger decisions that shape several phases live in
+[doc/design/decisions/](doc/design/decisions/), numbered; the order of the
+coming phases is in [doc/design/roadmap.md](doc/design/roadmap.md).
+- Read the decisions a task touches before planning it. PLAN.md links them
+  per phase.
+- Never rewrite an accepted decision. A change is a new decision that
+  supersedes it; mark the old one "Superseded by NNNN".
+- The roadmap may change freely.
+- Small, implementation-level decisions stay in PLAN.md's sections.
+
 ## Design reference
 
 `clients/sardonyx/docs/design/` holds the Sardonyx design canvas as source

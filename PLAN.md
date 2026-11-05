@@ -122,7 +122,9 @@ Settled in phase 5, for `clients/sardonyx`.
 
 ### Later
 
-Not phase tasks; for a future phase to take up.
+Not phase tasks; for a future phase to take up. The order of the coming
+phases and what runs alongside them is in
+[doc/design/roadmap.md](doc/design/roadmap.md).
 
 - Base path support in Sardonyx (serving it under a path, as the legacy client's `BASE_URL` does).
 
@@ -305,6 +307,120 @@ are not in Sardonyx.
   (Chromium, Firefox); WebKit locally. AGENTS.md has the commands.
 - The decisions of the phase are in the sections above: the cards module,
   Further defaults, Visibility and signed file links, Sardonyx.
+
+## Phase 6 — Server foundations
+
+Goal: the asset model, share links, site settings and background jobs that
+phases 8–9 build on. Ends in release `v0.4.0`. Design:
+[doc/design/decisions](doc/design/decisions/) 0001–0004 and 0008.
+
+The API keeps its resource names: an asset is a post (`/posts`), so the
+legacy client and existing integrations keep working. "Asset" is the
+concept, "post" the resource.
+
+### 6.1 Kinds
+- [ ] A post's `kind` field (`media`, and kinds registered by modules: `card` from the cards module), derived from its content on upload and by `reextract`; a migration fills it for existing posts.
+- [ ] Modules register kinds through the registry, with the rule for which content can be which kind.
+- [ ] Changing a post's kind: its own endpoint and privilege (`posts:edit:kind`), only to a kind its content supports (a PNG card may be made `media`, a plain picture can't become `card`).
+- [ ] Search token `kind:`; `GET /info` lists the kinds of the site.
+
+### 6.2 Relations
+- [ ] Typed, directed relations between posts (from, to, type), types registered by modules (e.g. `avatar-of`, `archived-from`, `embedded-in`). Separate from the engine's existing untyped relations, which stay as they are.
+- [ ] API to list a post's relations, by type; deleting a post removes its relations.
+- [ ] The visibility filter (`nsfw-login`) covers them: a hidden post appears in no relation.
+
+### 6.3 Listed
+- [ ] A post's `listed` flag, default true. Searches leave unlisted posts out unless the query says `listed:no` or `listed:any`.
+- [ ] Changing it: its own privilege.
+- [ ] Sardonyx's library respects it; the post page shows that a post is unlisted.
+
+### 6.4 Share links
+- [ ] A share link per post: created under a privilege, optional expiry, revocable; listed per post and per user. Stored as a hash of a random token.
+- [ ] `/share/<token>`: the server checks it and lets nginx deliver the file (an internal location in both client images); revoked or expired gives 404.
+- [ ] Site setting: may NSFW posts get share links (default: no).
+- [ ] Tests: valid, revoked, expired and wrong token; a share link works on a `login` site without login; the post's own file links are unchanged.
+
+### 6.5 Site settings and feature switches
+- [ ] A settings API (`GET`/`PUT /settings`, administrator only): settings declared in one registry with type, default and whether they can change at runtime. `config.yaml` gives the starting values; a value changed through the API is stored in the database and wins; settings that need a restart are read-only through the API.
+- [ ] The existing runtime-safe settings move onto it (`visibility`, `nsfw_tag`, `nsfw_hide_names`, `password_reset_mail_interval`, and others found safe); `GET /info` reports the effective values.
+- [ ] Feature switches: pools, favourites, scores, notes, comments. A feature that is off: its API answers as a missing feature, `GET /info` lists it as off, clients hide it. Comments default to off.
+- [ ] Sardonyx: an admin page for the settings and switches (administrator only).
+
+### 6.6 Background jobs
+- [ ] A small job queue in the database, worked by the server process (a thread per process, jobs claimed so several processes don't run the same one), with retries and a record of failures. For work that must not run inside a request: archiving (phase 8), and later others.
+- [ ] `lithica-admin jobs` lists and retries jobs; an administrator API to see them.
+- [ ] Tests: a job runs once with several workers, retries on failure, survives a restart.
+
+### 6.7 Release `v0.4.0`
+- [ ] `doc/UPGRADING.md` 0.3.0 → 0.4.0: kinds, listed, share links and their nginx route in both images, settings in the database and their precedence over `config.yaml`, feature switches with comments off, jobs. Version, images and release as for 0.3.0.
+
+**Done when:** a card post is `card` and a picture `media`; a related, unlisted post doesn't show in the library but shows on its relation; a share link opens a post's file without login and stops on revoke; an administrator changes visibility and switches pools off in Sardonyx without a restart; a job runs once across two server processes.
+
+## Phase 7 — Shared client core
+
+Goal: `clients/` as a pnpm workspace whose packages a second client can
+use. No release; nothing visible changes. Design: decision 0007 in
+[doc/design/decisions](doc/design/decisions/).
+
+### 7.1 Workspace
+- [ ] `clients/` as a pnpm workspace; Sardonyx an app in it; CI, the e2e stack and the image build work from the workspace.
+
+### 7.2 Core packages
+- [ ] Moved into packages, in this order, Sardonyx green after each: API client and session; search and completion; components and themes (with the contrast test); upload; the styled-text frame (with its hash test and nginx policies).
+- [ ] Each package has its own tests; the browser tests stay as they are and pass.
+
+**Done when:** Sardonyx builds, tests and runs exactly as before, and nothing of the moved code remains in the app.
+
+## Phase 8 — Cards as data
+
+Goal: a card is data with versions and related assets; its images are
+archived; it exports in several forms. Ends in release `v0.5.0`. Design:
+decisions 0003, 0005 and 0006 in [doc/design/decisions](doc/design/decisions/).
+
+### 8.1 Card versions
+- [ ] A card's data in versions, each a full compressed JSON copy; version 0 is what was read from the uploaded file, which is kept untouched. Retention setting (all, or the last N plus version 0).
+- [ ] API: list versions, read one, restore one (a restore is a new version).
+- [ ] Existing cards converted once (`reextract`).
+- [ ] Card text refers to assets by a Lithica reference the clients resolve, not by a file URL (signed URLs expire).
+
+### 8.2 Archiving card images
+- [ ] Finding image links in a card's text (Markdown and HTML images, `srcset`, CSS `url()`).
+- [ ] A background job (6.6) fetches them through the SSRF-safe downloader with size and type limits, makes each an unlisted post related `archived-from` the card, with the card's safety and NSFW tag, and makes a new card version pointing to them. Links that fail are recorded, and can be retried.
+- [ ] Setting: manual or automatic, with rules (automatic only for given creators or tags). An "Archive images" action per card under a privilege.
+
+### 8.3 A card's own images
+- [ ] A PNG card's picture and a CHARX's embedded images (icon, backgrounds, sprites) become unlisted posts related to the card (`avatar-of`, `embedded-in`), inheriting its safety and NSFW tag.
+
+### 8.4 Export and the original
+- [ ] Download as: the original file (while kept), or built from the current version as PNG, CHARX or JSON, with the card's images as share links (6.4) or embedded (CHARX assets, data URIs in PNG/JSON).
+- [ ] Deleting the original: a privilege, a warning listing what is lost, confirmation by typing the card's name; the file's checksum is kept for duplicate detection.
+
+### 8.5 Sardonyx
+- [ ] Card page: versions (view, compare, restore), the archiving state of each image link and the "Archive images" action, the card's related images, the download choices, deleting the original.
+- [ ] The styled-text frame shows archived images from this site (its image policy gains this site's file paths; outside hosts stay behind "Load images").
+
+### 8.6 Release `v0.5.0`
+- [ ] `doc/UPGRADING.md` 0.4.0 → 0.5.0: the conversion and its duration, versions and retention, archiving and its settings, export forms. Version, images, release.
+
+**Done when:** a Chub card with images in its greetings is archived (images become related unlisted posts, a new version points to them), shows its archived images in Styled with no outside request, restores to version 0, and exports as CHARX with the images embedded and as PNG with share links that open without login; deleting its original keeps everything but the file.
+
+## Phase 9 — Card editor
+
+Goal: making and editing cards in Sardonyx. Ends in release `v0.6.0`.
+Design: decision 0005 in [doc/design/decisions](doc/design/decisions/).
+
+### 9.1 Server
+- [ ] Creating and updating a card's data through the API (a new version each time), validated against the card spec; creating a card with no uploaded file (its picture an image post related `avatar-of`).
+
+### 9.2 Sardonyx editor
+- [ ] Editing every card field, greetings (add, remove, order) and lorebook entries, with Readable/Styled preview of what is written.
+- [ ] An image picker that searches the library and inserts the image as Markdown with its Lithica reference, relating it to the card on save.
+- [ ] Unsaved changes are kept on leaving the page by mistake; a conflict with another edit (version) is shown as in 5.6.
+
+### 9.3 Release `v0.6.0`
+- [ ] `doc/UPGRADING.md` 0.5.0 → 0.6.0. Version, images, release.
+
+**Done when:** a new card is made in Sardonyx from nothing, with a greeting holding a picture chosen from the library, and exports as a CHARX that SillyTavern and Lumiverse open with the picture.
 
 ---
 

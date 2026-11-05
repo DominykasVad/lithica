@@ -48,6 +48,8 @@ It is recommended that you use Docker for deployment.
 [See installation instructions.](doc/INSTALL.md) To move an existing
 szurubooru site to Lithica, see [UPGRADING.md](doc/UPGRADING.md).
 
+Where Lithica is going, and why: [doc/design/](doc/design/README.md).
+
 The [upstream szurubooru wiki](https://github.com/rr-/szurubooru/wiki) has
 more installation resources and related projects; they were written for
 szurubooru and may not match Lithica.
