@@ -1,6 +1,6 @@
 # 0007: A shared client core; no copies of whole apps
 
-- Status: Accepted
+- Status: Superseded by [0009](0009-single-user-one-client.md)
 - Date: 2026-11-04
 
 ## Context

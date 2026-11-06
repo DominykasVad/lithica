@@ -29,5 +29,6 @@ Consequences. Keep it short; link instead of repeating.
 | [0004](decisions/0004-private-assets-share-links.md) | Assets stay private; share links | Accepted |
 | [0005](decisions/0005-cards-as-data-and-versions.md) | Cards as data, with versions; the original as version 0 | Accepted |
 | [0006](decisions/0006-archiving-card-images.md) | Archiving card images on the server | Accepted |
-| [0007](decisions/0007-shared-client-core.md) | A shared client core; no copies of whole apps | Accepted |
+| [0007](decisions/0007-shared-client-core.md) | A shared client core; no copies of whole apps | Superseded by 0009 |
 | [0008](decisions/0008-site-settings-and-features.md) | Site settings API and feature switches; comments off | Accepted |
+| [0009](decisions/0009-single-user-one-client.md) | Single user, one client with sections | Accepted |

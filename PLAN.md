@@ -343,7 +343,7 @@ concept, "post" the resource.
 ### 6.5 Site settings and feature switches
 - [ ] A settings API (`GET`/`PUT /settings`, administrator only): settings declared in one registry with type, default and whether they can change at runtime. `config.yaml` gives the starting values; a value changed through the API is stored in the database and wins; settings that need a restart are read-only through the API.
 - [ ] The existing runtime-safe settings move onto it (`visibility`, `nsfw_tag`, `nsfw_hide_names`, `password_reset_mail_interval`, and others found safe); `GET /info` reports the effective values.
-- [ ] Feature switches: pools, favourites, scores, notes, comments. A feature that is off: its API answers as a missing feature, `GET /info` lists it as off, clients hide it. Comments default to off.
+- [ ] Feature switches: pools, favourites, scores, notes, comments. A feature that is off: its API answers as a missing feature, `GET /info` lists it as off, clients hide it. Comments and scores (the engine's up/down votes) default to off; star ratings come later (decision 0009).
 - [ ] Sardonyx: an admin page for the settings and switches (administrator only).
 
 ### 6.6 Background jobs
@@ -356,25 +356,35 @@ concept, "post" the resource.
 
 **Done when:** a card post is `card` and a picture `media`; a related, unlisted post doesn't show in the library but shows on its relation; a share link opens a post's file without login and stops on revoke; an administrator changes visibility and switches pools off in Sardonyx without a restart; a job runs once across two server processes.
 
-## Phase 7 — Shared client core
+## Phase 7 — Sardonyx in sections
 
-Goal: `clients/` as a pnpm workspace whose packages a second client can
-use. No release; nothing visible changes. Design: decision 0007 in
-[doc/design/decisions](doc/design/decisions/).
+Goal: one client with a Library section (media, picture-first) and a Cards
+section, sharing login, upload, tags, settings and admin; settings per
+account. Ends in release `v0.5.0`. Design: decision 0009 (which supersedes
+0007) in [doc/design/decisions](doc/design/decisions/).
 
-### 7.1 Workspace
-- [ ] `clients/` as a pnpm workspace; Sardonyx an app in it; CI, the e2e stack and the image build work from the workspace.
+### 7.1 Shell with sections
+- [ ] Navigation with two sections, Library and Cards, plus what they share (upload, tags, admin). A section shows only when its module and feature switches are on (`GET /info`).
+- [ ] Library lists `media` posts, Cards lists `card` posts (6.1 kinds). The current `/posts` addresses keep working (redirect to the section the post or search belongs to), so saved links and the browser tests' paths survive.
+- [ ] The card filters belong to Cards only; search, completion, paging/auto load and the tile code are shared, not copied.
 
-### 7.2 Core packages
-- [ ] Moved into packages, in this order, Sardonyx green after each: API client and session; search and completion; components and themes (with the contrast test); upload; the styled-text frame (with its hash test and nginx policies).
-- [ ] Each package has its own tests; the browser tests stay as they are and pass.
+### 7.2 Library section
+- [ ] A picture-first grid (denser tiles, no card captions) and a media post page focused on the picture: fit and full size, keyboard previous/next within the search, the facts and tags beside it.
+- [ ] The same privileges, NSFW blur, editing and delete as the card side, from the same components.
 
-**Done when:** Sardonyx builds, tests and runs exactly as before, and nothing of the moved code remains in the app.
+### 7.3 Settings per account
+- [ ] Server: a small per-account preferences API (the account's own values only; multi-user-ready by design, no sharing or management screens).
+- [ ] Per page, theme and Show NSFW stored per account when logged in; the browser keeps them when logged out, as now.
+
+### 7.4 Release `v0.5.0`
+- [ ] `doc/UPGRADING.md` 0.4.0 → 0.5.0: sections, the redirects from `/posts`, preferences per account. Version, images, release.
+
+**Done when:** with cards on, Library shows only pictures and videos and Cards only cards; with cards off, Cards isn't offered and Library works alone; an old `/posts?q=…` link lands in the right section; per page, theme and Show NSFW follow the account to another browser after login.
 
 ## Phase 8 — Cards as data
 
 Goal: a card is data with versions and related assets; its images are
-archived; it exports in several forms. Ends in release `v0.5.0`. Design:
+archived; it exports in several forms. Ends in release `v0.6.0`. Design:
 decisions 0003, 0005 and 0006 in [doc/design/decisions](doc/design/decisions/).
 
 ### 8.1 Card versions
@@ -399,14 +409,14 @@ decisions 0003, 0005 and 0006 in [doc/design/decisions](doc/design/decisions/).
 - [ ] Card page: versions (view, compare, restore), the archiving state of each image link and the "Archive images" action, the card's related images, the download choices, deleting the original.
 - [ ] The styled-text frame shows archived images from this site (its image policy gains this site's file paths; outside hosts stay behind "Load images").
 
-### 8.6 Release `v0.5.0`
-- [ ] `doc/UPGRADING.md` 0.4.0 → 0.5.0: the conversion and its duration, versions and retention, archiving and its settings, export forms. Version, images, release.
+### 8.6 Release `v0.6.0`
+- [ ] `doc/UPGRADING.md` 0.5.0 → 0.6.0: the conversion and its duration, versions and retention, archiving and its settings, export forms. Version, images, release.
 
 **Done when:** a Chub card with images in its greetings is archived (images become related unlisted posts, a new version points to them), shows its archived images in Styled with no outside request, restores to version 0, and exports as CHARX with the images embedded and as PNG with share links that open without login; deleting its original keeps everything but the file.
 
 ## Phase 9 — Card editor
 
-Goal: making and editing cards in Sardonyx. Ends in release `v0.6.0`.
+Goal: making and editing cards in Sardonyx. Ends in release `v0.7.0`.
 Design: decision 0005 in [doc/design/decisions](doc/design/decisions/).
 
 ### 9.1 Server
@@ -417,8 +427,8 @@ Design: decision 0005 in [doc/design/decisions](doc/design/decisions/).
 - [ ] An image picker that searches the library and inserts the image as Markdown with its Lithica reference, relating it to the card on save.
 - [ ] Unsaved changes are kept on leaving the page by mistake; a conflict with another edit (version) is shown as in 5.6.
 
-### 9.3 Release `v0.6.0`
-- [ ] `doc/UPGRADING.md` 0.5.0 → 0.6.0. Version, images, release.
+### 9.3 Release `v0.7.0`
+- [ ] `doc/UPGRADING.md` 0.6.0 → 0.7.0. Version, images, release.
 
 **Done when:** a new card is made in Sardonyx from nothing, with a greeting holding a picture chosen from the library, and exports as a CHARX that SillyTavern and Lumiverse open with the picture.
 
