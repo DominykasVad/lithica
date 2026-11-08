@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { authorization } from "@/api/client";
 import { fakeSite, INFO, renderApp, type Sent } from "@/test-utils";
 
-const TOKEN = "Zm9vYmFyLXRoZS1sb2dpbi10b2tlbi12YWx1ZS0xMjM0NQ";
+const TOKEN = "made-up-login-token-of-ada";
 const TOKEN_ID = 7;
 const ADA_TOKEN = authorization({ user: "ada", token: TOKEN });
 const SESSION = JSON.stringify({ user: "ada", token: TOKEN, tokenId: TOKEN_ID });

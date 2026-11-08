@@ -1,0 +1,6 @@
+# Findings that are known not to be secrets, one gitleaks fingerprint each
+# (commit:path:rule:line). Pinned to the commit, so a new finding in the
+# same file is still reported.
+
+# a made-up login token in a test (phase 6.1); replaced by plain words since
+71b014045b17eb8cd15ebce8e585fb90772b74d8:clients/sardonyx/src/auth/login.test.tsx:generic-api-key:7

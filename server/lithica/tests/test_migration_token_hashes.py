@@ -45,7 +45,7 @@ _old_tokens = sa.table(
 
 
 @pytest.fixture
-def migration_db(worker_id, _pg_database_url):
+def migration_db(worker_id, _pg_database_url, tmp_path):
     """An empty database of its own, and alembic pointed at it."""
     name = "test_migration_%s" % worker_id
     admin = sa.create_engine(_pg_database_url, isolation_level="AUTOCOMMIT")
@@ -53,8 +53,11 @@ def migration_db(worker_id, _pg_database_url):
         conn.execute(sa.DDL("DROP DATABASE IF EXISTS %s" % name))
         conn.execute(sa.DDL("CREATE DATABASE %s" % name))
     url = _pg_database_url.set(database=name)
-    original = config.config.get("database")
+    original = {key: config.config.get(key) for key in ("database", "data_dir")}
     config.config["database"] = url.render_as_string(hide_password=False)
+    # older migrations look at the data directory (02ef5f73f4ab renames
+    # stored files): an empty one of the test's own, whatever the machine has
+    config.config["data_dir"] = str(tmp_path)
     alembic_config = Config(os.path.join(SERVER_DIR, "alembic.ini"))
     alembic_config.set_main_option(
         "script_location", os.path.join(SERVER_DIR, "lithica", "migrations")
@@ -79,7 +82,11 @@ def migration_db(worker_id, _pg_database_url):
             one.disabled = disabled
             one.setLevel(level)
         engine.dispose()
-        config.config["database"] = original
+        for key, value in original.items():
+            if value is None:
+                config.config.pop(key, None)
+            else:
+                config.config[key] = value
         with admin.connect() as conn:
             conn.execute(sa.DDL("DROP DATABASE IF EXISTS %s" % name))
         admin.dispose()
