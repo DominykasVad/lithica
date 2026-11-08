@@ -7,6 +7,10 @@ import { ensureUser, logIn, SITE } from "./support.ts";
 
 const OWNER = { name: "e2e_app_owner", password: "e2e-app-owner-pass" };
 
+// a list of posts, as small as it can be: what the token may do is the
+// point, and the whole resource of a hundred posts takes long on this site
+const LIST_POSTS = "/posts?limit=1&fields=id";
+
 const tokenHeader = (value: string) =>
   `Token ${Buffer.from(`${OWNER.name}:${value}`).toString("base64")}`;
 
@@ -45,7 +49,7 @@ test("a read token reads, may not upload, and stops when revoked", async ({
   await expect(page.getByText(/won't be shown again/)).toBeVisible();
 
   // read: posts are listed; upload: refused, the token being fine
-  expect(await withToken(request, value, "GET", "/posts")).toEqual({
+  expect(await withToken(request, value, "GET", LIST_POSTS)).toEqual({
     status: 200,
     name: undefined,
   });
@@ -65,7 +69,7 @@ test("a read token reads, may not upload, and stops when revoked", async ({
   await page.getByRole("button", { name: `Revoke “${name}”` }).click();
   await expect(page.getByRole("listitem").filter({ hasText: name })).toHaveCount(0);
 
-  expect(await withToken(request, value, "GET", "/posts")).toEqual({
+  expect(await withToken(request, value, "GET", LIST_POSTS)).toEqual({
     status: 403,
     name: "InvalidTokenError",
   });
