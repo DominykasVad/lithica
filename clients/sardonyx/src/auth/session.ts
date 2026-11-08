@@ -46,7 +46,9 @@ function readStored(kind: "local" | "session"): Credentials | null {
       stored.user &&
       stored.token
     ) {
-      return { user: stored.user, token: stored.token };
+      return Number.isSafeInteger(stored.tokenId)
+        ? { user: stored.user, token: stored.token, tokenId: stored.tokenId }
+        : { user: stored.user, token: stored.token };
     }
   } catch {
     // nothing usable stored
@@ -100,11 +102,15 @@ export async function logIn(
       },
     }),
   );
-  if (!created.token) {
+  if (!created.token || typeof created.id !== "number") {
     throw new Error("The site made no login token.");
   }
   // the name as the site has it, which may differ in case from what was typed
-  const credentials = { user: created.user?.name ?? user, token: created.token };
+  const credentials = {
+    user: created.user?.name ?? user,
+    token: created.token,
+    tokenId: created.id,
+  };
   setCredentials(credentials);
   clearStored();
   writeStored(remember ? "local" : "session", credentials);
@@ -112,17 +118,25 @@ export async function logIn(
 }
 
 /**
- * Delete the login token on the site, and forget it here. It is forgotten
- * here also when the site cannot be told: the user asked to be logged out.
+ * Delete the login token on the site, by its id, and forget it here. It is
+ * forgotten here also when the site cannot be told: the user asked to be
+ * logged out. A session kept from before the site gave ids has no id to
+ * delete by; it is only forgotten here, and its token expires on the site.
  * Returns the error of the site, if any, for showing it.
  */
 export async function logOut(credentials: Credentials): Promise<unknown> {
   forgetSession();
+  if (credentials.tokenId === undefined) {
+    return null;
+  }
   try {
     await unwrap(
-      api.DELETE("/user-token/{user_name}/{user_token}", {
+      api.DELETE("/user-token/{user_name}/{token_id}", {
         params: {
-          path: { user_name: credentials.user, user_token: credentials.token },
+          path: {
+            user_name: credentials.user,
+            token_id: String(credentials.tokenId),
+          },
         },
         // forgotten here already: the token is given to this request itself
         headers: { Authorization: authorization(credentials) },

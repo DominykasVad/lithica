@@ -31,6 +31,9 @@ export interface paths {
          *     file that would be refused. The server still decides by the file's
          *     content.
          *
+         *     `<app-token-rights>` are the rights an app token can carry, each with
+         *     the privileges it lists, named as in `privileges`.
+         *
          *     `<disk-usage>` is the size of the data directory. It is measured in the
          *     background and can be up to an hour old; it is null until the first
          *     measurement after a server start has finished. When several server processes
@@ -157,7 +160,8 @@ export interface paths {
         };
         /**
          * List the login tokens of a user
-         * @description Searches for user tokens for the given user.
+         * @description Lists the login tokens of the given user. A token's value is never
+         *     listed: `token` is null.
          *
          *     Errors:
          *
@@ -183,8 +187,10 @@ export interface paths {
         put?: never;
         /**
          * Create a login token
-         * @description Creates a new user token that can be used for authentication of API
-         *     endpoints instead of a password.
+         * @description Creates a new login token that can be used for authentication of API
+         *     endpoints instead of a password. Its value, `token`, is in this response
+         *     and nowhere else: only a hash of it is stored. The token is addressed by
+         *     its `id` from then on.
          *
          *     Errors:
          *
@@ -197,7 +203,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/user-token/{user_name}/{user_token}": {
+    "/user-token/{user_name}/{token_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -207,8 +213,9 @@ export interface paths {
         get?: never;
         /**
          * Update a login token
-         * @description Updates an existing user token using specified parameters. All fields except
-         *     the `version` are optional - update concerns only provided fields.
+         * @description Updates an existing login token, named by its `id` (never by its value),
+         *     using specified parameters. All fields except the `version` are optional
+         *     - update concerns only provided fields.
          *
          *     Errors:
          *
@@ -220,14 +227,112 @@ export interface paths {
         post?: never;
         /**
          * Delete a login token
-         * @description Deletes existing user token.
+         * @description Deletes an existing login token, named by its `id` (never by its value).
+         *     A token that does not exist, or is not a login token of this user, is
+         *     left alone and the answer is the same.
          *
          *     Errors:
          *
-         *     - the token does not exist
          *     - privileges are too low
          */
         delete: operations["delete_user_token"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/app-tokens/{user_name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the app tokens of a user
+         * @description Lists the app tokens of the given user. A token's value is never
+         *     listed: `token` is null.
+         *
+         *     Errors:
+         *
+         *     - privileges are too low
+         */
+        get: operations["get_app_tokens"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/app-token/{user_name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create an app token
+         * @description Creates an app token: a token for another application, which may do
+         *     only what its `rights` allow (the names `GET /info` lists in
+         *     `appTokenRights`) and the user's rank grants, and never anything about
+         *     accounts or tokens. `name` is 1 to 128 characters. Its value, `token`,
+         *     is in this response and nowhere else: only a hash of it is stored. The
+         *     rights cannot be changed later; make a new token instead.
+         *
+         *     Errors:
+         *
+         *     - the name is missing, empty or too long
+         *     - the rights are empty, unknown, or the user holds none of the
+         *       privileges of one of them
+         *     - the expiration time is invalid or in the past
+         *     - privileges are too low
+         */
+        post: operations["create_app_token"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/app-token/{user_name}/{token_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update an app token
+         * @description Updates an app token, named by its `id`. All fields except the
+         *     `version` are optional - update concerns only provided fields. The
+         *     rights cannot be changed.
+         *
+         *     Errors:
+         *
+         *     - the version is outdated
+         *     - the app token does not exist
+         *     - the name or the expiration time is invalid
+         *     - privileges are too low
+         */
+        put: operations["update_app_token"];
+        post?: never;
+        /**
+         * Revoke an app token
+         * @description Revokes an app token, named by its `id`: it stops working at once. A
+         *     token that does not exist, or is not an app token of this user, is left
+         *     alone and the answer is the same.
+         *
+         *     Errors:
+         *
+         *     - privileges are too low
+         */
+        delete: operations["delete_app_token"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1402,6 +1507,42 @@ export interface components {
              */
             extensions?: string[];
         };
+        /** AppToken */
+        AppToken: {
+            /**
+             * Id
+             * @description Names the token in the paths of its routes.
+             */
+            id?: number;
+            user?: components["schemas"]["MicroUser"];
+            /** Name */
+            name?: string;
+            /**
+             * Rights
+             * @description Names of its rights, as `appTokenRights` of `GET /info` lists them.
+             */
+            rights?: string[];
+            /**
+             * Token
+             * @description The token's value: only in the response that created the token, `null` everywhere else.
+             */
+            token?: string | null;
+            /** Enabled */
+            enabled?: boolean;
+            /** Expirationtime */
+            expirationTime?: string | null;
+            /**
+             * Creationtime
+             * Format: date-time
+             */
+            creationTime?: string;
+            /** Lastedittime */
+            lastEditTime?: string | null;
+            /** Lastusagetime */
+            lastUsageTime?: string | null;
+            /** Version */
+            version?: number;
+        };
         /** Card */
         Card: {
             /** Postid */
@@ -1522,6 +1663,13 @@ export interface components {
              */
             modules?: string[];
             config?: components["schemas"]["InfoConfig"];
+            /**
+             * Apptokenrights
+             * @description The rights an app token can carry, each with the privileges it lists (named as in `config.privileges`). A request made with an app token may use a privilege only when one of its rights lists it and the user's rank grants it, and never one about accounts or tokens.
+             */
+            appTokenRights?: {
+                [key: string]: string[];
+            };
             /**
              * Maxuploadsize
              * @description The largest request the server takes, in bytes, as it checks it (`max_upload_size`); `null` if there is no limit. A larger one is refused with 413 `RequestTooLargeError`.
@@ -2067,6 +2215,11 @@ export interface components {
              */
             occurrences?: number;
         };
+        /** Unpaged[AppToken] */
+        Unpaged_AppToken_: {
+            /** Results */
+            results?: components["schemas"]["AppToken"][];
+        };
         /** Unpaged[PoolCategory] */
         Unpaged_PoolCategory_: {
             /** Results */
@@ -2140,9 +2293,17 @@ export interface components {
         };
         /** UserToken */
         UserToken: {
+            /**
+             * Id
+             * @description Names the token in the paths of its routes.
+             */
+            id?: number;
             user?: components["schemas"]["MicroUser"];
-            /** Token */
-            token?: string;
+            /**
+             * Token
+             * @description The token's value: only in the response that created the token, `null` everywhere else.
+             */
+            token?: string | null;
             /** Note */
             note?: string | null;
             /** Enabled */
@@ -2567,7 +2728,8 @@ export interface operations {
             header?: never;
             path: {
                 user_name: string;
-                user_token: string;
+                /** @description The token's `id`. */
+                token_id: string;
             };
             cookie?: never;
         };
@@ -2611,7 +2773,172 @@ export interface operations {
             header?: never;
             path: {
                 user_name: string;
-                user_token: string;
+                /** @description The token's `id`. */
+                token_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Empty"];
+                };
+            };
+            /** @description The request was refused. */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_app_tokens: {
+        parameters: {
+            query?: {
+                /** @description Record this request as a login of the authenticated user. */
+                "bump-login"?: boolean;
+                /** @description Comma-separated names of the fields to return. All fields are returned when it is absent. */
+                fields?: string | null;
+            };
+            header?: never;
+            path: {
+                user_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Unpaged_AppToken_"];
+                };
+            };
+            /** @description The request was refused. */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_app_token: {
+        parameters: {
+            query?: {
+                /** @description Record this request as a login of the authenticated user. */
+                "bump-login"?: boolean;
+                /** @description Comma-separated names of the fields to return. All fields are returned when it is absent. */
+                fields?: string | null;
+            };
+            header?: never;
+            path: {
+                user_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    name: string;
+                    rights: unknown[];
+                    enabled?: boolean;
+                    expirationTime?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppToken"];
+                };
+            };
+            /** @description The request was refused. */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    update_app_token: {
+        parameters: {
+            query?: {
+                /** @description Record this request as a login of the authenticated user. */
+                "bump-login"?: boolean;
+                /** @description Comma-separated names of the fields to return. All fields are returned when it is absent. */
+                fields?: string | null;
+            };
+            header?: never;
+            path: {
+                user_name: string;
+                /** @description The token's `id`. */
+                token_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    version: number;
+                    name?: string;
+                    enabled?: boolean;
+                    expirationTime?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppToken"];
+                };
+            };
+            /** @description The request was refused. */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_app_token: {
+        parameters: {
+            query?: {
+                /** @description Record this request as a login of the authenticated user. */
+                "bump-login"?: boolean;
+            };
+            header?: never;
+            path: {
+                user_name: string;
+                /** @description The token's `id`. */
+                token_id: string;
             };
             cookie?: never;
         };

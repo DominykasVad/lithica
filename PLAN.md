@@ -343,7 +343,7 @@ concept, "post" the resource.
 
 ### 6.1 Tokens
 - [x] Login tokens stored as a hash, not in plain text; the token value is shown once, when it's created, and never returned again (intentional API change: listing tokens no longer shows their values). Existing tokens are hashed by a migration and keep working.
-- [ ] App tokens: named, with a set of rights that is a subset of the owner's privileges and never includes admin, users or tokens; revocable; stored hashed and shown once. Created, listed and revoked by the owner (API, and in Sardonyx's account page). Requests made with one can do only what its rights allow.
+- [x] App tokens: named, with a set of rights that is a subset of the owner's privileges and never includes admin, users or tokens; revocable; stored hashed and shown once. Created, listed and revoked by the owner (API, and in Sardonyx's account page). Requests made with one can do only what its rights allow.
 - [x] The rights an app token can carry are listed in `GET /info`, at least: read posts, cards and lorebooks; create and edit posts, cards and lorebooks; upload.
 - [x] Contract: authenticated API routes never answer with a redirect (Lumiverse drops credentials on redirects). In doc/API.md, with a test over every route.
 

@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { AppTokens } from "./AppTokens";
 
 /**
  * The site's rule for passwords (`passwordRegex` of GET /info), when this
@@ -28,7 +29,7 @@ export function passwordRule(regex: string | undefined): RegExp | null {
 }
 
 /**
- * `/account`: changing one's password, and nothing else for now. The
+ * `/account`: changing one's password, and the app tokens. The
  * current password is checked first (a request with it, which changes
  * nothing); the new one goes with the account's version, so that a change
  * made meanwhile elsewhere is not overwritten.
@@ -153,6 +154,11 @@ export function AccountPage() {
               {state === "busy" ? "Changing…" : "Change the password"}
             </Button>
           </form>
+        </CardContent>
+      </Card>
+      <Card className="mt-6">
+        <CardContent>
+          <AppTokens user={user} />
         </CardContent>
       </Card>
     </main>
