@@ -1,6 +1,6 @@
 # 0005: Cards as data, with versions; the original as version 0
 
-- Status: Accepted
+- Status: Accepted; amended by [0011](0011-cards-created-from-data.md); its lorebook part changed by [0010](0010-lorebooks-as-their-own-kind.md)
 - Date: 2026-11-04
 
 ## Context

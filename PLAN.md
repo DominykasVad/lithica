@@ -310,127 +310,144 @@ are not in Sardonyx.
 
 ## Phase 6 — Server foundations
 
-Goal: the asset model, share links, site settings and background jobs that
-phases 8–9 build on. Ends in release `v0.4.0`. Design:
-[doc/design/decisions](doc/design/decisions/) 0001–0004 and 0008.
+Goal: tokens fit for other apps, the asset model, share links, site
+settings and background jobs that the later phases and the plugins build
+on. Ends in release `v0.4.0`. Design:
+[doc/design/decisions](doc/design/decisions/) 0001–0004, 0008 and 0011.
 
 The API keeps its resource names: an asset is a post (`/posts`), so the
 legacy client and existing integrations keep working. "Asset" is the
 concept, "post" the resource.
 
-### 6.1 Kinds
+### 6.1 Tokens
+- [ ] Login tokens stored as a hash, not in plain text; the token value is shown once, when it's created, and never returned again (intentional API change: listing tokens no longer shows their values). Existing tokens are hashed by a migration and keep working.
+- [ ] App tokens: named, with a set of rights that is a subset of the owner's privileges and never includes admin, users or tokens; revocable; stored hashed and shown once. Created, listed and revoked by the owner (API, and in Sardonyx's account page). Requests made with one can do only what its rights allow.
+- [ ] The rights an app token can carry are listed in `GET /info`, at least: read posts, cards and lorebooks; create and edit posts, cards and lorebooks; upload.
+- [ ] Contract: authenticated API routes never answer with a redirect (Lumiverse drops credentials on redirects). In doc/API.md, with a test over every route.
+
+### 6.2 Kinds
 - [ ] A post's `kind` field (`media`, and kinds registered by modules: `card` from the cards module), derived from its content on upload and by `reextract`; a migration fills it for existing posts.
 - [ ] Modules register kinds through the registry, with the rule for which content can be which kind.
 - [ ] Changing a post's kind: its own endpoint and privilege (`posts:edit:kind`), only to a kind its content supports (a PNG card may be made `media`, a plain picture can't become `card`).
 - [ ] Search token `kind:`; `GET /info` lists the kinds of the site.
 
-### 6.2 Relations
-- [ ] Typed, directed relations between posts (from, to, type), types registered by modules (e.g. `avatar-of`, `archived-from`, `embedded-in`). Separate from the engine's existing untyped relations, which stay as they are.
-- [ ] API to list a post's relations, by type; deleting a post removes its relations.
-- [ ] The visibility filter (`nsfw-login`) covers them: a hidden post appears in no relation.
+### 6.3 Relations and external IDs
+- [ ] Typed, directed relations between posts (from, to, type), types registered by modules (e.g. `avatar-of`, `archived-from`, `embedded-in`, `gallery-of`, `expression-of`), each with an optional label (an expression's name). Separate from the engine's existing untyped relations, which stay as they are.
+- [ ] API to list a post's relations, by type, with each related post's file URLs; deleting a post removes its relations.
+- [ ] External IDs: (host, the host's ID) per post, several allowed, unique per host; set and removed through the API under a privilege; search token to find a post by one.
+- [ ] The visibility filter (`nsfw-login`) covers both: a hidden post appears in no relation and no external-ID lookup.
 
-### 6.3 Listed
+### 6.4 Listed
 - [ ] A post's `listed` flag, default true. Searches leave unlisted posts out unless the query says `listed:no` or `listed:any`.
 - [ ] Changing it: its own privilege.
 - [ ] Sardonyx's library respects it; the post page shows that a post is unlisted.
 
-### 6.4 Share links
+### 6.5 Share links
 - [ ] A share link per post: created under a privilege, optional expiry, revocable; listed per post and per user. Stored as a hash of a random token.
 - [ ] `/share/<token>`: the server checks it and lets nginx deliver the file (an internal location in both client images); revoked or expired gives 404.
 - [ ] Site setting: may NSFW posts get share links (default: no).
 - [ ] Tests: valid, revoked, expired and wrong token; a share link works on a `login` site without login; the post's own file links are unchanged.
 
-### 6.5 Site settings and feature switches
+### 6.6 Site settings and feature switches
 - [ ] A settings API (`GET`/`PUT /settings`, administrator only): settings declared in one registry with type, default and whether they can change at runtime. `config.yaml` gives the starting values; a value changed through the API is stored in the database and wins; settings that need a restart are read-only through the API.
 - [ ] The existing runtime-safe settings move onto it (`visibility`, `nsfw_tag`, `nsfw_hide_names`, `password_reset_mail_interval`, and others found safe); `GET /info` reports the effective values.
 - [ ] Feature switches: pools, favourites, scores, notes, comments. A feature that is off: its API answers as a missing feature, `GET /info` lists it as off, clients hide it. Comments and scores (the engine's up/down votes) default to off; star ratings come later (decision 0009).
 - [ ] Sardonyx: an admin page for the settings and switches (administrator only).
 
-### 6.6 Background jobs
-- [ ] A small job queue in the database, worked by the server process (a thread per process, jobs claimed so several processes don't run the same one), with retries and a record of failures. For work that must not run inside a request: archiving (phase 8), and later others.
+### 6.7 Background jobs
+- [ ] A small job queue in the database, worked by the server process (a thread per process, jobs claimed so several processes don't run the same one), with retries and a record of failures. For work that must not run inside a request: archiving, conversions, and later others.
 - [ ] `lithica-admin jobs` lists and retries jobs; an administrator API to see them.
 - [ ] Tests: a job runs once with several workers, retries on failure, survives a restart.
 
-### 6.7 Release `v0.4.0`
-- [ ] `doc/UPGRADING.md` 0.3.0 → 0.4.0: kinds, listed, share links and their nginx route in both images, settings in the database and their precedence over `config.yaml`, feature switches with comments off, jobs. Version, images and release as for 0.3.0.
+### 6.8 Release `v0.4.0`
+- [ ] `doc/UPGRADING.md` 0.3.0 → 0.4.0: hashed login tokens (values can't be listed any more) and app tokens, kinds, relations and external IDs, listed, share links and their nginx route in both images, settings in the database and their precedence over `config.yaml`, feature switches with comments and scores off, jobs. Version, images and release as for 0.3.0.
 
-**Done when:** a card post is `card` and a picture `media`; a related, unlisted post doesn't show in the library but shows on its relation; a share link opens a post's file without login and stops on revoke; an administrator changes visibility and switches pools off in Sardonyx without a restart; a job runs once across two server processes.
+**Done when:** an app token with read-only rights can read cards and is refused an upload and the admin settings; a login token can't be read back; a card post is `card` and a picture `media`; a related, unlisted post doesn't show in the library but shows on its relation, with its label; a post is found by its external ID; a share link opens a post's file without login and stops on revoke; an administrator changes visibility and switches pools off in Sardonyx without a restart; a job runs once across two server processes.
 
-## Phase 7 — Sardonyx in sections
+## Phase 7 — Cards as data
+
+Goal: cards and lorebooks are data with versions and related assets; cards
+can be created from data, so the Lumiverse plugin can import a whole
+library; card images are archived; cards export in several forms. Ends in
+release `v0.5.0`. Design: decisions 0003, 0005, 0006, 0010 and 0011 in
+[doc/design/decisions](doc/design/decisions/).
+
+### 7.1 Card and lorebook data, with versions
+- [ ] A card's data and a lorebook's data in versions, each a full compressed JSON copy, with a retention setting (all, or the last N plus version 0). For an uploaded card, version 0 is what was read from its file, which is kept untouched.
+- [ ] `lorebook` as a kind (0010): a card links its books, many to many, in order; a book may stand alone.
+- [ ] API: list versions, read one, restore one (a restore is a new version); writes carry the version they were based on and are refused when it's stale.
+- [ ] Existing cards converted once (a background job): their embedded books become lorebooks, and books with the same content embedded in several cards become one book linked to all of them.
+- [ ] Card text refers to assets by a Lithica reference the clients resolve, not by a file URL (signed URLs expire).
+
+### 7.2 Cards created from data
+- [ ] Uploads with a JSON body (base64) as a second way into the temporary upload, for clients that can't send multipart; the size limit allows for base64's third more.
+- [ ] Creating a card from card data (CCv3 JSON) plus references to uploaded assets and to lorebooks, under a privilege an app token can carry; its first version is version 0, with a source note (0011).
+- [ ] Creating and updating lorebooks through the API the same way.
+- [ ] Duplicates by a hash of the normalised card data, for cards with and without a file; with an external ID (6.3) given, an existing card is updated (a new version) instead of a duplicate made.
+- [ ] Related images with roles (6.3): avatar, gallery, alternate avatars, expressions with their labels; unlisted, with the card's safety and NSFW tag.
+- [ ] Tests that a bulk import works within the limits: hundreds of cards created one after another through the API, a re-run updating instead of duplicating.
+
+### 7.3 A card's own images
+- [ ] A PNG card's picture and a CHARX's embedded images (icon, backgrounds, sprites) become unlisted posts related to the card (`avatar-of`, `embedded-in`), inheriting its safety and NSFW tag; listed with their file URLs (served with their image type).
+
+### 7.4 Archiving card images
+- [ ] Finding image links in a card's text (Markdown and HTML images, `srcset`, CSS `url()`).
+- [ ] A background job (6.7) fetches them through the SSRF-safe downloader with size and type limits, makes each an unlisted post related `archived-from` the card, with the card's safety and NSFW tag, and makes a new card version pointing to them. Links that fail are recorded, and can be retried.
+- [ ] Setting: manual or automatic, with rules (automatic only for given creators or tags). An "Archive images" action per card under a privilege.
+
+### 7.5 Export and the original
+- [ ] Download as: the original file (while kept), or built from the current version as PNG, CHARX or JSON, with the linked lorebooks embedded (merged in order when several, said so in the export) and the card's images as share links (6.5) or embedded (CHARX assets, data URIs in PNG/JSON).
+- [ ] Deleting the original: a privilege, a warning listing what is lost, confirmation by typing the card's name; the file's checksum is kept for duplicate detection.
+
+### 7.6 Sardonyx
+- [ ] Card page: versions (view, compare, restore), the source note, the card's related images by role, its linked lorebooks, the archiving state of each image link and the "Archive images" action, the download choices, deleting the original.
+- [ ] Lorebooks as pages of their own (the existing lorebook view), with their versions and the cards that link them; standalone books findable.
+- [ ] The styled-text frame shows archived images from this site (its image policy gains this site's file paths; outside hosts stay behind "Load images").
+
+### 7.7 Release `v0.5.0`
+- [ ] `doc/UPGRADING.md` 0.4.0 → 0.5.0: the conversion and its duration, lorebooks as their own kind, cards from data and JSON uploads, versions and retention, archiving and its settings, export forms. Version, images, release.
+
+**Done when:** 100 cards created from data through the API, with gallery images, expressions and one lorebook shared by ten of them, give one lorebook linked to ten cards, and a re-run changes nothing but new versions where data changed; a Chub card with images in its greetings is archived and shows them in Styled with no outside request; a card restores to version 0; a card exports as CHARX with its images and book embedded and as PNG with share links that open without login; deleting an original keeps everything but the file.
+
+## Phase 8 — Sardonyx in sections
 
 Goal: one client with a Library section (media, picture-first) and a Cards
 section, sharing login, upload, tags, settings and admin; settings per
-account. Ends in release `v0.5.0`. Design: decision 0009 (which supersedes
+account. Ends in release `v0.6.0`. Design: decision 0009 (which supersedes
 0007) in [doc/design/decisions](doc/design/decisions/).
 
-### 7.1 Shell with sections
+### 8.1 Shell with sections
 - [ ] Navigation with two sections, Library and Cards, plus what they share (upload, tags, admin). A section shows only when its module and feature switches are on (`GET /info`).
-- [ ] Library lists `media` posts, Cards lists `card` posts (6.1 kinds). The current `/posts` addresses keep working (redirect to the section the post or search belongs to), so saved links and the browser tests' paths survive.
+- [ ] Library lists `media` posts, Cards lists `card` posts (6.2 kinds). The current `/posts` addresses keep working (redirect to the section the post or search belongs to), so saved links and the browser tests' paths survive.
 - [ ] The card filters belong to Cards only; search, completion, paging/auto load and the tile code are shared, not copied.
 
-### 7.2 Library section
+### 8.2 Library section
 - [ ] A picture-first grid (denser tiles, no card captions) and a media post page focused on the picture: fit and full size, keyboard previous/next within the search, the facts and tags beside it.
 - [ ] The same privileges, NSFW blur, editing and delete as the card side, from the same components.
 
-### 7.3 Settings per account
+### 8.3 Settings per account
 - [ ] Server: a small per-account preferences API (the account's own values only; multi-user-ready by design, no sharing or management screens).
 - [ ] Per page, theme and Show NSFW stored per account when logged in; the browser keeps them when logged out, as now.
 
-### 7.4 Release `v0.5.0`
-- [ ] `doc/UPGRADING.md` 0.4.0 → 0.5.0: sections, the redirects from `/posts`, preferences per account. Version, images, release.
+### 8.4 Release `v0.6.0`
+- [ ] `doc/UPGRADING.md` 0.5.0 → 0.6.0: sections, the redirects from `/posts`, preferences per account. Version, images, release.
 
 **Done when:** with cards on, Library shows only pictures and videos and Cards only cards; with cards off, Cards isn't offered and Library works alone; an old `/posts?q=…` link lands in the right section; per page, theme and Show NSFW follow the account to another browser after login.
 
-## Phase 8 — Cards as data
-
-Goal: a card is data with versions and related assets; its images are
-archived; it exports in several forms. Ends in release `v0.6.0`. Design:
-decisions 0003, 0005 and 0006 in [doc/design/decisions](doc/design/decisions/).
-
-### 8.1 Card versions
-- [ ] A card's data in versions, each a full compressed JSON copy; version 0 is what was read from the uploaded file, which is kept untouched. Retention setting (all, or the last N plus version 0).
-- [ ] API: list versions, read one, restore one (a restore is a new version).
-- [ ] Existing cards converted once (`reextract`).
-- [ ] Card text refers to assets by a Lithica reference the clients resolve, not by a file URL (signed URLs expire).
-
-### 8.2 Archiving card images
-- [ ] Finding image links in a card's text (Markdown and HTML images, `srcset`, CSS `url()`).
-- [ ] A background job (6.6) fetches them through the SSRF-safe downloader with size and type limits, makes each an unlisted post related `archived-from` the card, with the card's safety and NSFW tag, and makes a new card version pointing to them. Links that fail are recorded, and can be retried.
-- [ ] Setting: manual or automatic, with rules (automatic only for given creators or tags). An "Archive images" action per card under a privilege.
-
-### 8.3 A card's own images
-- [ ] A PNG card's picture and a CHARX's embedded images (icon, backgrounds, sprites) become unlisted posts related to the card (`avatar-of`, `embedded-in`), inheriting its safety and NSFW tag.
-
-### 8.4 Export and the original
-- [ ] Download as: the original file (while kept), or built from the current version as PNG, CHARX or JSON, with the card's images as share links (6.4) or embedded (CHARX assets, data URIs in PNG/JSON).
-- [ ] Deleting the original: a privilege, a warning listing what is lost, confirmation by typing the card's name; the file's checksum is kept for duplicate detection.
-
-### 8.5 Sardonyx
-- [ ] Card page: versions (view, compare, restore), the archiving state of each image link and the "Archive images" action, the card's related images, the download choices, deleting the original.
-- [ ] The styled-text frame shows archived images from this site (its image policy gains this site's file paths; outside hosts stay behind "Load images").
-
-### 8.6 Release `v0.6.0`
-- [ ] `doc/UPGRADING.md` 0.5.0 → 0.6.0: the conversion and its duration, versions and retention, archiving and its settings, export forms. Version, images, release.
-
-**Done when:** a Chub card with images in its greetings is archived (images become related unlisted posts, a new version points to them), shows its archived images in Styled with no outside request, restores to version 0, and exports as CHARX with the images embedded and as PNG with share links that open without login; deleting its original keeps everything but the file.
-
 ## Phase 9 — Card editor
 
-Goal: making and editing cards in Sardonyx. Ends in release `v0.7.0`.
-Design: decision 0005 in [doc/design/decisions](doc/design/decisions/).
+Goal: editing cards and lorebooks in Sardonyx. Ends in release `v0.7.0`.
+Design: decisions 0005, 0010 and 0011 in [doc/design/decisions](doc/design/decisions/).
 
-### 9.1 Server
-- [ ] Creating and updating a card's data through the API (a new version each time), validated against the card spec; creating a card with no uploaded file (its picture an image post related `avatar-of`).
-
-### 9.2 Sardonyx editor
-- [ ] Editing every card field, greetings (add, remove, order) and lorebook entries, with Readable/Styled preview of what is written.
+### 9.1 Sardonyx editor
+- [ ] Making a card from nothing and editing every card field, greetings (add, remove, order) and linked lorebooks, with Readable/Styled preview of what is written; editing lorebooks and their entries on their own pages.
 - [ ] An image picker that searches the library and inserts the image as Markdown with its Lithica reference, relating it to the card on save.
 - [ ] Unsaved changes are kept on leaving the page by mistake; a conflict with another edit (version) is shown as in 5.6.
 
-### 9.3 Release `v0.7.0`
+### 9.2 Release `v0.7.0`
 - [ ] `doc/UPGRADING.md` 0.6.0 → 0.7.0. Version, images, release.
 
-**Done when:** a new card is made in Sardonyx from nothing, with a greeting holding a picture chosen from the library, and exports as a CHARX that SillyTavern and Lumiverse open with the picture.
+**Done when:** a new card is made in Sardonyx from nothing, with a greeting holding a picture chosen from the library and a linked lorebook, and exports as a CHARX that SillyTavern and Lumiverse open with the picture and the book.
 
 ---
 
