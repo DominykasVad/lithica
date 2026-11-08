@@ -310,6 +310,8 @@ are not in Sardonyx.
 
 ## Phase 6 — Server foundations
 
+**Current phase.**
+
 Goal: tokens fit for other apps, the asset model, share links, site
 settings and background jobs that the later phases and the plugins build
 on. Ends in release `v0.4.0`. Design:
