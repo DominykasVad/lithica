@@ -17,19 +17,19 @@ def test_deleting_user_token(user_token_factory, client, fake_datetime):
     db.session.add(user_token)
     db.session.commit()
     with (
-        patch("lithica.func.user_tokens.get_by_user_and_token"),
+        patch("lithica.func.user_tokens.get_by_user_and_id"),
         patch("lithica.func.users.get_user_by_name"),
         fake_datetime("1969-02-12"),
     ):
         users.get_user_by_name.return_value = user_token.user
-        user_tokens.get_by_user_and_token.return_value = user_token
+        user_tokens.get_by_user_and_id.return_value = user_token
         result = ok(
             client.delete(
-                "/user-token/%s/%s" % (user_token.user.name, user_token.token),
+                "/user-token/%s/%d" % (user_token.user.name, user_token.user_token_id),
                 user=user_token.user,
             )
         )
         assert result == {}
-        user_tokens.get_by_user_and_token.assert_called_once_with(
-            user_token.user, user_token.token
+        user_tokens.get_by_user_and_id.assert_called_once_with(
+            user_token.user, user_token.user_token_id
         )

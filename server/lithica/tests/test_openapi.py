@@ -73,8 +73,8 @@ def test_document_describes_the_whole_api(document):
     operations = list(_operations(document))
     # the engine's, and those of the modules there are
     engine = [o for o in operations if not o[1].startswith("/modules/")]
-    assert len(engine) == 61
-    assert len([path for path in document["paths"] if "/modules/" not in path]) == 35
+    assert len(engine) == 65
+    assert len([path for path in document["paths"] if "/modules/" not in path]) == 38
     assert sorted(path for path in document["paths"] if "/modules/" in path) == [
         "/modules/cards/post/{post_id}",
         "/modules/cards/post/{post_id}/download",
@@ -122,6 +122,7 @@ def test_every_operation_with_input_describes_its_body(document):
         )
         if operation["operationId"] in NO_BODY or operation["operationId"] in (
             "delete_user_token",
+            "delete_app_token",
             "delete_post_score",
             "delete_comment_score",
             "delete_post_from_favorites",

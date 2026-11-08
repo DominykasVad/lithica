@@ -22,7 +22,7 @@
           "Info"
         ],
         "summary": "Get global info",
-        "description": "Retrieves simple statistics. `<featured-post>` is null if there is no\nfeatured post yet. `<server-time>` is pretty much the same as the `Date`\nHTTP field, only formatted in a manner consistent with other dates. Values\nin `config` key are taken directly from the server config, with the\nexception of privilege array keys being converted to lower camel case to\nmatch the API convention.\n\n`<modules>` are the names of the optional modules this server has switched\non, in the order of its configuration; empty on a plain installation. A\nmodule's routes are under `modules/<name>/`.\n\n`<max-upload-size>` is the largest request the server takes, in bytes, and\n`<accepted-types>` the types of file a post can be made from here (the\nengine's, then those of the modules switched on), each with its MIME\ntype(s) and usual extensions: hints for a client, to point out at once a\nfile that would be refused. The server still decides by the file's\ncontent.\n\n`<disk-usage>` is the size of the data directory. It is measured in the\nbackground and can be up to an hour old; it is null until the first\nmeasurement after a server start has finished. When several server processes\nrun, each measures for itself, so two requests can briefly report different\nsizes.",
+        "description": "Retrieves simple statistics. `<featured-post>` is null if there is no\nfeatured post yet. `<server-time>` is pretty much the same as the `Date`\nHTTP field, only formatted in a manner consistent with other dates. Values\nin `config` key are taken directly from the server config, with the\nexception of privilege array keys being converted to lower camel case to\nmatch the API convention.\n\n`<modules>` are the names of the optional modules this server has switched\non, in the order of its configuration; empty on a plain installation. A\nmodule's routes are under `modules/<name>/`.\n\n`<max-upload-size>` is the largest request the server takes, in bytes, and\n`<accepted-types>` the types of file a post can be made from here (the\nengine's, then those of the modules switched on), each with its MIME\ntype(s) and usual extensions: hints for a client, to point out at once a\nfile that would be refused. The server still decides by the file's\ncontent.\n\n`<app-token-rights>` are the rights an app token can carry, each with\nthe privileges it lists, named as in `privileges`.\n\n`<disk-usage>` is the size of the data directory. It is measured in the\nbackground and can be up to an hour old; it is null until the first\nmeasurement after a server start has finished. When several server processes\nrun, each measures for itself, so two requests can briefly report different\nsizes.",
         "operationId": "get_info",
         "security": [
           {
@@ -670,7 +670,7 @@
           "User tokens"
         ],
         "summary": "List the login tokens of a user",
-        "description": "Searches for user tokens for the given user.\n\nErrors:\n\n- privileges are too low",
+        "description": "Lists the login tokens of the given user. A token's value is never\nlisted: `token` is null.\n\nErrors:\n\n- privileges are too low",
         "operationId": "get_user_tokens",
         "security": [
           {
@@ -752,7 +752,7 @@
           "User tokens"
         ],
         "summary": "Create a login token",
-        "description": "Creates a new user token that can be used for authentication of API\nendpoints instead of a password.\n\nErrors:\n\n- privileges are too low",
+        "description": "Creates a new login token that can be used for authentication of API\nendpoints instead of a password. Its value, `token`, is in this response\nand nowhere else: only a hash of it is stored. The token is addressed by\nits `id` from then on.\n\nErrors:\n\n- privileges are too low",
         "operationId": "create_user_token",
         "security": [
           {
@@ -848,13 +848,13 @@
         }
       }
     },
-    "/user-token/{user_name}/{user_token}": {
+    "/user-token/{user_name}/{token_id}": {
       "put": {
         "tags": [
           "User tokens"
         ],
         "summary": "Update a login token",
-        "description": "Updates an existing user token using specified parameters. All fields except\nthe `version` are optional - update concerns only provided fields.\n\nErrors:\n\n- the version is outdated\n- the user token does not exist\n- privileges are too low",
+        "description": "Updates an existing login token, named by its `id` (never by its value),\nusing specified parameters. All fields except the `version` are optional\n- update concerns only provided fields.\n\nErrors:\n\n- the version is outdated\n- the user token does not exist\n- privileges are too low",
         "operationId": "update_user_token",
         "security": [
           {
@@ -876,13 +876,15 @@
             }
           },
           {
-            "name": "user_token",
+            "name": "token_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "User Token"
-            }
+              "description": "The token's `id`.",
+              "title": "Token Id"
+            },
+            "description": "The token's `id`."
           },
           {
             "name": "bump-login",
@@ -969,7 +971,7 @@
           "User tokens"
         ],
         "summary": "Delete a login token",
-        "description": "Deletes existing user token.\n\nErrors:\n\n- the token does not exist\n- privileges are too low",
+        "description": "Deletes an existing login token, named by its `id` (never by its value).\nA token that does not exist, or is not a login token of this user, is\nleft alone and the answer is the same.\n\nErrors:\n\n- privileges are too low",
         "operationId": "delete_user_token",
         "security": [
           {
@@ -991,13 +993,399 @@
             }
           },
           {
-            "name": "user_token",
+            "name": "token_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "User Token"
+              "description": "The token's `id`.",
+              "title": "Token Id"
+            },
+            "description": "The token's `id`."
+          },
+          {
+            "name": "bump-login",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Record this request as a login of the authenticated user.",
+              "default": false,
+              "title": "Bump-Login"
+            },
+            "description": "Record this request as a login of the authenticated user."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Empty"
+                }
+              }
             }
+          },
+          "4XX": {
+            "description": "The request was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/app-tokens/{user_name}": {
+      "get": {
+        "tags": [
+          "App tokens"
+        ],
+        "summary": "List the app tokens of a user",
+        "description": "Lists the app tokens of the given user. A token's value is never\nlisted: `token` is null.\n\nErrors:\n\n- privileges are too low",
+        "operationId": "get_app_tokens",
+        "security": [
+          {
+            "basicAuth": []
+          },
+          {
+            "tokenAuth": []
+          },
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "user_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Name"
+            }
+          },
+          {
+            "name": "bump-login",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Record this request as a login of the authenticated user.",
+              "default": false,
+              "title": "Bump-Login"
+            },
+            "description": "Record this request as a login of the authenticated user."
+          },
+          {
+            "name": "fields",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated names of the fields to return. All fields are returned when it is absent.",
+              "title": "Fields"
+            },
+            "description": "Comma-separated names of the fields to return. All fields are returned when it is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Unpaged_AppToken_"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "The request was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/app-token/{user_name}": {
+      "post": {
+        "tags": [
+          "App tokens"
+        ],
+        "summary": "Create an app token",
+        "description": "Creates an app token: a token for another application, which may do\nonly what its `rights` allow (the names `GET /info` lists in\n`appTokenRights`) and the user's rank grants, and never anything about\naccounts or tokens. `name` is 1 to 128 characters. Its value, `token`,\nis in this response and nowhere else: only a hash of it is stored. The\nrights cannot be changed later; make a new token instead.\n\nErrors:\n\n- the name is missing, empty or too long\n- the rights are empty, unknown, or the user holds none of the\n  privileges of one of them\n- the expiration time is invalid or in the past\n- privileges are too low",
+        "operationId": "create_app_token",
+        "security": [
+          {
+            "basicAuth": []
+          },
+          {
+            "tokenAuth": []
+          },
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "user_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Name"
+            }
+          },
+          {
+            "name": "bump-login",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Record this request as a login of the authenticated user.",
+              "default": false,
+              "title": "Bump-Login"
+            },
+            "description": "Record this request as a login of the authenticated user."
+          },
+          {
+            "name": "fields",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated names of the fields to return. All fields are returned when it is absent.",
+              "title": "Fields"
+            },
+            "description": "Comma-separated names of the fields to return. All fields are returned when it is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppToken"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "The request was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "rights": {
+                    "items": {},
+                    "type": "array"
+                  },
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "expirationTime": {
+                    "type": "string"
+                  }
+                },
+                "type": "object",
+                "required": [
+                  "name",
+                  "rights"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/app-token/{user_name}/{token_id}": {
+      "put": {
+        "tags": [
+          "App tokens"
+        ],
+        "summary": "Update an app token",
+        "description": "Updates an app token, named by its `id`. All fields except the\n`version` are optional - update concerns only provided fields. The\nrights cannot be changed.\n\nErrors:\n\n- the version is outdated\n- the app token does not exist\n- the name or the expiration time is invalid\n- privileges are too low",
+        "operationId": "update_app_token",
+        "security": [
+          {
+            "basicAuth": []
+          },
+          {
+            "tokenAuth": []
+          },
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "user_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Name"
+            }
+          },
+          {
+            "name": "token_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The token's `id`.",
+              "title": "Token Id"
+            },
+            "description": "The token's `id`."
+          },
+          {
+            "name": "bump-login",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Record this request as a login of the authenticated user.",
+              "default": false,
+              "title": "Bump-Login"
+            },
+            "description": "Record this request as a login of the authenticated user."
+          },
+          {
+            "name": "fields",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated names of the fields to return. All fields are returned when it is absent.",
+              "title": "Fields"
+            },
+            "description": "Comma-separated names of the fields to return. All fields are returned when it is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppToken"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "The request was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "version": {
+                    "type": "integer"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "expirationTime": {
+                    "type": "string"
+                  }
+                },
+                "type": "object",
+                "required": [
+                  "version"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "App tokens"
+        ],
+        "summary": "Revoke an app token",
+        "description": "Revokes an app token, named by its `id`: it stops working at once. A\ntoken that does not exist, or is not an app token of this user, is left\nalone and the answer is the same.\n\nErrors:\n\n- privileges are too low",
+        "operationId": "delete_app_token",
+        "security": [
+          {
+            "basicAuth": []
+          },
+          {
+            "tokenAuth": []
+          },
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "user_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Name"
+            }
+          },
+          {
+            "name": "token_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The token's `id`.",
+              "title": "Token Id"
+            },
+            "description": "The token's `id`."
           },
           {
             "name": "bump-login",
@@ -6056,6 +6444,94 @@
         "type": "object",
         "title": "AcceptedType"
       },
+      "AppToken": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id",
+            "description": "Names the token in the paths of its routes."
+          },
+          "user": {
+            "$ref": "#/components/schemas/MicroUser"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "rights": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Rights",
+            "description": "Names of its rights, as `appTokenRights` of `GET /info` lists them."
+          },
+          "token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Token",
+            "description": "The token's value: only in the response that created the token, `null` everywhere else."
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "expirationTime": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expirationtime"
+          },
+          "creationTime": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Creationtime"
+          },
+          "lastEditTime": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastedittime"
+          },
+          "lastUsageTime": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastusagetime"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "AppToken"
+      },
       "Card": {
         "properties": {
           "postId": {
@@ -6296,6 +6772,17 @@
           },
           "config": {
             "$ref": "#/components/schemas/InfoConfig"
+          },
+          "appTokenRights": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "type": "object",
+            "title": "Apptokenrights",
+            "description": "The rights an app token can carry, each with the privileges it lists (named as in `config.privileges`). A request made with an app token may use a privilege only when one of its rights lists it and the user's rank grants it, and never one about accounts or tokens."
           },
           "maxUploadSize": {
             "anyOf": [
@@ -7525,6 +8012,20 @@
         "type": "object",
         "title": "TagSibling"
       },
+      "Unpaged_AppToken_": {
+        "properties": {
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/AppToken"
+            },
+            "type": "array",
+            "title": "Results"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Unpaged[AppToken]"
+      },
       "Unpaged_PoolCategory_": {
         "properties": {
           "results": {
@@ -7703,12 +8204,25 @@
       },
       "UserToken": {
         "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id",
+            "description": "Names the token in the paths of its routes."
+          },
           "user": {
             "$ref": "#/components/schemas/MicroUser"
           },
           "token": {
-            "type": "string",
-            "title": "Token"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Token",
+            "description": "The token's value: only in the response that created the token, `null` everywhere else."
           },
           "note": {
             "anyOf": [
@@ -7857,7 +8371,7 @@
       },
       "tokenAuth": {
         "type": "apiKey",
-        "description": "`Token ` followed by the base64 of `user-name:login-token`.",
+        "description": "`Token ` followed by the base64 of `user-name:token`, where the token is a login token or an app token.",
         "in": "header",
         "name": "Authorization"
       }
@@ -7875,6 +8389,10 @@
     {
       "name": "User tokens",
       "description": "Login tokens: credentials a client keeps instead of the password."
+    },
+    {
+      "name": "App tokens",
+      "description": "Tokens for other applications, each with a set of rights."
     },
     {
       "name": "Password reset",

@@ -153,6 +153,8 @@ def update_pool_category(
     if body.has("color"):
         auth.verify_privilege(auth_user, "pool_categories:edit:color")
         pool_categories.update_category_color(category, body.color)
+    # a body with nothing to change asks no privilege (see there)
+    auth.verify_app_token_changed_something()
     db.session.flush()
     snapshots.modify(category, auth_user)
     db.session.commit()

@@ -17,7 +17,7 @@ def test_edit_user_token(user_token_factory, client, fake_datetime):
     db.session.add(user_token)
     db.session.commit()
     with (
-        patch("lithica.func.user_tokens.get_by_user_and_token"),
+        patch("lithica.func.user_tokens.get_existing_by_user_and_id"),
         patch("lithica.func.user_tokens.update_user_token_enabled"),
         patch("lithica.func.user_tokens.update_user_token_edit_time"),
         patch("lithica.func.user_tokens.serialize_user_token"),
@@ -26,10 +26,10 @@ def test_edit_user_token(user_token_factory, client, fake_datetime):
     ):
         users.get_user_by_name.return_value = user_token.user
         user_tokens.serialize_user_token.return_value = "serialized user token"
-        user_tokens.get_by_user_and_token.return_value = user_token
+        user_tokens.get_existing_by_user_and_id.return_value = user_token
         result = ok(
             client.put(
-                "/user-token/%s/%s" % (user_token.user.name, user_token.token),
+                "/user-token/%s/%d" % (user_token.user.name, user_token.user_token_id),
                 user=user_token.user,
                 body={
                     "version": user_token.version,
@@ -38,8 +38,8 @@ def test_edit_user_token(user_token_factory, client, fake_datetime):
             )
         )
         assert result == "serialized user token"
-        user_tokens.get_by_user_and_token.assert_called_once_with(
-            user_token.user, user_token.token
+        user_tokens.get_existing_by_user_and_id.assert_called_once_with(
+            user_token.user, user_token.user_token_id
         )
         user_tokens.update_user_token_enabled.assert_called_once_with(user_token, False)
         user_tokens.update_user_token_edit_time.assert_called_once_with(user_token)

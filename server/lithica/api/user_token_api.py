@@ -1,6 +1,6 @@
 from typing import Annotated, Any
 
-from fastapi import Depends
+from fastapi import Depends, Path
 
 from lithica import db, model
 from lithica.api import resources
@@ -54,7 +54,8 @@ def get_user_tokens(
     user_name: str, auth_user: CurrentUser, fields: CheckedFields
 ) -> Any:
     """
-    Searches for user tokens for the given user.
+    Lists the login tokens of the given user. A token's value is never
+    listed: `token` is null.
 
     Errors:
 
@@ -82,8 +83,10 @@ def create_user_token(
     body: Annotated[UserTokenCreate, Depends(read_body(UserTokenCreate))],
 ) -> Any:
     """
-    Creates a new user token that can be used for authentication of API
-    endpoints instead of a password.
+    Creates a new login token that can be used for authentication of API
+    endpoints instead of a password. Its value, `token`, is in this response
+    and nowhere else: only a hash of it is stored. The token is addressed by
+    its `id` from then on.
 
     Errors:
 
@@ -92,32 +95,35 @@ def create_user_token(
     user = users.get_user_by_name(user_name)
     infix = "self" if auth_user.user_id == user.user_id else "any"
     auth.verify_privilege(auth_user, "user_tokens:create:%s" % infix)
-    user_token = user_tokens.create_user_token(user, body.enabled)
+    user_token, value = user_tokens.create_user_token(user, body.enabled)
     if body.has("note"):
         user_tokens.update_user_token_note(user_token, body.note)
     if body.has("expiration_time"):
         user_tokens.update_user_token_expiration_time(user_token, body.expiration_time)
     db.session.add(user_token)
     db.session.commit()
-    return _serialize(user_token, auth_user, fields)
+    return user_tokens.serialize_user_token(
+        user_token, auth_user, options=fields, value=value
+    )
 
 
 @router.put(
-    "/user-token/{user_name}/{user_token}",
+    "/user-token/{user_name}/{token_id}",
     response_model=resources.UserToken,
     summary="Update a login token",
     openapi_extra=request_body(UserTokenUpdate),
 )
 def update_user_token(
     user_name: str,
-    user_token: str,
+    token_id: Annotated[str, Path(description="The token's `id`.")],
     auth_user: CurrentUser,
     fields: CheckedFields,
     body: Annotated[UserTokenUpdate, Depends(read_body(UserTokenUpdate))],
 ) -> Any:
     """
-    Updates an existing user token using specified parameters. All fields except
-    the `version` are optional - update concerns only provided fields.
+    Updates an existing login token, named by its `id` (never by its value),
+    using specified parameters. All fields except the `version` are optional
+    - update concerns only provided fields.
 
     Errors:
 
@@ -128,7 +134,9 @@ def update_user_token(
     user = users.get_user_by_name(user_name)
     infix = "self" if auth_user.user_id == user.user_id else "any"
     auth.verify_privilege(auth_user, "user_tokens:edit:%s" % infix)
-    token = user_tokens.get_existing_by_user_and_token(user, user_token)
+    token = user_tokens.get_existing_by_user_and_id(
+        user, user_tokens.parse_token_id(token_id)
+    )
     versions.verify_version(token, body.require("version"))
     versions.bump_version(token)
     if body.has("enabled"):
@@ -146,23 +154,28 @@ def update_user_token(
 
 
 @router.delete(
-    "/user-token/{user_name}/{user_token}",
+    "/user-token/{user_name}/{token_id}",
     response_model=resources.Empty,
     summary="Delete a login token",
 )
-def delete_user_token(user_name: str, user_token: str, auth_user: CurrentUser) -> Any:
+def delete_user_token(
+    user_name: str,
+    token_id: Annotated[str, Path(description="The token's `id`.")],
+    auth_user: CurrentUser,
+) -> Any:
     """
-    Deletes existing user token.
+    Deletes an existing login token, named by its `id` (never by its value).
+    A token that does not exist, or is not a login token of this user, is
+    left alone and the answer is the same.
 
     Errors:
 
-    - the token does not exist
     - privileges are too low
     """
     user = users.get_user_by_name(user_name)
     infix = "self" if auth_user.user_id == user.user_id else "any"
     auth.verify_privilege(auth_user, "user_tokens:delete:%s" % infix)
-    token = user_tokens.get_by_user_and_token(user, user_token)
+    token = user_tokens.get_by_user_and_id(user, user_tokens.parse_token_id(token_id))
     if token is not None:
         db.session.delete(token)
         db.session.commit()

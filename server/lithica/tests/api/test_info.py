@@ -4,7 +4,7 @@ import pytest
 
 from lithica import db, model
 from lithica.api import dependencies, info_api
-from lithica.func import mime
+from lithica.func import app_token_rights, mime, util
 from lithica.tests.api.http import assert_fits, ok
 
 
@@ -87,6 +87,10 @@ def test_info_api(
         "canSendMails": True,
     }
 
+    rights = {
+        right: [util.snake_case_to_lower_camel_case(name) for name in privileges]
+        for right, privileges in app_token_rights.RIGHTS.items()
+    }
     with fake_datetime("2016-01-01 13:00"):
         assert ok(client.get("/info", user=auth_user)) == {
             "postCount": 2,
@@ -101,6 +105,7 @@ def test_info_api(
             "nsfwTag": "nsfw",
             "nsfwHidesNames": False,
             "acceptedTypes": accepted,
+            "appTokenRights": rights,
             "config": expected_config_key,
         }
     directory.join("test2.txt").write("abc")
@@ -118,6 +123,7 @@ def test_info_api(
             "nsfwTag": "nsfw",
             "nsfwHidesNames": False,
             "acceptedTypes": accepted,
+            "appTokenRights": rights,
             "config": expected_config_key,
         }
     with fake_datetime("2016-01-03 13:01"):
@@ -131,6 +137,7 @@ def test_info_api(
             "nsfwTag": "nsfw",
             "nsfwHidesNames": False,
             "acceptedTypes": accepted,
+            "appTokenRights": rights,
             "config": expected_config_key,
         }
 

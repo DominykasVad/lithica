@@ -163,6 +163,15 @@ privileges:
     'user_tokens:delete:any':       administrator
     'user_tokens:delete:self':      regular
 
+    'app_tokens:list:any':          administrator
+    'app_tokens:list:self':         regular
+    'app_tokens:create:any':        administrator
+    'app_tokens:create:self':       regular
+    'app_tokens:edit:any':          administrator
+    'app_tokens:edit:self':         regular
+    'app_tokens:delete:any':        administrator
+    'app_tokens:delete:self':       regular
+
     'posts:create:anonymous':       regular
     'posts:create:identified':      regular
     'posts:list':                   anonymous

@@ -28,6 +28,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from lithica import config, db, openapi, registry
 from lithica.api import (
+    app_token_api,
     comment_api,
     dependencies,
     docs_api,
@@ -296,6 +297,7 @@ def create_app(modules: Sequence[registry.Module] | None = None) -> FastAPI:
         info_api,
         user_api,
         user_token_api,
+        app_token_api,
         password_reset_api,
         tag_category_api,
         tag_api,

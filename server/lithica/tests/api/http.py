@@ -4,6 +4,7 @@ from typing import Any
 
 import httpx2
 import pydantic
+import yaml
 
 from lithica.api.error_handlers import ERROR_KINDS
 
@@ -63,3 +64,35 @@ def assert_fits(
             error for error in ex.errors() if complete or error["type"] != "missing"
         ]
         assert not problems, problems
+
+
+def shipped_config(data_dir: str, **overrides: Any) -> dict[str, Any]:
+    """
+    A site with the settings and privileges of config.yaml.dist, as shipped,
+    and what a test site needs on top (a data directory, a secret).
+    """
+    with open("config.yaml.dist") as handle:
+        defaults = yaml.safe_load(handle)
+    return (
+        defaults
+        | {
+            "visibility": "open",
+            "data_dir": data_dir,
+            "data_url": "http://example.com/data/",
+            "secret": "test",
+            "allow_broken_uploads": False,
+            "delete_source_files": True,
+            "thumbnails": {
+                "post_width": 300,
+                "post_height": 300,
+                "avatar_width": 30,
+                "avatar_height": 30,
+            },
+            "convert": {"gif": {"to_mp4": False, "to_webm": False}},
+            "tag_name_regex": r"^\S+$",
+            "user_name_regex": r"^\S+$",
+            "password_regex": r"^.{5,}$",
+            "webhooks": [],
+        }
+        | overrides
+    )

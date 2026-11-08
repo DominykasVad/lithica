@@ -7,7 +7,16 @@ from lithica import config, registry
 from lithica.api import resources
 from lithica.api.dependencies import CurrentUser, max_upload_size
 from lithica.api.routing import ApiRouter
-from lithica.func import auth, file_types, mailer, posts, users, util, visibility
+from lithica.func import (
+    app_token_rights,
+    auth,
+    file_types,
+    mailer,
+    posts,
+    users,
+    util,
+    visibility,
+)
 
 router = ApiRouter(tags=["Info"])
 
@@ -96,6 +105,9 @@ def get_info(user: CurrentUser) -> dict[str, Any]:
     file that would be refused. The server still decides by the file's
     content.
 
+    `<app-token-rights>` are the rights an app token can carry, each with
+    the privileges it lists, named as in `privileges`.
+
     `<disk-usage>` is the size of the data directory. It is measured in the
     background and can be up to an hour old; it is null until the first
     measurement after a server start has finished. When several server processes
@@ -116,6 +128,10 @@ def get_info(user: CurrentUser) -> dict[str, Any]:
             {"mime": [mime_type], "extensions": extensions}
             for mime_type, extensions in file_types.accepted_types()
         ],
+        "appTokenRights": {
+            right: [util.snake_case_to_lower_camel_case(name) for name in privileges]
+            for right, privileges in app_token_rights.RIGHTS.items()
+        },
         "config": {
             "name": config.config["name"],
             "userNameRegex": config.config["user_name_regex"],

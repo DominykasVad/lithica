@@ -142,7 +142,7 @@ def get_user(user_name: str, auth_user: CurrentUser, fields: CheckedFields) -> A
     - privileges are too low
     """
     user = users.get_user_by_name(user_name)
-    if auth_user.user_id != user.user_id:
+    if not auth.is_self(auth_user, user):
         auth.verify_privilege(auth_user, "users:view")
     return _serialize(user, auth_user, fields)
 
@@ -201,6 +201,8 @@ def update_user(
         users.update_user_avatar(
             user, body.avatar_style, data.get_file("avatar", default=b"")
         )
+    # a body with nothing to change asks no privilege (see there)
+    auth.verify_app_token_changed_something()
     db.session.commit()
     return _serialize(user, auth_user, fields)
 

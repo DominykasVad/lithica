@@ -1,14 +1,13 @@
 import hashlib
 import hmac
 import secrets
-import uuid
 from collections import OrderedDict
 
 from nacl import pwhash
 from nacl.exceptions import InvalidkeyError
 
 from lithica import config, db, errors, model
-from lithica.func import util
+from lithica.func import app_token_rights, util
 
 RANK_MAP: OrderedDict[str, str] = OrderedDict(
     [
@@ -111,7 +110,8 @@ def is_valid_token(user_token: model.UserToken | None) -> bool:
     return True
 
 
-def has_privilege(user: model.User, privilege_name: str) -> bool:
+def rank_grants(user: model.User, privilege_name: str) -> bool:
+    """Whether the user's rank grants the privilege, whatever the request."""
     assert user
     all_ranks = list(RANK_MAP.keys())
     assert privilege_name in config.config["privileges"]
@@ -127,11 +127,69 @@ def has_privilege(user: model.User, privilege_name: str) -> bool:
     return user.rank in good_ranks
 
 
+def has_privilege(user: model.User, privilege_name: str) -> bool:
+    """
+    Whether the request may do this as the user. With an app token, only
+    what one of its rights lists and the user's rank grants, and never
+    anything about accounts or tokens (lithica.func.app_token_rights).
+    """
+    rights = app_token_rights.current_rights()
+    if rights is not None:
+        assert privilege_name in config.config["privileges"]
+        if app_token_rights.is_forbidden(privilege_name):
+            return False
+        if privilege_name not in app_token_rights.privileges_of(rights):
+            return False
+    granted = rank_grants(user, privilege_name)
+    if granted and rights is not None:
+        app_token_rights.note_granted()
+    return granted
+
+
 def verify_privilege(user: model.User, privilege_name: str) -> None:
     assert user
     if not has_privilege(user, privilege_name):
         raise errors.AuthError("Insufficient privileges to do this.")
 
 
+def is_self(auth_user: model.User, user: model.User) -> bool:
+    """
+    Whether the request is the user acting on their own account, for what
+    one may see or do of one's own account without a privilege. A request
+    made with an app token never is: it reaches nothing of the account.
+    """
+    return (
+        auth_user.user_id == user.user_id and app_token_rights.current_rights() is None
+    )
+
+
+def verify_app_token_changed_something() -> None:
+    """
+    An edit that names nothing to change still bumps the resource's version
+    (and a post's edit time and snapshot) without asking any privilege. With
+    an app token, such an edit is refused: the token may change only what a
+    privilege it was granted allows.
+    """
+    if (
+        app_token_rights.current_rights() is not None
+        and not app_token_rights.granted_anything()
+    ):
+        raise errors.AuthError("Insufficient privileges to do this.")
+
+
+def hash_token(value: str) -> str:
+    """What is stored of a token: SHA-256 of its value, in hex."""
+    return hashlib.sha256(value.encode("utf8")).hexdigest()
+
+
+APP_TOKEN_PREFIX = "lithica_app_"
+
+
 def generate_authorization_token() -> str:
-    return uuid.uuid4().__str__()
+    """The value of a new login token."""
+    return secrets.token_urlsafe(32)
+
+
+def generate_app_token() -> str:
+    """The value of a new app token: recognisable by its prefix."""
+    return APP_TOKEN_PREFIX + secrets.token_urlsafe(32)

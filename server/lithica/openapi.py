@@ -36,6 +36,10 @@ TAGS: list[dict[str, str]] = [
         "description": "Login tokens: credentials a client keeps instead of the "
         "password.",
     },
+    {
+        "name": "App tokens",
+        "description": "Tokens for other applications, each with a set of rights.",
+    },
     {"name": "Password reset", "description": "Getting a new password by e-mail."},
     {"name": "Tag categories", "description": "Kinds of tags."},
     {"name": "Tags", "description": "The words posts are found by."},

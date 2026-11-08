@@ -6,6 +6,7 @@ import sqlalchemy.orm as sa_orm
 from lithica.model.base import Base
 from lithica.model.comment import Comment
 from lithica.model.post import Post, PostFavorite, PostScore
+from lithica.model.types import json_type
 
 
 class User(Base):
@@ -126,7 +127,17 @@ sa.Index("ix_user_name_lower", sa.func.lower(User.name))
 
 
 class UserToken(Base):
+    """
+    A token that authenticates requests of its user: a login token, which a
+    client keeps instead of the password, or an app token, which carries
+    rights (lithica.func.app_token_rights). Only a hash of the value is
+    stored; the value itself is shown once, when the token is made.
+    """
+
     __tablename__ = "user_token"
+
+    KIND_LOGIN = "login"
+    KIND_APP = "app"
 
     user_token_id: sa_orm.Mapped[int] = sa_orm.mapped_column(
         "id", sa.Integer, primary_key=True
@@ -138,11 +149,20 @@ class UserToken(Base):
         nullable=False,
         index=True,
     )
-    token: sa_orm.Mapped[str] = sa_orm.mapped_column(
-        "token", sa.Unicode(36), nullable=False
+    # SHA-256 of the value, in hex
+    token_hash: sa_orm.Mapped[str] = sa_orm.mapped_column(
+        "token_hash", sa.Unicode(64), nullable=False, unique=True, index=True
     )
+    kind: sa_orm.Mapped[str] = sa_orm.mapped_column(
+        "kind", sa.Unicode(16), nullable=False, default=KIND_LOGIN
+    )
+    # a login token's note; an app token's name
     note: sa_orm.Mapped[str | None] = sa_orm.mapped_column(
         "note", sa.Unicode(128), nullable=True
+    )
+    # an app token's rights: a list of right names; None for a login token
+    rights: sa_orm.Mapped[list[str] | None] = sa_orm.mapped_column(
+        "rights", json_type(), nullable=True
     )
     enabled: sa_orm.Mapped[bool] = sa_orm.mapped_column(
         "enabled", sa.Boolean, nullable=False, default=True

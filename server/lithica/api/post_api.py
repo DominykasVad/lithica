@@ -385,6 +385,8 @@ def update_post(
     if data.has_file("thumbnail"):
         auth.verify_privilege(auth_user, "posts:edit:thumbnail")
         posts.update_post_thumbnail(post, data.get_file("thumbnail"))
+    # a body with nothing to change asks no privilege (see there)
+    auth.verify_app_token_changed_something()
     # new content may bring new tags from the modules; as on creation, no
     # privilege is asked for those
     auto_tags = posts.update_post_auto_tags(post) if content_changed else []
