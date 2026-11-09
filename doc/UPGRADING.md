@@ -46,7 +46,7 @@ your client and `.env` need.
 3. **Look at `.env`** (compare with `doc/example.env`): `PORT` is where
    Sardonyx listens now. Add `FILE_LINK_SECRET` if you want signed file
    links, and the legacy client's lines if you run it (see the note above
-   and [The web clients](INSTALL.md#the-web-clients)).
+   and [The web clients](INSTALL.md#the-web-client)).
 
 4. **Build or pull, and start:**
 
@@ -78,7 +78,7 @@ name and password they had.
   editing of tags, safety and source, deleting, password reset by mail and
   changing one's password. It has no sign-up page and no pages for pools,
   comments, users or administration: use the legacy client for those. See
-  [The web clients](INSTALL.md#the-web-clients).
+  [The web clients](INSTALL.md#the-web-client).
 - **The legacy client** is the `client-legacy` service, started only with
   the `legacy` profile, on `LEGACY_PORT` (8081 by default).
 - **`lithica-admin create-user`** makes an account from the command line,

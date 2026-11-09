@@ -2,7 +2,8 @@
 
 Sardonyx is the web client for Lithica with the cards module. It is licensed
 under the MIT licence (see [LICENSE](LICENSE) in this folder). No code, styles
-or assets from `legacy/client/`, which is GPL, may be used here.
+or assets from szurubooru's client (upstream, or this repository's history),
+which is GPL, may be used here.
 
 It is a single-page app (Vite, React, TypeScript) that talks to the Lithica
 server only through its HTTP API, as `doc/openapi.json` describes it.
@@ -18,8 +19,8 @@ user@host:sardonyx$ pnpm dev
 ```
 
 `pnpm dev` serves the app on `http://localhost:5173` and passes `/api` and
-`/data` on to a running Lithica: by default the dev stack's client on
-`http://localhost:8080` (start the stack from the repository's root with
+`/data` on to a running Lithica: by default the dev stack's Sardonyx on
+`http://localhost:8082` (start the stack from the repository's root with
 `docker compose -f docker-compose.dev.yml up`). To use another site, set
 `LITHICA_URL`:
 
@@ -61,4 +62,4 @@ user who is logged in.
 the server (the container named by `BACKEND_HOST`, `server` by default) and
 `/data/` is read from the data volume, mounted read-only at `/data`. Every
 other path is answered with the app, which finds its page from there. The dev
-stack runs it on port 8082 next to the legacy client.
+stack runs it on port 8082.

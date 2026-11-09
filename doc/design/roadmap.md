@@ -45,10 +45,6 @@ into the current card model would mean converting everything twice.
    - Pools, favourites, star ratings (1–5 per account), notes on pictures,
      each behind its feature switch.
    - Admin screens: tag categories, implications and suggestions.
-7. **Retiring the legacy client** ([0009](decisions/0009-single-user-one-client.md))
-   - Once Sardonyx covers what's needed: the `legacy` compose profile and
-     the `lithica-client-legacy` image go; sites under a path (`BASE_URL`)
-     need base-path support in Sardonyx first.
 
 Alongside, small:
 - Dependabot version updates.
