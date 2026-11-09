@@ -89,6 +89,13 @@ server {
     gzip_vary on;
     gzip_types application/json application/javascript text/javascript text/css image/svg+xml;
 
+    # Share links are reached only at /share/; through /api/ the token
+    # would enter the access log.
+    location ^~ /api/share/ {
+        access_log off;
+        return 404;
+    }
+
     # the API: everything under /api/ goes to the server, without the prefix
     location /api/ {
         proxy_pass http://${BACKEND_HOST}:6666$lithica_path;

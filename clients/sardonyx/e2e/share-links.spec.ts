@@ -31,6 +31,7 @@ for (const kind of ["picture", "png", "charx"] as const) {
     expect(response.status()).toBe(200);
     expect(await response.body()).toEqual(bytes);
     const token = new URL(url).pathname.split("/").at(-1) ?? "";
+    expect((await request.get(`${SITE}/api/share/${token}`)).status()).toBe(404);
     expect(compose("logs", "sardonyx", "server")).not.toContain(token);
     expect(response.headers()["content-type"]).toBe(
       kind === "charx" ? "application/x-charx" : "image/png",
