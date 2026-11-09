@@ -287,6 +287,54 @@ class PostContent(Base):
     __table_args__ = (sa.Index("ix_post_content_post_id_kind", "post_id", "kind"),)
 
 
+class PostTypedRelation(Base):
+    __tablename__ = "post_typed_relation"
+
+    typed_relation_id: sa_orm.Mapped[int] = sa_orm.mapped_column("id", primary_key=True)
+    from_post_id: sa_orm.Mapped[int] = sa_orm.mapped_column(
+        sa.ForeignKey("post.id", ondelete="CASCADE")
+    )
+    to_post_id: sa_orm.Mapped[int] = sa_orm.mapped_column(
+        sa.ForeignKey("post.id", ondelete="CASCADE")
+    )
+    type: sa_orm.Mapped[str] = sa_orm.mapped_column(sa.Unicode(32))
+    label: sa_orm.Mapped[str | None] = sa_orm.mapped_column(sa.Unicode(128))
+    creation_time: sa_orm.Mapped[datetime] = sa_orm.mapped_column(sa.DateTime)
+    user_id: sa_orm.Mapped[int | None] = sa_orm.mapped_column(
+        sa.ForeignKey("user.id", ondelete="SET NULL")
+    )
+
+    __table_args__ = (
+        sa.UniqueConstraint(
+            "from_post_id",
+            "to_post_id",
+            "type",
+            name="uq_post_typed_relation_ends_type",
+        ),
+        sa.CheckConstraint(
+            "from_post_id != to_post_id", name="ck_post_typed_relation_distinct_ends"
+        ),
+        sa.Index("ix_post_typed_relation_from_type", "from_post_id", "type"),
+        sa.Index("ix_post_typed_relation_to_type", "to_post_id", "type"),
+    )
+
+
+class PostExternalId(Base):
+    __tablename__ = "post_external_id"
+
+    post_id: sa_orm.Mapped[int] = sa_orm.mapped_column(
+        sa.ForeignKey("post.id", ondelete="CASCADE"), index=True
+    )
+    host: sa_orm.Mapped[str] = sa_orm.mapped_column(sa.Unicode(64), primary_key=True)
+    external_id: sa_orm.Mapped[str] = sa_orm.mapped_column(
+        sa.Unicode(256), primary_key=True
+    )
+    creation_time: sa_orm.Mapped[datetime] = sa_orm.mapped_column(sa.DateTime)
+    user_id: sa_orm.Mapped[int | None] = sa_orm.mapped_column(
+        sa.ForeignKey("user.id", ondelete="SET NULL")
+    )
+
+
 class Post(Base):
     __tablename__ = "post"
 
@@ -361,6 +409,22 @@ class Post(Base):
     )
     mime_type: sa_orm.Mapped[str] = sa_orm.mapped_column(
         "mime-type", sa.Unicode(32), nullable=False
+    )
+
+    typed_relations_out = sa_orm.relationship(
+        "PostTypedRelation",
+        foreign_keys=[PostTypedRelation.from_post_id],
+        cascade="all, delete-orphan",
+    )
+    typed_relations_in = sa_orm.relationship(
+        "PostTypedRelation",
+        foreign_keys=[PostTypedRelation.to_post_id],
+        cascade="all, delete-orphan",
+    )
+    external_ids = sa_orm.relationship(
+        "PostExternalId",
+        cascade="all, delete-orphan",
+        order_by="(PostExternalId.host, PostExternalId.external_id)",
     )
 
     # foreign tables

@@ -246,6 +246,7 @@ def test_serialize_post(
                 },
             ],
             "relations": [],
+            "externalIds": [],
             "notes": [],
             "pools": [
                 {

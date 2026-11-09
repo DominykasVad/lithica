@@ -252,6 +252,12 @@ class PostSerializer(serialization.BaseSerializer):
             "nsfw": self.serialize_nsfw,
             "tags": self.serialize_tags,
             "relations": self.serialize_relations,
+            "externalIds": lambda: [
+                {"host": row.host, "id": row.external_id}
+                for row in sorted(
+                    self.post.external_ids, key=lambda row: (row.host, row.external_id)
+                )
+            ],
             "user": self.serialize_user,
             "score": self.serialize_score,
             "ownScore": self.serialize_own_score,
@@ -528,6 +534,8 @@ def _relationship_loaders(fields: set[str]) -> list[tuple[str, Any]]:
                 ),
             )
         )
+    if "externalIds" in fields:
+        loaders.append(("external_ids", sa_orm.selectinload(post.external_ids)))
     if "notes" in fields:
         loaders.append(("notes", sa_orm.selectinload(post.notes).options(lazy)))
     if "comments" in fields:
@@ -1438,6 +1446,9 @@ def merge_posts(
         )
         db.session.execute(update_stmt)
 
+    from lithica.func import post_metadata
+
+    post_metadata.merge_metadata(source_post, target_post)
     merge_tags(source_post.post_id, target_post.post_id)
     merge_comments(source_post.post_id, target_post.post_id)
     merge_scores(source_post.post_id, target_post.post_id)

@@ -34,6 +34,14 @@ def _type_transformer(value: str) -> str:
     return search_util.enum_transformer(available_values, value)
 
 
+def _external_host_filter(
+    query: SaQuery, criterion: criteria.BaseCriterion | None, negated: bool
+) -> SaQuery:
+    from lithica.func import post_metadata
+
+    return post_metadata.external_host_filter(query, criterion, negated)
+
+
 def _kind_transformer(value: str) -> str:
     names = [model.Post.KIND_MEDIA, *(kind.name for kind in registry.post_kinds())]
     return search_util.enum_transformer({name: name for name in names}, value)
@@ -299,6 +307,10 @@ class PostSearchConfig(BaseSearchConfig):
                 (
                     ["feature-count"],
                     search_util.create_num_filter(model.Post.feature_count),
+                ),
+                (
+                    ["external-host"],
+                    _external_host_filter,
                 ),
                 (
                     ["kind"],

@@ -120,6 +120,16 @@ def get_info(user: CurrentUser) -> dict[str, Any]:
         "diskUsage": _disk_usage.get(),
         "serverTime": util.utcnow(),
         "modules": [module.name for module in registry.modules()],
+        "typedRelationTypes": [
+            {
+                "name": item.name,
+                "fromKinds": sorted(item.from_kinds)
+                if item.from_kinds is not None
+                else None,
+                "toKinds": sorted(item.to_kinds) if item.to_kinds is not None else None,
+            }
+            for item in registry.relation_types()
+        ],
         "postKinds": [
             model.Post.KIND_MEDIA,
             *(kind.name for kind in registry.post_kinds()),

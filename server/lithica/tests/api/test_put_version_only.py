@@ -69,6 +69,25 @@ def _make_post_kind() -> tuple[str, Any]:
     return path + "/kind", post
 
 
+def _make_external_ids() -> tuple[str, Any]:
+    path, post = _make_post()
+    return path + "/external-ids", post
+
+
+def _make_typed_relation() -> tuple[str, Any]:
+    _, source = _make_post()
+    _, target = _make_post()
+    row = model.PostTypedRelation(
+        from_post_id=source.post_id,
+        to_post_id=target.post_id,
+        type="gallery-of",
+        creation_time=util.utcnow(),
+    )
+    db.session.add(row)
+    db.session.flush()
+    return "/typed-relation/%d" % row.typed_relation_id, row
+
+
 def _make_user() -> tuple[str, Any]:
     user = model.User()
     user.name = get_unique_name()
@@ -210,6 +229,8 @@ class Entry:
 # also answers to, and without a path converter)
 RESOURCES: dict[str, Entry] = {
     "/post/{post_id}": Entry(_make_post),
+    "/post/{post_id}/external-ids": Entry(_make_external_ids, {"externalIds": []}),
+    "/typed-relation/{relation_id}": Entry(_make_typed_relation, {"label": None}),
     "/post/{post_id}/kind": Entry(_make_post_kind, {"kind": "media"}),
     "/post/{post_id}/score": Entry(_make_post_score, {"score": 1}),
     "/user/{user_name}": Entry(_make_user),
@@ -252,7 +273,8 @@ def _state(cls: type, key: Any) -> dict[str, Any]:
         resource = db.session.get(cls, key)
         assert resource is not None
         return {
-            "version": resource.version,
+            "version": getattr(resource, "version", None),
+            "label": getattr(resource, "label", None),
             "lastEditTime": getattr(resource, "last_edit_time", None),
             "snapshots": db.session.scalar(
                 sa.select(sa.func.count()).select_from(model.Snapshot)

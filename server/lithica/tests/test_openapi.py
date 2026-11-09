@@ -22,6 +22,7 @@ NO_BODY = {
     "set_tag_category_as_default",
     "set_pool_category_as_default",
     "add_post_to_favorites",
+    "delete_typed_relation",
 }
 
 
@@ -73,8 +74,8 @@ def test_document_describes_the_whole_api(document):
     operations = list(_operations(document))
     # the engine's, and those of the modules there are
     engine = [o for o in operations if not o[1].startswith("/modules/")]
-    assert len(engine) == 66
-    assert len([path for path in document["paths"] if "/modules/" not in path]) == 39
+    assert len(engine) == 72
+    assert len([path for path in document["paths"] if "/modules/" not in path]) == 44
     assert sorted(path for path in document["paths"] if "/modules/" in path) == [
         "/modules/cards/post/{post_id}",
         "/modules/cards/post/{post_id}/download",

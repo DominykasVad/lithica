@@ -223,6 +223,14 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 - 2026-11-09 — fix-post-lists — Lists load what fields need per page; a module field may add a batch (`post_field_batches`).
 - 2026-11-09 — fix-hidden-counts — Siblings and relationCount follow visibility; other counts don't (tag usages, user counts).
 
+- 2026-11-09 — 6.3 — Call directed records typed relations (relations already names the untyped feature).
+- 2026-11-09 — 6.3 — External-ID hosts name installations, not programs (plugins configure their own installation names).
+- 2026-11-09 — 6.3 — Neither typed relations nor external IDs bump post versions or snapshot (bulk bookkeeping).
+- 2026-11-09 — 6.3 — Both metadata edit privileges belong to app-token write (imports need both).
+- 2026-11-09 — 6.3 — Replace external IDs as a whole list (IDs may contain slashes, so none appear in paths).
+- 2026-11-09 — 6.3 — Merges move typed relations and external IDs, dropping duplicate/self typed relations.
+- 2026-11-09 — 6.3 — Search external-host: only; exact IDs use lookup (parser folds case and splits whitespace).
+
 ---
 
 ## Phase 0 — done (merged in PR #1)
@@ -360,11 +368,11 @@ concept, "post" the resource.
 - [x] Changing a post's kind: its own endpoint and privilege (`posts:edit:kind`), only to a kind its content supports (a PNG card may be made `media`, a plain picture can't become `card`).
 - [x] Search token `kind:`; `GET /info` lists the kinds of the site.
 
-### 6.3 Relations and external IDs
-- [ ] Typed, directed relations between posts (from, to, type), types registered by modules (e.g. `avatar-of`, `archived-from`, `embedded-in`, `gallery-of`, `expression-of`), each with an optional label (an expression's name). Separate from the engine's existing untyped relations, which stay as they are.
-- [ ] API to list a post's relations, by type, with each related post's file URLs; deleting a post removes its relations.
-- [ ] External IDs: (host, the host's ID) per post, several allowed, unique per host; set and removed through the API under a privilege; search token to find a post by one.
-- [ ] The visibility filter (`nsfw-login`) covers both: a hidden post appears in no relation and no external-ID lookup.
+### 6.3 Typed relations and external IDs
+- [x] Typed, directed relations between posts (from, to, type), types registered by modules (e.g. `avatar-of`, `archived-from`, `embedded-in`, `gallery-of`, `expression-of`), each with an optional label (an expression's name). Separate from the engine's existing untyped relations, which stay as they are.
+- [x] API to list a post's typed relations, by type, with each related post's file URLs; deleting a post removes its typed relations.
+- [x] External IDs: (host, the host's ID) per post, several allowed, unique per host; set and removed through the API under a privilege; lookup endpoint to find a post by one; search token `external-host:`.
+- [x] The visibility filter (`nsfw-login`) covers both: a hidden post appears in no typed relation and no external-ID lookup.
 
 ### 6.4 Listed
 - [ ] A post's `listed` flag, default true. Searches leave unlisted posts out unless the query says `listed:no` or `listed:any`.

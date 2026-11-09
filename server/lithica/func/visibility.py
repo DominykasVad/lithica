@@ -182,6 +182,27 @@ def _leave_out_hidden_posts(state: sa_orm.ORMExecuteState) -> None:
             ),
             include_aliases=True,
         ),
+        sa_orm.with_loader_criteria(
+            model.PostTypedRelation,
+            lambda cls: (
+                ~sa.exists()
+                .where(model.PostTag.post_id == cls.from_post_id)
+                .where(model.PostTag.tag_id.in_(tag_ids))
+                & ~sa.exists()
+                .where(model.PostTag.post_id == cls.to_post_id)
+                .where(model.PostTag.tag_id.in_(tag_ids))
+            ),
+            include_aliases=True,
+        ),
+        sa_orm.with_loader_criteria(
+            model.PostExternalId,
+            lambda cls: (
+                ~sa.exists()
+                .where(model.PostTag.post_id == cls.post_id)
+                .where(model.PostTag.tag_id.in_(tag_ids))
+            ),
+            include_aliases=True,
+        ),
         # the rows that tie a post to a pool, and the featuring of a post
         sa_orm.with_loader_criteria(
             model.PoolPost,

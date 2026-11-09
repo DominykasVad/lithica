@@ -193,7 +193,43 @@ class Pool(Resource):
     description: str | None
 
 
+class ExternalId(Resource):
+    host: str
+    id: str
+
+
+class TypedRelationType(Resource):
+    name: str
+    from_kinds: list[str] | None
+    to_kinds: list[str] | None
+
+
+class TypedRelationPost(Resource):
+    id: int
+    kind: str
+    type: str
+    mime_type: str
+    safety: str
+    nsfw: bool
+    content_url: str
+    thumbnail_url: str
+
+
+class TypedRelation(Resource):
+    id: int
+    type: str
+    label: str | None
+    direction: Literal["out", "in"]
+    creation_time: datetime
+    post: TypedRelationPost
+
+
+class TypedRelations(Resource):
+    results: list[TypedRelation]
+
+
 class Post(Resource):
+    external_ids: list[ExternalId]
     kind: str = Field(
         description="media or a kind a module of the site registers, "
         "as postKinds of GET /info lists them; a post may carry "
@@ -308,6 +344,7 @@ class AcceptedType(Resource):
 
 
 class Info(Resource):
+    typed_relation_types: list[TypedRelationType]
     post_kinds: list[str] = Field(
         description="Post kinds: media, then loaded module post kinds."
     )

@@ -165,6 +165,14 @@ def build(
         when = START + timedelta(hours=position)
         # fixed times: two sites built alike give the same answers
         post.creation_time = when
+        post.external_ids = [
+            model.PostExternalId(
+                host="test-home",
+                external_id="Post / %d:Mixed" % position,
+                creation_time=when,
+                user_id=ada.user_id,
+            )
+        ]
         # relations: to the one before and to one three ahead, both ways, as
         # the API stores them
         for other in (position - 1, position + 3):
