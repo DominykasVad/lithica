@@ -127,7 +127,7 @@ where `<path>` is the file's path under the data directory
 tomorrow, UTC, in seconds since the epoch. An address is therefore the same
 for a whole day and valid for 24 to 48 hours; a client asks the API again
 for a newer one. Avatars are not signed. This is nginx's `secure_link_md5`;
-both client images check it when they are given the same secret.
+the client image checks it when it is given the same secret.
 
 ## User token authentication
 
