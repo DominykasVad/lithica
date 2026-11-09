@@ -92,8 +92,9 @@ as `nsfwTag`:
   snapshots, its place in pools and its featuring; ids of such posts are
   left out of snapshot data. Uploading a file such a post already has is
   refused with `PostAlreadyUploadedError` without `otherPostId` and
-  `otherPostUrl`. Numbers are not adjusted: tag usages and siblings, a
-  pool's `postCount`, a user's upload and favourite counts still count
+  `otherPostUrl`. A pool's `postCount` leaves those posts out, as its
+  `posts` do. Other numbers are not adjusted: tag usages, the occurrences
+  of tag siblings, and a user's upload and favourite counts still count
   those posts (never their ids, addresses or files). Logged-in users see
   what their privileges allow, as always.
 - `login`: an anonymous user has no privileges at all, and every request
