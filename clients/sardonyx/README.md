@@ -61,5 +61,25 @@ user who is logged in.
 `Dockerfile` builds the app and serves it with nginx: `/api/` is passed on to
 the server (the container named by `BACKEND_HOST`, `server` by default) and
 `/data/` is read from the data volume, mounted read-only at `/data`. Every
-other path is answered with the app, which finds its page from there. The dev
+other app path is answered with the app, which finds its page from there. The dev
 stack runs it on port 8082.
+
+### Signed file links
+
+Set `FILE_LINK_SECRET` to the server's `file_link_secret` to require nginx's
+secure_link signatures for post content and thumbnails under `/data/`. Avatars
+are unsigned. Without a secret, file delivery stays unsigned. This is separate
+from the site's `secret` and from the share route below.
+
+### Share links
+
+`/share/<token>` proxies to the server, which checks the link on every request
+and asks nginx to deliver the current file through an internal `/_share/`
+location. Direct requests to that internal location return 404. Share links
+work without login and remain separate from signed file links. They carry the
+upload CSP, `nosniff`, `no-referrer` and `private, no-cache`. The share route's
+access log is disabled. Without this nginx (when reaching the server directly),
+a successful share request has an empty body and delivers no file.
+
+The server's `share_links_nsfw` setting defaults to false; changing the site's
+`secret` invalidates all share links. The management UI follows in phase 6.5b.

@@ -109,6 +109,8 @@ def validate_visibility() -> None:
         raise errors.ConfigError(
             "'visibility' must be one of %s." % ", ".join(VISIBILITIES)
         )
+    if not isinstance(config.get("share_links_nsfw", False), bool):
+        raise errors.ConfigError("'share_links_nsfw' must be true or false.")
     nsfw_tag = config.get("nsfw_tag", "nsfw")
     if not isinstance(nsfw_tag, str) or not nsfw_tag.strip():
         raise errors.ConfigError("'nsfw_tag' must be the name of a tag.")

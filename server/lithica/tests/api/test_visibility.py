@@ -275,6 +275,13 @@ def _gets(site: Site) -> dict[str, Sequence[tuple[str, Mapping[str, Any], bool |
         "type:card",
     ]
     return {
+        "GET /share/{token}": [("/share/missing", {}, False)],
+        "GET /post/{post_id}/share-links": [
+            (f"/post/{h}/share-links", {}, True) for h in HIDDEN
+        ],
+        "GET /user/{user_name}/share-links": [
+            ("/user/the_admin/share-links", {}, False)
+        ],
         "GET /info": [("/info", {}, False)],
         "GET /external-id": [
             ("/external-id", {"host": "hidden-home", "id": "Hidden Mixed /: ID"}, True)
@@ -344,6 +351,11 @@ def _writes(site: Site, read_asset: Any) -> dict[str, list[dict[str, Any]]]:
     merge = {"removeVersion": 1, "mergeToVersion": 1, "replaceContent": False}
     hidden_posts = [("/post/%d" % post_id) for post_id in HIDDEN]
     return {
+        "POST /post/{post_id}/share-links": [
+            {"path": f"/post/{h}/share-links", "body": {}, "hidden": True}
+            for h in HIDDEN
+        ],
+        "DELETE /share-link/{link_id}": [{"path": "/share-link/999999"}],
         "POST /users": [{"body": {"name": "newbie", "password": "newbie_pw1"}}],
         "POST /typed-relations": [
             {
@@ -798,6 +810,7 @@ def test_in_open_mode_nothing_is_hidden(start, user_factory, read_asset):
 
 # what an anonymous user may still do on a site for its users only
 LOGIN_OPEN = {
+    "GET /share/{token}",
     "GET /info",
     "GET /password-reset/{user_name}",
     "POST /password-reset/{user_name}",
@@ -809,6 +822,8 @@ def _fill(template: str) -> str:
         template.replace("{post_id}", "1")
         .replace("{user_name}", "the_admin")
         .replace("{token_id}", "1")
+        .replace("{link_id}", "1")
+        .replace("{token}", "missing")
         .replace("{comment_id}", "1")
         .replace("{pool_id}", "1")
         .replace("{tag_name}", "nsfw")

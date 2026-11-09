@@ -39,6 +39,7 @@ from lithica.api import (
     pool_category_api,
     post_api,
     post_metadata_api,
+    share_link_api,
     snapshot_api,
     tag_api,
     tag_category_api,
@@ -47,6 +48,7 @@ from lithica.api import (
     user_token_api,
 )
 from lithica.api.dependencies import LOG_USER_KEY
+from lithica.api.paths import SHARE_LINK_PREFIX
 from lithica.func import content, file_uploads, posts, visibility
 from lithica.version import get_version
 
@@ -135,7 +137,9 @@ class SessionScopeMiddleware:
             logger.info(
                 "%s %s (user=%s, queries=%d)",
                 scope["method"],
-                scope["path"],
+                f"{SHARE_LINK_PREFIX}<redacted>"
+                if scope["path"].startswith(SHARE_LINK_PREFIX)
+                else scope["path"],
                 scope.get(LOG_USER_KEY),
                 db.get_query_count(),
             )
@@ -309,8 +313,11 @@ def create_app(modules: Sequence[registry.Module] | None = None) -> FastAPI:
         upload_api,
         post_api,
         post_metadata_api,
+        share_link_api,
     ]:
         application.include_router(ported.router)
+
+    application.include_router(share_link_api.delivery_router)
 
     for module in modules:
         if module.router is not None:

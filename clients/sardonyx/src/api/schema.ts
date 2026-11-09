@@ -1552,6 +1552,93 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/post/{post_id}/share-links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Post
+         * @description List your links of this visible post, or all with share_links:list:any.
+         */
+        get: operations["list_post"];
+        put?: never;
+        /**
+         * Create
+         * @description Create a reusable bearer link with an optional note and expiry.
+         */
+        post: operations["create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/user/{user_name}/share-links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List User
+         * @description Page through a user's share links; another user requires share_links:list:any.
+         */
+        get: operations["list_user"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/share-link/{link_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete
+         * @description Revoke a share link by id, for its owner or a caller with delete:any.
+         */
+        delete: operations["delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/share/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Deliver
+         * @description Authorize anonymous file delivery through nginx. Every refusal is the same 404.
+         *
+         *     The server itself returns no bytes; nginx preserves Content-Type and serves
+         *     the internal X-Accel-Redirect target. Authorization headers are ignored.
+         */
+        get: operations["deliver"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/modules/cards/post/{post_id}": {
         parameters: {
             query?: never;
@@ -1779,6 +1866,8 @@ export interface components {
         };
         /** Info */
         Info: {
+            /** Sharelinksnsfw */
+            shareLinksNsfw?: boolean;
             /** Typedrelationtypes */
             typedRelationTypes?: components["schemas"]["TypedRelationType"][];
             /**
@@ -2046,6 +2135,31 @@ export interface components {
             /** Results */
             results?: components["schemas"]["Post"][];
         };
+        /** Paged[ShareLink] */
+        Paged_ShareLink_: {
+            /**
+             * Query
+             * @description The search query, as it was sent.
+             */
+            query?: string;
+            /**
+             * Offset
+             * @description How many results were skipped.
+             */
+            offset?: number;
+            /**
+             * Limit
+             * @description The page size.
+             */
+            limit?: number;
+            /**
+             * Total
+             * @description How many results the query has in all.
+             */
+            total?: number;
+            /** Results */
+            results?: components["schemas"]["ShareLink"][];
+        };
         /** Paged[Snapshot] */
         Paged_Snapshot_: {
             /**
@@ -2297,6 +2411,27 @@ export interface components {
             prev?: components["schemas"]["Post"] | null;
             next?: components["schemas"]["Post"] | null;
         };
+        /** ShareLink */
+        ShareLink: {
+            /** Id */
+            id?: number;
+            /** Postid */
+            postId?: number;
+            user?: components["schemas"]["MicroUser"];
+            /** Note */
+            note?: string | null;
+            /**
+             * Creationtime
+             * Format: date-time
+             */
+            creationTime?: string;
+            /** Expiresat */
+            expiresAt?: string | null;
+            /** Expired */
+            expired?: boolean;
+            /** Url */
+            url?: string;
+        };
         /** SimilarPost */
         SimilarPost: {
             /**
@@ -2438,6 +2573,11 @@ export interface components {
         Unpaged_PostContent_: {
             /** Results */
             results?: components["schemas"]["PostContent"][];
+        };
+        /** Unpaged[ShareLink] */
+        Unpaged_ShareLink_: {
+            /** Results */
+            results?: components["schemas"]["ShareLink"][];
         };
         /** Unpaged[TagCategory] */
         Unpaged_TagCategory_: {
@@ -5516,6 +5656,187 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Post"];
                 };
+            };
+            /** @description The request was refused. */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_post: {
+        parameters: {
+            query?: {
+                /** @description Record this request as a login of the authenticated user. */
+                "bump-login"?: boolean;
+            };
+            header?: never;
+            path: {
+                post_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Unpaged_ShareLink_"];
+                };
+            };
+            /** @description The request was refused. */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create: {
+        parameters: {
+            query?: {
+                /** @description Record this request as a login of the authenticated user. */
+                "bump-login"?: boolean;
+            };
+            header?: never;
+            path: {
+                post_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    note?: string | null;
+                    expiresAt?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShareLink"];
+                };
+            };
+            /** @description The request was refused. */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_user: {
+        parameters: {
+            query?: {
+                /** @description Record this request as a login of the authenticated user. */
+                "bump-login"?: boolean;
+                /** @description Search query; see the search syntax. */
+                query?: string;
+                /** @description How many results to skip. */
+                offset?: number;
+                /** @description How many results to return. */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                user_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Paged_ShareLink_"];
+                };
+            };
+            /** @description The request was refused. */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete: {
+        parameters: {
+            query?: {
+                /** @description Record this request as a login of the authenticated user. */
+                "bump-login"?: boolean;
+            };
+            header?: never;
+            path: {
+                link_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Empty"];
+                };
+            };
+            /** @description The request was refused. */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    deliver: {
+        parameters: {
+            query?: {
+                /** @description Record this request as a login of the authenticated user. */
+                "bump-login"?: boolean;
+            };
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description The request was refused. */
             "4XX": {

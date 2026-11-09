@@ -1750,3 +1750,46 @@ The listed default applies only to post searches. It does **not** filter:
 - tag usage counts;
 - user upload and favourite counts;
 - `GET /info`'s `postCount`.
+
+## Share links
+
+A share link gives anyone holding its URL access to one post's current file.
+Creating it does not change `contentUrl` or `thumbnailUrl`. Links survive content
+replacement; deleting the creator or post (including merging the source away)
+revokes them. They have no version and create no snapshot.
+
+- `POST /post/{id}/share-links` accepts optional `note` (up to 128 characters)
+  and `expiresAt` (a future UTC timestamp). Requires `share_links:create`
+  (regular by default) and a visible post. Each post may have at most 100 links.
+- `GET /post/{id}/share-links` returns `{results: [...]}`: the caller's links
+  with `share_links:list:self`, or all links with `share_links:list:any`.
+- `GET /user/{name}/share-links` accepts `offset` and `limit`, and returns
+  `query`, `offset`, `limit`, `total` and `results`. Requires `list:self` for
+  oneself, or `list:any` for another user.
+- `DELETE /share-link/{id}` revokes a link, with `share_links:delete:self` for
+  one's own links or `share_links:delete:any` for any link.
+
+The `self` privileges default to regular, the `any` privileges to administrator.
+App-token rights do not include share link privileges.
+
+Each resource contains `id`, `postId`, `user` (micro user), `note`,
+`creationTime`, nullable `expiresAt`, `expired`, and `url`. Anyone allowed to
+see the resource sees its reusable URL, with the configured `domain` prefix
+or a relative `/share/<token>` path. Tokens are derived from the site's
+`secret` and a random per-link salt; the database stores salts and lookup
+hashes, never tokens. Changing `secret` invalidates every existing share link.
+
+`GET /share/{token}` ignores Authorization and works without login in all
+visibility modes. It rechecks expiry and the post's current NSFW tags (including
+implications). `share_links_nsfw: false` (default; reported as `shareLinksNsfw`
+by `/info`) prevents creation and delivery of NSFW share links. Enabling it
+allows anonymous delivery even on a `nsfw-login` site. Unknown, wrong, revoked,
+expired, NSFW-refused and deleted-post links all return the same 404 body.
+
+Delivery requires the client image's nginx: the server returns an empty 200
+with the post's `Content-Type` and `X-Accel-Redirect` to the internal `/_share/`
+location. Reaching the server directly delivers no file. nginx disallows direct
+access to `/_share/` and applies the upload security policy. Caches may keep
+the file but must ask the server again each time (`Cache-Control: private,
+no-cache`), so a revoked link stops at once. Share request tokens are omitted
+from access logs.

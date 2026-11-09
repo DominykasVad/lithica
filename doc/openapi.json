@@ -6933,6 +6933,379 @@
         }
       }
     },
+    "/post/{post_id}/share-links": {
+      "post": {
+        "tags": [
+          "Share links"
+        ],
+        "summary": "Create",
+        "description": "Create a reusable bearer link with an optional note and expiry.",
+        "operationId": "create",
+        "security": [
+          {
+            "basicAuth": []
+          },
+          {
+            "tokenAuth": []
+          },
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "post_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Post Id"
+            }
+          },
+          {
+            "name": "bump-login",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Record this request as a login of the authenticated user.",
+              "default": false,
+              "title": "Bump-Login"
+            },
+            "description": "Record this request as a login of the authenticated user."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShareLink"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "The request was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "note": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "expiresAt": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "type": "object"
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Share links"
+        ],
+        "summary": "List Post",
+        "description": "List your links of this visible post, or all with share_links:list:any.",
+        "operationId": "list_post",
+        "security": [
+          {
+            "basicAuth": []
+          },
+          {
+            "tokenAuth": []
+          },
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "post_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Post Id"
+            }
+          },
+          {
+            "name": "bump-login",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Record this request as a login of the authenticated user.",
+              "default": false,
+              "title": "Bump-Login"
+            },
+            "description": "Record this request as a login of the authenticated user."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Unpaged_ShareLink_"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "The request was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/user/{user_name}/share-links": {
+      "get": {
+        "tags": [
+          "Share links"
+        ],
+        "summary": "List User",
+        "description": "Page through a user's share links; another user requires share_links:list:any.",
+        "operationId": "list_user",
+        "security": [
+          {
+            "basicAuth": []
+          },
+          {
+            "tokenAuth": []
+          },
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "user_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Name"
+            }
+          },
+          {
+            "name": "bump-login",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Record this request as a login of the authenticated user.",
+              "default": false,
+              "title": "Bump-Login"
+            },
+            "description": "Record this request as a login of the authenticated user."
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Search query; see the search syntax.",
+              "default": "",
+              "title": "Query"
+            },
+            "description": "Search query; see the search syntax."
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "How many results to skip.",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "How many results to skip."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "How many results to return.",
+              "default": 100,
+              "title": "Limit"
+            },
+            "description": "How many results to return."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Paged_ShareLink_"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "The request was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/share-link/{link_id}": {
+      "delete": {
+        "tags": [
+          "Share links"
+        ],
+        "summary": "Delete",
+        "description": "Revoke a share link by id, for its owner or a caller with delete:any.",
+        "operationId": "delete",
+        "security": [
+          {
+            "basicAuth": []
+          },
+          {
+            "tokenAuth": []
+          },
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "link_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Link Id"
+            }
+          },
+          {
+            "name": "bump-login",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Record this request as a login of the authenticated user.",
+              "default": false,
+              "title": "Bump-Login"
+            },
+            "description": "Record this request as a login of the authenticated user."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Empty"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "The request was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/share/{token}": {
+      "get": {
+        "tags": [
+          "Share links"
+        ],
+        "summary": "Deliver",
+        "description": "Authorize anonymous file delivery through nginx. Every refusal is the same 404.\n\nThe server itself returns no bytes; nginx preserves Content-Type and serves\nthe internal X-Accel-Redirect target. Authorization headers are ignored.",
+        "operationId": "deliver",
+        "security": [],
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Token"
+            }
+          },
+          {
+            "name": "bump-login",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Record this request as a login of the authenticated user.",
+              "default": false,
+              "title": "Bump-Login"
+            },
+            "description": "Record this request as a login of the authenticated user."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "4XX": {
+            "description": "The request was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/modules/cards/post/{post_id}": {
       "get": {
         "tags": [
@@ -7400,6 +7773,10 @@
       },
       "Info": {
         "properties": {
+          "shareLinksNsfw": {
+            "type": "boolean",
+            "title": "Sharelinksnsfw"
+          },
           "typedRelationTypes": {
             "items": {
               "$ref": "#/components/schemas/TypedRelationType"
@@ -8007,6 +8384,40 @@
         "type": "object",
         "title": "Paged[Post]"
       },
+      "Paged_ShareLink_": {
+        "properties": {
+          "query": {
+            "type": "string",
+            "title": "Query",
+            "description": "The search query, as it was sent."
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset",
+            "description": "How many results were skipped."
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit",
+            "description": "The page size."
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "description": "How many results the query has in all."
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/ShareLink"
+            },
+            "type": "array",
+            "title": "Results"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Paged[ShareLink]"
+      },
       "Paged_Snapshot_": {
         "properties": {
           "query": {
@@ -8531,6 +8942,60 @@
         "type": "object",
         "title": "PostsAround"
       },
+      "ShareLink": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "postId": {
+            "type": "integer",
+            "title": "Postid"
+          },
+          "user": {
+            "$ref": "#/components/schemas/MicroUser"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "creationTime": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Creationtime"
+          },
+          "expiresAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expiresat"
+          },
+          "expired": {
+            "type": "boolean",
+            "title": "Expired"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ShareLink"
+      },
       "SimilarPost": {
         "properties": {
           "distance": {
@@ -8879,6 +9344,20 @@
         "additionalProperties": false,
         "type": "object",
         "title": "Unpaged[PostContent]"
+      },
+      "Unpaged_ShareLink_": {
+        "properties": {
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/ShareLink"
+            },
+            "type": "array",
+            "title": "Results"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Unpaged[ShareLink]"
       },
       "Unpaged_TagCategory_": {
         "properties": {
@@ -9235,6 +9714,10 @@
     {
       "name": "Posts",
       "description": "Uploaded files and everything about them."
+    },
+    {
+      "name": "Share links",
+      "description": "Revocable bearer links to post files."
     },
     {
       "name": "Pool categories",

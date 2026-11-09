@@ -235,6 +235,7 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 - 2026-11-09 — 6.4 — PUT alone exposes listed; creation stays listed until phase 7 sets related images server-side.
 - 2026-11-09 — 6.4 — Add listed editing to app-token write (imports curate it).
 - 2026-11-09 — 6.4 — Merges retain the target's listed flag, as with safety.
+- 2026-11-09 — 6.5 — Share link tokens derived from `secret` and a salt (links shown again, reused by export)
 
 ---
 
@@ -385,10 +386,13 @@ concept, "post" the resource.
 - [x] Sardonyx's library respects it; the post page shows that a post is unlisted.
 
 ### 6.5 Share links
-- [ ] A share link per post: created under a privilege, optional expiry, revocable; listed per post and per user. Stored as a hash of a random token.
-- [ ] `/share/<token>`: the server checks it and lets nginx deliver the file (an internal location in the client image); revoked or expired gives 404.
-- [ ] Site setting: may NSFW posts get share links (default: no).
-- [ ] Tests: valid, revoked, expired and wrong token; a share link works on a `login` site without login; the post's own file links are unchanged.
+- [x] A share link per post: created under a privilege, optional expiry, revocable; listed per post and per user. The token is derived from the site's `secret` and a random salt per link, so its owner can see the link again; the database holds the salt and a hash for lookup, never the token. Changing `secret` ends every share link.
+- [x] `/share/<token>`: the server checks it and lets nginx deliver the file (an internal location in the client image); revoked or expired gives 404.
+- [x] Site setting: may NSFW posts get share links (default: no).
+- [x] Tests: valid, revoked, expired and wrong token; a share link works on a `login` site without login; the post's own file links are unchanged.
+
+### 6.5b Share links in Sardonyx
+- [ ] The post page lists the viewer's share links of the post (all of them for who may list any), with copy, revoke, and creating one with an optional note and expiry; shown only to ranks that may create or list share links.
 
 ### 6.6 Site settings and feature switches
 - [ ] A settings API (`GET`/`PUT /settings`, administrator only): settings declared in one registry with type, default and whether they can change at runtime. `config.yaml` gives the starting values; a value changed through the API is stored in the database and wins; settings that need a restart are read-only through the API.
