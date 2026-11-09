@@ -187,6 +187,7 @@ privileges:
     'posts:edit:relations':         regular
     'posts:edit:typed_relations':   regular
     'posts:edit:external_ids':      regular
+    'posts:edit:listed':            regular
     'posts:edit:safety':            power
     'posts:edit:source':            regular
     'posts:edit:tags':              regular

@@ -2168,6 +2168,11 @@ export interface components {
         };
         /** Post */
         Post: {
+            /**
+             * Listed
+             * @description Whether searches include this post by default; unlisted is not private.
+             */
+            listed?: boolean;
             /** Externalids */
             externalIds?: components["schemas"]["ExternalId"][];
             /**
@@ -4812,6 +4817,7 @@ export interface operations {
         requestBody?: {
             content: {
                 "application/json": {
+                    listed?: boolean;
                     version: number;
                     contentUrl?: string;
                     contentToken?: string;
@@ -4826,6 +4832,7 @@ export interface operations {
                 };
                 "multipart/form-data": {
                     metadata?: {
+                        listed?: boolean;
                         version: number;
                         contentUrl?: string;
                         contentToken?: string;

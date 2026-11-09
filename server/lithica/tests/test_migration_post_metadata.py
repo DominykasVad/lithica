@@ -45,6 +45,7 @@ def test_post_metadata_tables(migration_db):  # noqa: F811  (pytest fixture inje
                 checksum="constraint-test",
                 version=1,
                 kind="media",
+                listed=True,
                 **{"mime-type": "image/png"},
             )
             .returning(post.c.id)

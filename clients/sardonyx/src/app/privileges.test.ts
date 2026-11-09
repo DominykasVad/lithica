@@ -47,6 +47,7 @@ describe("the privileges the app asks about", () => {
     expect(asInfoNamesIt("tag_categories:set_default")).toBe(
       "tagCategories:setDefault",
     );
+    expect(asInfoNamesIt("posts:edit:listed")).toBe("posts:edit:listed");
     expect(asInfoNamesIt("posts:edit:tags")).toBe("posts:edit:tags");
   });
 });

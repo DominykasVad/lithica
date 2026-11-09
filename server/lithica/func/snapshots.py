@@ -48,6 +48,7 @@ def get_post_snapshot(post: model.Post) -> dict[str, Any]:
     assert post
     return {
         "kind": post.kind,
+        "listed": post.listed,
         "source": post.source,
         "safety": post.safety,
         "checksum": post.checksum,

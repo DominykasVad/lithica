@@ -16,6 +16,7 @@ export function postFields(hasCards: boolean): string {
     "type",
     "mimeType",
     "safety",
+    "listed",
     "source",
     "fileSize",
     "canvasWidth",

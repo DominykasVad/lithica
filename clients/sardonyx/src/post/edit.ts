@@ -11,6 +11,7 @@ export const EDIT_PRIVILEGES = {
   tags: "posts:edit:tags",
   safety: "posts:edit:safety",
   source: "posts:edit:source",
+  listed: "posts:edit:listed",
 } as const;
 
 export type EditField = keyof typeof EDIT_PRIVILEGES;
@@ -25,6 +26,7 @@ export interface Draft {
   tags: string;
   safety: Safety;
   source: string;
+  listed: boolean;
 }
 
 /** The fields of the editor this user may change, in the editor's order. */
@@ -58,6 +60,7 @@ export function draftOf(post: Post): Draft {
     tags: tagNames(post).join(" "),
     safety: (post.safety as Safety | undefined) ?? "safe",
     source: post.source ?? "",
+    listed: post.listed ?? true,
   };
 }
 
@@ -78,8 +81,13 @@ export function changes(
   post: Post,
   draft: Draft,
   fields: readonly EditField[],
-): { tags?: string[]; safety?: Safety; source?: string } {
-  const changed: { tags?: string[]; safety?: Safety; source?: string } = {};
+): { tags?: string[]; safety?: Safety; source?: string; listed?: boolean } {
+  const changed: {
+    tags?: string[];
+    safety?: Safety;
+    source?: string;
+    listed?: boolean;
+  } = {};
   if (fields.includes("tags") && !sameTags(parseTags(draft.tags), tagNames(post))) {
     changed.tags = parseTags(draft.tags);
   }
@@ -88,6 +96,9 @@ export function changes(
   }
   if (fields.includes("source") && draft.source !== (post.source ?? "")) {
     changed.source = draft.source;
+  }
+  if (fields.includes("listed") && draft.listed !== (post.listed ?? true)) {
+    changed.listed = draft.listed;
   }
   return changed;
 }

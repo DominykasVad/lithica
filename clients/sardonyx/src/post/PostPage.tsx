@@ -275,6 +275,7 @@ function Facts({ post }: { post: Post }) {
   return (
     <dl className="grid grid-cols-2 gap-3 rounded-xl border bg-card p-4">
       <Fact label="Safety">{post.safety ?? "unknown"}</Fact>
+      <Fact label="Listed">{post.listed === false ? "No" : "Yes"}</Fact>
       {post.fileSize != null ? (
         <Fact label="File size">{formatSize(post.fileSize)}</Fact>
       ) : null}

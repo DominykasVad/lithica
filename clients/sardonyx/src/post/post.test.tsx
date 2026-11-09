@@ -373,3 +373,24 @@ describe("the file name of a download", () => {
     expect(fallbackName(5, undefined)).toBe("5");
   });
 });
+
+it("shows Listed as its own fact and handles an unlisted direct link without neighbours", async () => {
+  site({ "GET /post/5": { body: { ...POST, listed: false } } });
+  renderApp("/posts/5");
+  const listed = await screen.findByText("Listed", { selector: "dt" });
+  expect(listed.nextElementSibling).toHaveTextContent(/^No$/);
+  expect(
+    screen.getByText("Safety", { selector: "dt" }).nextElementSibling,
+  ).toHaveTextContent(/^sketchy$/);
+  expect(screen.queryByRole("link", { name: "Previous" })).toBeNull();
+  expect(screen.queryByRole("link", { name: "Next" })).toBeNull();
+});
+
+it("shows Listed: Yes for a listed post", async () => {
+  site();
+  renderApp("/posts/5");
+  await screen.findByText("Uploaded by");
+  expect(
+    screen.getByText("Listed", { selector: "dt" }).nextElementSibling,
+  ).toHaveTextContent(/^Yes$/);
+});

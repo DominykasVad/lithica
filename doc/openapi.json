@@ -5310,6 +5310,9 @@
             "application/json": {
               "schema": {
                 "properties": {
+                  "listed": {
+                    "type": "boolean"
+                  },
                   "version": {
                     "type": "integer"
                   },
@@ -5366,6 +5369,9 @@
                 "properties": {
                   "metadata": {
                     "properties": {
+                      "listed": {
+                        "type": "boolean"
+                      },
                       "version": {
                         "type": "integer"
                       },
@@ -8209,6 +8215,11 @@
       },
       "Post": {
         "properties": {
+          "listed": {
+            "type": "boolean",
+            "title": "Listed",
+            "description": "Whether searches include this post by default; unlisted is not private."
+          },
           "externalIds": {
             "items": {
               "$ref": "#/components/schemas/ExternalId"

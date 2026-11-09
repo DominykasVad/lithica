@@ -10,6 +10,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Switch } from "@/components/ui/switch";
 import type { LibrarySearch } from "@/library/search";
 import { CompletionInput } from "@/search/CompletionInput";
 import {
@@ -113,6 +114,12 @@ function UnsavedEdits({
             <dd>{SAFETY_LABELS[changed.safety]}</dd>
           </div>
         ) : null}
+        {changed.listed !== undefined ? (
+          <div>
+            <dt className="text-muted-foreground text-xs">Listed</dt>
+            <dd>{changed.listed ? "Yes" : "No"}</dd>
+          </div>
+        ) : null}
         {changed.source !== undefined ? (
           <div>
             <dt className="text-muted-foreground text-xs">Source</dt>
@@ -164,7 +171,9 @@ function Editor({
   // tags, the chosen safety, the source
   useEffect(() => {
     form.current
-      ?.querySelector<HTMLElement>("textarea, [role=radio][aria-checked=true]")
+      ?.querySelector<HTMLElement>(
+        "textarea, [role=radio][aria-checked=true], [role=switch]",
+      )
       ?.focus();
   }, []);
 
@@ -273,6 +282,16 @@ function Editor({
             rows={3}
             className="w-full rounded-xl border border-control-border bg-card px-3 py-2 text-foreground text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
+        </div>
+      ) : null}
+      {fields.includes("listed") ? (
+        <div className="flex items-center gap-2">
+          <Switch
+            id={`${id}-listed`}
+            checked={draft.listed}
+            onCheckedChange={(listed) => setDraft((now) => ({ ...now, listed }))}
+          />
+          <Label htmlFor={`${id}-listed`}>Listed</Label>
         </div>
       ) : null}
       {save.isError ? (

@@ -430,3 +430,37 @@ def test_external_host_uses_existing_escaping(site):
     )
     assert response.status_code == 200, response.text
     assert [post["id"] for post in response.json()["results"]] == [site["image"]]
+
+
+def test_listed_edit_with_app_rights_version_and_snapshot(site: dict[str, Any]) -> None:
+    client = site["client"]
+    path = f"/post/{site['image']}"
+    body = {"version": 1, "listed": False}
+    assert (
+        client.put(path, headers=site["headers"]["read"], json=body).status_code == 403
+    )
+    changed = client.put(path, headers=site["headers"]["write"], json=body)
+    assert changed.status_code == 200, changed.text
+    assert changed.json()["listed"] is False
+    assert changed.json()["version"] == 2
+    assert changed.json()["lastEditTime"] is not None
+    with db.session_scope():
+        snapshot = db.session.query(model.Snapshot).one()
+        assert snapshot.data["value"]["listed"] == {
+            "type": "primitive change",
+            "old-value": True,
+            "new-value": False,
+        }
+    assert (
+        client.put(path, headers=site["headers"]["write"], json=body).status_code == 409
+    )
+    config.config["privileges"]["posts:edit:listed"] = "power"
+    assert (
+        client.put(
+            path, headers=site["headers"]["login"], json={"version": 2, "listed": True}
+        ).status_code
+        == 403
+    )
+    with db.session_scope():
+        assert db.session.get(model.Post, site["image"]).listed is False
+        assert db.session.get(model.Post, site["image"]).version == 2

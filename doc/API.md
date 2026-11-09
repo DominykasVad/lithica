@@ -684,6 +684,7 @@ One file together with its metadata posted to the site.
     "safety":             <safety>,
     "source":             <source>,
     "kind":               <post-kind>,
+    "listed":             <listed>,
     "type":               <type>,
     "checksum":           <checksum>,
     "checksumMD5":        <checksum-MD5>,
@@ -739,6 +740,7 @@ One file together with its metadata posted to the site.
     - `"unsafe"`
 
 - `<source>`: where the post was grabbed form, supplied by the user.
+- `<listed>`: boolean, true by default; included in the default fields and post snapshots. See [listed posts](#listed-posts).
 - `<post-kind>`: `media` or a module-registered post kind; see [post kinds and content kinds](#post-kinds-and-content-kinds).
 - `<type>`: the type of the post.
 
@@ -1062,6 +1064,7 @@ The value can be either of structures below, depending on
         "relations": [1, 2],
         "notes": [<note1>, <note2>, <note3>],
         "flags": ["loop"],
+        "listed": true,
         "featured": false
     }
     ```
@@ -1408,6 +1411,7 @@ Same as `tag` token.
 | `feature-date`       | featured at given date                                                                                                                  |
 | `feature-time`       | alias of `feature-time`                                                                                                                 |
 | `safety`             | having given safety. `<value>` can be either `safe`, `sketchy` or `unsafe`.                                         |
+| `listed`             | `yes`, `no` or `any`. Defaults to `yes`; `-listed:yes` means `listed:no`. |
 | `rating`             | alias of `safety`                                                                                                                       |
 
 ### Sort style tokens
@@ -1710,3 +1714,39 @@ reserve their unique pair. Deleting either end deletes a typed relation;
 deleting a post frees its external IDs. Merging posts moves the source's
 typed relations in both directions and external IDs to the target, dropping
 typed relations that would become duplicates or self relations.
+
+## Listed posts
+
+A post's `listed` boolean defaults to `true`. **Unlisted is not private**:
+anyone who may view a post can still open it by ID, follow a link, or find it
+in a pool or typed relation. Visibility rules such as `nsfw-login` apply
+independently, including to `listed:any` searches.
+
+`PUT /post/{id}` accepts `{"version": N, "listed": false}` under
+`posts:edit:listed` (default `regular`), included in the app-token `write`
+right. Like safety edits it verifies the version, bumps it, updates the last
+edit time, and records a snapshot. `listed` is not settable on `POST /posts`
+in phase 6.4; new posts are listed. Nothing automatically unlists posts in
+this phase. Merging keeps the target's own listed value, as with safety.
+
+Post searches (`GET /posts`, their totals, and `GET /post/{id}/around`)
+exclude unlisted posts unless the query includes `listed:no` (unlisted only)
+or `listed:any` (both). `listed:yes` explicitly selects listed posts.
+`-listed:yes` means `listed:no`; `-listed:no` means `listed:yes`.
+More than one `listed:` token, `-listed:any`, and values other than
+`yes`, `no`, `any` are search errors. The query returned by the API is the
+query supplied by the caller; the implicit default is not added to that text.
+Other tokens keep the default: for example, `fav:alice listed:any`,
+`uploader:alice listed:any`, or `pool:12 listed:any` includes unlisted
+matches, while those searches without `listed:` exclude them.
+
+The listed default applies only to post searches. It does **not** filter:
+
+- `GET /post/{id}` or direct file links;
+- pools' post lists or typed-relation listings;
+- the featured post (including the featured post in `GET /info`);
+- similar-image/reverse search (`posts:reverse_search`), which finds unlisted
+  duplicates too;
+- tag usage counts;
+- user upload and favourite counts;
+- `GET /info`'s `postCount`.

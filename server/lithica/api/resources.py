@@ -229,6 +229,10 @@ class TypedRelations(Resource):
 
 
 class Post(Resource):
+    listed: bool = Field(
+        description="Whether searches include this post by default; "
+        "unlisted is not private."
+    )
     external_ids: list[ExternalId]
     kind: str = Field(
         description="media or a kind a module of the site registers, "

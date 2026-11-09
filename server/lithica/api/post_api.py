@@ -65,6 +65,7 @@ class PostCreate(RequestModel):
 
 
 class PostUpdate(RequestModel):
+    listed: Bool = optional()
     version: Int = required()
     content_url: Str = optional()
     content_token: Str = optional()
@@ -370,6 +371,9 @@ def update_post(
             db.session.flush()
             for tag in new_tags:
                 snapshots.create(tag, auth_user)
+    if body.has("listed"):
+        auth.verify_privilege(auth_user, "posts:edit:listed")
+        posts.update_post_listed(post, body.listed)
     if body.has("safety"):
         auth.verify_privilege(auth_user, "posts:edit:safety")
         posts.update_post_safety(post, body.safety)

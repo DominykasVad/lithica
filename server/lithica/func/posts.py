@@ -239,6 +239,7 @@ class PostSerializer(serialization.BaseSerializer):
             "safety": self.serialize_safety,
             "source": self.serialize_source,
             "kind": lambda: self.post.kind,
+            "listed": lambda: self.post.listed,
             "type": self.serialize_type,
             "mimeType": self.serialize_mime,
             "checksum": self.serialize_checksum,
@@ -742,6 +743,10 @@ def create_post(
 
     db.session.add(post)
     return post, new_tags
+
+
+def update_post_listed(post: model.Post, listed: bool) -> None:
+    post.listed = listed
 
 
 def update_post_safety(post: model.Post, safety: str) -> None:

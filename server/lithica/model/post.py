@@ -388,6 +388,10 @@ class Post(Base):
         index=True,
     )
 
+    listed: sa_orm.Mapped[bool] = sa_orm.mapped_column(
+        sa.Boolean, nullable=False, default=True, index=True
+    )
+
     # content description
     type: sa_orm.Mapped[str] = sa_orm.mapped_column(
         "type", sa.Unicode(32), nullable=False
