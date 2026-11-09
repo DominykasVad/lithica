@@ -6,6 +6,7 @@ from starlette.responses import Response
 from lithica import db, errors, model
 from lithica.api import resources
 from lithica.api.dependencies import CurrentUser, Page, get_page, read_body
+from lithica.api.paths import SHARE_LINK_PATH
 from lithica.api.routing import ERROR_RESPONSES, ApiRouter
 from lithica.api.schemas import RequestModel, Str, request_body
 from lithica.func import auth, posts, share_links, users
@@ -36,7 +37,7 @@ def create(
         posts.get_post_by_id(post_id), user, body.note, body.expires_at
     )
     db.session.commit()
-    return share_links.serialize(link)
+    return share_links.serialize(link, user)
 
 
 @router.get(
@@ -51,7 +52,8 @@ def list_post(post_id: int, user: CurrentUser) -> Any:
         query = query.filter_by(user_id=user.user_id)
     return {
         "results": [
-            share_links.serialize(link) for link in query.order_by(model.ShareLink.id)
+            share_links.serialize(link, user)
+            for link in query.order_by(model.ShareLink.id)
         ]
     }
 
@@ -79,7 +81,7 @@ def list_user(
         "limit": page.limit,
         "total": query.count(),
         "results": [
-            share_links.serialize(link)
+            share_links.serialize(link, user)
             for link in query.order_by(model.ShareLink.id)
             .offset(page.offset)
             .limit(page.limit)
@@ -102,7 +104,7 @@ def delete(link_id: int, user: CurrentUser) -> Any:
 
 
 @delivery_router.get(
-    "/share/{token}", response_class=Response, openapi_extra={"security": []}
+    SHARE_LINK_PATH, response_class=Response, openapi_extra={"security": []}
 )
 def deliver(token: str) -> Response:
     """Authorize anonymous file delivery through nginx. Every refusal is the same 404.

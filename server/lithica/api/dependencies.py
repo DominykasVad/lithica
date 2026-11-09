@@ -24,6 +24,7 @@ from starlette.requests import ClientDisconnect
 
 from lithica import config, db, errors, model
 from lithica.api.error_handlers import HttpError
+from lithica.api.paths import SHARE_LINK_PATH
 from lithica.api.schemas import READ_AS_INT, Bool, RequestModel
 from lithica.func import (
     app_token_rights,
@@ -153,7 +154,7 @@ def get_user(
     Wrong credentials are an error, not an anonymous request.
     """
     # Share delivery is authorized only by its token, never by caller credentials.
-    if getattr(request.scope.get("route"), "path", None) == "/share/{token}":
+    if getattr(request.scope.get("route"), "path", None) == SHARE_LINK_PATH:
         return _anonymous_user()
     header = request.headers.get("Authorization")
     user = _authenticate(header, bump_login) if header else _anonymous_user()
@@ -171,7 +172,7 @@ CurrentUser = Annotated[model.User, Depends(get_user)]
 LOGIN_FREE_ROUTES = frozenset(
     {
         ("GET", "/info"),
-        ("GET", "/share/{token}"),
+        ("GET", SHARE_LINK_PATH),
         ("GET", "/password-reset/{user_name}"),
         ("POST", "/password-reset/{user_name}"),
     }

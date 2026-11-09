@@ -69,11 +69,11 @@ def expired(link: model.ShareLink) -> bool:
 
 
 # Any: heterogeneous resource values described by the API response model.
-def serialize(link: model.ShareLink) -> dict[str, Any]:
+def serialize(link: model.ShareLink, viewer: model.User) -> dict[str, Any]:
     return {
         "id": link.id,
         "postId": link.post_id,
-        "user": users.serialize_micro_user(link.user, link.user),
+        "user": users.serialize_micro_user(link.user, auth_user=viewer),
         "note": link.note,
         "creationTime": link.creation_time,
         "expiresAt": link.expires_at,

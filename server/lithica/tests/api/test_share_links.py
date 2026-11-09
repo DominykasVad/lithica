@@ -10,7 +10,7 @@ import pytest
 
 from lithica import config, db, model
 from lithica.app import create_app
-from lithica.func import auth, posts, share_links, util
+from lithica.func import auth, posts, share_links, users, util
 from lithica.tests.api.http import ok, shipped_config
 from lithica.tests.conftest import ApiClient
 
@@ -248,3 +248,25 @@ def test_user_list_respects_anonymous_visibility(
     response = ok(client.get("/user/owner/share-links"))
     assert response["total"] == 0
     assert response["results"] == []
+
+
+@pytest.mark.parametrize("action", ["create", "list_post", "list_user"])
+def test_serialization_uses_current_viewer(site: Site, action: str) -> None:
+    client, owner, admin, _, post = site
+    make(site)
+    with patch(
+        "lithica.func.share_links.users.serialize_micro_user",
+        wraps=users.serialize_micro_user,
+    ) as serialize_user:
+        if action == "create":
+            response = client.post(
+                f"/post/{post.post_id}/share-links", user=admin, body={}
+            )
+        elif action == "list_post":
+            response = client.get(f"/post/{post.post_id}/share-links", user=admin)
+        else:
+            response = client.get(f"/user/{owner.name}/share-links", user=admin)
+        ok(response)
+        assert serialize_user.called
+        for call in serialize_user.call_args_list:
+            assert call.kwargs["auth_user"] is admin

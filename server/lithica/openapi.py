@@ -15,6 +15,7 @@ from typing import Any
 from pydantic import BaseModel, TypeAdapter
 
 from lithica import config, registry
+from lithica.api.paths import SHARE_LINK_PATH
 
 DESCRIPTION = """\
 The API of Lithica, a self-hosted image board.
@@ -99,7 +100,7 @@ def allow_anonymous(document: dict[str, Any]) -> None:
     """
     for name, path in document["paths"].items():
         for operation in path.values():
-            if name == "/share/{token}":
+            if name == SHARE_LINK_PATH:
                 # Delivery ignores credentials, including malformed headers.
                 operation["security"] = []
                 continue
