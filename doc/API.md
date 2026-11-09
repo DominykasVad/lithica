@@ -1789,5 +1789,7 @@ expired, NSFW-refused and deleted-post links all return the same 404 body.
 Delivery requires the client image's nginx: the server returns an empty 200
 with the post's `Content-Type` and `X-Accel-Redirect` to the internal `/_share/`
 location. Reaching the server directly delivers no file. nginx disallows direct
-access to `/_share/`, applies the upload security policy and disables caching
-without revalidation. Share request tokens are omitted from access logs.
+access to `/_share/` and applies the upload security policy. Caches may keep
+the file but must ask the server again each time (`Cache-Control: private,
+no-cache`), so a revoked link stops at once. Share request tokens are omitted
+from access logs.

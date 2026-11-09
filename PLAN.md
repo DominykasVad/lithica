@@ -212,8 +212,6 @@ Additions only; nothing existing changes shape.
 
 ### Decision log
 
-- 2026-11-09 — 6.5 — Share link tokens are derived (HMAC of `secret` and a per-link salt), not random-and-hashed, so links can be shown again and reused by export (7.5).
-
 Rules: only real decisions (a choice between alternatives that later work must
 respect). One line each, max ~120 characters: `date — task — decision (reason)`.
 No status notes, no "left untouched", no results — those go in commit messages.
@@ -237,6 +235,7 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 - 2026-11-09 — 6.4 — PUT alone exposes listed; creation stays listed until phase 7 sets related images server-side.
 - 2026-11-09 — 6.4 — Add listed editing to app-token write (imports curate it).
 - 2026-11-09 — 6.4 — Merges retain the target's listed flag, as with safety.
+- 2026-11-09 — 6.5 — Share link tokens derived from `secret` and a salt (links shown again, reused by export)
 
 ---
 
