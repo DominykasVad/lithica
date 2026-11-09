@@ -745,6 +745,10 @@ def create_post(
     return post, new_tags
 
 
+def update_post_listed(post: model.Post, listed: bool) -> None:
+    post.listed = listed
+
+
 def update_post_safety(post: model.Post, safety: str) -> None:
     assert post
     internal_safety = util.flip(SAFETY_MAP).get(safety, None)

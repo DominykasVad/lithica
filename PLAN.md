@@ -229,6 +229,12 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 - 2026-11-09 — 6.3 — Replace external IDs as a whole list (IDs may contain slashes, so none appear in paths).
 - 2026-11-09 — 6.3 — Merges move typed relations and external IDs, dropping duplicate/self typed relations.
 - 2026-11-09 — 6.3 — Search external-host: only; exact IDs use lookup (parser folds case and splits whitespace).
+- 2026-11-09 — 6.4 — Index listed (every post search filters on it).
+- 2026-11-09 — 6.4 — Unlisted is not private (direct, pool and typed-relation access stay available).
+- 2026-11-09 — 6.4 — Listed defaults affect post searches only, including count and around (other reads/counts stay whole).
+- 2026-11-09 — 6.4 — PUT alone exposes listed; creation stays listed until phase 7 sets related images server-side.
+- 2026-11-09 — 6.4 — Add listed editing to app-token write (imports curate it).
+- 2026-11-09 — 6.4 — Merges retain the target's listed flag, as with safety.
 
 ---
 
@@ -374,8 +380,8 @@ concept, "post" the resource.
 - [x] The visibility filter (`nsfw-login`) covers both: a hidden post appears in no typed relation and no external-ID lookup.
 
 ### 6.4 Listed
-- [ ] A post's `listed` flag, default true. Searches leave unlisted posts out unless the query says `listed:no` or `listed:any`.
-- [ ] Changing it: its own privilege.
+- [x] A post's `listed` flag, default true. Searches leave unlisted posts out unless the query says `listed:no` or `listed:any`.
+- [x] Changing it: its own privilege.
 - [ ] Sardonyx's library respects it; the post page shows that a post is unlisted.
 
 ### 6.5 Share links

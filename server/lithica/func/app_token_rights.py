@@ -41,6 +41,7 @@ RIGHTS: dict[str, tuple[str, ...]] = {
         "posts:create:identified",
         "posts:edit:tags",
         "posts:edit:safety",
+        "posts:edit:listed",
         "posts:edit:source",
         "posts:edit:content",
         "posts:edit:relations",

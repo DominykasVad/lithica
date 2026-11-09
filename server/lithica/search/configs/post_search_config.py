@@ -65,6 +65,21 @@ def _flag_transformer(value: str) -> str:
     return "%" + search_util.enum_transformer(available_values, value) + "%"
 
 
+def _listed_filter(
+    query: SaQuery, criterion: criteria.BaseCriterion | None, negated: bool
+) -> SaQuery:
+    if not isinstance(criterion, criteria.PlainCriterion):
+        raise errors.SearchError("listed: takes exactly one of yes, no or any.")
+    value = search_util.enum_transformer(
+        {"yes": "yes", "no": "no", "any": "any"}, criterion.value
+    )
+    if value == "any":
+        if negated:
+            raise errors.SearchError("listed:any cannot be negated.")
+        return query
+    return query.filter(model.Post.listed.is_((value == "yes") != negated))
+
+
 def _source_transformer(value: str) -> str:
     return search_util.wildcard_transformer("*" + value + "*")
 
@@ -169,6 +184,17 @@ class PostSearchConfig(BaseSearchConfig):
     def on_search_query_parsed(
         self, search_query: SearchQuery, user: model.User | None
     ) -> None:
+        listed_tokens = [t for t in search_query.named_tokens if t.name == "listed"]
+        if len(listed_tokens) > 1:
+            raise errors.SearchError("Only one listed: token is allowed.")
+        if not listed_tokens:
+            search_query.named_tokens.append(
+                tokens.NamedToken(
+                    name="listed",
+                    criterion=criteria.PlainCriterion(original_text="yes", value="yes"),
+                    negated=False,
+                )
+            )
         new_special_tokens = []
         for token in search_query.special_tokens:
             if token.value in ("fav", "liked", "disliked"):
@@ -244,6 +270,7 @@ class PostSearchConfig(BaseSearchConfig):
         return util.unalias_dict(
             [
                 (["id"], search_util.create_num_filter(model.Post.post_id)),
+                (["listed"], _listed_filter),
                 (
                     ["tag"],
                     search_util.create_subquery_filter(

@@ -4817,6 +4817,7 @@ export interface operations {
         requestBody?: {
             content: {
                 "application/json": {
+                    listed?: boolean;
                     version: number;
                     contentUrl?: string;
                     contentToken?: string;
@@ -4831,6 +4832,7 @@ export interface operations {
                 };
                 "multipart/form-data": {
                     metadata?: {
+                        listed?: boolean;
                         version: number;
                         contentUrl?: string;
                         contentToken?: string;
