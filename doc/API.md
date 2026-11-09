@@ -92,11 +92,15 @@ as `nsfwTag`:
   snapshots, its place in pools and its featuring; ids of such posts are
   left out of snapshot data. Uploading a file such a post already has is
   refused with `PostAlreadyUploadedError` without `otherPostId` and
-  `otherPostUrl`. A pool's `postCount` leaves those posts out, as its
-  `posts` do. Other numbers are not adjusted: tag usages, the occurrences
-  of tag siblings, and a user's upload and favourite counts still count
-  those posts (never their ids, addresses or files). Logged-in users see
-  what their privileges allow, as always.
+  `otherPostUrl`. Tag siblings and their occurrences come from the posts
+  an anonymous user may see only (a tag found only on hidden posts is not
+  named), a post's `relationCount` counts the relations it lists (and so
+  do the search token `relation-count:` and sorting by it), and a
+  pool's `postCount` leaves those posts out, as its `posts` do. Other
+  numbers are not adjusted, on purpose: tag usages and a user's upload,
+  favourite and comment counts still count those posts (never their ids,
+  addresses or files). Logged-in users see what their privileges allow,
+  as always.
 - `login`: an anonymous user has no privileges at all, and every request
   of one is refused with 403 `AuthError` before the route does anything,
   except `GET /info` and password reset. Logging in (`POST
@@ -784,7 +788,8 @@ One file together with its metadata posted to the site.
 - `<comment-count>`: how many comments are filed under that post
 - `<note-count>`: how many notes the post has
 - `<feature-count>`: how many times has the post been featured.
-- `<relation-count>`: how many posts are related to this post.
+- `<relation-count>`: how many posts are related to this post: as many as
+  `<relations>` lists.
 - `<last-feature-time>`: the last time the post was featured, formatted as per
   RFC 3339.
 - `<favorited-by>`: list of users, serialized as [micro user resources](#micro-user),

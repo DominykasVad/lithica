@@ -381,6 +381,7 @@ class PostSerializer(serialization.BaseSerializer):
         return self.post.note_count
 
     def serialize_relation_count(self) -> Any:
+        # the relations the request may see: as many as `relations` lists
         return self.post.relation_count
 
     def serialize_feature_count(self) -> Any:

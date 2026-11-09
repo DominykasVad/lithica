@@ -254,6 +254,12 @@ def _insert_tag(name: str, category_name: str) -> tuple[model.Tag, bool]:
 
 
 def get_tag_siblings(tag: model.Tag) -> list[tuple[model.Tag, int]]:
+    """
+    The tags found on the same posts as this one, with how many posts they
+    share, most first. Only posts the request may see count: the posts are
+    part of the query, so the visibility criteria (lithica.func.visibility)
+    leave out the hidden ones, and a tag found only on those is not named.
+    """
     assert tag
     tag_alias = sa_orm.aliased(model.Tag)
     pt_alias1 = sa_orm.aliased(model.PostTag)
@@ -262,6 +268,7 @@ def get_tag_siblings(tag: model.Tag) -> list[tuple[model.Tag, int]]:
         db.session.query(tag_alias, sa.func.count(pt_alias2.post_id))
         .join(pt_alias1, pt_alias1.tag_id == tag_alias.tag_id)
         .join(pt_alias2, pt_alias2.post_id == pt_alias1.post_id)
+        .join(model.Post, model.Post.post_id == pt_alias1.post_id)
         .filter(pt_alias2.tag_id == tag.tag_id)
         .filter(pt_alias1.tag_id != tag.tag_id)
         .group_by(tag_alias.tag_id)

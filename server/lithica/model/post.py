@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import sqlalchemy as sa
 import sqlalchemy.orm as sa_orm
@@ -507,14 +507,33 @@ class Post(Base):
         .scalar_subquery()
     )
 
-    relation_count = sa_orm.column_property(
-        sa.sql.expression.select(sa.sql.expression.func.count(PostRelation.child_id))
-        .where((PostRelation.parent_id == post_id) | (PostRelation.child_id == post_id))
-        .correlate_except(PostRelation)
-        .scalar_subquery()
-    )
+    if TYPE_CHECKING:
+        # set by add_relation_count, once every model is defined
+        relation_count: sa_orm.MappedSQLExpression[int]
 
     __mapper_args__ = {
         "version_id_col": version,
         "version_id_generator": False,
     }
+
+
+def add_relation_count() -> None:
+    """
+    `Post.relation_count`: how many posts the post is related to, counted
+    from the rows of which it is the parent, the side `Post.relations` reads
+    (a relation is stored both ways). The related post is part of the count,
+    so in nsfw-login the criteria that leave hidden posts out
+    (lithica.func.visibility) leave them out of it too.
+
+    Added once every model is defined (lithica.model): the related post is
+    an alias of Post itself, which needs the mappers configured.
+    """
+    related = sa_orm.aliased(Post)
+    Post.relation_count = sa_orm.column_property(
+        sa.sql.expression.select(sa.sql.expression.func.count(PostRelation.child_id))
+        .select_from(PostRelation)
+        .join(related, related.post_id == PostRelation.child_id)
+        .where(PostRelation.parent_id == Post.post_id)
+        .correlate_except(PostRelation, related)
+        .scalar_subquery()
+    )
