@@ -21,7 +21,7 @@ RUN set -eu; \
       arm64) arch=arm64; sum=$PNPM_SHA256_ARM64 ;; \
       *) echo "no pnpm binary for $BUILDARCH" >&2; exit 1 ;; \
     esac; \
-    curl -fsSL -o /tmp/pnpm.tar.gz \
+    curl -fsSL --retry 3 --retry-all-errors --retry-delay 5 -o /tmp/pnpm.tar.gz \
       "https://github.com/pnpm/pnpm/releases/download/v${PNPM_VERSION}/pnpm-linux-${arch}.tar.gz"; \
     echo "$sum  /tmp/pnpm.tar.gz" | sha256sum -c -; \
     mkdir /opt/pnpm; \
