@@ -222,7 +222,6 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 - 2026-11-09 — fix-post-lists — `favoritedBy` is ordered by favourite time, then user id (the database gave no order).
 - 2026-11-09 — fix-post-lists — Lists load what fields need per page; a module field may add a batch (`post_field_batches`).
 - 2026-11-09 — fix-hidden-counts — Siblings and relationCount follow visibility; other counts don't (tag usages, user counts).
-
 - 2026-11-09 — 6.3 — Call directed records typed relations (relations already names the untyped feature).
 - 2026-11-09 — 6.3 — External-ID hosts name installations, not programs (plugins configure their own installation names).
 - 2026-11-09 — 6.3 — Neither typed relations nor external IDs bump post versions or snapshot (bulk bookkeeping).
