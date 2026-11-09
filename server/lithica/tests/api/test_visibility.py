@@ -95,6 +95,7 @@ class Site:
 
     def __init__(self) -> None:
         self.visible = 0
+        self.typed_relation = 0
         self.pool = 0
         self.visible_comment = 0
         self.hidden_comment = 0
@@ -173,6 +174,16 @@ def nsfw_site(start, user_factory, read_asset) -> tuple[ApiClient, Site]:
         files={"content": read_asset("png.png")},
     )
     site.visible = visible["id"]
+    site.typed_relation = as_admin(
+        "POST",
+        "/typed-relations",
+        body={"from": site.visible, "to": HIDDEN[0], "type": "gallery-of"},
+    )["id"]
+    as_admin(
+        "PUT",
+        "/post/%d/external-ids" % HIDDEN[0],
+        body={"externalIds": [{"host": "hidden-home", "id": "Hidden Mixed /: ID"}]},
+    )
     site.visible_comment = as_admin(
         "POST",
         "/comments",
@@ -265,6 +276,13 @@ def _gets(site: Site) -> dict[str, Sequence[tuple[str, Mapping[str, Any], bool |
     ]
     return {
         "GET /info": [("/info", {}, False)],
+        "GET /external-id": [
+            ("/external-id", {"host": "hidden-home", "id": "Hidden Mixed /: ID"}, True)
+        ],
+        "GET /post/{post_id}/typed-relations": [
+            ("/post/%d/typed-relations" % site.visible, {}, False),
+            ("/post/%d/typed-relations" % HIDDEN[0], {}, True),
+        ],
         "GET /users": [("/users", {}, False)],
         "GET /user/{user_name}": [("/user/the_admin", {}, False)],
         "GET /user-tokens/{user_name}": [("/user-tokens/the_admin", {}, False)],
@@ -327,6 +345,29 @@ def _writes(site: Site, read_asset: Any) -> dict[str, list[dict[str, Any]]]:
     hidden_posts = [("/post/%d" % post_id) for post_id in HIDDEN]
     return {
         "POST /users": [{"body": {"name": "newbie", "password": "newbie_pw1"}}],
+        "POST /typed-relations": [
+            {
+                "body": {"from": site.visible, "to": h, "type": "gallery-of"},
+                "hidden": True,
+            }
+        ],
+        "PUT /typed-relation/{relation_id}": [
+            {
+                "path": "/typed-relation/%d" % site.typed_relation,
+                "body": {"label": None},
+                "hidden": True,
+            }
+        ],
+        "DELETE /typed-relation/{relation_id}": [
+            {"path": "/typed-relation/%d" % site.typed_relation, "hidden": True}
+        ],
+        "PUT /post/{post_id}/external-ids": [
+            {
+                "path": "/post/%d/external-ids" % h,
+                "body": {"externalIds": []},
+                "hidden": True,
+            }
+        ],
         "PUT /user/{user_name}": [
             {"path": "/user/the_admin", "body": {"version": 999}}
         ],

@@ -310,6 +310,16 @@ module = registry.Module(
     post_field_batches={"card": api.card_fields},
     post_field_schemas={"card": api.CardSummary},
     post_kinds=[registry.PostKind("card", frozenset(card_format.KINDS))],
+    relation_types=[
+        registry.RelationType(name, frozenset({"media"}), frozenset({"card"}))
+        for name in (
+            "avatar-of",
+            "embedded-in",
+            "archived-from",
+            "gallery-of",
+            "expression-of",
+        )
+    ],
     content_kinds=[
         registry.ContentKind(kind, SCHEMA_VERSION, max_payload_size=MAX_PAYLOAD_SIZE)
         for kind in (card_format.KIND_V1, card_format.KIND_V2, card_format.KIND_V3)

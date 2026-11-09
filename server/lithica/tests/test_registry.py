@@ -859,3 +859,76 @@ def test_post_kind_order_is_configuration_then_declaration():
     from lithica.func import post_kinds
 
     assert post_kinds.derived_kind(post) == "b"
+
+
+@pytest.mark.parametrize("name", ["", "UPPER", "has_underscore", "a" * 33, "1first"])
+def test_invalid_typed_relation_type_name(name: str) -> None:
+    with pytest.raises(
+        errors.ConfigError, match="invalid typed relation type name"
+    ) as caught:
+        registry.use(
+            [
+                registry.Module(
+                    "probe", relation_types=[registry.RelationType(name, None, None)]
+                )
+            ]
+        )
+
+    assert repr(name) in str(caught.value)
+    assert "[a-z][a-z0-9-]*" in str(caught.value)
+    assert "32" in str(caught.value)
+
+
+@pytest.mark.parametrize("across_modules", [False, True])
+def test_duplicate_typed_relation_type(across_modules: bool) -> None:
+    item = registry.RelationType("same", None, None)
+    modules = [registry.Module("alpha", relation_types=[item, item])]
+    if across_modules:
+        modules = [
+            registry.Module(name, relation_types=[item]) for name in ("alpha", "beta")
+        ]
+    with pytest.raises(errors.ConfigError, match="typed relation type 'same' twice"):
+        registry.use(modules)
+
+
+@pytest.mark.parametrize("allowed", [frozenset(), frozenset({"missing"})])
+@pytest.mark.parametrize("side", ["from_kinds", "to_kinds"])
+def test_invalid_typed_relation_kinds(allowed: frozenset[str], side: str) -> None:
+    kwargs = {"from_kinds": None, "to_kinds": None, side: allowed}
+    with pytest.raises(
+        errors.ConfigError, match="typed relation type 'test'"
+    ) as caught:
+        registry.use(
+            [
+                registry.Module(
+                    "probe", relation_types=[registry.RelationType("test", **kwargs)]
+                )
+            ]
+        )
+
+    message = str(caught.value)
+    assert side in message
+    if allowed:
+        assert "unknown post kinds" in message
+        assert "missing" in message
+        assert "media or loaded post kinds" in message
+    else:
+        assert "empty" in message
+        assert "use None" in message
+
+
+def test_typed_relation_types_use_all_loaded_kinds_and_keep_order():
+    first = registry.RelationType("first", None, frozenset({"probe"}))
+    second = registry.RelationType("second", frozenset({"media"}), None)
+    registry.use(
+        [
+            registry.Module("alpha", relation_types=[first]),
+            registry.Module(
+                "beta",
+                content_kinds=[registry.ContentKind("content")],
+                post_kinds=[registry.PostKind("probe", frozenset({"content"}))],
+                relation_types=[second],
+            ),
+        ]
+    )
+    assert registry.relation_types() == [first, second]

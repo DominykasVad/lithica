@@ -185,6 +185,8 @@ privileges:
     'posts:edit:flags':             regular
     'posts:edit:notes':             regular
     'posts:edit:relations':         regular
+    'posts:edit:typed_relations':   regular
+    'posts:edit:external_ids':      regular
     'posts:edit:safety':            power
     'posts:edit:source':            regular
     'posts:edit:tags':              regular

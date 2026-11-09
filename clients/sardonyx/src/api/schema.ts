@@ -1448,6 +1448,110 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/post/{post_id}/typed-relations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List a post's typed relations
+         * @description List typed relations, with the other post and its signed file URLs.
+         */
+        get: operations["get_typed_relations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/typed-relations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a typed relation
+         * @description Create a typed relation, without changing either post's version or snapshots.
+         */
+        post: operations["create_typed_relation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/typed-relation/{relation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update a typed relation label
+         * @description Change only the label of a visible typed relation. Null clears it.
+         */
+        put: operations["update_typed_relation"];
+        post?: never;
+        /**
+         * Delete a typed relation
+         * @description Delete a visible typed relation.
+         */
+        delete: operations["delete_typed_relation"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/post/{post_id}/external-ids": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Replace a post's external IDs
+         * @description Replace all external IDs, without changing the post version or snapshots.
+         */
+        put: operations["set_external_ids"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/external-id": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Find a post by external ID
+         * @description Find a visible post by its exact, case-sensitive external ID.
+         */
+        get: operations["get_external_id"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/modules/cards/post/{post_id}": {
         parameters: {
             query?: never;
@@ -1660,6 +1764,13 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** ExternalId */
+        ExternalId: {
+            /** Host */
+            host?: string;
+            /** Id */
+            id?: string;
+        };
         /** ImageSearchResult */
         ImageSearchResult: {
             exactPost?: components["schemas"]["Post"] | null;
@@ -1668,6 +1779,8 @@ export interface components {
         };
         /** Info */
         Info: {
+            /** Typedrelationtypes */
+            typedRelationTypes?: components["schemas"]["TypedRelationType"][];
             /**
              * Postkinds
              * @description Post kinds: media, then loaded module post kinds.
@@ -2055,6 +2168,8 @@ export interface components {
         };
         /** Post */
         Post: {
+            /** Externalids */
+            externalIds?: components["schemas"]["ExternalId"][];
             /**
              * Kind
              * @description media or a kind a module of the site registers, as postKinds of GET /info lists them; a post may carry the kind of a module that is now switched off.
@@ -2250,6 +2365,59 @@ export interface components {
              * @description How many posts have both tags.
              */
             occurrences?: number;
+        };
+        /** TypedRelation */
+        TypedRelation: {
+            /** Id */
+            id?: number;
+            /** Type */
+            type?: string;
+            /** Label */
+            label?: string | null;
+            /**
+             * Direction
+             * @enum {string}
+             */
+            direction?: "out" | "in";
+            /**
+             * Creationtime
+             * Format: date-time
+             */
+            creationTime?: string;
+            post?: components["schemas"]["TypedRelationPost"];
+        };
+        /** TypedRelationPost */
+        TypedRelationPost: {
+            /** Id */
+            id?: number;
+            /** Kind */
+            kind?: string;
+            /** Type */
+            type?: string;
+            /** Mimetype */
+            mimeType?: string;
+            /** Safety */
+            safety?: string;
+            /** Nsfw */
+            nsfw?: boolean;
+            /** Contenturl */
+            contentUrl?: string;
+            /** Thumbnailurl */
+            thumbnailUrl?: string;
+        };
+        /** TypedRelationType */
+        TypedRelationType: {
+            /** Name */
+            name?: string;
+            /** Fromkinds */
+            fromKinds?: string[] | null;
+            /** Tokinds */
+            toKinds?: string[] | null;
+        };
+        /** TypedRelations */
+        TypedRelations: {
+            /** Results */
+            results?: components["schemas"]["TypedRelation"][];
         };
         /** Unpaged[AppToken] */
         Unpaged_AppToken_: {
@@ -5100,6 +5268,238 @@ export interface operations {
                 };
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Post"];
+                };
+            };
+            /** @description The request was refused. */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_typed_relations: {
+        parameters: {
+            query?: {
+                type?: string | null;
+                direction?: string;
+                /** @description Record this request as a login of the authenticated user. */
+                "bump-login"?: boolean;
+            };
+            header?: never;
+            path: {
+                post_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TypedRelations"];
+                };
+            };
+            /** @description The request was refused. */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_typed_relation: {
+        parameters: {
+            query?: {
+                /** @description Record this request as a login of the authenticated user. */
+                "bump-login"?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    from: number;
+                    to: number;
+                    type: string;
+                    label?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TypedRelation"];
+                };
+            };
+            /** @description The request was refused. */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    update_typed_relation: {
+        parameters: {
+            query?: {
+                /** @description Record this request as a login of the authenticated user. */
+                "bump-login"?: boolean;
+            };
+            header?: never;
+            path: {
+                relation_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    label: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TypedRelation"];
+                };
+            };
+            /** @description The request was refused. */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_typed_relation: {
+        parameters: {
+            query?: {
+                /** @description Record this request as a login of the authenticated user. */
+                "bump-login"?: boolean;
+            };
+            header?: never;
+            path: {
+                relation_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Empty"];
+                };
+            };
+            /** @description The request was refused. */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    set_external_ids: {
+        parameters: {
+            query?: {
+                /** @description Record this request as a login of the authenticated user. */
+                "bump-login"?: boolean;
+                /** @description Comma-separated names of the fields to return. All fields are returned when it is absent. */
+                fields?: string | null;
+            };
+            header?: never;
+            path: {
+                post_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    externalIds: {
+                        host: string;
+                        id: string;
+                    }[];
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Post"];
+                };
+            };
+            /** @description The request was refused. */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_external_id: {
+        parameters: {
+            query: {
+                host: string;
+                id: string;
+                /** @description Record this request as a login of the authenticated user. */
+                "bump-login"?: boolean;
+                /** @description Comma-separated names of the fields to return. All fields are returned when it is absent. */
+                fields?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {

@@ -38,6 +38,7 @@ from lithica.api import (
     pool_api,
     pool_category_api,
     post_api,
+    post_metadata_api,
     snapshot_api,
     tag_api,
     tag_category_api,
@@ -307,6 +308,7 @@ def create_app(modules: Sequence[registry.Module] | None = None) -> FastAPI:
         snapshot_api,
         upload_api,
         post_api,
+        post_metadata_api,
     ]:
         application.include_router(ported.router)
 

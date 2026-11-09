@@ -36,6 +36,8 @@ describe("the privileges the app asks about", () => {
       CREATE_CATEGORY_PRIVILEGE,
       "tags:create",
       "posts:edit:kind",
+      "posts:edit:typedRelations",
+      "posts:edit:externalIds",
     ];
     expect(used.filter((name) => !known.includes(name))).toEqual([]);
   });

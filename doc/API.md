@@ -1640,3 +1640,73 @@ Kinds are derived as follows:
    preserving kinds and content rows of switched-off modules. Startup does
    not warn about kinds awaiting backfill, because hand-set `media` cannot
    be distinguished from a post awaiting derivation.
+
+
+## Typed relations and external IDs
+
+Typed relations are directed records from one post to another, with a type
+and optional label. They are separate from the existing untyped, two-way
+relations (`relations`, `relation-count:`, `posts:edit:relations`), which
+keep their existing behaviour. Modules register typed relation types;
+`GET /info` lists `typedRelationTypes` in module/declaration order, each
+`{name, fromKinds, toKinds}` (null kinds means any kind). The engine defines
+none. The cards module defines `avatar-of`, `embedded-in`, `archived-from`,
+`gallery-of` and `expression-of`, all from `media` to `card`. Kind rules are
+checked on creation; changing a post's kind later leaves existing typed
+relations alone. No typed relations are created automatically.
+
+- `GET /post/{post_id}/typed-relations?type=<type>&direction=out|in|any`
+  needs `posts:view`; direction defaults to `any`, type is optional.
+  It returns `{"results": [...]}`, ordered by type, creation time, then id,
+  without paging. Each record has `id`, `type`, `label`, `direction`,
+  `creationTime`, and `post`: the other post with `id`, `kind`, `type`,
+  `mimeType`, `safety`, `nsfw`, `contentUrl`, `thumbnailUrl`. File URLs are
+  signed as usual. Direction is `out` from the requested post or `in` to it.
+- `POST /typed-relations` takes `{"from": 1, "to": 2, "type": "gallery-of",
+  "label": "gallery"}`; label is optional. It returns that shape with the
+  destination post and direction `out`.
+- `PUT /typed-relation/{id}` requires `{"label": ...}`; null clears the label.
+  Only the label can change. `DELETE /typed-relation/{id}` removes the record.
+  Both edits return the record (PUT) or `{}` (DELETE).
+
+Create, edit and delete need `posts:edit:typed_relations` (default regular),
+which the app-token right `write` includes. Labels are trimmed, at most 128
+characters, without control characters; empty becomes null. Unknown or
+disabled types, invalid directions, incompatible kinds, self relations and
+exceeding 1000 typed relations per post give 400 `InvalidTypedRelationError`.
+A duplicate (from, to, type) gives 409 `TypedRelationAlreadyExistsError`.
+Missing or hidden posts and typed relations give 404.
+
+External IDs are `(host, id)` pairs. A host names an **installation**, such
+as `lumiverse-home` or `chub`, rather than a program. Hosts match
+`[a-z0-9][a-z0-9._-]*`, at most 64 characters. IDs are case-sensitive,
+1–256 characters, without control characters or leading/trailing whitespace,
+stored exactly as supplied. One pair belongs to one post; a post can have
+several IDs at the same host. The default post field `externalIds` is a list
+of `{host, id}`, sorted by host then ID.
+
+- `PUT /post/{post_id}/external-ids` requires `{"externalIds": [{"host":
+  "lumiverse-home", "id": "Character / A:1"}]}` and replaces the whole set;
+  an empty list removes all IDs, duplicates collapse to one pair. It needs
+  `posts:edit:external_ids` (default regular), included in app-token `write`.
+  It returns the post, respecting `fields`. A pair held by another post
+  gives 409 `ExternalIdTakenError`, without identifying that post. Invalid
+  hosts or IDs give 400 `InvalidExternalIdError`.
+- `GET /external-id?host=<host>&id=<id>` finds a post by an exact pair,
+  needs `posts:view`, and accepts `fields`. Missing and hidden pairs both
+  give 404 `ExternalIdNotFoundError`. IDs are query parameters because they
+  can contain `/`, spaces, `:` and other characters; URL-encode them.
+- Search token `external-host:<host>` finds posts with at least one ID at
+  that installation; negation works. Invalid host names are search errors.
+  Exact ID lookup uses the endpoint only: search queries are lower-cased
+  and split on whitespace, while IDs are case-sensitive and may contain spaces.
+
+Neither typed relation edits nor external-ID replacement bumps post versions
+or creates snapshots; each record retains its creator and creation time.
+In `nsfw-login`, anonymous viewers see no typed relation with either end
+hidden, and cannot find hidden posts by external-ID lookup or host search.
+Logged-in viewers see them subject to their privileges. Hidden IDs still
+reserve their unique pair. Deleting either end deletes a typed relation;
+deleting a post frees its external IDs. Merging posts moves the source's
+typed relations in both directions and external IDs to the target, dropping
+typed relations that would become duplicates or self relations.

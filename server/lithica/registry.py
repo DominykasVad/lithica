@@ -44,8 +44,9 @@ NAME_PATTERN = re.compile(r"[a-z][a-z0-9_]*")
 KIND_PATTERN = re.compile(r"[a-z][a-z0-9_]*")
 KIND_MAX_LENGTH = 64
 
-# the post.kind column, distinct from post_content.kind
-POST_KIND_MAX_LENGTH = 32
+# a typed relation type is stored with every directed typed relation
+RELATION_TYPE_PATTERN = re.compile(r"[a-z][a-z0-9-]*")
+RELATION_TYPE_MAX_LENGTH = 32
 
 # a post type is stored with every post, and is a value of the `type:` token
 POST_TYPE_PATTERN = re.compile(r"[a-z][a-z0-9_]*")
@@ -200,6 +201,27 @@ class PostKind:
 
 
 @dataclass(frozen=True)
+class RelationType:
+    """
+    A type of directed typed relation between posts, separate from the
+    engine's untyped, two-way relations.
+
+    A typed relation goes from one post to another. `from_kinds` restricts
+    the source post's kind and `to_kinds` the destination post's kind;
+    None means any post kind on that side. A set must be nonempty and may
+    name only `media` or post kinds registered by loaded modules.
+
+    These kind restrictions are checked only when a typed relation is
+    created. A later change to either post's kind leaves existing typed
+    relations alone.
+    """
+
+    name: str
+    from_kinds: frozenset[str] | None
+    to_kinds: frozenset[str] | None
+
+
+@dataclass(frozen=True)
 class AdminCommand:
     """
     A subcommand of `lithica-admin`. `configure` adds its arguments to the
@@ -233,6 +255,7 @@ class Module:
                     the module's name in the API document; they set no tags
                     of their own
     post_kinds      post kinds and the content kinds that support them
+    relation_types  typed relation types and their allowed endpoint kinds
     content_kinds   the kinds of extracted content the module owns
     file_types      types of files the engine does not know
     extractors      readers of content embedded in uploaded files
@@ -260,6 +283,7 @@ class Module:
     router: APIRouter | None = None
     content_kinds: Sequence[ContentKind] = ()
     post_kinds: Sequence[PostKind] = ()
+    relation_types: Sequence[RelationType] = ()
     file_types: Sequence[FileType] = ()
     extractors: Sequence[Extractor] = ()
     auto_tag: AutoTag | None = None
@@ -317,6 +341,9 @@ def _verify(modules: Sequence[Module]) -> None:
     that claim the same name, and one that would replace something the
     engine has.
     """
+    from lithica import model
+
+    _verify_relation_types(modules)
     names: set[str] = set()
     kinds: set[str] = set()
     post_kind_names = {"media"}
@@ -399,7 +426,7 @@ def _verify(modules: Sequence[Module]) -> None:
         for post_kind in module.post_kinds:
             if (
                 not KIND_PATTERN.fullmatch(post_kind.name)
-                or len(post_kind.name) > POST_KIND_MAX_LENGTH
+                or len(post_kind.name) > model.Post.KIND_MAX_LENGTH
             ):
                 raise _refuse(module, "has an invalid post kind %r." % post_kind.name)
             if post_kind.name == "media":
@@ -486,6 +513,53 @@ def use(modules: Sequence[Module]) -> None:
     global _modules
     _verify(modules)
     _modules = tuple(modules)
+
+
+def relation_types() -> list[RelationType]:
+    """Loaded typed relation types in module and declaration order."""
+    return [item for module in _modules for item in module.relation_types]
+
+
+def _verify_relation_types(modules: Sequence[Module]) -> None:
+    kinds = {"media", *(kind.name for module in modules for kind in module.post_kinds)}
+    names: set[str] = set()
+    for module in modules:
+        for item in module.relation_types:
+            if (
+                not RELATION_TYPE_PATTERN.fullmatch(item.name)
+                or len(item.name) > RELATION_TYPE_MAX_LENGTH
+            ):
+                raise _refuse(
+                    module,
+                    "has an invalid typed relation type name %r: match "
+                    "[a-z][a-z0-9-]* and use at most %d characters."
+                    % (item.name, RELATION_TYPE_MAX_LENGTH),
+                )
+            if item.name in names:
+                raise _refuse(
+                    module, "registers typed relation type %r twice." % item.name
+                )
+            names.add(item.name)
+            for side, allowed in (
+                ("from_kinds", item.from_kinds),
+                ("to_kinds", item.to_kinds),
+            ):
+                if allowed is None:
+                    continue
+                if not allowed:
+                    raise _refuse(
+                        module,
+                        "typed relation type %r has an empty %s set; "
+                        "use None for any post kind." % (item.name, side),
+                    )
+                unknown = allowed - kinds
+                if unknown:
+                    raise _refuse(
+                        module,
+                        "typed relation type %r has unknown post kinds in %s: %s; "
+                        "use media or loaded post kinds."
+                        % (item.name, side, ", ".join(sorted(unknown))),
+                    )
 
 
 def load(names: Sequence[str], package: str | None = None) -> None:

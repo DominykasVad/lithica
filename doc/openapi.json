@@ -6392,6 +6392,541 @@
         }
       }
     },
+    "/post/{post_id}/typed-relations": {
+      "get": {
+        "tags": [
+          "Posts"
+        ],
+        "summary": "List a post's typed relations",
+        "description": "List typed relations, with the other post and its signed file URLs.",
+        "operationId": "get_typed_relations",
+        "security": [
+          {
+            "basicAuth": []
+          },
+          {
+            "tokenAuth": []
+          },
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "post_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Post Id"
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Type"
+            }
+          },
+          {
+            "name": "direction",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "any",
+              "title": "Direction"
+            }
+          },
+          {
+            "name": "bump-login",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Record this request as a login of the authenticated user.",
+              "default": false,
+              "title": "Bump-Login"
+            },
+            "description": "Record this request as a login of the authenticated user."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TypedRelations"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "The request was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/typed-relations": {
+      "post": {
+        "tags": [
+          "Posts"
+        ],
+        "summary": "Create a typed relation",
+        "description": "Create a typed relation, without changing either post's version or snapshots.",
+        "operationId": "create_typed_relation",
+        "security": [
+          {
+            "basicAuth": []
+          },
+          {
+            "tokenAuth": []
+          },
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "bump-login",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Record this request as a login of the authenticated user.",
+              "default": false,
+              "title": "Bump-Login"
+            },
+            "description": "Record this request as a login of the authenticated user."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TypedRelation"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "The request was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "from": {
+                    "type": "integer"
+                  },
+                  "to": {
+                    "type": "integer"
+                  },
+                  "type": {
+                    "type": "string"
+                  },
+                  "label": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "type": "object",
+                "required": [
+                  "from",
+                  "to",
+                  "type"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/typed-relation/{relation_id}": {
+      "put": {
+        "tags": [
+          "Posts"
+        ],
+        "summary": "Update a typed relation label",
+        "description": "Change only the label of a visible typed relation. Null clears it.",
+        "operationId": "update_typed_relation",
+        "security": [
+          {
+            "basicAuth": []
+          },
+          {
+            "tokenAuth": []
+          },
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "relation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Relation Id"
+            }
+          },
+          {
+            "name": "bump-login",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Record this request as a login of the authenticated user.",
+              "default": false,
+              "title": "Bump-Login"
+            },
+            "description": "Record this request as a login of the authenticated user."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TypedRelation"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "The request was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "label": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "type": "object",
+                "required": [
+                  "label"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Posts"
+        ],
+        "summary": "Delete a typed relation",
+        "description": "Delete a visible typed relation.",
+        "operationId": "delete_typed_relation",
+        "security": [
+          {
+            "basicAuth": []
+          },
+          {
+            "tokenAuth": []
+          },
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "relation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Relation Id"
+            }
+          },
+          {
+            "name": "bump-login",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Record this request as a login of the authenticated user.",
+              "default": false,
+              "title": "Bump-Login"
+            },
+            "description": "Record this request as a login of the authenticated user."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Empty"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "The request was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/post/{post_id}/external-ids": {
+      "put": {
+        "tags": [
+          "Posts"
+        ],
+        "summary": "Replace a post's external IDs",
+        "description": "Replace all external IDs, without changing the post version or snapshots.",
+        "operationId": "set_external_ids",
+        "security": [
+          {
+            "basicAuth": []
+          },
+          {
+            "tokenAuth": []
+          },
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "post_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Post Id"
+            }
+          },
+          {
+            "name": "bump-login",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Record this request as a login of the authenticated user.",
+              "default": false,
+              "title": "Bump-Login"
+            },
+            "description": "Record this request as a login of the authenticated user."
+          },
+          {
+            "name": "fields",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated names of the fields to return. All fields are returned when it is absent.",
+              "title": "Fields"
+            },
+            "description": "Comma-separated names of the fields to return. All fields are returned when it is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Post"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "The request was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "externalIds": {
+                    "items": {
+                      "properties": {
+                        "host": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "host",
+                        "id"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  }
+                },
+                "type": "object",
+                "required": [
+                  "externalIds"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/external-id": {
+      "get": {
+        "tags": [
+          "Posts"
+        ],
+        "summary": "Find a post by external ID",
+        "description": "Find a visible post by its exact, case-sensitive external ID.",
+        "operationId": "get_external_id",
+        "security": [
+          {
+            "basicAuth": []
+          },
+          {
+            "tokenAuth": []
+          },
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "host",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Host"
+            }
+          },
+          {
+            "name": "id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Id"
+            }
+          },
+          {
+            "name": "bump-login",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Record this request as a login of the authenticated user.",
+              "default": false,
+              "title": "Bump-Login"
+            },
+            "description": "Record this request as a login of the authenticated user."
+          },
+          {
+            "name": "fields",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated names of the fields to return. All fields are returned when it is absent.",
+              "title": "Fields"
+            },
+            "description": "Comma-separated names of the fields to return. All fields are returned when it is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Post"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "The request was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/modules/cards/post/{post_id}": {
       "get": {
         "tags": [
@@ -6818,6 +7353,21 @@
         "title": "ErrorResponse",
         "description": "Body of every error response. Some errors add fields of their own."
       },
+      "ExternalId": {
+        "properties": {
+          "host": {
+            "type": "string",
+            "title": "Host"
+          },
+          "id": {
+            "type": "string",
+            "title": "Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ExternalId"
+      },
       "ImageSearchResult": {
         "properties": {
           "exactPost": {
@@ -6844,6 +7394,13 @@
       },
       "Info": {
         "properties": {
+          "typedRelationTypes": {
+            "items": {
+              "$ref": "#/components/schemas/TypedRelationType"
+            },
+            "type": "array",
+            "title": "Typedrelationtypes"
+          },
           "postKinds": {
             "items": {
               "type": "string"
@@ -7652,6 +8209,13 @@
       },
       "Post": {
         "properties": {
+          "externalIds": {
+            "items": {
+              "$ref": "#/components/schemas/ExternalId"
+            },
+            "type": "array",
+            "title": "Externalids"
+          },
           "kind": {
             "type": "string",
             "title": "Kind",
@@ -8128,6 +8692,140 @@
         "additionalProperties": false,
         "type": "object",
         "title": "TagSibling"
+      },
+      "TypedRelation": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "out",
+              "in"
+            ],
+            "title": "Direction"
+          },
+          "creationTime": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Creationtime"
+          },
+          "post": {
+            "$ref": "#/components/schemas/TypedRelationPost"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "TypedRelation"
+      },
+      "TypedRelationPost": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "mimeType": {
+            "type": "string",
+            "title": "Mimetype"
+          },
+          "safety": {
+            "type": "string",
+            "title": "Safety"
+          },
+          "nsfw": {
+            "type": "boolean",
+            "title": "Nsfw"
+          },
+          "contentUrl": {
+            "type": "string",
+            "title": "Contenturl"
+          },
+          "thumbnailUrl": {
+            "type": "string",
+            "title": "Thumbnailurl"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "TypedRelationPost"
+      },
+      "TypedRelationType": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "fromKinds": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fromkinds"
+          },
+          "toKinds": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tokinds"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "TypedRelationType"
+      },
+      "TypedRelations": {
+        "properties": {
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/TypedRelation"
+            },
+            "type": "array",
+            "title": "Results"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "TypedRelations"
       },
       "Unpaged_AppToken_": {
         "properties": {

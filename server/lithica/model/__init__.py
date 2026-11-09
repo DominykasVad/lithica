@@ -5,6 +5,7 @@ from lithica.model.pool_category import PoolCategory
 from lithica.model.post import (
     Post,
     PostContent,
+    PostExternalId,
     PostFavorite,
     PostFeature,
     PostNote,
@@ -13,6 +14,7 @@ from lithica.model.post import (
     PostSignature,
     PostSignatureWord,
     PostTag,
+    PostTypedRelation,
 )
 from lithica.model.snapshot import Snapshot
 from lithica.model.tag import Tag, TagImplication, TagName, TagSuggestion
