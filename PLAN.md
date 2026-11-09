@@ -392,7 +392,7 @@ concept, "post" the resource.
 - [x] Tests: valid, revoked, expired and wrong token; a share link works on a `login` site without login; the post's own file links are unchanged.
 
 ### 6.5b Share links in Sardonyx
-- [ ] The post page lists the viewer's share links of the post (all of them for who may list any), with copy, revoke, and creating one with an optional note and expiry; shown only to ranks that may create or list share links.
+- [x] The post page lists the viewer's share links of the post (all of them for who may list any), with copy, revoke, and creating one with an optional note and expiry; shown only to ranks that may create or list share links.
 - [ ] The account page lists the user's share links, paged, each with its post, note, expiry, copy and revoke.
 
 ### 6.6 Site settings and feature switches
