@@ -153,6 +153,8 @@ def test_invalid_typed_relation(site, extra):
     response = create(site, **extra)
     assert response.status_code == 400, response.text
     assert response.json()["name"] == "InvalidTypedRelationError"
+    if extra.get("type") == "missing":
+        assert "'missing'" in response.json()["description"]
 
 
 @pytest.mark.parametrize("end", ["image", "card"])

@@ -1456,7 +1456,7 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get Typed Relations
+         * List a post's typed relations
          * @description List typed relations, with the other post and its signed file URLs.
          */
         get: operations["get_typed_relations"];
@@ -1478,7 +1478,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Create Typed Relation
+         * Create a typed relation
          * @description Create a typed relation, without changing either post's version or snapshots.
          */
         post: operations["create_typed_relation"];
@@ -1497,13 +1497,13 @@ export interface paths {
         };
         get?: never;
         /**
-         * Update Typed Relation
+         * Update a typed relation label
          * @description Change only the label of a visible typed relation. Null clears it.
          */
         put: operations["update_typed_relation"];
         post?: never;
         /**
-         * Delete Typed Relation
+         * Delete a typed relation
          * @description Delete a visible typed relation.
          */
         delete: operations["delete_typed_relation"];
@@ -1521,7 +1521,7 @@ export interface paths {
         };
         get?: never;
         /**
-         * Set External Ids
+         * Replace a post's external IDs
          * @description Replace all external IDs, without changing the post version or snapshots.
          */
         put: operations["set_external_ids"];
@@ -1540,7 +1540,7 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get External Id
+         * Find a post by external ID
          * @description Find a visible post by its exact, case-sensitive external ID.
          */
         get: operations["get_external_id"];

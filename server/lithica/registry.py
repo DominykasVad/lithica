@@ -44,6 +44,10 @@ NAME_PATTERN = re.compile(r"[a-z][a-z0-9_]*")
 KIND_PATTERN = re.compile(r"[a-z][a-z0-9_]*")
 KIND_MAX_LENGTH = 64
 
+# a typed relation type is stored with every directed typed relation
+RELATION_TYPE_PATTERN = re.compile(r"[a-z][a-z0-9-]*")
+RELATION_TYPE_MAX_LENGTH = 32
+
 # a post type is stored with every post, and is a value of the `type:` token
 POST_TYPE_PATTERN = re.compile(r"[a-z][a-z0-9_]*")
 POST_TYPE_MAX_LENGTH = 32
@@ -198,7 +202,19 @@ class PostKind:
 
 @dataclass(frozen=True)
 class RelationType:
-    """A directed typed relation and the post kinds allowed at either end."""
+    """
+    A type of directed typed relation between posts, separate from the
+    engine's untyped, two-way relations.
+
+    A typed relation goes from one post to another. `from_kinds` restricts
+    the source post's kind and `to_kinds` the destination post's kind;
+    None means any post kind on that side. A set must be nonempty and may
+    name only `media` or post kinds registered by loaded modules.
+
+    These kind restrictions are checked only when a typed relation is
+    created. A later change to either post's kind leaves existing typed
+    relations alone.
+    """
 
     name: str
     from_kinds: frozenset[str] | None
@@ -509,17 +525,40 @@ def _verify_relation_types(modules: Sequence[Module]) -> None:
     names: set[str] = set()
     for module in modules:
         for item in module.relation_types:
-            if len(item.name) > 32 or not re.fullmatch(r"[a-z][a-z0-9-]*", item.name):
-                raise _refuse(module, "has an invalid typed relation type name.")
+            if (
+                not RELATION_TYPE_PATTERN.fullmatch(item.name)
+                or len(item.name) > RELATION_TYPE_MAX_LENGTH
+            ):
+                raise _refuse(
+                    module,
+                    "has an invalid typed relation type name %r: match "
+                    "[a-z][a-z0-9-]* and use at most %d characters."
+                    % (item.name, RELATION_TYPE_MAX_LENGTH),
+                )
             if item.name in names:
-                raise _refuse(module, "registers a typed relation type twice.")
+                raise _refuse(
+                    module, "registers typed relation type %r twice." % item.name
+                )
             names.add(item.name)
-            for allowed in (item.from_kinds, item.to_kinds):
-                if allowed is not None and (not allowed or not allowed <= kinds):
+            for side, allowed in (
+                ("from_kinds", item.from_kinds),
+                ("to_kinds", item.to_kinds),
+            ):
+                if allowed is None:
+                    continue
+                if not allowed:
                     raise _refuse(
                         module,
-                        "typed relation kinds must be nonempty loaded post kinds; "
-                        "use None for any.",
+                        "typed relation type %r has an empty %s set; "
+                        "use None for any post kind." % (item.name, side),
+                    )
+                unknown = allowed - kinds
+                if unknown:
+                    raise _refuse(
+                        module,
+                        "typed relation type %r has unknown post kinds in %s: %s; "
+                        "use media or loaded post kinds."
+                        % (item.name, side, ", ".join(sorted(unknown))),
                     )
 
 

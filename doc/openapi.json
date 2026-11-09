@@ -6397,7 +6397,7 @@
         "tags": [
           "Posts"
         ],
-        "summary": "Get Typed Relations",
+        "summary": "List a post's typed relations",
         "description": "List typed relations, with the other post and its signed file URLs.",
         "operationId": "get_typed_relations",
         "security": [
@@ -6487,7 +6487,7 @@
         "tags": [
           "Posts"
         ],
-        "summary": "Create Typed Relation",
+        "summary": "Create a typed relation",
         "description": "Create a typed relation, without changing either post's version or snapshots.",
         "operationId": "create_typed_relation",
         "security": [
@@ -6577,7 +6577,7 @@
         "tags": [
           "Posts"
         ],
-        "summary": "Update Typed Relation",
+        "summary": "Update a typed relation label",
         "description": "Change only the label of a visible typed relation. Null clears it.",
         "operationId": "update_typed_relation",
         "security": [
@@ -6663,7 +6663,7 @@
         "tags": [
           "Posts"
         ],
-        "summary": "Delete Typed Relation",
+        "summary": "Delete a typed relation",
         "description": "Delete a visible typed relation.",
         "operationId": "delete_typed_relation",
         "security": [
@@ -6727,7 +6727,7 @@
         "tags": [
           "Posts"
         ],
-        "summary": "Set External Ids",
+        "summary": "Replace a post's external IDs",
         "description": "Replace all external IDs, without changing the post version or snapshots.",
         "operationId": "set_external_ids",
         "security": [
@@ -6841,7 +6841,7 @@
         "tags": [
           "Posts"
         ],
-        "summary": "Get External Id",
+        "summary": "Find a post by external ID",
         "description": "Find a visible post by its exact, case-sensitive external ID.",
         "operationId": "get_external_id",
         "security": [

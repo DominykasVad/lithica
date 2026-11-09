@@ -78,7 +78,7 @@ def relation_type(name: str) -> registry.RelationType:
     for item in registry.relation_types():
         if item.name == name:
             return item
-    raise InvalidTypedRelationError("Unknown typed relation type.")
+    raise InvalidTypedRelationError("Unknown typed relation type %r." % name)
 
 
 def get_typed_relation(relation_id: int) -> model.PostTypedRelation:
