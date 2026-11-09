@@ -44,9 +44,6 @@ NAME_PATTERN = re.compile(r"[a-z][a-z0-9_]*")
 KIND_PATTERN = re.compile(r"[a-z][a-z0-9_]*")
 KIND_MAX_LENGTH = 64
 
-# the post.kind column, distinct from post_content.kind
-POST_KIND_MAX_LENGTH = 32
-
 # a post type is stored with every post, and is a value of the `type:` token
 POST_TYPE_PATTERN = re.compile(r"[a-z][a-z0-9_]*")
 POST_TYPE_MAX_LENGTH = 32
@@ -317,6 +314,8 @@ def _verify(modules: Sequence[Module]) -> None:
     that claim the same name, and one that would replace something the
     engine has.
     """
+    from lithica import model
+
     names: set[str] = set()
     kinds: set[str] = set()
     post_kind_names = {"media"}
@@ -399,7 +398,7 @@ def _verify(modules: Sequence[Module]) -> None:
         for post_kind in module.post_kinds:
             if (
                 not KIND_PATTERN.fullmatch(post_kind.name)
-                or len(post_kind.name) > POST_KIND_MAX_LENGTH
+                or len(post_kind.name) > model.Post.KIND_MAX_LENGTH
             ):
                 raise _refuse(module, "has an invalid post kind %r." % post_kind.name)
             if post_kind.name == "media":
