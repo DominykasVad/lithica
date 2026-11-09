@@ -1,8 +1,9 @@
 """
 What the numbers say to an anonymous user in `nsfw-login` (doc/API.md,
-"Visibility"): which counts leave the hidden posts out, and which still
-count them. Each count is pinned here as it is: one that changes, changes
-its documentation with it.
+"Visibility"): which counts leave the hidden posts out (tag siblings, a
+post's relationCount, a pool's postCount), and which still count them (tag
+usages, a user's upload, favourite and comment counts). Each count is
+pinned here as it is: one that changes, changes its documentation with it.
 
 The site is lithica.tests.api.rich_posts, committed, with a session per
 request as the server runs them. Anonymous users are given the privileges
@@ -12,6 +13,7 @@ to see users, and to list tags and pools, so that every count can be read.
 from typing import Any
 
 import pytest
+import sqlalchemy.event as sa_event
 
 from lithica import db, model, registry
 from lithica.tests.api import rich_posts
@@ -75,22 +77,48 @@ def test_tag_usages_count_hidden_posts(site):
     assert in_posts == {every}
 
 
-def test_tag_siblings_count_hidden_posts(site):
-    get, hidden = site["get"], site["hidden"]
+def _expected_siblings(hidden: set[int], leave_out_hidden: bool) -> dict[str, int]:
+    """The siblings of TAG by name, counted over all posts or the visible ones."""
     with db.session_scope():
-        with_tag = set(_tag_post_ids(TAG))
-        every: dict[str, int] = {}
-        for name in ("commission", rich_posts.NSFW):
-            together = sorted(with_tag & set(_tag_post_ids(name)))
-            every[name], _ = _all_and_visible(together, hidden)
-    siblings = {
+        with_tag = {
+            post_id
+            for post_id in _tag_post_ids(TAG)
+            if not leave_out_hidden or post_id not in hidden
+        }
+        rows = (
+            db.session.query(model.PostTag.post_id, model.TagName.name)
+            .join(model.TagName, model.TagName.tag_id == model.PostTag.tag_id)
+            .filter(model.TagName.order == 0)
+            .filter(model.PostTag.post_id.in_(sorted(with_tag)))
+        )
+        found: dict[str, int] = {}
+        for _, name in rows:
+            if name != TAG:
+                found[name] = found.get(name, 0) + 1
+    return found
+
+
+def _siblings(get: Any, who: str | None) -> dict[str, int]:
+    return {
         sibling["tag"]["names"][0]: sibling["occurrences"]
-        for sibling in get("/tag-siblings/%s" % TAG)["results"]
+        for sibling in get("/tag-siblings/%s" % TAG, who)["results"]
     }
-    for name, count in every.items():
-        assert siblings[name] == count, name
-    # the NSFW tag itself is a sibling: it is on hidden posts only
-    assert siblings[rich_posts.NSFW] > 0
+
+
+def test_tag_siblings_come_from_visible_posts_only(site):
+    get, hidden = site["get"], site["hidden"]
+    expected = _expected_siblings(hidden, leave_out_hidden=True)
+    every = _expected_siblings(hidden, leave_out_hidden=False)
+    # the site has tags that only hidden posts carry, and counts they change
+    only_on_hidden = set(every) - set(expected)
+    assert {rich_posts.NSFW, rich_posts.IMPLIES_NSFW} <= only_on_hidden
+    assert any(every[name] > count for name, count in expected.items())
+
+    siblings = _siblings(get, None)
+    assert siblings == expected
+    assert not set(siblings) & only_on_hidden
+    # a logged-in user is given them all, as before
+    assert _siblings(get, "bob") == every
 
 
 def test_a_pool_s_post_count_leaves_hidden_posts_out(site):
@@ -147,3 +175,59 @@ def test_a_user_s_upload_and_favourite_counts_count_hidden_posts(site):
     assert [(one["uploadedPostCount"], one["favoritePostCount"]) for one in listed] == [
         (uploads, favourites)
     ]
+
+
+def test_a_user_s_comment_count_counts_comments_on_hidden_posts(site):
+    get, hidden = site["get"], site["hidden"]
+    with db.session_scope():
+        bob = db.session.query(model.User).filter_by(name="bob").one()
+        every, _ = _all_and_visible(
+            [
+                post_id
+                for (post_id,) in db.session.query(model.Comment.post_id).filter_by(
+                    user_id=bob.user_id
+                )
+            ],
+            hidden,
+        )
+    assert get("/user/bob")["commentCount"] == every
+    assert get("/user/bob", "bob")["commentCount"] == every
+
+
+def test_relation_count_is_the_relations_the_viewer_sees(site, _pg_engine):
+    get, hidden = site["get"], site["hidden"]
+    fields = "id,relations,relationCount"
+    by_bob = get("/posts", "bob", limit="100", fields=fields)["results"]
+    post_id = next(
+        post["id"]
+        for post in by_bob
+        if post["id"] not in hidden
+        and {relation["id"] in hidden for relation in post["relations"]}
+        == {True, False}
+    )
+    lengths = {}
+    for who in (None, "bob"):
+        listed = get("/posts", who, limit="100", fields=fields)["results"]
+        one = get("/post/%d" % post_id, who, fields=fields)
+        for post in [*listed, one]:
+            assert post["relationCount"] == len(post["relations"]), (who, post)
+        lengths[who] = one["relationCount"]
+    # the hidden relations are left out of the count, for anonymous users only
+    assert 0 < lengths[None] < lengths["bob"]
+
+    # loaded for the page at once: as many queries for 2 posts as for 20
+    counted: list[int] = []
+
+    def count(*_args: Any) -> None:
+        counted.append(1)
+
+    queries = {}
+    sa_event.listen(_pg_engine, "after_cursor_execute", count)
+    try:
+        for limit in ("2", "20"):
+            counted.clear()
+            get("/posts", None, limit=limit, fields="id,relationCount")
+            queries[limit] = len(counted)
+    finally:
+        sa_event.remove(_pg_engine, "after_cursor_execute", count)
+    assert queries["20"] == queries["2"], queries
