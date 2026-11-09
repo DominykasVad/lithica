@@ -163,8 +163,8 @@ BACKFILLS = {
 
 
 def backfill(what: str) -> bool:
-    """Run the named backfill, or all of them. Returns False if any post failed."""
-    names = list(BACKFILLS) if what == "all" else [what]
+    """Run a named backfill, or the repeat-safe ones; report any post failure."""
+    names = ["signatures", "md5"] if what == "all" else [what]
     success = True
     for name in names:
         description, count_pending, run = BACKFILLS[name]
@@ -288,7 +288,8 @@ def main(args: list[str] | None = None) -> int:
         help="compute data that is missing on existing posts",
         description="Compute data that is missing on existing posts. Safe to "
         "repeat for signatures/md5; kinds derives every post again and undoes "
-        "hand-set kinds. Use kinds once after upgrading to 0.4.0.",
+        "hand-set kinds. Use kinds once after upgrading to 0.4.0. "
+        "all runs only signatures and md5; kinds must be named explicitly.",
     )
     parser_backfill.add_argument(
         "what",
@@ -297,7 +298,7 @@ def main(args: list[str] | None = None) -> int:
             "%s: %s" % (name, description)
             for name, (description, _count, _run) in BACKFILLS.items()
         )
-        + "; all: every backfill",
+        + "; all: signatures and md5 only (excludes kinds)",
     )
     parser_reextract = subparsers.add_parser(
         "reextract",

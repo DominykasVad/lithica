@@ -808,7 +808,7 @@ def test_admin_commands_a_module_may_not_take(inject_config, admin, capsys):
     ],
 )
 def test_invalid_post_kinds(post_kinds, content_kinds):
-    with pytest.raises(errors.ConfigError):
+    with pytest.raises(errors.ConfigError) as caught:
         registry.use(
             [
                 registry.Module(
@@ -816,6 +816,10 @@ def test_invalid_post_kinds(post_kinds, content_kinds):
                 )
             ]
         )
+
+    assert post_kinds[-1].name in str(caught.value)
+    if post_kinds[-1].name == "media":
+        assert "`media` is the engine's post kind" in str(caught.value)
 
 
 def test_post_kind_duplicates_across_modules():

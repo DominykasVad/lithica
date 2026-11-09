@@ -44,6 +44,9 @@ NAME_PATTERN = re.compile(r"[a-z][a-z0-9_]*")
 KIND_PATTERN = re.compile(r"[a-z][a-z0-9_]*")
 KIND_MAX_LENGTH = 64
 
+# the post.kind column, distinct from post_content.kind
+POST_KIND_MAX_LENGTH = 32
+
 # a post type is stored with every post, and is a value of the `type:` token
 POST_TYPE_PATTERN = re.compile(r"[a-z][a-z0-9_]*")
 POST_TYPE_MAX_LENGTH = 32
@@ -171,7 +174,26 @@ class ContentKind:
 
 @dataclass(frozen=True)
 class PostKind:
-    """What a post is; supported by any of these module-owned content kinds."""
+    """
+    What a post is, e.g. `card`, rather than the format of extracted content.
+
+    A content kind (`ContentKind`) describes one extracted row, such as
+    `card_v2`; a post kind describes the post as a whole. `media` is the
+    engine's own post kind and modules may not register it.
+
+    `content_kinds` is a nonempty set of content kinds this module owns. A
+    post supports this post kind when at least one of its content rows has
+    one of those kinds. Each content kind may support only one post kind.
+    Engine file types also support `media`: a PNG card supports both, while
+    a CHARX supports only `card`.
+
+    Supporting a post kind does not select it. On upload the derived kind
+    is the first supported module post kind, in module configuration order
+    then declaration order, falling back to `media`. A user may select any
+    supported post kind through the kind endpoint; reextract preserves that
+    choice unless the loaded content-kind set changes or it stops being
+    supported. Reextract and backfill retain kinds of switched-off modules.
+    """
 
     name: str
     content_kinds: frozenset[str]
@@ -375,16 +397,32 @@ def _verify(modules: Sequence[Module]) -> None:
                 )
             kinds.add(kind.name)
         for post_kind in module.post_kinds:
-            if not KIND_PATTERN.fullmatch(post_kind.name) or len(post_kind.name) > 32:
+            if (
+                not KIND_PATTERN.fullmatch(post_kind.name)
+                or len(post_kind.name) > POST_KIND_MAX_LENGTH
+            ):
                 raise _refuse(module, "has an invalid post kind %r." % post_kind.name)
+            if post_kind.name == "media":
+                raise _refuse(module, "`media` is the engine's post kind.")
             if post_kind.name in post_kind_names:
                 raise _refuse(module, "registers post kind %r twice." % post_kind.name)
             post_kind_names.add(post_kind.name)
             owned = {kind.name for kind in module.content_kinds}
             if not post_kind.content_kinds or not post_kind.content_kinds <= owned:
-                raise _refuse(module, "post kind must name its module's content kinds.")
+                raise _refuse(
+                    module,
+                    "post kind %r must name its module's content kinds (nonempty)."
+                    % post_kind.name,
+                )
             if claimed_content & post_kind.content_kinds:
-                raise _refuse(module, "lists one content kind in two post kinds.")
+                raise _refuse(
+                    module,
+                    "post kind %r reuses content kinds of another post kind: %s."
+                    % (
+                        post_kind.name,
+                        ", ".join(sorted(claimed_content & post_kind.content_kinds)),
+                    ),
+                )
             claimed_content.update(post_kind.content_kinds)
         if module.extractors and not module.content_kinds:
             raise _refuse(module, "has extractors but declares no content kind.")

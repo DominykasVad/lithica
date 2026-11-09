@@ -22,6 +22,7 @@ from lithica.func import (
     mime,
     pools,
     post_content,
+    post_kinds,
     scores,
     serialization,
     tag_categories,
@@ -1559,7 +1560,6 @@ def count_posts_for_kind_backfill() -> int:
 
 def update_all_post_kinds() -> tuple[int, int]:
     """Derive kinds from stored rows, without reading files, including manual kinds."""
-    from lithica.func import post_kinds
 
     def fill(post: model.Post) -> bool:
         post_kinds.derive_existing(post)

@@ -1634,8 +1634,8 @@ Kinds are derived as follows:
    existing rows.
 3. `lithica-admin backfill kinds` derives every post from its current rows,
    in batches without reading files. It undoes hand-set kinds and is meant
-   once after upgrading to 0.4.0; the migration itself sets all existing
-   posts to `media` without module knowledge.
+   once after upgrading to 0.4.0; `backfill all` leaves kinds out. The migration
+   sets all existing posts to `media` without module knowledge.
 4. Reextract and backfill keep stored kinds no loaded module registers,
    preserving kinds and content rows of switched-off modules. Startup does
    not warn about kinds awaiting backfill, because hand-set `media` cannot

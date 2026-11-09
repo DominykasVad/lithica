@@ -111,3 +111,20 @@ def test_engine_video_and_unowned_rows(post_factory):
     post.contents = [model.PostContent(kind="unknown", payload={})]
     assert post_kinds.supported_kinds(post) == ["media"]
     assert post_kinds.derived_kind(post) == "media"
+
+
+def test_backfill_all_preserves_manual_kind(site, user, kind_admin):  # noqa: F811
+    client = site(["cards"])
+    config.config["privileges"]["posts:edit:kind"] = "regular"
+    card = _upload(client, user, cards.png_card(cards.v2_card()))
+    ok(
+        client.put(
+            f"/post/{card['id']}/kind",
+            user=user,
+            body={"version": card["version"], "kind": "media"},
+        )
+    )
+    assert kind_admin.main(["backfill", "all"]) == 0
+    assert ok(client.get(f"/post/{card['id']}", user=user))["kind"] == "media"
+    assert kind_admin.main(["backfill", "kinds"]) == 0
+    assert ok(client.get(f"/post/{card['id']}", user=user))["kind"] == "card"
