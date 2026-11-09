@@ -373,3 +373,18 @@ describe("the file name of a download", () => {
     expect(fallbackName(5, undefined)).toBe("5");
   });
 });
+
+it("shows an unlisted badge and handles an unlisted direct link without neighbours", async () => {
+  site({ "GET /post/5": { body: { ...POST, listed: false } } });
+  renderApp("/posts/5");
+  expect(await screen.findByText("Unlisted")).toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "Previous" })).toBeNull();
+  expect(screen.queryByRole("link", { name: "Next" })).toBeNull();
+});
+
+it("has no unlisted badge for a listed post", async () => {
+  site();
+  renderApp("/posts/5");
+  await screen.findByText("Uploaded by");
+  expect(screen.queryByText("Unlisted")).toBeNull();
+});

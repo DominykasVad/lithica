@@ -413,7 +413,7 @@ describe("the parts of an edit", () => {
   });
 
   it("leaves out what the user may not change", () => {
-    const draft = { tags: "x", safety: "unsafe" as const, source: "y" };
+    const draft = { listed: true, tags: "x", safety: "unsafe" as const, source: "y" };
     expect(changes(post, draft, ["safety"])).toEqual({ safety: "unsafe" });
     expect(changes(post, draft, [])).toEqual({});
   });
@@ -574,3 +574,47 @@ describe("the tags field", () => {
 function tag(name: string) {
   return { names: [name], category: "default", usages: 1 };
 }
+
+it("offers the Listed switch only with its privilege and sends only its change", async () => {
+  const { sent } = site({ privileges: { "posts:edit:listed": "regular" } });
+  renderApp("/posts/5");
+  const { user, form } = await openEditor();
+  const toggle = within(form).getByRole("switch", { name: "Listed" });
+  expect(toggle).toHaveAttribute("aria-checked", "true");
+  await user.click(toggle);
+  await user.click(within(form).getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(edits(sent)).toHaveLength(1));
+  expect(edits(sent)[0]?.body).toEqual({ version: 3, listed: false });
+  expect(await screen.findByText("Unlisted")).toBeInTheDocument();
+});
+
+it("hides Listed when the user can edit other fields but lacks its privilege", async () => {
+  site();
+  renderApp("/posts/5");
+  const { form } = await openEditor();
+  expect(within(form).queryByRole("switch", { name: "Listed" })).toBeNull();
+});
+
+it("reloads a listed conflict and keeps the unsaved switch change for review", async () => {
+  const { state, sent } = site({ privileges: { "posts:edit:listed": "regular" } });
+  renderApp("/posts/5");
+  const { user, form } = await openEditor();
+  await user.click(within(form).getByRole("switch", { name: "Listed" }));
+  state.post = { ...state.post, version: 4 };
+  await user.click(within(form).getByRole("button", { name: "Save" }));
+  const alert = await within(form).findByRole("alert");
+  await user.click(within(alert).getByRole("button", { name: "Reload" }));
+  await waitFor(() =>
+    expect(within(form).getByRole("switch", { name: "Listed" })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    ),
+  );
+  expect(
+    within(form).getByRole("region", { name: "Your unsaved edits" }),
+  ).toHaveTextContent("ListedNo");
+  await user.click(within(form).getByRole("switch", { name: "Listed" }));
+  await user.click(within(form).getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(edits(sent)).toHaveLength(2));
+  expect(edits(sent)[1]?.body).toEqual({ version: 4, listed: false });
+});

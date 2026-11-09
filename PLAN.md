@@ -382,7 +382,7 @@ concept, "post" the resource.
 ### 6.4 Listed
 - [x] A post's `listed` flag, default true. Searches leave unlisted posts out unless the query says `listed:no` or `listed:any`.
 - [x] Changing it: its own privilege.
-- [ ] Sardonyx's library respects it; the post page shows that a post is unlisted.
+- [x] Sardonyx's library respects it; the post page shows that a post is unlisted.
 
 ### 6.5 Share links
 - [ ] A share link per post: created under a privilege, optional expiry, revocable; listed per post and per user. Stored as a hash of a random token.

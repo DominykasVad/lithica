@@ -113,6 +113,12 @@ function UnsavedEdits({
             <dd>{SAFETY_LABELS[changed.safety]}</dd>
           </div>
         ) : null}
+        {changed.listed !== undefined ? (
+          <div>
+            <dt className="text-muted-foreground text-xs">Listed</dt>
+            <dd>{changed.listed ? "Yes" : "No"}</dd>
+          </div>
+        ) : null}
         {changed.source !== undefined ? (
           <div>
             <dt className="text-muted-foreground text-xs">Source</dt>
@@ -164,7 +170,9 @@ function Editor({
   // tags, the chosen safety, the source
   useEffect(() => {
     form.current
-      ?.querySelector<HTMLElement>("textarea, [role=radio][aria-checked=true]")
+      ?.querySelector<HTMLElement>(
+        "textarea, [role=radio][aria-checked=true], [role=switch]",
+      )
       ?.focus();
   }, []);
 
@@ -273,6 +281,23 @@ function Editor({
             rows={3}
             className="w-full rounded-xl border border-control-border bg-card px-3 py-2 text-foreground text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
+        </div>
+      ) : null}
+      {fields.includes("listed") ? (
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            role="switch"
+            id={`${id}-listed`}
+            aria-checked={draft.listed}
+            onClick={() => setDraft((now) => ({ ...now, listed: !now.listed }))}
+            className="inline-flex h-6 w-10 items-center rounded-full border border-control-border bg-muted p-0.5 outline-none focus-visible:ring-2 focus-visible:ring-ring aria-checked:bg-primary"
+          >
+            <span
+              className={`size-4 rounded-full bg-background transition-transform ${draft.listed ? "translate-x-4" : "translate-x-0"}`}
+            />
+          </button>
+          <Label htmlFor={`${id}-listed`}>Listed</Label>
         </div>
       ) : null}
       {save.isError ? (

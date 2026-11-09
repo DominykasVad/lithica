@@ -2,6 +2,7 @@
 
 export const POST = {
   id: 5,
+  listed: true,
   type: "image",
   mimeType: "image/png",
   safety: "sketchy",
