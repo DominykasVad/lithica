@@ -19,9 +19,8 @@ stack="$here/.stack"
 export E2E_PORT=${E2E_PORT:-8092}
 export E2E_NSFW_PORT=${E2E_NSFW_PORT:-8093}
 export E2E_MAIL_PORT=${E2E_MAIL_PORT:-8095}
-# Sardonyx's port in docker-compose.dev.yml; the legacy client is not started
+# Sardonyx's port in docker-compose.dev.yml
 export SARDONYX_PORT=$E2E_PORT
-export PORT=${PORT:-8094}
 
 compose() {
   docker compose -p lithica-e2e --project-directory "$root" \

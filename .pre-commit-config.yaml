@@ -36,5 +36,4 @@ repos:
     -   id: ruff-format
         files: server/
 
-# legacy/ is frozen: hooks must not rewrite it
-exclude: ^(LICENSE\.md|legacy/)
+exclude: ^LICENSE\.md

@@ -20,8 +20,6 @@ jobs:
         include:
           - image: lithica-server
             context: ./server
-          - image: lithica-client-legacy
-            context: ./legacy/client
           - image: lithica-client
             context: ./clients/sardonyx
 

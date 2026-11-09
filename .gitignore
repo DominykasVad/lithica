@@ -13,9 +13,7 @@ config.yaml
 !.env.example
 *.local.yaml
 
-# Legacy client build artifacts (path before and after the phase 0 move)
-client/public
-legacy/client/public
+# Dependencies and test reports
 */*_modules/
 node_modules/
 
@@ -64,7 +62,7 @@ htmlcov/
 junit*.xml
 
 # ---------------------------------------------------------------------------
-# Node / JS (legacy client now, new client later)
+# Node / JS (the web client)
 # ---------------------------------------------------------------------------
 npm-debug.log*
 yarn-debug.log*

@@ -97,6 +97,3 @@ pnpm-lock.yaml          linguist-generated=true
 package-lock.json       linguist-generated=true
 doc/openapi.json        linguist-generated=true
 *.autogen.*             linguist-generated=true
-
-# Archived code: exclude from GitHub language stats
-legacy/**               linguist-vendored=true

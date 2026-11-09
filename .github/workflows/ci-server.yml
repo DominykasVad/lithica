@@ -15,8 +15,6 @@ on:
       # (lithica/tests/test_file_links_nginx.py)
       - "clients/sardonyx/nginx.conf.template"
       - "clients/sardonyx/docker-entrypoint.d/**"
-      - "legacy/client/nginx.conf.docker"
-      - "legacy/client/docker-start.sh"
   push:
     branches: [main]
     paths:
@@ -27,8 +25,6 @@ on:
       # (lithica/tests/test_file_links_nginx.py)
       - "clients/sardonyx/nginx.conf.template"
       - "clients/sardonyx/docker-entrypoint.d/**"
-      - "legacy/client/nginx.conf.docker"
-      - "legacy/client/docker-start.sh"
 
 permissions:
   contents: read

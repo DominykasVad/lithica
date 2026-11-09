@@ -100,7 +100,7 @@ sign() {
   printf '%s%s %s' "$2" "$1" "$secret" | openssl md5 -binary | openssl base64 |
     tr '+/' '-_' | tr -d '='
 }
-# a base path is the legacy client's: here it is ignored, and said so
+# a base path is not supported: it is ignored, and said so
 base_url_log() { docker run --rm "$@" "$image" nginx -t 2>&1 | grep -c "BASE_URL is set" || true; }
 check "BASE_URL under a path is warned about" 1 "$(base_url_log -e BASE_URL=/lithica/)"
 check "BASE_URL of the root is not" 0 "$(base_url_log -e BASE_URL=/)"

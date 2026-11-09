@@ -1,8 +1,9 @@
 """
-The signed file links the server makes, checked by the nginx of both client
-images: their own configuration files, in the nginx images they are built
-on, with Docker. Skipped where Docker is not there (and the repository's
-client files are not), unless LITHICA_REQUIRE_DOCKER is set, as in CI.
+The signed file links the server makes, checked by the nginx of the client
+image (Sardonyx): its own configuration files, in the nginx image it is
+built on, with Docker. Skipped where Docker is not there (and the
+repository's client files are not), unless LITHICA_REQUIRE_DOCKER is set,
+as in CI.
 """
 
 import os
@@ -21,7 +22,6 @@ from lithica.func import file_links, posts
 
 ROOT = Path(__file__).resolve().parents[3]
 SARDONYX = ROOT / "clients" / "sardonyx"
-LEGACY = ROOT / "legacy" / "client"
 SECRET = "test-secret-of-signed-file-links-0123456789"
 
 
@@ -31,12 +31,10 @@ def _docker_works() -> bool:
     return subprocess.run(["docker", "info"], capture_output=True).returncode == 0
 
 
-_AVAILABLE = SARDONYX.is_dir() and LEGACY.is_dir() and _docker_works()
+_AVAILABLE = SARDONYX.is_dir() and _docker_works()
 if not _AVAILABLE and os.getenv("LITHICA_REQUIRE_DOCKER"):
-    raise RuntimeError(
-        "LITHICA_REQUIRE_DOCKER is set, but Docker or the clients are not"
-    )
-pytestmark = pytest.mark.skipif(not _AVAILABLE, reason="needs Docker and the clients")
+    raise RuntimeError("LITHICA_REQUIRE_DOCKER is set, but Docker or the client is not")
+pytestmark = pytest.mark.skipif(not _AVAILABLE, reason="needs Docker and the client")
 
 
 def _image(dockerfile: Path, stage: str) -> str:
@@ -124,22 +122,6 @@ def _sardonyx(data: Path, tmp_path: Path, secret: str) -> Iterator[str]:
     )  # fmt: skip
 
 
-def _legacy(data: Path, tmp_path: Path, secret: str) -> Iterator[str]:
-    image = _image(LEGACY / "Dockerfile", "release")
-    yield from _start(
-        [
-            "-v", "%s:/data:ro" % data,
-            "-e", "BACKEND_HOST=127.0.0.1",
-            "-e", "FILE_LINK_SECRET=%s" % secret,
-            image, "sh", "/docker-start.sh",
-        ],
-        {
-            LEGACY / "nginx.conf.docker": "/etc/nginx/nginx.conf",
-            LEGACY / "docker-start.sh": "/docker-start.sh",
-        },
-    )  # fmt: skip
-
-
 def _status(url: str) -> int:
     try:
         with urllib.request.urlopen(url, timeout=5) as response:
@@ -153,7 +135,7 @@ def _read(url: str) -> str:
         return response.read().decode()
 
 
-IMAGES = {"sardonyx": _sardonyx, "legacy": _legacy}
+IMAGES = {"sardonyx": _sardonyx}
 
 
 @pytest.mark.parametrize("image", IMAGES)
