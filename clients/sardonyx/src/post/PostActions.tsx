@@ -10,6 +10,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Switch } from "@/components/ui/switch";
 import type { LibrarySearch } from "@/library/search";
 import { CompletionInput } from "@/search/CompletionInput";
 import {
@@ -285,18 +286,11 @@ function Editor({
       ) : null}
       {fields.includes("listed") ? (
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            role="switch"
+          <Switch
             id={`${id}-listed`}
-            aria-checked={draft.listed}
-            onClick={() => setDraft((now) => ({ ...now, listed: !now.listed }))}
-            className="inline-flex h-6 w-10 items-center rounded-full border border-control-border bg-muted p-0.5 outline-none focus-visible:ring-2 focus-visible:ring-ring aria-checked:bg-primary"
-          >
-            <span
-              className={`size-4 rounded-full bg-background transition-transform ${draft.listed ? "translate-x-4" : "translate-x-0"}`}
-            />
-          </button>
+            checked={draft.listed}
+            onCheckedChange={(listed) => setDraft((now) => ({ ...now, listed }))}
+          />
           <Label htmlFor={`${id}-listed`}>Listed</Label>
         </div>
       ) : null}

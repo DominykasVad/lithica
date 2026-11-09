@@ -26,11 +26,15 @@ test("unlisted stays out of the library, opens by URL, and can be listed", async
   });
   expect(found.body.total).toBe(0);
   await page.goto(`/posts/${id}`);
-  await expect(page.getByText("Unlisted", { exact: true })).toBeVisible();
+  const listedFact = page
+    .locator("dt")
+    .filter({ hasText: /^Listed$/ })
+    .locator("..");
+  await expect(listedFact).toHaveText("ListedNo");
   await page.getByRole("button", { name: /^Edit/ }).click();
   await page.getByRole("switch", { name: "Listed" }).click();
   await page.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(page.getByText("Unlisted", { exact: true })).toHaveCount(0);
+  await expect(listedFact).toHaveText("ListedYes");
   await page.goto(`/posts?q=${tag}`);
   await expect(
     page

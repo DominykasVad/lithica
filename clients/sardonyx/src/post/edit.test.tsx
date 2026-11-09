@@ -585,7 +585,11 @@ it("offers the Listed switch only with its privilege and sends only its change",
   await user.click(within(form).getByRole("button", { name: "Save" }));
   await waitFor(() => expect(edits(sent)).toHaveLength(1));
   expect(edits(sent)[0]?.body).toEqual({ version: 3, listed: false });
-  expect(await screen.findByText("Unlisted")).toBeInTheDocument();
+  await waitFor(() =>
+    expect(
+      screen.getByText("Listed", { selector: "dt" }).nextElementSibling,
+    ).toHaveTextContent(/^No$/),
+  );
 });
 
 it("hides Listed when the user can edit other fields but lacks its privilege", async () => {
@@ -617,4 +621,18 @@ it("reloads a listed conflict and keeps the unsaved switch change for review", a
   await user.click(within(form).getByRole("button", { name: "Save" }));
   await waitFor(() => expect(edits(sent)).toHaveLength(2));
   expect(edits(sent)[1]?.body).toEqual({ version: 4, listed: false });
+});
+
+it("focuses the Listed switch when it is the only field and returns to Edit on Cancel", async () => {
+  site({ privileges: { "posts:edit:listed": "regular" } });
+  renderApp("/posts/5");
+  const { user, form } = await openEditor();
+  expect(within(form).getByRole("switch", { name: "Listed" })).toHaveFocus();
+  await user.keyboard(" ");
+  expect(within(form).getByRole("switch", { name: "Listed" })).toHaveAttribute(
+    "aria-checked",
+    "false",
+  );
+  await user.click(within(form).getByRole("button", { name: "Cancel" }));
+  expect(screen.getByRole("button", { name: "Edit listed" })).toHaveFocus();
 });
