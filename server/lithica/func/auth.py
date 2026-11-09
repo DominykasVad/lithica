@@ -169,6 +169,15 @@ def verify_app_token_changed_something() -> None:
     (and a post's edit time and snapshot) without asking any privilege. With
     an app token, such an edit is refused: the token may change only what a
     privilege it was granted allows.
+
+    It tells "nothing to change" by no privilege having been granted so far
+    in the request, so it relies on no privilege being granted earlier in
+    the request than the edit's own field checks: a route that asks one
+    first (to find or show the resource) would let a version-only edit
+    through. Each edit route calls it after its field checks and before the
+    edit time, the flush and the snapshot. What holds every PUT route to it
+    is the walk in lithica/tests/api/test_put_version_only.py: a PUT route
+    that is not in its table fails there.
     """
     if (
         app_token_rights.current_rights() is not None
