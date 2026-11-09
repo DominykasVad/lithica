@@ -393,6 +393,7 @@ concept, "post" the resource.
 
 ### 6.5b Share links in Sardonyx
 - [ ] The post page lists the viewer's share links of the post (all of them for who may list any), with copy, revoke, and creating one with an optional note and expiry; shown only to ranks that may create or list share links.
+- [ ] The account page lists the user's share links, paged, each with its post, note, expiry, copy and revoke.
 
 ### 6.6 Site settings and feature switches
 - [ ] A settings API (`GET`/`PUT /settings`, administrator only): settings declared in one registry with type, default and whether they can change at runtime. `config.yaml` gives the starting values; a value changed through the API is stored in the database and wins; settings that need a restart are read-only through the API.
