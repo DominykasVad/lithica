@@ -781,3 +781,81 @@ def test_admin_commands_a_module_may_not_take(inject_config, admin, capsys):
     listed = capsys.readouterr().out
     for command in registry.ENGINE_ADMIN_COMMANDS:
         assert command in listed
+
+
+@pytest.mark.parametrize(
+    "post_kinds,content_kinds",
+    [
+        ([registry.PostKind("Bad", frozenset({"a"}))], [registry.ContentKind("a")]),
+        ([registry.PostKind("a" * 33, frozenset({"a"}))], [registry.ContentKind("a")]),
+        ([registry.PostKind("media", frozenset({"a"}))], [registry.ContentKind("a")]),
+        ([registry.PostKind("thing", frozenset())], []),
+        ([registry.PostKind("thing", frozenset({"other"}))], []),
+        (
+            [
+                registry.PostKind("thing", frozenset({"a"})),
+                registry.PostKind("thing", frozenset({"b"})),
+            ],
+            [registry.ContentKind("a"), registry.ContentKind("b")],
+        ),
+        (
+            [
+                registry.PostKind("thing", frozenset({"a"})),
+                registry.PostKind("another", frozenset({"a"})),
+            ],
+            [registry.ContentKind("a")],
+        ),
+    ],
+)
+def test_invalid_post_kinds(post_kinds, content_kinds):
+    with pytest.raises(errors.ConfigError) as caught:
+        registry.use(
+            [
+                registry.Module(
+                    "test", post_kinds=post_kinds, content_kinds=content_kinds
+                )
+            ]
+        )
+
+    assert post_kinds[-1].name in str(caught.value)
+    if post_kinds[-1].name == "media":
+        assert "`media` is the engine's post kind" in str(caught.value)
+
+
+def test_post_kind_duplicates_across_modules():
+    with pytest.raises(errors.ConfigError):
+        registry.use(
+            [
+                registry.Module(
+                    "one",
+                    content_kinds=[registry.ContentKind("a")],
+                    post_kinds=[registry.PostKind("thing", frozenset({"a"}))],
+                ),
+                registry.Module(
+                    "two",
+                    content_kinds=[registry.ContentKind("b")],
+                    post_kinds=[registry.PostKind("thing", frozenset({"b"}))],
+                ),
+            ]
+        )
+
+
+def test_post_kind_order_is_configuration_then_declaration():
+    def module(name, names):
+        return registry.Module(
+            name,
+            content_kinds=[registry.ContentKind(item + "_v1") for item in names],
+            post_kinds=[
+                registry.PostKind(item, frozenset({item + "_v1"})) for item in names
+            ],
+        )
+
+    registry.use([module("second", ["b", "a"]), module("first", ["c"])])
+    assert [kind.name for kind in registry.post_kinds()] == ["b", "a", "c"]
+    post = model.Post(
+        type="image",
+        contents=[model.PostContent(kind="a_v1"), model.PostContent(kind="b_v1")],
+    )
+    from lithica.func import post_kinds
+
+    assert post_kinds.derived_kind(post) == "b"

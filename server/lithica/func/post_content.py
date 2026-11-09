@@ -24,7 +24,7 @@ from typing import Any, BinaryIO, cast
 
 from lithica import errors, model, registry
 from lithica.func import content as content_module
-from lithica.func import tags, util
+from lithica.func import post_kinds, tags, util
 from lithica.func.content import ContentLike
 
 logger = logging.getLogger(__name__)
@@ -214,6 +214,7 @@ def update_post_contents(post: model.Post, content: ContentLike) -> None:
     if extraction.rejections:
         raise ContentRejectedError(extraction.rejections[0])
     post.contents = _rows(extraction.contents)
+    post.kind = post_kinds.derived_kind(post)
 
 
 def _verified_auto_tags(result: object) -> dict[str, list[str]]:
@@ -288,12 +289,18 @@ def reextract_post_contents(
     kinds are kept as they are, since old content is better than none, and
     the file is the post's already. Returns whether every extractor worked.
     """
+    before = set(get_content_kinds(post))
     targets = set(registry.content_kinds() if kinds is None else kinds)
     extraction = extract(post.mime_type, content, kinds)
     replaced = targets - extraction.failed_kinds
     kept = [row for row in post.contents if row.kind not in replaced]
     found = [content for content in extraction.contents if content.kind in replaced]
     post.contents = kept + _rows(found)
+    if not extraction.failed_kinds and (
+        before != set(get_content_kinds(post))
+        or post.kind not in post_kinds.supported_kinds(post)
+    ):
+        post_kinds.derive_existing(post)
     return not extraction.failed_kinds
 
 

@@ -22,6 +22,7 @@ from lithica.func import (
     mime,
     pools,
     post_content,
+    post_kinds,
     scores,
     serialization,
     tag_categories,
@@ -237,6 +238,7 @@ class PostSerializer(serialization.BaseSerializer):
             "lastEditTime": self.serialize_last_edit_time,
             "safety": self.serialize_safety,
             "source": self.serialize_source,
+            "kind": lambda: self.post.kind,
             "type": self.serialize_type,
             "mimeType": self.serialize_mime,
             "checksum": self.serialize_checksum,
@@ -1021,7 +1023,8 @@ def reextract_all_post_contents(kinds: list[str] | None = None) -> tuple[int, in
     Run the extractors of the loaded modules over the files of the existing
     posts again, for all kinds or for the given ones, a batch of posts at a
     time. For when a module is switched on, or its extractor has changed.
-    Only the extracted content is touched: not the tags, not the version.
+    Extracted content and, when its content kinds change, the post kind
+    are updated. Tags and version are unchanged.
     Returns how many posts were done and how many were not.
     """
 
@@ -1549,3 +1552,17 @@ def search_by_image(
         ]
     else:
         return []
+
+
+def count_posts_for_kind_backfill() -> int:
+    return db.session.query(model.Post).count()
+
+
+def update_all_post_kinds() -> tuple[int, int]:
+    """Derive kinds from stored rows, without reading files, including manual kinds."""
+
+    def fill(post: model.Post) -> bool:
+        post_kinds.derive_existing(post)
+        return True
+
+    return _backfill(lambda: db.session.query(model.Post), fill, "post kind")

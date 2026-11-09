@@ -54,6 +54,10 @@ Confirmed by the owner on 2026-10-10.
 - The largest request is `max_upload_size` (default 1 GiB, the limit of the client image's nginx; change both together).
 - The database session is scoped per request by a ContextVar; work outside a request opens `db.session_scope()`.
 - Modules load when `lithica.app` is imported (their routes are part of the application). Module routes live under `/modules/<name>/` and are in `doc/openapi.json`, each tagged with its module's name and nothing else: a module router that sets tags of its own is a startup error. The contract is generated with every module in `lithica/modules/` enabled (`registry.available()`), whatever the settings; the document a site serves under `api_docs` has the modules of that site.
+- Post kinds (`registry.PostKind`) have unique names of at most 32 characters, excluding engine-owned `media`; each names nonempty content kinds owned by that module, each content kind supporting at most one post kind.
+- Uploads and content replacement derive the first supported loaded post kind in config/declaration order, else `media`. Only engine file types support `media`. Reextract derives again only if loaded content-kind names change or the current kind is unsupported; extraction failures keep the kind and rows, and manual choices otherwise survive.
+- Migrations know no modules: existing posts start as `media`; `lithica-admin backfill kinds` derives from stored rows without files and undoes manual choices, meant once after upgrading to 0.4.0; `backfill all` leaves kinds out. Reextract and backfill keep stored kinds of switched-off modules.
+- `posts:edit:kind` is its own privilege (power), excluded from app-token rights.
 - A content kind is at most 64 characters and belongs to exactly one module (`registry.ContentKind`).
 - An extractor returns at most 64 results. A payload may be 1 MiB of JSON unless its kind asks for more (`ContentKind.max_payload_size`, hard cap 32 MiB; more is a startup error). Beyond a limit, or with one bad result, the extractor counts as failed and all its results for the file are dropped.
 - An extractor or a detector refuses a file on purpose by raising `registry.FileRejected`: the upload is refused with its message. Anything else a detector raises counts as "not mine", and anything else an extractor raises is logged and skipped. On `reextract` a refusal counts as a failure and the rows are kept. Extraction runs before a post's signature is made, so a refused file leaves nothing in the session.
@@ -351,10 +355,10 @@ concept, "post" the resource.
 - [x] Contract: authenticated API routes never answer with a redirect (Lumiverse drops credentials on redirects). In doc/API.md, with a test over every route.
 
 ### 6.2 Kinds
-- [ ] A post's `kind` field (`media`, and kinds registered by modules: `card` from the cards module), derived from its content on upload and by `reextract`; a migration fills it for existing posts.
-- [ ] Modules register kinds through the registry, with the rule for which content can be which kind.
-- [ ] Changing a post's kind: its own endpoint and privilege (`posts:edit:kind`), only to a kind its content supports (a PNG card may be made `media`, a plain picture can't become `card`).
-- [ ] Search token `kind:`; `GET /info` lists the kinds of the site.
+- [x] A post's `kind` field (`media`, and kinds registered by modules: `card` from the cards module), derived from its content on upload and by `reextract`; `lithica-admin backfill kinds` fills it for existing posts.
+- [x] Modules register kinds through the registry, with the rule for which content can be which kind.
+- [x] Changing a post's kind: its own endpoint and privilege (`posts:edit:kind`), only to a kind its content supports (a PNG card may be made `media`, a plain picture can't become `card`).
+- [x] Search token `kind:`; `GET /info` lists the kinds of the site.
 
 ### 6.3 Relations and external IDs
 - [ ] Typed, directed relations between posts (from, to, type), types registered by modules (e.g. `avatar-of`, `archived-from`, `embedded-in`, `gallery-of`, `expression-of`), each with an optional label (an expression's name). Separate from the engine's existing untyped relations, which stay as they are.

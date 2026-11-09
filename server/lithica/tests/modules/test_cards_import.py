@@ -75,6 +75,12 @@ def test_import_of_cards(admin, library, user, tmp_path, capsys):
     assert [row.kind for row in v3.contents] == ["card_v3"]
     assert [row.kind for row in charx.contents] == ["card_v3"]
     assert plain.contents == []
+    assert [post.kind for post in (v2, v3, charx, plain)] == [
+        "card",
+        "card",
+        "card",
+        "media",
+    ]
     assert _tags(v2) == {
         "imported": "default",
         "somebody": "creator",

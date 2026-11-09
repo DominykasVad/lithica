@@ -683,6 +683,7 @@ One file together with its metadata posted to the site.
     "lastEditTime":       <last-edit-time>,
     "safety":             <safety>,
     "source":             <source>,
+    "kind":               <post-kind>,
     "type":               <type>,
     "checksum":           <checksum>,
     "checksumMD5":        <checksum-MD5>,
@@ -738,6 +739,7 @@ One file together with its metadata posted to the site.
     - `"unsafe"`
 
 - `<source>`: where the post was grabbed form, supplied by the user.
+- `<post-kind>`: `media` or a module-registered post kind; see [post kinds and content kinds](#post-kinds-and-content-kinds).
 - `<type>`: the type of the post.
 
     Available values:
@@ -1377,6 +1379,7 @@ Same as `tag` token.
 | `note-text`          | having given note text (accepts wildcards)                                                                                              |
 | `relation-count`     | having given number of relations                                                                                                        |
 | `feature-count`      | having been featured given number of times                                                                                              |
+| `kind`               | `media` or a loaded module post kind, such as `card`; negation is supported. |
 | `type`               | given type of posts. `<value>` can be either `image`, `animation` (or `animated` or `anim`), `flash` (or `swf`) or `video` (or `webm`), or a type of a module that is switched on. |
 | `content-checksum`   | having given SHA1 checksum                                                                                                              |
 | `file-size`          | having given file size (in bytes)                                                                                                       |
@@ -1590,3 +1593,50 @@ None. The snapshots are always sorted by creation time.
 ### Special tokens
 
 None.
+
+
+## Post kinds and content kinds
+
+A **post kind** says what a post is: `media`, or a kind a module registers
+(`card` with cards enabled). It is the string field `kind`, included by
+default. `GET /info` lists `postKinds`, with `media` first, followed by loaded
+modules' post kinds in configuration and declaration order. A stored kind
+may belong to a module that is now switched off.
+
+A **content kind** describes an extracted `post_content` row, such as
+`card_v1`, `card_v2` or `card_v3`; `contentKinds` lists these. It is distinct
+from the post kind. A module declares which of its content kinds support
+each post kind. A matching row supports that post kind; only engine file
+types (image, animation, video, flash) support `media`. A PNG card supports
+both `media` and `card`; a CHARX supports only `card`.
+
+`PUT /post/<id>/kind` takes `{"version": N, "kind": "media"}` and returns
+the post, with the usual `fields` selection. It requires `posts:edit:kind`
+(default power), which no app-token right grants. Missing `kind` is 400;
+stale version is 409. An unknown, disabled or unsupported kind gives 400
+`InvalidPostKindError`, naming supported kinds. Hidden posts give 404.
+Setting the current kind changes nothing, including version and snapshots.
+A change bumps the version and writes a post snapshot; post snapshots
+include `kind` from this phase onward.
+
+Post search accepts `kind:media`, `kind:card` and negation (`-kind:card`).
+Only `media` and loaded post kinds are accepted; other values are search
+errors, including kinds of switched-off modules.
+
+Kinds are derived as follows:
+
+1. A new file (upload, post creation, content replacement or admin import)
+   derives after extraction: the first supported loaded post kind, else
+   `media`. Rows no loaded module owns are ignored.
+2. `lithica-admin reextract` derives again only if the set of loaded content
+   kinds changed or the current kind is unsupported. Otherwise a PNG card
+   manually set to `media` stays so. Failed extraction keeps its kind and
+   existing rows.
+3. `lithica-admin backfill kinds` derives every post from its current rows,
+   in batches without reading files. It undoes hand-set kinds and is meant
+   once after upgrading to 0.4.0; `backfill all` leaves kinds out. The migration
+   sets all existing posts to `media` without module knowledge.
+4. Reextract and backfill keep stored kinds no loaded module registers,
+   preserving kinds and content rows of switched-off modules. Startup does
+   not warn about kinds awaiting backfill, because hand-set `media` cannot
+   be distinguished from a post awaiting derivation.

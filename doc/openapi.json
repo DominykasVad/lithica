@@ -6289,6 +6289,109 @@
         }
       }
     },
+    "/post/{post_id}/kind": {
+      "put": {
+        "tags": [
+          "Posts"
+        ],
+        "summary": "Change a post's kind",
+        "description": "Set a supported post kind. An unchanged kind creates no version or snapshot.\n\nUnknown or unsupported kinds are InvalidPostKindError (400); a stale\nversion is 409. Hidden posts are 404, as for every post lookup.",
+        "operationId": "set_post_kind",
+        "security": [
+          {
+            "basicAuth": []
+          },
+          {
+            "tokenAuth": []
+          },
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "post_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Post Id"
+            }
+          },
+          {
+            "name": "bump-login",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Record this request as a login of the authenticated user.",
+              "default": false,
+              "title": "Bump-Login"
+            },
+            "description": "Record this request as a login of the authenticated user."
+          },
+          {
+            "name": "fields",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated names of the fields to return. All fields are returned when it is absent.",
+              "title": "Fields"
+            },
+            "description": "Comma-separated names of the fields to return. All fields are returned when it is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Post"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "The request was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "version": {
+                    "type": "integer"
+                  },
+                  "kind": {
+                    "type": "string"
+                  }
+                },
+                "type": "object",
+                "required": [
+                  "version",
+                  "kind"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
     "/modules/cards/post/{post_id}": {
       "get": {
         "tags": [
@@ -6741,6 +6844,14 @@
       },
       "Info": {
         "properties": {
+          "postKinds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Postkinds",
+            "description": "Post kinds: media, then loaded module post kinds."
+          },
           "postCount": {
             "type": "integer",
             "title": "Postcount"
@@ -7541,6 +7652,11 @@
       },
       "Post": {
         "properties": {
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "description": "media or a kind a module of the site registers, as postKinds of GET /info lists them; a post may carry the kind of a module that is now switched off."
+          },
           "version": {
             "type": "integer",
             "title": "Version"

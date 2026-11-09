@@ -6,6 +6,7 @@ import sqlalchemy.orm as sa_orm
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.hybrid import hybrid_property
 
+from lithica import registry
 from lithica.model.base import Base
 from lithica.model.comment import Comment
 from lithica.model.types import json_type
@@ -294,6 +295,8 @@ class Post(Base):
     SAFETY_SKETCHY = "sketchy"
     SAFETY_UNSAFE = "unsafe"
 
+    KIND_MEDIA = "media"
+
     TYPE_IMAGE = "image"
     TYPE_ANIMATION = "animation"
     TYPE_VIDEO = "video"
@@ -328,6 +331,13 @@ class Post(Base):
     source: sa_orm.Mapped[str | None] = sa_orm.mapped_column("source", sa.Unicode(2048))
     flags_string: sa_orm.Mapped[str | None] = sa_orm.mapped_column(
         "flags", sa.Unicode(32), default=""
+    )
+
+    kind: sa_orm.Mapped[str] = sa_orm.mapped_column(
+        sa.Unicode(registry.POST_KIND_MAX_LENGTH),
+        nullable=False,
+        default=KIND_MEDIA,
+        index=True,
     )
 
     # content description

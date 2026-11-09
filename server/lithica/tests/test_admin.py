@@ -72,6 +72,7 @@ def test_backfill_all(admin, old_posts, capsys):
     assert "signatures: 0 posts to process" in output
     assert "md5: 0 posts to process" in output
     assert "done" not in output
+    assert "kinds:" not in output
 
 
 def test_backfill_reports_failures(admin, old_posts, post_factory, capsys):

@@ -279,6 +279,7 @@ def test_serialize_post(
             "mimeType": "image/jpeg",
             "comments": ["commenter1", "commenter2"],
             "contentKinds": [],
+            "kind": "media",
         }
 
 

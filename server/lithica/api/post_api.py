@@ -30,6 +30,7 @@ from lithica.api.schemas import (
 from lithica.func import (
     auth,
     favorites,
+    post_kinds,
     posts,
     scores,
     snapshots,
@@ -75,6 +76,11 @@ class PostUpdate(RequestModel):
     relations: IntList = optional()
     notes: AnyList = optional()
     flags: StrList = optional()
+
+
+class PostKindUpdate(RequestModel):
+    version: Int = required()
+    kind: Str = required()
 
 
 class PostMerge(RequestModel):
@@ -651,3 +657,31 @@ def get_posts_around(
     previous_post, next_post = cast(tuple[model.Post | None, model.Post | None], around)
     serialized = posts.serialize_posts([previous_post, next_post], auth_user, fields)
     return {"prev": serialized[0], "next": serialized[1]}
+
+
+@router.put(
+    "/post/{post_id}/kind",
+    response_model=resources.Post,
+    summary="Change a post's kind",
+    openapi_extra=request_body(PostKindUpdate),
+)
+def set_post_kind(
+    post_id: str,
+    auth_user: Annotated[model.User, Depends(require("posts:edit:kind"))],
+    fields: CheckedFields,
+    body: Annotated[PostKindUpdate, Depends(read_body(PostKindUpdate))],
+) -> Any:
+    """Set a supported post kind. An unchanged kind creates no version or snapshot.
+
+    Unknown or unsupported kinds are InvalidPostKindError (400); a stale
+    version is 409. Hidden posts are 404, as for every post lookup.
+    """
+    post = _get_post(post_id)
+    versions.verify_version(post, body.require("version"))
+    if post_kinds.set_kind(post, body.require("kind")):
+        versions.bump_version(post)
+        post.last_edit_time = util.utcnow()
+        db.session.flush()
+        snapshots.modify(post, auth_user)
+        db.session.commit()
+    return _serialize_post(post, auth_user, fields)

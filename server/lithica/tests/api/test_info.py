@@ -100,6 +100,7 @@ def test_info_api(
             "featuringUser": None,
             "serverTime": "2016-01-01T13:00:00Z",
             "modules": [],
+            "postKinds": ["media"],
             "maxUploadSize": limit,
             "visibility": "open",
             "nsfwTag": "nsfw",
@@ -118,6 +119,7 @@ def test_info_api(
             "featuringUser": None,
             "serverTime": "2016-01-03T13:01:00Z",
             "modules": [],
+            "postKinds": ["media"],
             "maxUploadSize": limit,
             "visibility": "open",
             "nsfwTag": "nsfw",
@@ -132,6 +134,7 @@ def test_info_api(
             "diskUsage": 6,  # cache expired
             "serverTime": "2016-01-03T13:01:00Z",
             "modules": [],
+            "postKinds": ["media"],
             "maxUploadSize": limit,
             "visibility": "open",
             "nsfwTag": "nsfw",
