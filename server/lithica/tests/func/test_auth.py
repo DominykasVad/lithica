@@ -104,3 +104,14 @@ def test_disabled_token_is_invalid(user_token_factory):
 def test_generate_authorization_token():
     result = auth.generate_authorization_token()
     assert result != auth.generate_authorization_token()
+
+
+def test_new_token_values():
+    login = auth.generate_authorization_token()
+    app = auth.generate_app_token()
+    # 32 random bytes, url-safe
+    assert len(login) == 43
+    assert app.startswith("lithica_app_")
+    assert len(app) == len("lithica_app_") + 43
+    assert auth.hash_token(login) != login
+    assert len(auth.hash_token(login)) == 64

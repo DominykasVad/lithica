@@ -21,9 +21,13 @@ def test_creating_user_token(user_token_factory, client, fake_datetime):
     ):
         users.get_user_by_name.return_value = user_token.user
         user_tokens.serialize_user_token.return_value = "serialized user token"
-        user_tokens.create_user_token.return_value = user_token
+        user_tokens.create_user_token.return_value = (user_token, "the value")
         result = ok(
             client.post("/user-token/%s" % user_token.user.name, user=user_token.user)
         )
         assert result == "serialized user token"
         user_tokens.create_user_token.assert_called_once_with(user_token.user, True)
+        # the value goes into this response, and only this one
+        assert user_tokens.serialize_user_token.call_args.kwargs["value"] == (
+            "the value"
+        )

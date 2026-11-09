@@ -65,7 +65,7 @@ def get_email(
     assert auth_user
     if (
         not force_show_email
-        and auth_user.user_id != user.user_id
+        and not auth.is_self(auth_user, user)
         and not auth.has_privilege(auth_user, "users:edit:any:email")
     ):
         return False
@@ -75,7 +75,7 @@ def get_email(
 def get_liked_post_count(user: model.User, auth_user: model.User) -> bool | int:
     assert user
     assert auth_user
-    if auth_user.user_id != user.user_id:
+    if not auth.is_self(auth_user, user):
         return False
     return user.liked_post_count
 
@@ -83,7 +83,7 @@ def get_liked_post_count(user: model.User, auth_user: model.User) -> bool | int:
 def get_disliked_post_count(user: model.User, auth_user: model.User) -> bool | int:
     assert user
     assert auth_user
-    if auth_user.user_id != user.user_id:
+    if not auth.is_self(auth_user, user):
         return False
     return user.disliked_post_count
 

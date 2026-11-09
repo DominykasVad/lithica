@@ -18,13 +18,14 @@ def test_serialize_user_token(user_token_factory):
         users.get_avatar_url.return_value = "https://example.com/avatar.png"
         result = user_tokens.serialize_user_token(user_token, user_token.user)
         assert result == {
+            "id": user_token.user_token_id,
             "creationTime": datetime(1997, 1, 1, 0, 0),
             "enabled": True,
             "expirationTime": None,
             "lastEditTime": None,
             "lastUsageTime": None,
             "note": None,
-            "token": "dummy",
+            "token": None,
             "user": {
                 "avatarUrl": "https://example.com/avatar.png",
                 "name": user_token.user.name,
@@ -38,13 +39,46 @@ def test_serialize_user_token_none():
     assert result is None
 
 
-def test_get_by_user_and_token(user_token_factory):
+def test_serialize_user_token_with_its_value(user_token_factory):
     user_token = user_token_factory()
     db.session.add(user_token)
     db.session.flush()
+    result = user_tokens.serialize_user_token(
+        user_token, user_token.user, options=["token"], value="the value"
+    )
+    assert result == {"token": "the value"}
+
+
+def test_get_by_user_and_token(user_token_factory):
+    user_token = user_token_factory(token="the value")
+    db.session.add(user_token)
+    db.session.flush()
     db.session.commit()
-    result = user_tokens.get_by_user_and_token(user_token.user, user_token.token)
+    result = user_tokens.get_by_user_and_token(user_token.user, "the value")
     assert result == user_token
+    assert user_tokens.get_by_user_and_token(user_token.user, "other") is None
+    # the hash is not the value
+    assert (
+        user_tokens.get_by_user_and_token(user_token.user, user_token.token_hash)
+        is None
+    )
+
+
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        ("1", 1),
+        ("42", 42),
+        ("", None),
+        ("x1", None),
+        ("-1", None),
+        ("1.0", None),
+        ("\u0661", None),
+        ("9" * 19, None),
+    ],
+)
+def test_parse_token_id(text, expected):
+    assert user_tokens.parse_token_id(text) == expected
 
 
 def test_get_user_tokens(user_token_factory):
@@ -65,8 +99,10 @@ def test_create_user_token(user_factory):
     db.session.commit()
     with patch("lithica.func.auth.generate_authorization_token"):
         auth.generate_authorization_token.return_value = "test"
-        result = user_tokens.create_user_token(user, True)
-        assert result.token == "test"
+        result, value = user_tokens.create_user_token(user, True)
+        assert value == "test"
+        assert result.token_hash == auth.hash_token("test")
+        assert result.kind == "login"
         assert result.user == user
 
 

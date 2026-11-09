@@ -36,6 +36,7 @@ JSONB_IMPORT = "from sqlalchemy.dialects.postgresql import JSONB"
 JSONB_FILES = {
     "lithica/model/types.py",
     "lithica/migrations/versions/e2b8d4f6a1c3_create_post_content_table.py",
+    "lithica/migrations/versions/f3a9c1d27b64_hash_user_tokens_add_app_tokens.py",
 }
 
 

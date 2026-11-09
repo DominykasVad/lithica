@@ -21,6 +21,8 @@ with the client image in front, that is `/api/`.
    - [Visibility](#visibility)
    - [Signed file links](#signed-file-links)
    - [User token authentication](#user-token-authentication)
+   - [App tokens](#app-tokens)
+   - [No redirects](#no-redirects)
    - [Password reset](#password-reset)
    - [Basic requests](#basic-requests)
    - [File uploads](#file-uploads)
@@ -34,6 +36,7 @@ with the client image in front, that is `/api/`.
    - [User](#user)
    - [Micro user](#micro-user)
    - [User token](#user-token)
+   - [App token](#app-token)
    - [Tag category](#tag-category)
    - [Tag](#tag)
    - [Micro tag](#micro-tag)
@@ -139,6 +142,68 @@ the first token, there is no need to transmit the user password in plaintext
 via basic auth. Additionally tokens can be revoked at anytime allowing a
 cleaner interface for isolating clients from user credentials.
 
+A login token is made with `POST /user-token/{name}` (authenticated with the
+password). Its value, `token`, is in that response and **nowhere else**: the
+server keeps only a hash of it, so no list, update or `fields` selection
+shows it again (`token` is `null` there). A client keeps the value and the
+token's `id` together. A value is opaque text; a client must not assume a
+format (tokens made before version 0.4.0 are UUIDs, newer ones are not).
+
+From then on the token is named by its `id`, never by its value: `PUT` and
+`DELETE /user-token/{name}/{id}`. A value in that place of the path names no
+token (`PUT` answers 404 `UserTokenNotFoundError`, `DELETE` deletes nothing).
+To log out, a client deletes its token by id; `DELETE` answers `{}` also for
+a token that is already gone.
+
+## App tokens
+
+An app token is a token a user makes for another application (an
+integration, a plugin), with `POST /app-token/{name}`. It carries a name and
+a set of **rights**, and is sent exactly as a login token is:
+`Authorization: Token base64(user-name:value)`. Its value starts with
+`lithica_app_`; like a login token's, it is shown once, in the response that
+made it, and only a hash is stored.
+
+A right is a name for a fixed list of privileges. `GET /info` lists them in
+`appTokenRights`, each with its privileges (named as `config.privileges`
+names them): `read` (posts, tags, pools and their categories, which covers
+cards and the cards module's routes), `write` (creating posts and editing
+their tags, safety, source, content, relations, flags, notes and thumbnail,
+creating tags) and `upload` (`POST /uploads`). New versions may add
+privileges to a right; a right always means its current list.
+
+A request made with an app token may use a privilege only when
+
+- one of the token's rights lists it, **and**
+- the token owner's rank grants it, at the time of the request: a demoted
+  owner's tokens lose what the new rank lacks.
+
+Whatever is about accounts or tokens — every privilege under `users:`,
+`user_tokens:` or `app_tokens:` — is refused to an app token whatever its
+rights and whoever its owner, administrators included. An app token is not
+its owner acting on their own account either: it cannot read the account
+(`GET /user/{name}` of the owner needs `users:view`, which it never has), and
+its owner's email and vote counts are hidden from it as from other users. An
+edit made with an app token that names nothing to change (a body with only
+`version`) is refused as well, as it would change the resource's version
+without any privilege.
+
+Creating an app token needs a name (1 to 128 characters) and at least one
+right; an unknown right, or one of whose privileges the owner holds none, is
+a `ValidationError`. The rights of a token cannot be changed: make a new
+token and revoke the old one. `PUT /app-token/{name}/{id}` changes its name,
+`enabled` and `expirationTime`; `DELETE /app-token/{name}/{id}` revokes it at
+once. A disabled, expired or revoked app token is `InvalidTokenError`, as a
+login token is. `?bump-login` with an app token updates the token's
+`lastUsageTime` but never the user's last login time.
+
+## No redirects
+
+Authenticated API routes never answer with a redirect (3xx). A path is
+answered as written, with or without the trailing slash. Clients such as
+Lumiverse drop the credentials when they follow a redirect, so a redirect
+would turn into an anonymous request.
+
 ## Password reset
 
 `GET /password-reset/{name}` (a user name or email) mails the account a link
@@ -234,9 +299,9 @@ List of possible error names:
 - `IntegrityError` (race conditions when editing the same resource)
 - `SearchError`
 - `AuthError`
-- `InvalidTokenError` (an `AuthError`: the login token of the request does not
-  work, because it is unknown, disabled or expired, or its user does not
-  exist; the client's session is over)
+- `InvalidTokenError` (an `AuthError`: the login token or app token of the
+  request does not work, because it is unknown, disabled, expired or
+  revoked, or its user does not exist; the client's session is over)
 - `InvalidPasswordResetTokenError` (the token of a password reset
   confirmation does not work, or the name has no account; see [Password
   reset](#password-reset))
@@ -453,15 +518,16 @@ A [user resource](#user) stripped down to `name` and `avatarUrl` fields.
 ## User token
 **Description**
 
-A single user token.
+A single login token.
 
 **Structure**
 
 ```json5
 {
+    "id":             <id>,
     "user":           <user>,
     "token":          <token>,
-    "note":           <token>,
+    "note":           <note>,
     "enabled":        <enabled>,
     "expirationTime": <expiration-time>,
     "version":        <version>,
@@ -472,8 +538,10 @@ A single user token.
 ```
 
 **Field meaning**
+- `<id>`: names the token in `PUT` and `DELETE /user-token/{name}/{id}`.
 - `<user>`: micro user. See [micro user](#micro-user).
-- `<token>`: the token that can be used to authenticate the user.
+- `<token>`: the value that authenticates the user: only in the response of
+  the `POST` that created the token, `null` everywhere else.
 - `<note>`: a note that describes the token.
 - `<enabled>`: whether the token is still valid for authentication.
 - `<expiration-time>`: time when the token expires. It must include the timezone as per RFC 3339.
@@ -481,6 +549,46 @@ A single user token.
 - `<creation-time>`: time the user token was created, formatted as per RFC 3339.
 - `<last-edit-time>`: time the user token was edited, formatted as per RFC 3339.
 - `<last-usage-time>`: the last time this token was used during a login involving `?bump-login`, formatted as per RFC 3339.
+
+## App token
+**Description**
+
+A token for another application, with a set of rights. See [app
+tokens](#app-tokens).
+
+**Structure**
+
+```json5
+{
+    "id":             <id>,
+    "user":           <user>,
+    "name":           <name>,
+    "rights":         <rights>,
+    "token":          <token>,
+    "enabled":        <enabled>,
+    "expirationTime": <expiration-time>,
+    "creationTime":   <creation-time>,
+    "lastEditTime":   <last-edit-time>,
+    "lastUsageTime":  <last-usage-time>,
+    "version":        <version>
+}
+```
+
+**Field meaning**
+- `<id>`: names the token in `PUT` and `DELETE /app-token/{name}/{id}`.
+- `<user>`: micro user, the owner. See [micro user](#micro-user).
+- `<name>`: what the owner called it, 1 to 128 characters.
+- `<rights>`: the names of its rights, as `appTokenRights` of `GET /info`
+  lists them. They cannot be changed.
+- `<token>`: the value: only in the response of the `POST` that created the
+  token, `null` everywhere else.
+- `<enabled>`: whether the token works.
+- `<expiration-time>`: when it stops working, or `null`; RFC 3339 with a
+  timezone.
+- `<creation-time>`, `<last-edit-time>`: RFC 3339.
+- `<last-usage-time>`: the last request with `?bump-login` made with it, or
+  `null`.
+- `<version>`: resource version. See [versioning](#versioning).
 
 ## Tag category
 **Description**

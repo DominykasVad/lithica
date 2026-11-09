@@ -52,5 +52,7 @@ def test_user_token_fits_its_response_model(
     listed = ok(
         client.get("/user-tokens/%s" % user_token.user.name, user=user_token.user)
     )
-    assert [token["token"] for token in listed["results"]] == [user_token.token]
+    # never the value
+    assert [token["token"] for token in listed["results"]] == [None]
+    assert [token["id"] for token in listed["results"]] == [user_token.user_token_id]
     assert_fits(resources.Unpaged[resources.UserToken], listed)

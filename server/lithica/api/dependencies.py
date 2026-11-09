@@ -26,6 +26,7 @@ from lithica import config, db, errors, model
 from lithica.api.error_handlers import HttpError
 from lithica.api.schemas import READ_AS_INT, Bool, RequestModel
 from lithica.func import (
+    app_token_rights,
     auth,
     file_uploads,
     net,
@@ -53,7 +54,8 @@ _basic_scheme = HTTPBase(
 _token_scheme = APIKeyHeader(
     name="Authorization",
     scheme_name="tokenAuth",
-    description="`Token ` followed by the base64 of `user-name:login-token`.",
+    description="`Token ` followed by the base64 of `user-name:token`, where "
+    "the token is a login token or an app token.",
     auto_error=False,
 )
 
@@ -114,8 +116,18 @@ def _authenticate(header: str, bump_login: bool) -> model.User:
             "Supplied header %s. Got error: %s" % (header, err),
         ) from err
 
+    is_app_token = (
+        auth_token is not None and auth_token.kind == model.UserToken.KIND_APP
+    )
+    if is_app_token:
+        assert auth_token is not None
+        # from here on, the request may do only what the token's rights allow
+        app_token_rights.begin_app_token_request(auth_token.rights)
+
     if bump_login and auth_user.user_id:
-        users.bump_user_login_time(auth_user)
+        # an app token is not the user logging in: only its own use is noted
+        if not is_app_token:
+            users.bump_user_login_time(auth_user)
         if auth_token is not None:
             user_tokens.bump_usage_time(auth_token)
         db.session.commit()
@@ -136,7 +148,8 @@ def get_user(
 ) -> model.User:
     """
     The user who sent the request: authenticated by the Authorization header
-    (Basic, or Token with a login token), or the anonymous user without one.
+    (Basic, or Token with a login token or an app token), or the anonymous
+    user without one.
     Wrong credentials are an error, not an anonymous request.
     """
     header = request.headers.get("Authorization")

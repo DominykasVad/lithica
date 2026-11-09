@@ -268,6 +268,7 @@ def _gets(site: Site) -> dict[str, Sequence[tuple[str, Mapping[str, Any], bool |
         "GET /users": [("/users", {}, False)],
         "GET /user/{user_name}": [("/user/the_admin", {}, False)],
         "GET /user-tokens/{user_name}": [("/user-tokens/the_admin", {}, False)],
+        "GET /app-tokens/{user_name}": [("/app-tokens/the_admin", {}, False)],
         "GET /password-reset/{user_name}": [("/password-reset/the_admin", {}, False)],
         "GET /tag-categories": [("/tag-categories", {}, False)],
         "GET /tag-category/{category_name}": [("/tag-category/default", {}, False)],
@@ -333,11 +334,20 @@ def _writes(site: Site, read_asset: Any) -> dict[str, list[dict[str, Any]]]:
             {"path": "/user/the_admin", "body": {"version": 999}}
         ],
         "POST /user-token/{user_name}": [{"path": "/user-token/the_admin", "body": {}}],
-        "PUT /user-token/{user_name}/{user_token}": [
-            {"path": "/user-token/the_admin/nope", "body": {"version": 1}}
+        "PUT /user-token/{user_name}/{token_id}": [
+            {"path": "/user-token/the_admin/999999", "body": {"version": 1}}
         ],
-        "DELETE /user-token/{user_name}/{user_token}": [
-            {"path": "/user-token/the_admin/nope", "body": {"version": 1}}
+        "DELETE /user-token/{user_name}/{token_id}": [
+            {"path": "/user-token/the_admin/999999", "body": {"version": 1}}
+        ],
+        "POST /app-token/{user_name}": [
+            {"path": "/app-token/the_admin", "body": {"name": "x", "rights": ["read"]}}
+        ],
+        "PUT /app-token/{user_name}/{token_id}": [
+            {"path": "/app-token/the_admin/999999", "body": {"version": 1}}
+        ],
+        "DELETE /app-token/{user_name}/{token_id}": [
+            {"path": "/app-token/the_admin/999999", "body": {}}
         ],
         "POST /password-reset/{user_name}": [
             {
@@ -749,7 +759,7 @@ def _fill(template: str) -> str:
     return (
         template.replace("{post_id}", "1")
         .replace("{user_name}", "the_admin")
-        .replace("{user_token}", "nope")
+        .replace("{token_id}", "1")
         .replace("{comment_id}", "1")
         .replace("{pool_id}", "1")
         .replace("{tag_name}", "nsfw")

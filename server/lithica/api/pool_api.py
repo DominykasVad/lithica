@@ -195,6 +195,8 @@ def update_pool(
     if body.has("posts"):
         auth.verify_privilege(auth_user, "pools:edit:posts")
         pools.update_pool_posts(pool, body.posts)
+    # a body with nothing to change asks no privilege (see there)
+    auth.verify_app_token_changed_something()
     pool.last_edit_time = util.utcnow()
     db.session.flush()
     snapshots.modify(pool, auth_user)

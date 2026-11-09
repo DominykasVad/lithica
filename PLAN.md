@@ -180,12 +180,31 @@ Additions only; nothing existing changes shape.
    404 `UserNotFoundError`), the error and message of a wrong, used or
    expired token.
 
+### Intentional API changes (phase 6)
+
+1. Token values are no longer returned except on creation: the response of
+   `POST /user-token/{name}` (and `POST /app-token/{name}`) has `token`; lists,
+   `PUT` responses and any `fields` selection give `null`. The server keeps
+   only a hash.
+2. Tokens are addressed by `id`, the value never in a path: `PUT` and `DELETE
+   /user-token/{name}/{id}` (and `/app-token/...`). A value there is 404 for
+   `PUT` and deletes nothing for `DELETE`, which still answers `{}` for an
+   unknown token. Clients log out by id.
+3. New login token values are 43 characters of URL-safe base64, not UUIDs;
+   existing UUID tokens keep working.
+4. Additions: user tokens have `id`; app tokens and their routes (`GET
+   /app-tokens/{name}`, `POST /app-token/{name}`, `PUT` and `DELETE
+   /app-token/{name}/{id}`) with the privileges `app_tokens:*`;
+   `appTokenRights` in `GET /info`.
+5. Contract: authenticated routes never answer with a redirect (doc/API.md,
+   "No redirects").
+
 ### Allowed dialect exceptions
 
 - `sa.ARRAY` in migrations `8f3a1c2d4e5b` and `b7d2e9a4c1f3` only: they read and (on downgrade) restore the old
   `post_signature.words` array column. No engine code uses it.
 - `JSONB` as the PostgreSQL variant of a JSON column: imported in `lithica/model/types.py` (`json_type()`) and in
-  migration `e2b8d4f6a1c3` only. The portability gate allows that one import line in those two files.
+  migrations `e2b8d4f6a1c3` and `f3a9c1d27b64` only. The portability gate allows that one import line in those two files.
 
 ### Decision log
 
@@ -194,7 +213,8 @@ respect). One line each, max ~120 characters: `date — task — decision (reaso
 No status notes, no "left untouched", no results — those go in commit messages.
 When a whole phase is finished (its last sub-phase merged), its entries are folded into the tables above or deleted.
 
-None yet.
+- 2026-11-08 — 6.1 — An app-token request is never its owner acting on the account: no own-account read, email, vote counts (rights only).
+- 2026-11-08 — 6.1 — An edit with an app token that names nothing to change is refused (it would bump a version with no privilege).
 
 ---
 
@@ -310,6 +330,8 @@ are not in Sardonyx.
 
 ## Phase 6 — Server foundations
 
+**Current phase.**
+
 Goal: tokens fit for other apps, the asset model, share links, site
 settings and background jobs that the later phases and the plugins build
 on. Ends in release `v0.4.0`. Design:
@@ -320,10 +342,10 @@ legacy client and existing integrations keep working. "Asset" is the
 concept, "post" the resource.
 
 ### 6.1 Tokens
-- [ ] Login tokens stored as a hash, not in plain text; the token value is shown once, when it's created, and never returned again (intentional API change: listing tokens no longer shows their values). Existing tokens are hashed by a migration and keep working.
-- [ ] App tokens: named, with a set of rights that is a subset of the owner's privileges and never includes admin, users or tokens; revocable; stored hashed and shown once. Created, listed and revoked by the owner (API, and in Sardonyx's account page). Requests made with one can do only what its rights allow.
-- [ ] The rights an app token can carry are listed in `GET /info`, at least: read posts, cards and lorebooks; create and edit posts, cards and lorebooks; upload.
-- [ ] Contract: authenticated API routes never answer with a redirect (Lumiverse drops credentials on redirects). In doc/API.md, with a test over every route.
+- [x] Login tokens stored as a hash, not in plain text; the token value is shown once, when it's created, and never returned again (intentional API change: listing tokens no longer shows their values). Existing tokens are hashed by a migration and keep working.
+- [x] App tokens: named, with a set of rights that is a subset of the owner's privileges and never includes admin, users or tokens; revocable; stored hashed and shown once. Created, listed and revoked by the owner (API, and in Sardonyx's account page). Requests made with one can do only what its rights allow.
+- [x] The rights an app token can carry are listed in `GET /info`, at least: read posts, cards and lorebooks; create and edit posts, cards and lorebooks; upload.
+- [x] Contract: authenticated API routes never answer with a redirect (Lumiverse drops credentials on redirects). In doc/API.md, with a test over every route.
 
 ### 6.2 Kinds
 - [ ] A post's `kind` field (`media`, and kinds registered by modules: `card` from the cards module), derived from its content on upload and by `reextract`; a migration fills it for existing posts.

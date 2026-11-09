@@ -211,6 +211,8 @@ def update_tag(
         auth.verify_privilege(auth_user, "tags:edit:implications")
         _create_if_needed(body.implications, auth_user)
         tags.update_tag_implications(tag, body.implications)
+    # a body with nothing to change asks no privilege (see there)
+    auth.verify_app_token_changed_something()
     tag.last_edit_time = util.utcnow()
     db.session.flush()
     snapshots.modify(tag, auth_user)

@@ -12,7 +12,7 @@ function site(visibility: string) {
     "GET /posts": { body: { query: "", offset: 0, limit: 100, total: 0, results: [] } },
     "POST /user-token/ada": (sent: Sent) =>
       sent.authorization === `Basic ${btoa("ada:secret!")}`
-        ? { body: { user: { name: "ada" }, token: TOKEN, version: 1 } }
+        ? { body: { id: 3, user: { name: "ada" }, token: TOKEN, version: 1 } }
         : { status: 403, body: { name: "AuthError", title: "No", description: "No." } },
   } as never);
 }
@@ -72,12 +72,12 @@ describe("a site that shows nothing without logging in", () => {
   it("sends the visitor back to the login page on logging out", async () => {
     sessionStorage.setItem(
       "sardonyx.session",
-      JSON.stringify({ user: "ada", token: TOKEN }),
+      JSON.stringify({ user: "ada", token: TOKEN, tokenId: 3 }),
     );
     fakeSite({
       "GET /info": { body: { ...INFO, modules: [], visibility: "login" } },
       "GET /posts": { body: { total: 0, results: [] } },
-      [`DELETE /user-token/ada/${TOKEN}`]: { body: {} },
+      "DELETE /user-token/ada/3": { body: {} },
     } as never);
     const view = renderApp("/posts");
     const user = userEvent.setup();

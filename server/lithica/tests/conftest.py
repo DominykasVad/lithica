@@ -33,7 +33,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 from lithica import db, model, registry  # noqa: E402
 from lithica.api import dependencies, responses  # noqa: E402
 from lithica.app import app as lithica_app  # noqa: E402
-from lithica.func import visibility  # noqa: E402
+from lithica.func import auth, visibility  # noqa: E402
 
 
 @pytest.fixture(scope="session")
@@ -402,13 +402,20 @@ def user_token_factory(user_factory):
         expiration_time=None,
         enabled=None,
         creation_time=None,
+        kind=model.UserToken.KIND_LOGIN,
+        rights=None,
+        note=None,
     ):
+        """A token whose value is `token` (only its hash is stored)."""
         if user is None:
             user = user_factory()
             db.session.add(user)
         user_token = model.UserToken()
         user_token.user = user
-        user_token.token = token or "dummy"
+        user_token.token_hash = auth.hash_token(token or get_unique_name())
+        user_token.kind = kind
+        user_token.rights = rights
+        user_token.note = note
         user_token.expiration_time = expiration_time
         user_token.enabled = enabled if enabled is not None else True
         user_token.creation_time = creation_time or datetime(1997, 1, 1)

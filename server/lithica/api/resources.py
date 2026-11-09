@@ -74,8 +74,12 @@ class User(Resource):
 
 
 class UserToken(Resource):
+    id: int = Field(description="Names the token in the paths of its routes.")
     user: MicroUser
-    token: str
+    token: str | None = Field(
+        description="The token's value: only in the response that created the "
+        "token, `null` everywhere else."
+    )
     note: str | None
     enabled: bool
     expiration_time: datetime | None
@@ -83,6 +87,26 @@ class UserToken(Resource):
     creation_time: datetime
     last_edit_time: datetime | None
     last_usage_time: datetime | None
+
+
+class AppToken(Resource):
+    id: int = Field(description="Names the token in the paths of its routes.")
+    user: MicroUser
+    name: str
+    rights: list[str] = Field(
+        description="Names of its rights, as `appTokenRights` of `GET /info` lists "
+        "them."
+    )
+    token: str | None = Field(
+        description="The token's value: only in the response that created the "
+        "token, `null` everywhere else."
+    )
+    enabled: bool
+    expiration_time: datetime | None
+    creation_time: datetime
+    last_edit_time: datetime | None
+    last_usage_time: datetime | None
+    version: int
 
 
 class TagCategory(Resource):
@@ -285,6 +309,12 @@ class Info(Resource):
         description="Names of the modules that are switched on, in config order."
     )
     config: InfoConfig
+    app_token_rights: dict[str, list[str]] = Field(
+        description="The rights an app token can carry, each with the privileges it "
+        "lists (named as in `config.privileges`). A request made with an app token "
+        "may use a privilege only when one of its rights lists it and the user's "
+        "rank grants it, and never one about accounts or tokens."
+    )
     max_upload_size: int | None = Field(
         description="The largest request the server takes, in bytes, as it checks it "
         "(`max_upload_size`); `null` if there is no limit. A larger one is refused "

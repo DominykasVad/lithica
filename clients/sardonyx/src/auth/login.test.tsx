@@ -4,9 +4,12 @@ import { describe, expect, it, vi } from "vitest";
 import { authorization } from "@/api/client";
 import { fakeSite, INFO, renderApp, type Sent } from "@/test-utils";
 
-const TOKEN = "f5a2c0de-0000-4000-8000-000000000001";
+const TOKEN = "made-up-login-token-of-ada";
+const TOKEN_ID = 7;
 const ADA_TOKEN = authorization({ user: "ada", token: TOKEN });
-const SESSION = JSON.stringify({ user: "ada", token: TOKEN });
+const SESSION = JSON.stringify({ user: "ada", token: TOKEN, tokenId: TOKEN_ID });
+// kept by a version of the app from before the site gave tokens an id
+const OLD_SESSION = JSON.stringify({ user: "ada", token: TOKEN });
 const HOUR = 60 * 60 * 1000;
 
 // The expiry the login asked for, as hours from when it was sent.
@@ -30,7 +33,7 @@ function site(extra: Record<string, unknown> = {}) {
     "GET /posts": { body: { total: 5, results: [] } },
     "POST /user-token/ada": (sent: Sent) =>
       sent.authorization === `Basic ${btoa("ada:secret!")}`
-        ? { body: { user: { name: "ada" }, token: TOKEN, version: 1 } }
+        ? { body: { id: TOKEN_ID, user: { name: "ada" }, token: TOKEN, version: 1 } }
         : {
             status: 403,
             body: {
@@ -39,7 +42,7 @@ function site(extra: Record<string, unknown> = {}) {
               description: "Invalid password.",
             },
           },
-    [`DELETE /user-token/ada/${TOKEN}`]: { body: {} },
+    [`DELETE /user-token/ada/${TOKEN_ID}`]: { body: {} },
     ...extra,
   } as never);
 }
@@ -102,6 +105,7 @@ describe("logging in", () => {
     expect(JSON.parse(localStorage.getItem("sardonyx.session") ?? "null")).toEqual({
       user: "ada",
       token: TOKEN,
+      tokenId: TOKEN_ID,
     });
     expect(localStorage.getItem("sardonyx.session")).not.toContain("secret!");
     expect(sessionStorage.length).toBe(0);
@@ -218,7 +222,7 @@ describe("logging out", () => {
     localStorage.setItem("sardonyx.session", SESSION);
   }
 
-  it("deletes the token on the site and here", async () => {
+  it("deletes the token on the site, by its id, and here", async () => {
     await loggedInAndRemembered();
     // and a session of this tab, from before remember me was chosen
     sessionStorage.setItem("sardonyx.session", SESSION);
@@ -232,7 +236,9 @@ describe("logging out", () => {
       await (await header()).findByRole("link", { name: "Log in" }),
     ).toBeInTheDocument();
     const deleted = sent.find((one) => one.method === "DELETE");
-    expect(deleted?.path).toBe(`/user-token/ada/${TOKEN}`);
+    expect(deleted?.path).toBe(`/user-token/ada/${TOKEN_ID}`);
+    // the value is never in a path
+    expect(sent.some((one) => one.path.includes(TOKEN))).toBe(false);
     expect(deleted?.authorization).toBe(ADA_TOKEN);
     expect(localStorage.getItem("sardonyx.session")).toBeNull();
     expect(sessionStorage.getItem("sardonyx.session")).toBeNull();
@@ -240,10 +246,26 @@ describe("logging out", () => {
     await waitFor(() => expect(sent.at(-1)?.authorization).toBeNull());
   });
 
+  it("forgets a session from before tokens had ids, here only", async () => {
+    localStorage.setItem("sardonyx.session", OLD_SESSION);
+    const sent = site();
+    renderApp("/");
+    const user = userEvent.setup();
+    await user.click(await (await header()).findByRole("button", { name: "ada" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Log out" }));
+
+    expect(
+      await (await header()).findByRole("link", { name: "Log in" }),
+    ).toBeInTheDocument();
+    expect(sent.some((one) => one.method === "DELETE")).toBe(false);
+    expect(localStorage.getItem("sardonyx.session")).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
   it("logs out here even when the site cannot be told, and says so", async () => {
     await loggedInAndRemembered();
     site({
-      [`DELETE /user-token/ada/${TOKEN}`]: {
+      [`DELETE /user-token/ada/${TOKEN_ID}`]: {
         status: 503,
         body: {
           name: "HttpError",

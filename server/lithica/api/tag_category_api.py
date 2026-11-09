@@ -159,6 +159,8 @@ def update_tag_category(
     if body.has("order"):
         auth.verify_privilege(auth_user, "tag_categories:edit:order")
         tag_categories.update_category_order(category, body.order)
+    # a body with nothing to change asks no privilege (see there)
+    auth.verify_app_token_changed_something()
     db.session.flush()
     snapshots.modify(category, auth_user)
     db.session.commit()

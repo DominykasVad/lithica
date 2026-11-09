@@ -27,10 +27,10 @@ Never relicense, never strip headers or credits.
 
 ## Current phase
 
-Phases 0–5 of PLAN.md are finished (phase 5 ends in `v0.3.0`). No phase
-is current: take only tasks the owner gives explicitly. Work only on the
-phase PLAN.md marks as current, when it marks one. Anything not in PLAN.md
-is **out of scope**.
+Phases 0–5 of PLAN.md are finished (phase 5 ends in `v0.3.0`). Phase 6
+(server foundations) is current; its sub-phases are done in order, one
+branch and PR each. Work only on the phase PLAN.md marks as current.
+Anything not in PLAN.md is **out of scope**.
 
 ## Layout
 

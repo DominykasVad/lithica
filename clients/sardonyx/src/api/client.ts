@@ -10,6 +10,11 @@ import type { paths } from "./schema";
 export interface Credentials {
   user: string;
   token: string;
+  /**
+   * The login token's id, which names it on the site (logging out deletes
+   * it by id). Missing in a session kept from before the site gave ids.
+   */
+  tokenId?: number;
 }
 
 // The credentials of this browser tab, in memory. Whether they are also
