@@ -1,6 +1,6 @@
 # 0009: Single user, one client with sections
 
-- Status: Accepted
+- Status: Accepted; amended by [0012](0012-legacy-client-removed.md)
 - Date: 2026-11-06
 - Supersedes: [0007](0007-shared-client-core.md)
 

@@ -81,7 +81,7 @@ def test_reset_sending_email(client, user, fake_datetime):
         assert body.startswith(prefix)
         assert body.endswith(suffix)
         token = body[len(prefix) : -len(suffix)]
-        # the legacy client splits the link on ":" and the token is a URL part
+        # the token is one part of the link's address, with no ":" in it
         assert re.fullmatch(r"[A-Za-z0-9_-]{43}", token)
 
 

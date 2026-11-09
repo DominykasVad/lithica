@@ -51,7 +51,6 @@ server/
 clients/
   sardonyx/             the web client (Sardonyx) — MIT; talks to the server
                         only through the HTTP API of doc/openapi.json
-legacy/client/          old vanilla-JS client + nginx config — FROZEN, see below
 doc/
 PLAN.md, AGENTS.md, ANALYSIS.md
 ```
@@ -113,7 +112,7 @@ Commands are run from `clients/sardonyx/`.
 | Task | Run from | Command |
 |---|---|---|
 | Install | `clients/sardonyx/` | `pnpm install` (CI: `pnpm install --frozen-lockfile`) |
-| Dev server | `clients/sardonyx/` | `pnpm dev` — passes `/api` and `/data` to the dev stack on `localhost:8080`, or to `LITHICA_URL` |
+| Dev server | `clients/sardonyx/` | `pnpm dev` — passes `/api` and `/data` to the dev stack's Sardonyx on `localhost:8082`, or to `LITHICA_URL` |
 | Build | `clients/sardonyx/` | `pnpm build` |
 | Lint | `clients/sardonyx/` | `pnpm lint` |
 | Format | `clients/sardonyx/` | `pnpm format` |
@@ -179,11 +178,11 @@ them in `.github/workflows/ci-sardonyx.yml`.
 ### API compatibility
 - Through phases 0–3 the HTTP API stays **wire-compatible** with
   `doc/API.md`: same paths, methods, parameter names, JSON shapes, error body
-  (`name`, `title`, `description`) and status codes. The legacy client is the
-  smoke test for this.
+  (`name`, `title`, `description`) and status codes.
 - The only allowed breaking changes are the ones listed under
   "Intentional API changes" in PLAN.md.
-- `doc/openapi.json` is the API contract. It is generated from code
+- `doc/openapi.json` is the API contract: compatibility is judged by it and
+  by Sardonyx's tests. It is generated from code
   (`uv run python -m lithica.openapi > ../doc/openapi.json`) and CI fails if
   the committed file differs. Never hand-edit it.
 - The contract includes the routes and the post fields of **every module in
@@ -253,12 +252,6 @@ them in `.github/workflows/ci-sardonyx.yml`.
 - Use `secrets` for tokens and `hmac.compare_digest` for comparisons.
 - Do not log passwords, tokens, reset links or request bodies.
 
-### Legacy client
-- `legacy/client/` is **frozen**. Change it only when needed to keep it
-  building and talking to the API, or for the rebrand items PLAN.md lists.
-  No features, no refactors, no dependency upgrades beyond what a build fix
-  needs.
-
 ### Client (`clients/sardonyx/`)
 - Never render content from the server as raw HTML: no
   `dangerouslySetInnerHTML`. Card text and other user text is shown as plain
@@ -287,8 +280,9 @@ them in `.github/workflows/ci-sardonyx.yml`.
 - The repository is GPLv3; `clients/sardonyx/` alone is MIT (see
   `LICENSING.md`). This is the one exception to "Licence is GPLv3" above, and
   it is not a relicensing: the folder holds new code only.
-- Nothing from `legacy/client/` (code, templates, styles, assets, build
-  scripts) may be copied or adapted into `clients/`. Reading it to understand
+- Nothing from szurubooru's client (upstream, or this repository's history:
+  code, templates, styles, assets, build scripts) may be copied or adapted
+  into `clients/`, which is MIT (decision 0012). Reading it to understand
   how the API behaves is allowed.
 - Do not add copyleft-licensed code or dependencies (GPL, AGPL) to
   `clients/sardonyx/`; LGPL is allowed only as an unmodified dependency.

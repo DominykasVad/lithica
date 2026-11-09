@@ -29,7 +29,7 @@ Settled with the owner on 2026-10-10.
 | Database | PostgreSQL 17 is the only tested/shipped database. Code stays DB-agnostic (SQLAlchemy only, see AGENTS.md). |
 | Base image | Debian slim + uv (replaces Alpine system packages). Images run the source from `/opt/app` via `PYTHONPATH`; the environment is in `/opt/venv`; the package itself is not installed. |
 | Registry / CI | GitHub Actions. Images to GHCR, built **only on published GitHub releases**, image tag = release tag. Docker Hub workflow removed. |
-| Old client | Moved to `legacy/client/`, frozen, kept for reference and as the API smoke test. |
+| Old client | Removed 2026-11 (decision [0012](doc/design/decisions/0012-legacy-client-removed.md)). |
 | Module data model | One engine-owned generic table, `post_content`: post id + content kind + schema version + JSON payload. A module is the package `lithica.modules.<name>` exposing one `registry.Module` named `module`; it provides extractors, auto-tagging, search tokens, post fields, routes and admin commands, and never replaces anything of the engine (a clash is a startup error). |
 
 ### Further defaults
@@ -99,7 +99,7 @@ Settled in phase 5 (5.6b, 5.7).
 - **NSFW posts**: those with `nsfw_tag` (any of its names) or any tag implying it, transitively; worked out once per request. The post field `nsfw`, from the same set, is the one answer to "is this post NSFW" for clients.
 - **`nsfw-login` hides in one place**: loader criteria on Post, Comment, Snapshot, PoolPost and PostFeature. A request is filtered until `get_user` names somebody (fail closed); the CLI and background jobs are not filtered. Queries that select all posts select columns, never entities (the identity map would hand hidden ones out). Tag siblings, a post's `relationCount` and a pool's `postCount` leave hidden posts out; tag usages and a user's upload, favourite and comment counts count them; documented.
 - **`nsfw_hide_names`**: a hint for clients in `/info`, not a filter; revealing a post shows the names too.
-- **Signed file links**: nginx's `secure_link_md5` of `"<e></path under /data> <secret>"`, `e` the start of the day after tomorrow, UTC. `FILE_LINK_SECRET` is `[A-Za-z0-9_-]{32,}`, checked by the server and both client images; one `.env` value for all three. Not `open` and no secret: a warning at start, not a refusal.
+- **Signed file links**: nginx's `secure_link_md5` of `"<e></path under /data> <secret>"`, `e` the start of the day after tomorrow, UTC. `FILE_LINK_SECRET` is `[A-Za-z0-9_-]{32,}`, checked by the server and the client image; one `.env` value for both. Not `open` and no secret: a warning at start, not a refusal.
 
 ### Sardonyx
 
@@ -126,7 +126,7 @@ Not phase tasks; for a future phase to take up. The order of the coming
 phases and what runs alongside them is in
 [doc/design/roadmap.md](doc/design/roadmap.md).
 
-- Base path support in Sardonyx (serving it under a path, as the legacy client's `BASE_URL` does).
+- Base path support in Sardonyx (serving the site under a path, `BASE_URL`; not supported since decision 0012).
 
 ### Intentional API changes (phases 0–3)
 
@@ -340,8 +340,8 @@ settings and background jobs that the later phases and the plugins build
 on. Ends in release `v0.4.0`. Design:
 [doc/design/decisions](doc/design/decisions/) 0001–0004, 0008 and 0011.
 
-The API keeps its resource names: an asset is a post (`/posts`), so the
-legacy client and existing integrations keep working. "Asset" is the
+The API keeps its resource names: an asset is a post (`/posts`), so
+existing integrations keep working. "Asset" is the
 concept, "post" the resource.
 
 ### 6.1 Tokens
@@ -369,7 +369,7 @@ concept, "post" the resource.
 
 ### 6.5 Share links
 - [ ] A share link per post: created under a privilege, optional expiry, revocable; listed per post and per user. Stored as a hash of a random token.
-- [ ] `/share/<token>`: the server checks it and lets nginx deliver the file (an internal location in both client images); revoked or expired gives 404.
+- [ ] `/share/<token>`: the server checks it and lets nginx deliver the file (an internal location in the client image); revoked or expired gives 404.
 - [ ] Site setting: may NSFW posts get share links (default: no).
 - [ ] Tests: valid, revoked, expired and wrong token; a share link works on a `login` site without login; the post's own file links are unchanged.
 
@@ -385,7 +385,7 @@ concept, "post" the resource.
 - [ ] Tests: a job runs once with several workers, retries on failure, survives a restart.
 
 ### 6.8 Release `v0.4.0`
-- [ ] `doc/UPGRADING.md` 0.3.0 → 0.4.0: hashed login tokens (values can't be listed any more) and app tokens, kinds, relations and external IDs, listed, share links and their nginx route in both images, settings in the database and their precedence over `config.yaml`, feature switches with comments and scores off, jobs. Version, images and release as for 0.3.0.
+- [ ] `doc/UPGRADING.md` 0.3.0 → 0.4.0: hashed login tokens (values can't be listed any more) and app tokens, kinds, relations and external IDs, listed, share links and their nginx route in the client image, settings in the database and their precedence over `config.yaml`, feature switches with comments and scores off, jobs; the legacy client removed (its image, profile, LEGACY_PORT, BASE_URL). Version, images and release as for 0.3.0.
 
 **Done when:** an app token with read-only rights can read cards and is refused an upload and the admin settings; a login token can't be read back; a card post is `card` and a picture `media`; a related, unlisted post doesn't show in the library but shows on its relation, with its label; a post is found by its external ID; a share link opens a post's file without login and stops on revoke; an administrator changes visibility and switches pools off in Sardonyx without a restart; a job runs once across two server processes.
 

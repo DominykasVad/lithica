@@ -16,8 +16,8 @@ first module, `cards`: character cards for AI chat programs as posts, from
 PNG pictures and CHARX files. `v0.3.0` adds Sardonyx, a new web client and
 the default one, which is a card library when `cards` is on; the bulk
 import of a folder; and settings for what visitors see without logging in.
-The legacy client stays available beside it. Versions are `v0.x` until the project is called
-stable; [PLAN.md](PLAN.md) has the roadmap.
+Versions are `v0.x` until the project is called stable; [PLAN.md](PLAN.md)
+has the roadmap.
 
 ## Features
 
@@ -95,22 +95,10 @@ while it is valid. Avatars are not signed.
 
 To switch it on, set `FILE_LINK_SECRET` in `.env` to a long random string
 (letters, digits, `-` and `_`, at least 32; `openssl rand -hex 32` makes
-one). The compose files pass it to the server and to the client images,
-which check the links. Changing it ends every link handed out so far; the
+one). The compose files pass it to the server and to the client image,
+which checks the links. Changing it ends every link handed out so far; the
 apps simply ask the API again. Without it, file addresses are as they
 always were.
-
-## Screenshots
-
-Screenshots of the legacy client inherited from szurubooru.
-
-Post list:
-
-![20160908_180032_fsk](https://cloud.githubusercontent.com/assets/1045476/18356730/3f1123d6-75ee-11e6-85dd-88a7615243a0.png)
-
-Post view:
-
-![20160908_180429_lmp](https://cloud.githubusercontent.com/assets/1045476/18356731/3f1566ee-75ee-11e6-9594-e86ca7347b0f.png)
 
 ## License
 

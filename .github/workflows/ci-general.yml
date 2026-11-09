@@ -64,7 +64,7 @@ jobs:
       # The hooks of .pre-commit-config.yaml that look at files as files:
       # valid YAML, JSON and TOML, no merge-conflict markers, a final
       # newline, no trailing whitespace, one kind of line ending. Which
-      # files are exempt (generated ones, legacy/) is said there. The
+      # files are exempt (generated ones) is said there. The
       # hooks that belong to a component are left to its workflow.
       - name: File hygiene of the changed files
         if: ${{ !cancelled() }}
@@ -100,10 +100,10 @@ jobs:
       # Links from one file of the repository to another, and to headings
       # inside them. Offline: no address outside the repository is asked
       # for. All Markdown files, not only the changed ones: a link breaks
-      # when its target moves. legacy/ is frozen and not ours to mend.
+      # when its target moves.
       - name: Internal Markdown links (lychee, offline)
         if: ${{ !cancelled() }}
         run: |
-          git ls-files -z '*.md' ':!legacy/' | xargs -0 \
+          git ls-files -z '*.md' | xargs -0 \
             docker run --rm -v "$PWD":/input -w /input lycheeverse/lychee:0.24.2 \
             --offline --include-fragments --no-progress

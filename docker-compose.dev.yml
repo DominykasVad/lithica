@@ -27,33 +27,18 @@ services:
       ## the dev stack runs with the modules on, Sardonyx's card pages among
       ## what it serves; set to "" here to try the engine alone
       MODULES: cards
-      ## signed file links (README): the same secret for the server and both
-      ## clients, from FILE_LINK_SECRET in .env; empty: not signed
+      ## signed file links (README): the same secret for the server and the
+      ## client, from FILE_LINK_SECRET in .env; empty: not signed
       FILE_LINK_SECRET: ${FILE_LINK_SECRET:-}
       #HOST: "::" (IPv4 and IPv6; "0.0.0.0" where IPv6 is disabled)
     volumes:
       - "data:/data"
       - "./server/:/opt/app/"
 
-  client:
-    build:
-      context: ./legacy/client
-      target: development
-    depends_on:
-      - server
-    environment:
-      FILE_LINK_SECRET: ${FILE_LINK_SECRET:-}
-    volumes:
-      - "data:/data:ro"
-      - "./legacy/client/:/opt/app/"
-      - "/opt/app/public/"
-    ports:
-      - "${PORT}:80"
-      - "8081:8081"
-
-  # Sardonyx, the new client, as its image serves it: on port 8082 (or
-  # SARDONYX_PORT). Rebuild it after a change; `pnpm dev` in
-  # clients/sardonyx is the quicker way to work on it.
+  # Sardonyx, the web client, as its image serves it: on port 8082 (or
+  # SARDONYX_PORT), passing /api and /data on to the server. Rebuild it
+  # after a change; `pnpm dev` in clients/sardonyx is the quicker way to
+  # work on it.
   sardonyx:
     build:
       context: ./clients/sardonyx
