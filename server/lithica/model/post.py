@@ -312,7 +312,7 @@ class PostTypedRelation(Base):
             name="uq_post_typed_relation_ends_type",
         ),
         sa.CheckConstraint(
-            "from_post_id != to_post_id", name="ck_post_typed_relation_distinct_ends"
+            from_post_id != to_post_id, name="ck_post_typed_relation_distinct_ends"
         ),
         sa.Index("ix_post_typed_relation_from_type", "from_post_id", "type"),
         sa.Index("ix_post_typed_relation_to_type", "to_post_id", "type"),

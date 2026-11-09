@@ -1,8 +1,11 @@
 """Typed relation and external-ID tables upgrade and downgrade."""
 
+import pytest
 import sqlalchemy as sa
 from alembic import command
+from sqlalchemy.exc import IntegrityError
 
+from lithica.func import util
 from lithica.tests.test_migration_token_hashes import migration_db  # noqa: F401  (pytest fixture registration)
 
 
@@ -29,6 +32,35 @@ def test_post_metadata_tables(migration_db):  # noqa: F811  (pytest fixture inje
             == ("SET NULL" if key["referred_table"] == "user" else "CASCADE")
             for key in foreign_keys
         )
+    metadata = sa.MetaData()
+    post = sa.Table("post", metadata, autoload_with=engine)
+    typed_relation = sa.Table("post_typed_relation", metadata, autoload_with=engine)
+    with engine.begin() as connection:
+        post_id = connection.execute(
+            post.insert()
+            .values(
+                creation_time=util.utcnow(),
+                safety="safe",
+                type="image",
+                checksum="constraint-test",
+                version=1,
+                kind="media",
+                **{"mime-type": "image/png"},
+            )
+            .returning(post.c.id)
+        ).scalar_one()
+        with pytest.raises(
+            IntegrityError, match="ck_post_typed_relation_distinct_ends"
+        ):
+            with connection.begin_nested():
+                connection.execute(
+                    typed_relation.insert().values(
+                        from_post_id=post_id,
+                        to_post_id=post_id,
+                        type="gallery-of",
+                        creation_time=util.utcnow(),
+                    )
+                )
     command.downgrade(settings, "a6b2c3d4e5f6")
     assert "post_typed_relation" not in sa.inspect(engine).get_table_names()
     assert "post_external_id" not in sa.inspect(engine).get_table_names()

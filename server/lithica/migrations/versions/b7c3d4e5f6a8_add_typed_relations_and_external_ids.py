@@ -36,7 +36,8 @@ def upgrade() -> None:
             name="uq_post_typed_relation_ends_type",
         ),
         sa.CheckConstraint(
-            "from_post_id != to_post_id", name="ck_post_typed_relation_distinct_ends"
+            sa.column("from_post_id") != sa.column("to_post_id"),
+            name="ck_post_typed_relation_distinct_ends",
         ),
     )
     op.create_index(
