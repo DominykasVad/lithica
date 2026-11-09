@@ -355,6 +355,23 @@ def test_post_field(site, user):
     assert list(one) == ["card"] and one["card"]["spec"] == "v2"
 
 
+def test_post_field_of_a_page_is_that_of_each_post(site, user):
+    # card_fields loads a page of posts in one query: it gives what
+    # card_field gives post by post, a post without a card included
+    client = site(["cards"])
+    made = [
+        _upload(client, user, cards.png_card(cards.v2_card(), shade=1)),
+        _upload(client, user, cards.charx()),
+        _upload(client, user, cards.picture(shade=2)),
+        _upload(client, user, cards.png_card(cards.v3_card(name="Bo"), shade=3)),
+    ]
+    page = [posts.get_post_by_id(created["id"]) for created in made]
+    assert api.card_fields(page, user) == {
+        post.post_id: api.card_field(post, user) for post in page
+    }
+    assert api.card_fields([], user) == {}
+
+
 def test_post_field_is_what_the_contract_says(site, user):
     # the summary is described by hand (CardSummary) beside the code that
     # makes it (card_field): the two must not drift apart

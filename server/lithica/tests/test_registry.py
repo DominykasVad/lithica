@@ -654,6 +654,54 @@ def test_post_field_schema_must_be_of_a_field_the_module_adds():
     assert registry.post_fields() == {}
 
 
+def test_post_field_batch_must_be_of_a_field_the_module_adds():
+    with pytest.raises(
+        errors.ConfigError, match="loads the post field 'mine' in batches"
+    ):
+        registry.use(
+            [
+                registry.Module(
+                    name="a",
+                    post_fields={"other": lambda p, u: 1},
+                    post_field_batches={"mine": lambda posts, u: {}},
+                )
+            ]
+        )
+    assert registry.post_field_batches() == {}
+
+
+def test_post_field_batch_is_used_for_a_page_of_posts(
+    inject_config, client, post_factory, user_factory, tag_category_factory
+):
+    asked: list[list[int]] = []
+
+    def one(post, _user):
+        raise AssertionError("asked post by post")
+
+    def page(found, _user):
+        asked.append(sorted(post.post_id for post in found))
+        return {post.post_id: post.post_id * 10 for post in found}
+
+    registry.use(
+        [
+            registry.Module(
+                name="a",
+                requested_post_fields={"tenfold": one},
+                post_field_batches={"tenfold": page},
+            )
+        ]
+    )
+    made = [post_factory(), post_factory(), tag_category_factory(default=True)]
+    db.session.add_all(made)
+    db.session.flush()
+    user = user_factory(rank=model.User.RANK_REGULAR)
+    listed = ok(client.get("/posts", user=user, query={"fields": "id,tenfold"}))
+    assert {post["id"] * 10 for post in listed["results"]} == {
+        post["tenfold"] for post in listed["results"]
+    }
+    assert len(asked) == 1 and len(asked[0]) == 2
+
+
 def test_post_field_is_unknown_without_the_module(
     inject_config, client, post_factory, user_factory, tag_category_factory
 ):

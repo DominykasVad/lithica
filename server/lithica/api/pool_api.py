@@ -86,7 +86,11 @@ def get_pools(
 
     - privileges are too low
     """
-    return run_search(_search_executor, page, lambda pool: _serialize(pool, fields))
+    return run_search(
+        _search_executor,
+        page,
+        page_serializer=lambda found: pools.serialize_pools(found, fields),
+    )
 
 
 @router.post(

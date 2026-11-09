@@ -92,8 +92,9 @@ as `nsfwTag`:
   snapshots, its place in pools and its featuring; ids of such posts are
   left out of snapshot data. Uploading a file such a post already has is
   refused with `PostAlreadyUploadedError` without `otherPostId` and
-  `otherPostUrl`. Numbers are not adjusted: tag usages and siblings, a
-  pool's `postCount`, a user's upload and favourite counts still count
+  `otherPostUrl`. A pool's `postCount` leaves those posts out, as its
+  `posts` do. Other numbers are not adjusted: tag usages, the occurrences
+  of tag siblings, and a user's upload and favourite counts still count
   those posts (never their ids, addresses or files). Logged-in users see
   what their privileges allow, as always.
 - `login`: an anonymous user has no privileges at all, and every request
@@ -786,7 +787,8 @@ One file together with its metadata posted to the site.
 - `<relation-count>`: how many posts are related to this post.
 - `<last-feature-time>`: the last time the post was featured, formatted as per
   RFC 3339.
-- `<favorited-by>`: list of users, serialized as [micro user resources](#micro-user).
+- `<favorited-by>`: list of users, serialized as [micro user resources](#micro-user),
+  in the order they favourited the post (and by user for the same time).
 - `<has-custom-thumbnail>`: whether the post uses custom thumbnail.
 - `<mime-type>`: subsidiary to `<type>`, used to tell exact content format;
   useful for `<video>` tags for instance.

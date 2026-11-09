@@ -2092,7 +2092,10 @@ export interface components {
             featureCount?: number;
             /** Lastfeaturetime */
             lastFeatureTime?: string | null;
-            /** Favoritedby */
+            /**
+             * Favoritedby
+             * @description The users who favourited the post, in the order they did (and by user for the same time).
+             */
             favoritedBy?: components["schemas"]["MicroUser"][];
             /** Hascustomthumbnail */
             hasCustomThumbnail?: boolean;

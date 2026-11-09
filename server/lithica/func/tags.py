@@ -75,8 +75,15 @@ def _check_name_intersection(
     return len(set(names1).intersection(names2)) > 0
 
 
-def sort_tags(tags: list[model.Tag]) -> list[model.Tag]:
-    default_category_name = tag_categories.get_default_category_name()
+def sort_tags(
+    tags: list[model.Tag], default_category_name: str | None = None
+) -> list[model.Tag]:
+    """
+    The tags in the order a post shows them. The name of the default tag
+    category is asked for unless the caller has it already.
+    """
+    if default_category_name is None:
+        default_category_name = tag_categories.get_default_category_name()
     return sorted(
         tags,
         key=lambda tag: (

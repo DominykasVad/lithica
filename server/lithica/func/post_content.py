@@ -18,7 +18,7 @@ contract says, is logged and skipped. It never fails the upload.
 import io
 import json
 import logging
-from collections.abc import Collection, Mapping, Sequence
+from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, BinaryIO, cast
 
@@ -314,11 +314,16 @@ def get_content_kinds(post: model.Post) -> list[str]:
     Only kinds a loaded module owns are named: what a switched-off module
     left behind is nobody's to show.
     """
-    owned_kinds = registry.content_kinds()
-    if not owned_kinds:
+    if not registry.content_kinds():
         # no module, no content: do not ask the database for every post
         return []
-    return sorted({row.kind for row in post.contents if row.kind in owned_kinds})
+    return owned_content_kinds({row.kind for row in post.contents})
+
+
+def owned_content_kinds(kinds: Iterable[str]) -> list[str]:
+    """Of these kinds of content, those a loaded module owns, sorted."""
+    owned_kinds = registry.content_kinds()
+    return sorted({kind for kind in kinds if kind in owned_kinds})
 
 
 def serialize_post_contents(

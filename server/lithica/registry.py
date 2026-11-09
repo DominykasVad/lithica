@@ -189,6 +189,10 @@ AutoTag = Callable[[Sequence[ExtractedContent]], Mapping[str, Sequence[str]]]
 # a field of the post resource: (post, requesting user) -> JSON value
 PostField = Callable[["model.Post", "model.User"], Any]
 
+# the same field for a page of posts at once: (posts, requesting user) ->
+# post id -> JSON value; a post left out gets the field's own value
+PostFieldBatch = Callable[[Sequence["model.Post"], "model.User"], Mapping[int, Any]]
+
 
 @dataclass(frozen=True)
 class Module:
@@ -208,6 +212,11 @@ class Module:
                     extra fields of the post resource that are returned only
                     when the request names them in `fields`: for what costs
                     a query, or is of no use to most clients
+    post_field_batches
+                    for a field above that costs a query, the values of a
+                    whole page of posts in one go, by post id: a list of
+                    posts asks it once instead of the field once per post.
+                    It must give what the field gives, post by post.
     post_field_schemas
                     for the API document: the type of the value of each of
                     the fields above (a pydantic model, or any type pydantic
@@ -226,6 +235,9 @@ class Module:
     post_fields: Mapping[str, PostField] = field(default_factory=dict[str, PostField])
     requested_post_fields: Mapping[str, PostField] = field(
         default_factory=dict[str, PostField]
+    )
+    post_field_batches: Mapping[str, PostFieldBatch] = field(
+        default_factory=dict[str, PostFieldBatch]
     )
     post_field_schemas: Mapping[str, Any] = field(default_factory=dict[str, Any])
     admin_commands: Sequence[AdminCommand] = ()
@@ -368,6 +380,14 @@ def _verify(modules: Sequence[Module]) -> None:
                 raise _refuse(
                     module, "describes the post field %r, which it does not add." % name
                 )
+        for name in module.post_field_batches:
+            if name not in module.post_fields and name not in (
+                module.requested_post_fields
+            ):
+                raise _refuse(
+                    module,
+                    "loads the post field %r in batches, which it does not add." % name,
+                )
         for command in module.admin_commands:
             if command.name in admin_commands:
                 raise _refuse(module, "adds the command %r twice." % command.name)
@@ -501,6 +521,15 @@ def post_fields() -> dict[str, PostField]:
         name: serialize
         for module in _modules
         for name, serialize in module.post_fields.items()
+    }
+
+
+def post_field_batches() -> dict[str, PostFieldBatch]:
+    """The batch versions of the loaded modules' post fields, by field name."""
+    return {
+        name: batch
+        for module in _modules
+        for name, batch in module.post_field_batches.items()
     }
 
 

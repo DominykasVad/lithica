@@ -7734,7 +7734,8 @@
               "$ref": "#/components/schemas/MicroUser"
             },
             "type": "array",
-            "title": "Favoritedby"
+            "title": "Favoritedby",
+            "description": "The users who favourited the post, in the order they did (and by user for the same time)."
           },
           "hasCustomThumbnail": {
             "type": "boolean",
