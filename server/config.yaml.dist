@@ -49,7 +49,7 @@ nsfw_tag: nsfw
 # to anyone who may see the post either way
 nsfw_hide_names: false
 
-# Allow bearer share links to deliver NSFW posts without login.
+# whether share links may deliver NSFW posts, without login; off by default.
 share_links_nsfw: false
 
 # when set, every address of a post's file and thumbnail the server gives out
@@ -157,11 +157,11 @@ privileges:
     'users:delete:any':             administrator
     'users:delete:self':            regular
 
-    'share_links:create':          regular
-    'share_links:list:self':       regular
-    'share_links:list:any':        administrator
-    'share_links:delete:self':     regular
-    'share_links:delete:any':      administrator
+    'share_links:create':           regular
+    'share_links:list:self':        regular
+    'share_links:list:any':         administrator
+    'share_links:delete:self':      regular
+    'share_links:delete:any':       administrator
 
     'user_tokens:list:any':         administrator
     'user_tokens:list:self':        regular

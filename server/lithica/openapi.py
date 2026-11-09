@@ -29,7 +29,6 @@ server's configuration.
 """
 
 TAGS: list[dict[str, str]] = [
-    {"name": "Share links", "description": "Revocable bearer links to post files."},
     {"name": "Info", "description": "The site, its settings and its featured post."},
     {"name": "Users", "description": "Accounts."},
     {
@@ -45,6 +44,7 @@ TAGS: list[dict[str, str]] = [
     {"name": "Tag categories", "description": "Kinds of tags."},
     {"name": "Tags", "description": "The words posts are found by."},
     {"name": "Posts", "description": "Uploaded files and everything about them."},
+    {"name": "Share links", "description": "Revocable bearer links to post files."},
     {"name": "Pool categories", "description": "Kinds of pools."},
     {"name": "Pools", "description": "Ordered sets of posts."},
     {"name": "Comments", "description": "Comments under posts."},

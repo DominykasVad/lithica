@@ -9684,10 +9684,6 @@
   },
   "tags": [
     {
-      "name": "Share links",
-      "description": "Revocable bearer links to post files."
-    },
-    {
       "name": "Info",
       "description": "The site, its settings and its featured post."
     },
@@ -9718,6 +9714,10 @@
     {
       "name": "Posts",
       "description": "Uploaded files and everything about them."
+    },
+    {
+      "name": "Share links",
+      "description": "Revocable bearer links to post files."
     },
     {
       "name": "Pool categories",
