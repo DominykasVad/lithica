@@ -786,7 +786,8 @@ One file together with its metadata posted to the site.
 - `<relation-count>`: how many posts are related to this post.
 - `<last-feature-time>`: the last time the post was featured, formatted as per
   RFC 3339.
-- `<favorited-by>`: list of users, serialized as [micro user resources](#micro-user).
+- `<favorited-by>`: list of users, serialized as [micro user resources](#micro-user),
+  in the order they favourited the post (and by user for the same time).
 - `<has-custom-thumbnail>`: whether the post uses custom thumbnail.
 - `<mime-type>`: subsidiary to `<type>`, used to tell exact content format;
   useful for `<video>` tags for instance.

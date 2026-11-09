@@ -144,8 +144,8 @@ def get_posts(
     return run_search(
         _search_executor,
         page,
-        lambda post: _serialize_post(post, auth_user, fields),
-        auth_user,
+        user=auth_user,
+        page_serializer=lambda found: posts.serialize_posts(found, auth_user, fields),
     )
 
 
@@ -248,16 +248,15 @@ def get_posts_by_image(
     except (errors.ThirdPartyError, errors.ProcessingError):
         lookalikes = []
 
+    exact = posts.search_by_image_exact(content)
+    found = posts.serialize_posts(
+        [exact, *(post for _, post in lookalikes)], auth_user, fields
+    )
     return {
-        "exactPost": _serialize_post(
-            posts.search_by_image_exact(content), auth_user, fields
-        ),
+        "exactPost": found[0],
         "similarPosts": [
-            {
-                "distance": distance,
-                "post": _serialize_post(post, auth_user, fields),
-            }
-            for distance, post in lookalikes
+            {"distance": distance, "post": serialized}
+            for (distance, _), serialized in zip(lookalikes, found[1:], strict=True)
         ],
     }
 
@@ -650,7 +649,5 @@ def get_posts_around(
     around = _search_executor.get_around(query, post.post_id, auth_user)
     # the post search yields posts; either neighbour may be missing
     previous_post, next_post = cast(tuple[model.Post | None, model.Post | None], around)
-    return {
-        "prev": _serialize_post(previous_post, auth_user, fields),
-        "next": _serialize_post(next_post, auth_user, fields),
-    }
+    serialized = posts.serialize_posts([previous_post, next_post], auth_user, fields)
+    return {"prev": serialized[0], "next": serialized[1]}

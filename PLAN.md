@@ -215,6 +215,8 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 
 - 2026-11-08 — 6.1 — An app-token request is never its owner acting on the account: no own-account read, email, vote counts (rights only).
 - 2026-11-08 — 6.1 — An edit with an app token that names nothing to change is refused (it would bump a version with no privilege).
+- 2026-11-09 — fix-post-lists — `favoritedBy` is ordered by favourite time, then user id (the database gave no order).
+- 2026-11-09 — fix-post-lists — Lists load what fields need per page; a module field may add a batch (`post_field_batches`).
 
 ---
 

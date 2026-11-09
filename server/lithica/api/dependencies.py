@@ -273,17 +273,27 @@ def search(
     executor: Executor,
     page: Page,
     # each executor yields entities of its own config's model
-    serializer: Callable[[Any], Any],
+    serializer: Callable[[Any], Any] | None = None,
     user: model.User | None = None,
+    page_serializer: Callable[[list[Any]], list[Any]] | None = None,
 ) -> dict[str, Any]:
-    """Run a search made by `user` and build the paged response."""
+    """
+    Run a search made by `user` and build the paged response. The results
+    are serialized one by one (`serializer`), or the whole page at once
+    (`page_serializer`), for what loads what it needs for all of them.
+    """
     count, entities = executor.execute(page.query, page.offset, page.limit, user)
+    if page_serializer is not None:
+        results = page_serializer(entities)
+    else:
+        assert serializer is not None
+        results = [serializer(entity) for entity in entities]
     return {
         "query": page.query,
         "offset": page.offset,
         "limit": page.limit,
         "total": count,
-        "results": [serializer(entity) for entity in entities],
+        "results": results,
     }
 
 

@@ -82,7 +82,9 @@ def get_comments(
     return run_search(
         _search_executor,
         page,
-        lambda comment: _serialize(comment, auth_user, fields),
+        page_serializer=lambda found: comments.serialize_comments(
+            found, auth_user, fields
+        ),
     )
 
 

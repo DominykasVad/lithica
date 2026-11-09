@@ -117,7 +117,8 @@ def test_serialize_post(
     ):
         files.has.return_value = True
         users.serialize_micro_user.side_effect = lambda user, auth_user: user.name
-        comments.serialize_comment.side_effect = lambda comment, auth_user: (
+        # the scores of a page of comments come along, loaded at once
+        comments.serialize_comment.side_effect = lambda comment, auth_user, **_: (
             comment.user.name
         )
 

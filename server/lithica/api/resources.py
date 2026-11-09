@@ -227,7 +227,10 @@ class Post(Resource):
     relation_count: int
     feature_count: int
     last_feature_time: datetime | None
-    favorited_by: list[MicroUser]
+    favorited_by: list[MicroUser] = Field(
+        description="The users who favourited the post, in the order they did "
+        "(and by user for the same time)."
+    )
     has_custom_thumbnail: bool
     notes: list[Note]
     comments: list[Comment]

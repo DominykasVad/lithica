@@ -1,5 +1,6 @@
 """The routes of the cards module, and what they return."""
 
+from collections.abc import Sequence
 from typing import Annotated, Any, cast
 
 import sqlalchemy.orm as sa_orm
@@ -106,6 +107,19 @@ def _card_row(post: model.Post) -> model.PostContent:
     return row
 
 
+def _summary(kind: str, file_format: Any, stored: Any) -> dict[str, Any]:
+    # absent for a card stored before there were summaries
+    summary = cast(dict[str, Any], stored) if isinstance(stored, dict) else {}
+    return {
+        "name": summary.get("name"),
+        "creator": summary.get("creator"),
+        "spec": card_format.SPEC_NAMES[kind],
+        "format": file_format,
+        "greetingCount": summary.get("greetings"),
+        "lorebookEntryCount": summary.get("lorebookEntries"),
+    }
+
+
 def card_field(post: model.Post, _user: model.User) -> dict[str, Any] | None:
     """
     The post field `card`: the summary of the post's card, or null. It reads
@@ -125,16 +139,35 @@ def card_field(post: model.Post, _user: model.User) -> dict[str, Any] | None:
     if row is None:
         return None
     kind, file_format, stored = row
-    # absent for a card stored before there were summaries
-    summary = cast(dict[str, Any], stored) if isinstance(stored, dict) else {}
-    return {
-        "name": summary.get("name"),
-        "creator": summary.get("creator"),
-        "spec": card_format.SPEC_NAMES[kind],
-        "format": file_format,
-        "greetingCount": summary.get("greetings"),
-        "lorebookEntryCount": summary.get("lorebookEntries"),
-    }
+    return _summary(kind, file_format, stored)
+
+
+def card_fields(
+    posts: Sequence[model.Post], _user: model.User
+) -> dict[int, dict[str, Any] | None]:
+    """`card_field` for a page of posts, in one query: by post id."""
+    ids = sorted({post.post_id for post in posts})
+    found: dict[int, dict[str, Any] | None] = dict.fromkeys(ids)
+    if not ids:
+        return found
+    rows = (
+        db.session.query(
+            model.PostContent.post_id,
+            model.PostContent.kind,
+            model.PostContent.payload["format"].as_string(),
+            model.PostContent.payload["summary"],
+        )
+        .filter(model.PostContent.post_id.in_(ids))
+        .filter(model.PostContent.kind.in_(card_format.KINDS))
+        .order_by(model.PostContent.post_content_id)
+    )
+    seen: set[int] = set()
+    for post_id, kind, file_format, stored in rows:
+        # the first card row of each post, as card_field takes it
+        if post_id not in seen:
+            seen.add(post_id)
+            found[post_id] = _summary(kind, file_format, stored)
+    return found
 
 
 def _card_name(post: model.Post) -> str:

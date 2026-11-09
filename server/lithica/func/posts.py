@@ -1,7 +1,9 @@
+import dataclasses
 import functools
 import hmac
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Iterable, Sequence
+from dataclasses import dataclass
 from typing import Any, cast
 
 import sqlalchemy as sa
@@ -171,10 +173,38 @@ def serialize_note(note: model.PostNote) -> dict[str, Any]:
     }
 
 
+@dataclass
+class Preloaded:
+    """
+    What the serializer of a page of posts would otherwise ask the database
+    for once per post, asked for once for the whole page (`preload_posts`).
+    A value that is None was not loaded: the serializer asks for it itself.
+    """
+
+    default_tag_category: str | None = None
+    # post id -> the requesting user's score of it (absent: 0)
+    own_scores: dict[int, int] | None = None
+    # post id -> the kinds of its extracted content
+    content_kinds: dict[int, set[str]] | None = None
+    # comment id -> its score, and the requesting user's score of it
+    comment_scores: dict[int, int] | None = None
+    comment_own_scores: dict[int, int] | None = None
+    # module field name -> post id -> its value
+    module_fields: dict[str, dict[int, Any]] = dataclasses.field(
+        default_factory=dict[str, dict[int, Any]]
+    )
+
+
 class PostSerializer(serialization.BaseSerializer):
-    def __init__(self, post: model.Post, auth_user: model.User) -> None:
+    def __init__(
+        self,
+        post: model.Post,
+        auth_user: model.User,
+        preloaded: Preloaded | None = None,
+    ) -> None:
         self.post = post
         self.auth_user = auth_user
+        self.preloaded = preloaded or Preloaded()
 
     def _serializers(self) -> dict[str, Callable[[], Any]]:
         serializers = self._engine_serializers()
@@ -182,11 +212,14 @@ class PostSerializer(serialization.BaseSerializer):
         module_fields = {**registry.post_fields(), **registry.requested_post_fields()}
         for name, serialize in module_fields.items():
             serializers[name] = functools.partial(
-                self._serialize_module_field, serialize
+                self._serialize_module_field, name, serialize
             )
         return serializers
 
-    def _serialize_module_field(self, serialize: registry.PostField) -> Any:
+    def _serialize_module_field(self, name: str, serialize: registry.PostField) -> Any:
+        values = self.preloaded.module_fields.get(name)
+        if values is not None and self.post.post_id in values:
+            return values[self.post.post_id]
         return serialize(self.post, self.auth_user)
 
     def serialize(self, options: list[str]) -> Any:
@@ -295,7 +328,9 @@ class PostSerializer(serialization.BaseSerializer):
                 "category": tag.category.name,
                 "usages": tag.post_count,
             }
-            for tag in tags.sort_tags(self.post.tags)
+            for tag in tags.sort_tags(
+                self.post.tags, self.preloaded.default_tag_category
+            )
         ]
 
     def serialize_relations(self) -> Any:
@@ -317,6 +352,8 @@ class PostSerializer(serialization.BaseSerializer):
         return self.post.score
 
     def serialize_own_score(self) -> Any:
+        if self.preloaded.own_scores is not None:
+            return self.preloaded.own_scores.get(self.post.post_id, 0)
         return scores.get_score(self.post, self.auth_user)
 
     def serialize_own_favorite(self) -> Any:
@@ -353,9 +390,13 @@ class PostSerializer(serialization.BaseSerializer):
         return self.post.last_feature_time
 
     def serialize_favorited_by(self) -> Any:
+        # in the order they favourited the post, then by user
         return [
             users.serialize_micro_user(rel.user, self.auth_user)
-            for rel in self.post.favorited_by
+            for rel in sorted(
+                self.post.favorited_by,
+                key=lambda favorite: (favorite.time, favorite.user_id),
+            )
         ]
 
     def serialize_has_custom_thumbnail(self) -> Any:
@@ -369,7 +410,12 @@ class PostSerializer(serialization.BaseSerializer):
 
     def serialize_comments(self) -> Any:
         return [
-            comments.serialize_comment(comment, self.auth_user)
+            comments.serialize_comment(
+                comment,
+                self.auth_user,
+                scores=self.preloaded.comment_scores,
+                own_scores=self.preloaded.comment_own_scores,
+            )
             for comment in sorted(
                 self.post.comments, key=lambda comment: comment.creation_time
             )
@@ -382,17 +428,44 @@ class PostSerializer(serialization.BaseSerializer):
         ]
 
     def serialize_content_kinds(self) -> Any:
+        if self.preloaded.content_kinds is not None:
+            return post_content.owned_content_kinds(
+                self.preloaded.content_kinds.get(self.post.post_id, set())
+            )
         return post_content.get_content_kinds(self.post)
 
 
 def serialize_post(
-    post: model.Post | None, auth_user: model.User, options: list[str] | None = None
+    post: model.Post | None,
+    auth_user: model.User,
+    options: list[str] | None = None,
+    preloaded: Preloaded | None = None,
 ) -> serialization.Response | None:
-    if options is None:
-        options = []
+    """
+    A post. What its fields need is loaded first (`preload_posts`), unless
+    the caller did that already for a page of posts (`preloaded`).
+    """
     if not post:
         return None
-    return PostSerializer(post, auth_user).serialize(options)
+    options = options or []
+    if preloaded is None:
+        preloaded = preload_posts([post], auth_user, options)
+    return PostSerializer(post, auth_user, preloaded).serialize(options)
+
+
+def serialize_posts(
+    posts: Sequence[model.Post | None],
+    auth_user: model.User,
+    options: list[str] | None = None,
+) -> list[serialization.Response | None]:
+    """
+    Posts, as `serialize_post` gives each (None for None): what the fields
+    need is loaded for all of them at once (`preload_posts`), so the
+    queries do not grow with the number of posts.
+    """
+    options = options or []
+    preloaded = preload_posts(posts, auth_user, options)
+    return [serialize_post(post, auth_user, options, preloaded) for post in posts]
 
 
 def serialize_micro_post(
@@ -401,6 +474,179 @@ def serialize_micro_post(
     # the two fields of a micro post do not depend on who is asking
     serializer = PostSerializer(post, cast(model.User, auth_user))
     return serializer.serialize(["id", "thumbnailUrl"])
+
+
+def _fields_asked(options: list[str]) -> set[str]:
+    """The fields a serialization with these options gives."""
+    if options:
+        return set(options)
+    names = set(get_engine_post_field_names()) | set(registry.post_fields())
+    return names - set(registry.requested_post_fields())
+
+
+def _deferred_counts(fields: set[str]) -> list[tuple[str, Any]]:
+    # the columns of a post that the search leaves out until they are read
+    columns = {
+        "tagCount": model.Post.tag_count,
+        "noteCount": model.Post.note_count,
+        "featureCount": model.Post.feature_count,
+        "lastFeatureTime": model.Post.last_feature_time,
+    }
+    return [(column.key, column) for name, column in columns.items() if name in fields]
+
+
+def _relationship_loaders(fields: set[str]) -> list[tuple[str, Any]]:
+    """
+    What the asked fields read of a post's relationships, by selectin loads:
+    (the relationship's name, its loader).
+    """
+    post, lazy = model.Post, sa_orm.lazyload("*")
+    loaders: list[tuple[str, Any]] = []
+    if fields & {"tags", "nsfw"}:
+        loaders.append(("tags", sa_orm.selectinload(post.tags).options(lazy)))
+    if "relations" in fields:
+        # a micro post: its id is all that is read
+        loaders.append(
+            (
+                "relations",
+                sa_orm.selectinload(post.relations).options(
+                    lazy, sa_orm.load_only(post.post_id)
+                ),
+            )
+        )
+    if "user" in fields:
+        loaders.append(("user", sa_orm.selectinload(post.user).options(lazy)))
+    if fields & {"favoritedBy", "ownFavorite"}:
+        loaders.append(
+            (
+                "favorited_by",
+                sa_orm.selectinload(post.favorited_by).options(
+                    lazy, sa_orm.selectinload(model.PostFavorite.user).options(lazy)
+                ),
+            )
+        )
+    if "notes" in fields:
+        loaders.append(("notes", sa_orm.selectinload(post.notes).options(lazy)))
+    if "comments" in fields:
+        loaders.append(
+            (
+                "comments",
+                sa_orm.selectinload(post.comments).options(
+                    lazy, sa_orm.selectinload(model.Comment.user).options(lazy)
+                ),
+            )
+        )
+    if "pools" in fields:
+        loaders.append(
+            (
+                "_pools",
+                sa_orm.selectinload(post._pools).options(
+                    lazy,
+                    sa_orm.selectinload(model.PoolPost.pool).options(
+                        lazy,
+                        sa_orm.selectinload(model.Pool.names),
+                        sa_orm.selectinload(model.Pool.category),
+                        sa_orm.undefer(model.Pool.post_count),
+                    ),
+                ),
+            )
+        )
+    return loaders
+
+
+def _unloaded(objects: Iterable[Any]) -> set[str]:
+    """The attributes that are not loaded yet on any of these objects."""
+    found: set[str] = set()
+    for one in objects:
+        found |= sa.inspect(one).unloaded
+    return found
+
+
+def preload_posts(
+    posts: Iterable[model.Post | None], auth_user: model.User, options: list[str]
+) -> Preloaded:
+    """
+    Load what serializing these posts with these options reads, for all of
+    them at once: one query per field (or per relationship it reads), not
+    one per post. Only the asked fields are loaded. What is loaded goes
+    into the session (the posts' relationships and columns) or into the
+    returned Preloaded; the serializer reads it from there.
+
+    The queries are the ORM's, so the visibility criteria
+    (lithica.func.visibility) apply to them as to any other: a post this
+    request may not see is not loaded as a relation, a pool's post or the
+    post of a comment.
+    """
+    preloaded = Preloaded()
+    page = [post for post in posts if post is not None]
+    ids = sorted({post.post_id for post in page})
+    if not ids:
+        return preloaded
+    fields = _fields_asked(options)
+
+    # only what is not loaded yet: a post looked up by its id comes with
+    # its eager relationships, a post of a search without them
+    unloaded = _unloaded(page)
+    loaders = [one for key, one in _relationship_loaders(fields) if key in unloaded]
+    counts = [one for key, one in _deferred_counts(fields) if key in unloaded]
+    if loaders or counts:
+        # the posts are in the session: this fills in, for each, what is
+        # not loaded yet, and leaves what is as it is
+        db.session.query(model.Post).filter(model.Post.post_id.in_(ids)).options(
+            sa_orm.lazyload("*"),
+            sa_orm.load_only(model.Post.post_id, *counts),
+            *loaders,
+        ).all()
+
+    if "tags" in fields:
+        page_tags = {tag.tag_id: tag for post in page for tag in post.tags}
+        tag_ids = sorted(page_tags)
+        if _unloaded(page_tags.values()) & {"post_count", "names", "category"}:
+            # the search leaves out how often a tag is used
+            db.session.query(model.Tag).filter(model.Tag.tag_id.in_(tag_ids)).options(
+                sa_orm.lazyload("*"),
+                sa_orm.load_only(model.Tag.tag_id, model.Tag.post_count),
+                sa_orm.selectinload(model.Tag.names),
+                sa_orm.selectinload(model.Tag.category),
+            ).all()
+        # without one, each post's tags ask, and fail, as they always have
+        default = tag_categories.try_get_default_category()
+        preloaded.default_tag_category = default.name if default else None
+
+    if "ownScore" in fields:
+        preloaded.own_scores = {}
+        if auth_user.user_id is not None:
+            rows = db.session.execute(
+                sa.select(model.PostScore.post_id, model.PostScore.score)
+                .where(model.PostScore.user_id == auth_user.user_id)
+                .where(model.PostScore.post_id.in_(ids))
+            )
+            preloaded.own_scores = {post_id: score for post_id, score in rows}
+
+    if "contentKinds" in fields and registry.content_kinds():
+        kinds: dict[int, set[str]] = {}
+        rows = db.session.execute(
+            sa.select(model.PostContent.post_id, model.PostContent.kind).where(
+                model.PostContent.post_id.in_(ids)
+            )
+        )
+        for post_id, kind in rows:
+            kinds.setdefault(post_id, set()).add(kind)
+        preloaded.content_kinds = kinds
+
+    if "comments" in fields:
+        comment_ids = sorted(
+            {comment.comment_id for post in page for comment in post.comments}
+        )
+        (
+            preloaded.comment_scores,
+            preloaded.comment_own_scores,
+        ) = comments.load_comment_scores(comment_ids, auth_user)
+
+    for name, batch in registry.post_field_batches().items():
+        if name in fields:
+            preloaded.module_fields[name] = dict(batch(page, auth_user))
+    return preloaded
 
 
 PRIVATE_CONTENT_PRIVILEGE = "posts:view:content:private"

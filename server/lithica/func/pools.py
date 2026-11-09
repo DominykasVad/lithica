@@ -1,5 +1,5 @@
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from typing import Any
 
 import sqlalchemy as sa
@@ -145,13 +145,72 @@ class PoolSerializer(serialization.BaseSerializer):
 
 
 def serialize_pool(
-    pool: model.Pool, options: list[str] | None = None
+    pool: model.Pool, options: list[str] | None = None, preload: bool = True
 ) -> serialization.Response | None:
-    if options is None:
-        options = []
+    """
+    A pool. What its fields need is loaded first (`preload_pools`), unless
+    the caller did that already for a page of pools (`preload=False`).
+    """
     if not pool:
         return None
+    options = options or []
+    if preload:
+        preload_pools([pool], options)
     return PoolSerializer(pool).serialize(options)
+
+
+def serialize_pools(
+    pools: Sequence[model.Pool], options: list[str] | None = None
+) -> list[serialization.Response | None]:
+    """
+    Pools, as `serialize_pool` gives each: what the fields need is loaded
+    for all of them at once (`preload_pools`).
+    """
+    options = options or []
+    preload_pools(pools, options)
+    return [serialize_pool(pool, options, preload=False) for pool in pools]
+
+
+def preload_pools(pools: Sequence[model.Pool], options: list[str]) -> None:
+    """
+    Load what serializing these pools with these options reads, for all of
+    them at once, into the session: their post counts, and their posts (a
+    micro post reads its id). The queries are the ORM's, so the visibility
+    criteria apply to them: a post this request may not see is not loaded.
+    """
+    page = [pool for pool in pools if pool is not None]
+    if not page:
+        return
+    fields = set(options) or {"posts", "postCount"}
+    ids = sorted({pool.pool_id for pool in page})
+    unloaded: set[str] = set()
+    for pool in page:
+        unloaded |= sa.inspect(pool).unloaded
+    loaders: list[Any] = []
+    columns: list[Any] = []
+    if "postCount" in fields and "post_count" in unloaded:
+        columns.append(model.Pool.post_count)
+    if "posts" in fields and "_posts" in unloaded:
+        loaders.append(
+            sa_orm.selectinload(model.Pool._posts).options(sa_orm.lazyload("*"))
+        )
+    if loaders or columns:
+        db.session.query(model.Pool).filter(model.Pool.pool_id.in_(ids)).options(
+            sa_orm.lazyload("*"),
+            sa_orm.load_only(model.Pool.pool_id, *columns),
+            *loaders,
+        ).all()
+    if "posts" in fields:
+        # each row of a pool gets its post (a micro post reads its id); the
+        # rows hold them, as the session itself does not
+        db.session.query(model.PoolPost).filter(
+            model.PoolPost.pool_id.in_(ids)
+        ).options(
+            sa_orm.lazyload("*"),
+            sa_orm.selectinload(model.PoolPost.post).options(
+                sa_orm.lazyload("*"), sa_orm.load_only(model.Post.post_id)
+            ),
+        ).all()
 
 
 def serialize_micro_pool(pool: model.Pool) -> serialization.Response | None:
