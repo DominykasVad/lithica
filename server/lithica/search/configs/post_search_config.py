@@ -34,6 +34,11 @@ def _type_transformer(value: str) -> str:
     return search_util.enum_transformer(available_values, value)
 
 
+def _kind_transformer(value: str) -> str:
+    names = [model.Post.KIND_MEDIA, *(kind.name for kind in registry.post_kinds())]
+    return search_util.enum_transformer({name: name for name in names}, value)
+
+
 def _safety_transformer(value: str) -> str:
     available_values = {
         "safe": model.Post.SAFETY_SAFE,
@@ -294,6 +299,10 @@ class PostSearchConfig(BaseSearchConfig):
                 (
                     ["feature-count"],
                     search_util.create_num_filter(model.Post.feature_count),
+                ),
+                (
+                    ["kind"],
+                    search_util.create_str_filter(model.Post.kind, _kind_transformer),
                 ),
                 (
                     ["type"],

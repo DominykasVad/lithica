@@ -64,6 +64,11 @@ def _make_post() -> tuple[str, Any]:
     return "/post/%d" % post.post_id, post
 
 
+def _make_post_kind() -> tuple[str, Any]:
+    path, post = _make_post()
+    return path + "/kind", post
+
+
 def _make_user() -> tuple[str, Any]:
     user = model.User()
     user.name = get_unique_name()
@@ -205,6 +210,7 @@ class Entry:
 # also answers to, and without a path converter)
 RESOURCES: dict[str, Entry] = {
     "/post/{post_id}": Entry(_make_post),
+    "/post/{post_id}/kind": Entry(_make_post_kind, {"kind": "media"}),
     "/post/{post_id}/score": Entry(_make_post_score, {"score": 1}),
     "/user/{user_name}": Entry(_make_user),
     "/user-token/{user_name}/{token_id}": Entry(_make_user_token),

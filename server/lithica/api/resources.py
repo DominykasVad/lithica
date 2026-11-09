@@ -194,6 +194,11 @@ class Pool(Resource):
 
 
 class Post(Resource):
+    kind: str = Field(
+        description="media or a kind a module of the site registers, "
+        "as postKinds of GET /info lists them; a post may carry "
+        "the kind of a module that is now switched off."
+    )
     version: int
     id: int
     creation_time: datetime
@@ -303,6 +308,9 @@ class AcceptedType(Resource):
 
 
 class Info(Resource):
+    post_kinds: list[str] = Field(
+        description="Post kinds: media, then loaded module post kinds."
+    )
     post_count: int
     disk_usage: int | None = Field(
         description="Bytes used by the data directory; `null` until measured."

@@ -143,6 +143,12 @@ def regenerate_thumbnails() -> None:
 
 
 BACKFILLS = {
+    "kinds": (
+        "post kinds from current content rows; undoes hand-set kinds; meant once "
+        "after upgrading to 0.4.0 (no files read)",
+        postfuncs.count_posts_for_kind_backfill,
+        postfuncs.update_all_post_kinds,
+    ),
     "signatures": (
         "image signatures, used by the similar-image search",
         postfuncs.count_posts_without_signature,
@@ -281,7 +287,8 @@ def main(args: list[str] | None = None) -> int:
         "backfill",
         help="compute data that is missing on existing posts",
         description="Compute data that is missing on existing posts. Safe to "
-        "repeat: only posts that still lack the data are processed.",
+        "repeat for signatures/md5; kinds derives every post again and undoes "
+        "hand-set kinds. Use kinds once after upgrading to 0.4.0.",
     )
     parser_backfill.add_argument(
         "what",

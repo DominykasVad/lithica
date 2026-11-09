@@ -478,6 +478,14 @@ def _writes(site: Site, read_asset: Any) -> dict[str, list[dict[str, Any]]]:
                 for path in hidden_posts
             ),
         ],
+        "PUT /post/{post_id}/kind": [
+            {
+                "path": path + "/kind",
+                "body": {"version": 1, "kind": "media"},
+                "hidden": True,
+            }
+            for path in hidden_posts
+        ],
         "DELETE /post/{post_id}": [
             {"path": path, "body": {"version": 1}, "hidden": True}
             for path in hidden_posts
@@ -823,3 +831,12 @@ def test_in_login_mode_a_user_logs_in_and_sees_as_ever(start, user_factory, read
     assert token.status_code == 200, token.text
     assert client.get("/posts", user=user).status_code == 200
     assert client.get("/posts").status_code == 403
+
+
+def test_hidden_post_kind_is_not_editable(nsfw_site):
+    client, _site = nsfw_site
+    _fresh()
+    response = client.put(
+        "/post/%d/kind" % HIDDEN[0], body={"version": 1, "kind": "media"}
+    )
+    assert response.status_code == 404

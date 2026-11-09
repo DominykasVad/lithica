@@ -66,12 +66,12 @@ def test_backfill_all(admin, old_posts, capsys):
     assert posts.count_posts_without_signature() == 0
     assert posts.count_posts_without_md5_checksum() == 0
     capsys.readouterr()
-    # a second run finds nothing to do
+    # A second run skips existing signatures/md5; kinds always derives again.
     assert admin.main(["backfill", "all"]) == 0
     output = capsys.readouterr().out
     assert "signatures: 0 posts to process" in output
     assert "md5: 0 posts to process" in output
-    assert "done" not in output
+    assert "kinds: 2 done, 0 failed" in output
 
 
 def test_backfill_reports_failures(admin, old_posts, post_factory, capsys):

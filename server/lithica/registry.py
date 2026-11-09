@@ -170,6 +170,14 @@ class ContentKind:
 
 
 @dataclass(frozen=True)
+class PostKind:
+    """What a post is; supported by any of these module-owned content kinds."""
+
+    name: str
+    content_kinds: frozenset[str]
+
+
+@dataclass(frozen=True)
 class AdminCommand:
     """
     A subcommand of `lithica-admin`. `configure` adds its arguments to the
@@ -202,6 +210,7 @@ class Module:
     router          routes, served under `/modules/<name>/` and tagged with
                     the module's name in the API document; they set no tags
                     of their own
+    post_kinds      post kinds and the content kinds that support them
     content_kinds   the kinds of extracted content the module owns
     file_types      types of files the engine does not know
     extractors      readers of content embedded in uploaded files
@@ -228,6 +237,7 @@ class Module:
     name: str
     router: APIRouter | None = None
     content_kinds: Sequence[ContentKind] = ()
+    post_kinds: Sequence[PostKind] = ()
     file_types: Sequence[FileType] = ()
     extractors: Sequence[Extractor] = ()
     auto_tag: AutoTag | None = None
@@ -287,6 +297,8 @@ def _verify(modules: Sequence[Module]) -> None:
     """
     names: set[str] = set()
     kinds: set[str] = set()
+    post_kind_names = {"media"}
+    claimed_content: set[str] = set()
     search_filters = _engine_search_filters()
     post_fields = _engine_post_fields()
     admin_commands = set(ENGINE_ADMIN_COMMANDS)
@@ -362,6 +374,18 @@ def _verify(modules: Sequence[Module]) -> None:
                     % (kind.max_payload_size, kind.name, PAYLOAD_SIZE_CAP),
                 )
             kinds.add(kind.name)
+        for post_kind in module.post_kinds:
+            if not KIND_PATTERN.fullmatch(post_kind.name) or len(post_kind.name) > 32:
+                raise _refuse(module, "has an invalid post kind %r." % post_kind.name)
+            if post_kind.name in post_kind_names:
+                raise _refuse(module, "registers post kind %r twice." % post_kind.name)
+            post_kind_names.add(post_kind.name)
+            owned = {kind.name for kind in module.content_kinds}
+            if not post_kind.content_kinds or not post_kind.content_kinds <= owned:
+                raise _refuse(module, "post kind must name its module's content kinds.")
+            if claimed_content & post_kind.content_kinds:
+                raise _refuse(module, "lists one content kind in two post kinds.")
+            claimed_content.update(post_kind.content_kinds)
         if module.extractors and not module.content_kinds:
             raise _refuse(module, "has extractors but declares no content kind.")
 
@@ -581,3 +605,8 @@ def auto_taggers() -> list[tuple[Module, AutoTag]]:
     return [
         (module, module.auto_tag) for module in _modules if module.auto_tag is not None
     ]
+
+
+def post_kinds() -> list[PostKind]:
+    """Loaded post kinds, in module configuration and declaration order."""
+    return [kind for module in _modules for kind in module.post_kinds]

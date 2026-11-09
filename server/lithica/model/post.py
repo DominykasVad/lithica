@@ -294,6 +294,8 @@ class Post(Base):
     SAFETY_SKETCHY = "sketchy"
     SAFETY_UNSAFE = "unsafe"
 
+    KIND_MEDIA = "media"
+
     TYPE_IMAGE = "image"
     TYPE_ANIMATION = "animation"
     TYPE_VIDEO = "video"
@@ -328,6 +330,10 @@ class Post(Base):
     source: sa_orm.Mapped[str | None] = sa_orm.mapped_column("source", sa.Unicode(2048))
     flags_string: sa_orm.Mapped[str | None] = sa_orm.mapped_column(
         "flags", sa.Unicode(32), default=""
+    )
+
+    kind: sa_orm.Mapped[str] = sa_orm.mapped_column(
+        sa.Unicode(32), nullable=False, default=KIND_MEDIA, index=True
     )
 
     # content description

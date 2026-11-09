@@ -3,7 +3,7 @@ import threading
 from datetime import datetime, timedelta
 from typing import Any
 
-from lithica import config, registry
+from lithica import config, model, registry
 from lithica.api import resources
 from lithica.api.dependencies import CurrentUser, max_upload_size
 from lithica.api.routing import ApiRouter
@@ -120,6 +120,10 @@ def get_info(user: CurrentUser) -> dict[str, Any]:
         "diskUsage": _disk_usage.get(),
         "serverTime": util.utcnow(),
         "modules": [module.name for module in registry.modules()],
+        "postKinds": [
+            model.Post.KIND_MEDIA,
+            *(kind.name for kind in registry.post_kinds()),
+        ],
         "maxUploadSize": max_upload_size(),
         "visibility": visibility.mode(),
         "nsfwTag": visibility.nsfw_tag(),

@@ -1425,6 +1425,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/post/{post_id}/kind": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change a post's kind
+         * @description Set a supported post kind. An unchanged kind creates no version or snapshot.
+         *
+         *     Unknown or unsupported kinds are InvalidPostKindError (400); a stale
+         *     version is 409. Hidden posts are 404, as for every post lookup.
+         */
+        put: operations["set_post_kind"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/modules/cards/post/{post_id}": {
         parameters: {
             query?: never;
@@ -1645,6 +1668,11 @@ export interface components {
         };
         /** Info */
         Info: {
+            /**
+             * Postkinds
+             * @description Post kinds: media, then loaded module post kinds.
+             */
+            postKinds?: string[];
             /** Postcount */
             postCount?: number;
             /**
@@ -2027,6 +2055,11 @@ export interface components {
         };
         /** Post */
         Post: {
+            /**
+             * Kind
+             * @description media or a kind a module of the site registers, as postKinds of GET /info lists them; a post may carry the kind of a module that is now switched off.
+             */
+            kind?: string;
             /** Version */
             version?: number;
             /** Id */
@@ -5032,6 +5065,49 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PostsAround"];
+                };
+            };
+            /** @description The request was refused. */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    set_post_kind: {
+        parameters: {
+            query?: {
+                /** @description Record this request as a login of the authenticated user. */
+                "bump-login"?: boolean;
+                /** @description Comma-separated names of the fields to return. All fields are returned when it is absent. */
+                fields?: string | null;
+            };
+            header?: never;
+            path: {
+                post_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    version: number;
+                    kind: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Post"];
                 };
             };
             /** @description The request was refused. */

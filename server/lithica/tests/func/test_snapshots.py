@@ -91,6 +91,7 @@ def test_get_post_snapshot(post_factory, user_factory, tag_factory):
     post.notes.append(note)
 
     assert snapshots.get_post_snapshot(post) == {
+        "kind": "media",
         "checksum": "deadbeef",
         "featured": True,
         "flags": [],

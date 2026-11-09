@@ -47,6 +47,7 @@ def get_pool_snapshot(pool: model.Pool) -> dict[str, Any]:
 def get_post_snapshot(post: model.Post) -> dict[str, Any]:
     assert post
     return {
+        "kind": post.kind,
         "source": post.source,
         "safety": post.safety,
         "checksum": post.checksum,

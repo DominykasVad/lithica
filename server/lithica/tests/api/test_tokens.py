@@ -550,3 +550,17 @@ def test_administrators_token_reaches_nothing_about_accounts(
                 assert not auth.has_privilege(admin, privilege), privilege
             else:
                 assert auth.has_privilege(admin, privilege), privilege
+
+
+def test_write_app_token_cannot_change_post_kind(client, owner, card_post):
+    headers = _as(_app_token(client, owner, ["write"]), owner)
+    post = ok(client.get("/post/%d" % card_post, user=owner))
+    response = client.put(
+        "/post/%d/kind" % card_post,
+        headers=headers,
+        body={"version": post["version"], "kind": "media"},
+    )
+    assert_error(response, errors.AuthError)
+    assert (
+        ok(client.get("/post/%d" % card_post, user=owner))["version"] == post["version"]
+    )

@@ -5,8 +5,10 @@ A character card is a description of a character (who it is, how it
 speaks, how a conversation with it opens, and often a lorebook) that chat
 programs load. Cards travel as PNG pictures with the card's JSON in a text
 chunk. This module reads the card out of an uploaded picture and keeps it
-as extracted content of the post, of the kind `card_v1`, `card_v2` or
+as extracted content of the post, of the content kind `card_v1`, `card_v2` or
 `card_v3` after the version of the card format.
+
+The module registers the post kind `card`, supported by these content kinds.
 
 A picture without a card, or with one that cannot be read, is an ordinary
 picture: the module never refuses a PNG file.
@@ -307,6 +309,7 @@ module = registry.Module(
     requested_post_fields={"card": api.card_field},
     post_field_batches={"card": api.card_fields},
     post_field_schemas={"card": api.CardSummary},
+    post_kinds=[registry.PostKind("card", frozenset(card_format.KINDS))],
     content_kinds=[
         registry.ContentKind(kind, SCHEMA_VERSION, max_payload_size=MAX_PAYLOAD_SIZE)
         for kind in (card_format.KIND_V1, card_format.KIND_V2, card_format.KIND_V3)
