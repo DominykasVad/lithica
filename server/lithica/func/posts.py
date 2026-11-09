@@ -381,8 +381,8 @@ class PostSerializer(serialization.BaseSerializer):
         return self.post.note_count
 
     def serialize_relation_count(self) -> Any:
-        # the relations the request may see: always as many as `relations`
-        return len({post.post_id for post in self.post.relations})
+        # the relations the request may see: as many as `relations` lists
+        return self.post.relation_count
 
     def serialize_feature_count(self) -> Any:
         return self.post.feature_count
@@ -505,7 +505,7 @@ def _relationship_loaders(fields: set[str]) -> list[tuple[str, Any]]:
     loaders: list[tuple[str, Any]] = []
     if fields & {"tags", "nsfw"}:
         loaders.append(("tags", sa_orm.selectinload(post.tags).options(lazy)))
-    if fields & {"relations", "relationCount"}:
+    if "relations" in fields:
         # a micro post: its id is all that is read
         loaders.append(
             (

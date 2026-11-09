@@ -165,10 +165,15 @@ def build(
         when = START + timedelta(hours=position)
         # fixed times: two sites built alike give the same answers
         post.creation_time = when
-        # relations: to the one before and to one three ahead
+        # relations: to the one before and to one three ahead, both ways, as
+        # the API stores them
         for other in (position - 1, position + 3):
             if 0 <= other < len(ids) and other != position:
-                post.relations.append(posts[ids[other]])
+                related = posts[ids[other]]
+                if related not in post.relations:
+                    post.relations.append(related)
+                if post not in related.relations:
+                    related.relations.append(post)
         if position % 2 == 0:
             for corner in range(2):
                 note = model.PostNote()

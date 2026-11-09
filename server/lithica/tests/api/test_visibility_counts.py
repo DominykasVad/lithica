@@ -16,6 +16,7 @@ import pytest
 import sqlalchemy.event as sa_event
 
 from lithica import db, model, registry
+from lithica.func import posts
 from lithica.tests.api import rich_posts
 from lithica.tests.api.http import shipped_config
 
@@ -231,3 +232,96 @@ def test_relation_count_is_the_relations_the_viewer_sees(site, _pg_engine):
     finally:
         sa_event.remove(_pg_engine, "after_cursor_execute", count)
     assert queries["20"] == queries["2"], queries
+
+
+def _make_related(who_relates: dict[int, list[int]]) -> dict[int, int]:
+    """
+    New posts of ada's, related as asked (by index, through
+    update_post_relations, both ways): index -> post id.
+    """
+    with db.session_scope():
+        ada = db.session.query(model.User).filter_by(name="ada").one()
+        made = {}
+        for index in sorted({*who_relates, *sum(who_relates.values(), [])}):
+            post = model.Post()
+            post.user = ada
+            post.safety = model.Post.SAFETY_SAFE
+            post.type = model.Post.TYPE_IMAGE
+            post.mime_type = "image/png"
+            post.checksum = "related-%d" % index
+            post.flags = []
+            post.creation_time = rich_posts.START
+            db.session.add(post)
+            db.session.flush()
+            made[index] = post
+        for index, others in who_relates.items():
+            posts.update_post_relations(
+                made[index], [made[other].post_id for other in others]
+            )
+        db.session.commit()
+        return {index: post.post_id for index, post in made.items()}
+
+
+def test_relation_count_search_token_counts_related_posts_once(site):
+    get = site["get"]
+    # 0 is related to 1; 2 to 3 and 4
+    made = _make_related({0: [1], 2: [3, 4]})
+    for who in (None, "bob"):
+        one = {
+            post["id"]
+            for post in get(
+                "/posts", who, query="relation-count:1", limit="100", fields="id"
+            )["results"]
+        }
+        two = {
+            post["id"]
+            for post in get(
+                "/posts", who, query="relation-count:2", limit="100", fields="id"
+            )["results"]
+        }
+        assert {made[0], made[1], made[3], made[4]} <= one, who
+        assert made[2] not in one, who
+        assert made[2] in two and made[0] not in two, who
+
+
+def test_sorting_by_relation_count_follows_the_field(site):
+    get, hidden = site["get"], site["hidden"]
+    counts = {}
+    for who in (None, "bob"):
+        listed = get(
+            "/posts",
+            who,
+            query="sort:relation-count",
+            limit="100",
+            fields="id,relationCount,relations",
+        )["results"]
+        numbers = [post["relationCount"] for post in listed]
+        assert numbers == sorted(numbers, reverse=True), who
+        assert all(
+            post["relationCount"] == len(post["relations"]) for post in listed
+        ), who
+        counts[who] = {post["id"]: post["relationCount"] for post in listed}
+    # anonymous users: the token and the sort count the visible relations
+    # only, as the field does
+    differs = [
+        post_id
+        for post_id, number in counts[None].items()
+        if number != counts["bob"][post_id]
+    ]
+    assert differs, "some posts are related to hidden ones"
+    post_id = differs[0]
+    anonymous_count, bob_count = counts[None][post_id], counts["bob"][post_id]
+    for who, number, found in (
+        (None, anonymous_count, True),
+        (None, bob_count, False),
+        ("bob", bob_count, True),
+    ):
+        listed = get(
+            "/posts",
+            who,
+            query="relation-count:%d" % number,
+            limit="100",
+            fields="id",
+        )["results"]
+        assert (post_id in {post["id"] for post in listed}) is found, (who, number)
+    assert not hidden & set(counts[None])

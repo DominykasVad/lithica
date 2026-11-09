@@ -20,3 +20,7 @@ from lithica.model.tag_category import TagCategory
 from lithica.model.user import PasswordResetToken, User, UserToken
 
 from lithica.model import util  # isort: skip  (needs the models above)
+from lithica.model.post import add_relation_count  # isort: skip
+
+# needs every model above
+add_relation_count()

@@ -1063,7 +1063,9 @@ def test_merge_posts_moves_parent_relations(post_factory, config_injector):
     source_post = post_factory()
     target_post = post_factory()
     related_post = post_factory()
+    # both ways, as update_post_relations stores a relation
     related_post.relations = [source_post]
+    source_post.relations = [related_post]
     db.session.add_all([source_post, target_post, related_post])
     db.session.commit()
     assert source_post.relation_count == 1
@@ -1081,7 +1083,10 @@ def test_merge_posts_doesnt_duplicate_parent_relations(post_factory, config_inje
     source_post = post_factory()
     target_post = post_factory()
     related_post = post_factory()
+    # both ways, as update_post_relations stores a relation
     related_post.relations = [source_post, target_post]
+    source_post.relations = [related_post]
+    target_post.relations = [related_post]
     db.session.add_all([source_post, target_post, related_post])
     db.session.commit()
     assert source_post.relation_count == 1
@@ -1100,7 +1105,9 @@ def test_merge_posts_doesnt_create_relation_loop_for_children(
     config_injector({"delete_source_files": False})
     source_post = post_factory()
     target_post = post_factory()
+    # both ways, as update_post_relations stores a relation
     source_post.relations = [target_post]
+    target_post.relations = [source_post]
     db.session.add_all([source_post, target_post])
     db.session.commit()
     assert source_post.relation_count == 1
@@ -1117,7 +1124,9 @@ def test_merge_posts_doesnt_create_relation_loop_for_parents(
     config_injector({"delete_source_files": False})
     source_post = post_factory()
     target_post = post_factory()
+    # both ways, as update_post_relations stores a relation
     target_post.relations = [source_post]
+    source_post.relations = [target_post]
     db.session.add_all([source_post, target_post])
     db.session.commit()
     assert source_post.relation_count == 1

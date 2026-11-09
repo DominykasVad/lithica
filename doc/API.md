@@ -94,7 +94,8 @@ as `nsfwTag`:
   refused with `PostAlreadyUploadedError` without `otherPostId` and
   `otherPostUrl`. Tag siblings and their occurrences come from the posts
   an anonymous user may see only (a tag found only on hidden posts is not
-  named), a post's `relationCount` counts the relations it lists, and a
+  named), a post's `relationCount` counts the relations it lists (and so
+  do the search token `relation-count:` and sorting by it), and a
   pool's `postCount` leaves those posts out, as its `posts` do. Other
   numbers are not adjusted, on purpose: tag usages and a user's upload,
   favourite and comment counts still count those posts (never their ids,
