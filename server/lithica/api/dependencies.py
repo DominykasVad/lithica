@@ -152,6 +152,9 @@ def get_user(
     user without one.
     Wrong credentials are an error, not an anonymous request.
     """
+    # Share delivery is authorized only by its token, never by caller credentials.
+    if getattr(request.scope.get("route"), "path", None) == "/share/{token}":
+        return _anonymous_user()
     header = request.headers.get("Authorization")
     user = _authenticate(header, bump_login) if header else _anonymous_user()
     request.scope[LOG_USER_KEY] = user.name
@@ -168,6 +171,7 @@ CurrentUser = Annotated[model.User, Depends(get_user)]
 LOGIN_FREE_ROUTES = frozenset(
     {
         ("GET", "/info"),
+        ("GET", "/share/{token}"),
         ("GET", "/password-reset/{user_name}"),
         ("POST", "/password-reset/{user_name}"),
     }

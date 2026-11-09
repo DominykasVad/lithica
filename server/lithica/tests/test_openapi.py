@@ -74,8 +74,8 @@ def test_document_describes_the_whole_api(document):
     operations = list(_operations(document))
     # the engine's, and those of the modules there are
     engine = [o for o in operations if not o[1].startswith("/modules/")]
-    assert len(engine) == 72
-    assert len([path for path in document["paths"] if "/modules/" not in path]) == 44
+    assert len(engine) == 77
+    assert len([path for path in document["paths"] if "/modules/" not in path]) == 48
     assert sorted(path for path in document["paths"] if "/modules/" in path) == [
         "/modules/cards/post/{post_id}",
         "/modules/cards/post/{post_id}/download",
@@ -102,6 +102,11 @@ def test_every_operation_is_documented(document):
         assert len(operation.get("description", "")) > 20, where
         assert operation["tags"] and set(operation["tags"]) <= known_tags, where
         # the result is described by a model, the errors by the error body
+        if path == "/share/{token}":
+            assert "content" not in operation["responses"]["200"]
+            assert "4XX" in operation["responses"]
+            assert operation["security"] == []
+            continue
         content = operation["responses"]["200"]["content"]
         if operation["operationId"] in FILE_DOWNLOADS:
             # the one kind of route that does not answer with JSON
@@ -175,7 +180,12 @@ def test_credentials_are_optional_and_of_two_kinds(document):
     schemes = document["components"]["securitySchemes"]
     assert set(schemes) == {"basicAuth", "tokenAuth"}
     for _method, _path, operation in _operations(document):
-        assert operation["security"] == [{"basicAuth": []}, {"tokenAuth": []}, {}]
+        expected = (
+            []
+            if _path == "/share/{token}"
+            else [{"basicAuth": []}, {"tokenAuth": []}, {}]
+        )
+        assert operation["security"] == expected
 
 
 def test_common_parameters_are_described(document):

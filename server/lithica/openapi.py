@@ -29,6 +29,7 @@ server's configuration.
 """
 
 TAGS: list[dict[str, str]] = [
+    {"name": "Share links", "description": "Revocable bearer links to post files."},
     {"name": "Info", "description": "The site, its settings and its featured post."},
     {"name": "Users", "description": "Accounts."},
     {
@@ -96,8 +97,12 @@ def allow_anonymous(document: dict[str, Any]) -> None:
     "or none". Which requests an anonymous user may make is a matter of the
     server's privileges, not of the API.
     """
-    for path in document["paths"].values():
+    for name, path in document["paths"].items():
         for operation in path.values():
+            if name == "/share/{token}":
+                # Delivery ignores credentials, including malformed headers.
+                operation["security"] = []
+                continue
             if "security" in operation:
                 operation["security"] = [*operation["security"], {}]
 

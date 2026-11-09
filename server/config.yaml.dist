@@ -49,6 +49,9 @@ nsfw_tag: nsfw
 # to anyone who may see the post either way
 nsfw_hide_names: false
 
+# Allow bearer share links to deliver NSFW posts without login.
+share_links_nsfw: false
+
 # when set, every address of a post's file and thumbnail the server gives out
 # carries an expiry and a signature, and the web server in front refuses one
 # without a valid signature (403). the client images check it when they get
@@ -153,6 +156,12 @@ privileges:
     'users:edit:self:rank':         moderator # one can't promote themselves or anyone to upper rank than their own.
     'users:delete:any':             administrator
     'users:delete:self':            regular
+
+    'share_links:create':          regular
+    'share_links:list:self':       regular
+    'share_links:list:any':        administrator
+    'share_links:delete:self':     regular
+    'share_links:delete:any':      administrator
 
     'user_tokens:list:any':         administrator
     'user_tokens:list:self':        regular

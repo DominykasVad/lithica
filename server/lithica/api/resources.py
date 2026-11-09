@@ -348,6 +348,7 @@ class AcceptedType(Resource):
 
 
 class Info(Resource):
+    share_links_nsfw: bool
     typed_relation_types: list[TypedRelationType]
     post_kinds: list[str] = Field(
         description="Post kinds: media, then loaded module post kinds."
@@ -406,3 +407,14 @@ class PasswordResetResult(Resource):
 
 class UploadToken(Resource):
     token: str
+
+
+class ShareLink(Resource):
+    id: int
+    post_id: int
+    user: MicroUser
+    note: str | None
+    creation_time: datetime
+    expires_at: datetime | None
+    expired: bool
+    url: str

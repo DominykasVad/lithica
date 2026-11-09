@@ -136,6 +136,7 @@ def get_info(user: CurrentUser) -> dict[str, Any]:
         ],
         "maxUploadSize": max_upload_size(),
         "visibility": visibility.mode(),
+        "shareLinksNsfw": config.config.get("share_links_nsfw", False),
         "nsfwTag": visibility.nsfw_tag(),
         "nsfwHidesNames": visibility.nsfw_hides_names(),
         "acceptedTypes": [

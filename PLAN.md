@@ -387,9 +387,9 @@ concept, "post" the resource.
 - [x] Sardonyx's library respects it; the post page shows that a post is unlisted.
 
 ### 6.5 Share links
-- [ ] A share link per post: created under a privilege, optional expiry, revocable; listed per post and per user. The token is derived from the site's `secret` and a random salt per link, so its owner can see the link again; the database holds the salt and a hash for lookup, never the token. Changing `secret` ends every share link.
+- [x] A share link per post: created under a privilege, optional expiry, revocable; listed per post and per user. The token is derived from the site's `secret` and a random salt per link, so its owner can see the link again; the database holds the salt and a hash for lookup, never the token. Changing `secret` ends every share link.
 - [ ] `/share/<token>`: the server checks it and lets nginx deliver the file (an internal location in the client image); revoked or expired gives 404.
-- [ ] Site setting: may NSFW posts get share links (default: no).
+- [x] Site setting: may NSFW posts get share links (default: no).
 - [ ] Tests: valid, revoked, expired and wrong token; a share link works on a `login` site without login; the post's own file links are unchanged.
 
 ### 6.5b Share links in Sardonyx
