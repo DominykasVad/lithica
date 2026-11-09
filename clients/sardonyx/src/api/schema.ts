@@ -2168,6 +2168,11 @@ export interface components {
         };
         /** Post */
         Post: {
+            /**
+             * Listed
+             * @description Whether searches include this post by default; unlisted is not private.
+             */
+            listed?: boolean;
             /** Externalids */
             externalIds?: components["schemas"]["ExternalId"][];
             /**

@@ -281,6 +281,7 @@ def test_serialize_post(
             "comments": ["commenter1", "commenter2"],
             "contentKinds": [],
             "kind": "media",
+            "listed": True,
         }
 
 
