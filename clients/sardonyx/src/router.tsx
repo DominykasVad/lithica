@@ -65,6 +65,12 @@ const confirmResetRoute = createRoute({
   ),
 });
 
+const settingsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/admin/settings",
+  component: lazyRouteComponent(() => import("./admin/SiteSettings"), "SiteSettings"),
+});
+
 const accountRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/account",
@@ -114,6 +120,7 @@ export const routeTree = rootRoute.addChildren([
   resetLinkRoute,
   confirmResetRoute,
   accountRoute,
+  settingsRoute,
   libraryRoute,
   postRoute,
   lorebookRoute,

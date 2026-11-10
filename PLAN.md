@@ -413,7 +413,7 @@ concept, "post" the resource.
 - [x] A settings API (`GET`/`PUT /site-settings`, administrator only): settings declared in one registry with type, default and whether they can change at runtime. `config.yaml` gives the starting values; a value changed through the API is stored in the database and wins; settings that need a restart are read-only through the API.
 - [x] The existing runtime-safe settings move onto it (`visibility`, `nsfw_tag`, `nsfw_hide_names`, `password_reset_mail_interval`, and others found safe); `GET /info` reports the effective values.
 - [x] Feature switches: pools, favourites, scores, notes, comments. A feature that is off: its API answers as a missing feature, `GET /info` lists it as off, clients hide it. Comments and scores (the engine's up/down votes) default to off; star ratings come later (decision 0009).
-- [ ] Sardonyx: an admin page for the settings and switches (administrator only).
+- [x] Sardonyx: an admin page for the settings and switches (administrator only).
 - [ ] Browser: change visibility and pools live on both servers; reset overrides on failure and check for leftovers.
 
 ### 6.7 Background jobs

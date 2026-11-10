@@ -6,7 +6,7 @@ import { unwrap } from "@/api/errors";
 export const infoQuery = queryOptions({
   queryKey: ["info"],
   queryFn: () => unwrap(api.GET("/info")),
-  // what a site offers changes with a restart, not while one looks at it
+  // Runtime settings may change at any time; saving settings invalidates this query.
   staleTime: 5 * 60 * 1000,
 });
 
