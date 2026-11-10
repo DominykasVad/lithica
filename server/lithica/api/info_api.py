@@ -13,6 +13,7 @@ from lithica.func import (
     file_types,
     mailer,
     posts,
+    site_settings,
     users,
     util,
     visibility,
@@ -89,10 +90,9 @@ def get_info(user: CurrentUser) -> dict[str, Any]:
     """
     Retrieves simple statistics. `<featured-post>` is null if there is no
     featured post yet. `<server-time>` is pretty much the same as the `Date`
-    HTTP field, only formatted in a manner consistent with other dates. Values
-    in `config` key are taken directly from the server config, with the
-    exception of privilege array keys being converted to lower camel case to
-    match the API convention.
+    HTTP field, only formatted in a manner consistent with other dates.
+    Values in `config` report effective site settings; privilege keys use
+    lower camel case to match the API convention.
 
     `<modules>` are the names of the optional modules this server has switched
     on, in the order of its configuration; empty on a plain installation. A
@@ -136,7 +136,7 @@ def get_info(user: CurrentUser) -> dict[str, Any]:
         ],
         "maxUploadSize": max_upload_size(),
         "visibility": visibility.mode(),
-        "shareLinksNsfw": config.config.get("share_links_nsfw", False),
+        "shareLinksNsfw": site_settings.get("share_links_nsfw"),
         "nsfwTag": visibility.nsfw_tag(),
         "nsfwHidesNames": visibility.nsfw_hides_names(),
         "acceptedTypes": [
@@ -148,14 +148,14 @@ def get_info(user: CurrentUser) -> dict[str, Any]:
             for right, privileges in app_token_rights.RIGHTS.items()
         },
         "config": {
-            "name": config.config["name"],
+            "name": site_settings.get("name"),
             "userNameRegex": config.config["user_name_regex"],
             "passwordRegex": config.config["password_regex"],
             "tagNameRegex": config.config["tag_name_regex"],
             "tagCategoryNameRegex": config.config["tag_category_name_regex"],
-            "defaultUserRank": config.config["default_rank"],
+            "defaultUserRank": site_settings.get("default_rank"),
             "enableSafety": config.config["enable_safety"],
-            "contactEmail": config.config["contact_email"],
+            "contactEmail": site_settings.get("contact_email"),
             "canSendMails": mailer.can_send_mail(),
             "privileges": util.snake_case_to_lower_camel_case_keys(
                 config.config["privileges"]

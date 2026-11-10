@@ -30,6 +30,10 @@ server's configuration.
 """
 
 TAGS: list[dict[str, str]] = [
+    {
+        "name": "Site settings",
+        "description": "Runtime settings and config.yaml starting values.",
+    },
     {"name": "Info", "description": "The site, its settings and its featured post."},
     {"name": "Users", "description": "Accounts."},
     {

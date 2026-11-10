@@ -1793,3 +1793,23 @@ access to `/_share/` and applies the upload security policy. Caches may keep
 the file but must ask the server again each time (`Cache-Control: private,
 no-cache`), so a revoked link stops at once. Share request tokens are omitted
 from access logs.
+
+
+## Site settings
+
+`GET /site-settings` needs `site_settings:view`; `PUT /site-settings` needs
+`site_settings:edit`. Both default to administrator and are unavailable to app
+tokens. The response contains `version`, `fileLinksSigned` (a boolean, never a
+secret), and `settings`: name, type, value, startingValue, stored, runtime,
+choices (for choices) and min (for bounded integers).
+
+config.yaml supplies starting values. Database overrides win, including after
+editing config.yaml or restarting. Runtime settings can change immediately;
+restart settings are listed read-only and must be set in config.yaml.
+
+PUT accepts `{version, values: {name: value}}`, changing only named settings in
+one transaction. A stale shared version answers 409; unknown, invalid or
+restart-only names answer 400. A no-op does not bump the version. Send null to
+delete an override and restore the starting value. `lithica-admin settings list`
+shows both values; `settings reset <name>...` or `settings reset --all` removes
+overrides from the shell.

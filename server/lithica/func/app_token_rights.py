@@ -56,7 +56,7 @@ RIGHTS: dict[str, tuple[str, ...]] = {
 }
 
 # never granted to an app token
-FORBIDDEN_PREFIXES = ("users:", "user_tokens:", "app_tokens:")
+FORBIDDEN_PREFIXES = ("users:", "user_tokens:", "app_tokens:", "site_settings:")
 
 _RIGHTS_KEY = "app_token_rights.rights"
 _GRANTED_KEY = "app_token_rights.granted"

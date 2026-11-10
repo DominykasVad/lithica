@@ -40,6 +40,7 @@ from lithica.api import (
     post_api,
     post_metadata_api,
     share_link_api,
+    site_settings_api,
     snapshot_api,
     tag_api,
     tag_category_api,
@@ -300,6 +301,7 @@ def create_app(modules: Sequence[registry.Module] | None = None) -> FastAPI:
     for ported in [
         docs_api,
         info_api,
+        site_settings_api,
         user_api,
         user_token_api,
         app_token_api,

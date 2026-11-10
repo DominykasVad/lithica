@@ -17,6 +17,7 @@ from lithica.model.post import (
     PostTypedRelation,
 )
 from lithica.model.share_link import ShareLink
+from lithica.model.site_setting import SiteSetting, SiteSettingsVersion
 from lithica.model.snapshot import Snapshot
 from lithica.model.tag import Tag, TagImplication, TagName, TagSuggestion
 from lithica.model.tag_category import TagCategory

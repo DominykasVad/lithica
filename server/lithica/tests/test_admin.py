@@ -492,3 +492,26 @@ def test_create_user_refuses_ranks_that_are_not_accounts(admin, user_rules, caps
         with pytest.raises(SystemExit):
             admin.main(["create-user", "boss", "--rank", rank, "--password-stdin"])
     assert db.session.query(model.User).count() == 0
+
+
+def test_settings_list_and_reset(admin, config_injector, tmpdir, capsys):
+    from lithica import db
+    from lithica.func import site_settings
+    from lithica.tests.api.http import shipped_config
+
+    config_injector(shipped_config(str(tmpdir.mkdir("settings-data"))))
+    with db.session_scope():
+        site_settings.update(1, {"name": "Stored title"}, None)
+        db.session.commit()
+    assert admin.main(["settings", "list"]) == 0
+    assert "Stored title" in capsys.readouterr().out
+    assert admin.main(["settings", "reset", "name"]) == 0
+    with db.session_scope():
+        assert site_settings.version() == 3
+        assert site_settings.stored() == {}
+        site_settings.update(3, {"name": "Again", "nsfw_tag": "adult"}, None)
+        db.session.commit()
+    assert admin.main(["settings", "reset", "--all"]) == 0
+    with db.session_scope():
+        assert site_settings.version() == 5
+        assert site_settings.stored() == {}

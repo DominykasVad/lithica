@@ -140,6 +140,8 @@ webhooks:
 default_rank: regular
 
 privileges:
+    site_settings:view: administrator
+    site_settings:edit: administrator
     'users:create:self':            anonymous # Registration permission
     'users:create:any':             administrator
     'users:list':                   regular
@@ -271,3 +273,10 @@ privileges:
 ## example: postgresql://lithica:dog@localhost:5432/lithica_test
 ## (the scheme is postgresql, not postgres)
 #database:
+
+features:
+    pools: true
+    favorites: true
+    scores: true
+    notes: true
+    comments: true

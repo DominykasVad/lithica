@@ -282,6 +282,7 @@ def _gets(site: Site) -> dict[str, Sequence[tuple[str, Mapping[str, Any], bool |
         "GET /user/{user_name}/share-links": [
             ("/user/the_admin/share-links", {}, False)
         ],
+        "GET /site-settings": [("/site-settings", {}, False)],
         "GET /info": [("/info", {}, False)],
         "GET /external-id": [
             ("/external-id", {"host": "hidden-home", "id": "Hidden Mixed /: ID"}, True)
@@ -351,6 +352,7 @@ def _writes(site: Site, read_asset: Any) -> dict[str, list[dict[str, Any]]]:
     merge = {"removeVersion": 1, "mergeToVersion": 1, "replaceContent": False}
     hidden_posts = [("/post/%d" % post_id) for post_id in HIDDEN]
     return {
+        "PUT /site-settings": [{"body": {"version": 1, "values": {}}}],
         "POST /post/{post_id}/share-links": [
             {"path": f"/post/{h}/share-links", "body": {}, "hidden": True}
             for h in HIDDEN

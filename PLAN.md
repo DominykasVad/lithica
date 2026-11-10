@@ -212,6 +212,11 @@ Additions only; nothing existing changes shape.
 
 ### Decision log
 
+- 2026-11-10 — 6.6 — Use /site-settings; reserve /settings for per-account settings in 8.3.
+- 2026-11-10 — 6.6 — One locked singleton version covers all site settings for atomic edits.
+- 2026-11-10 — 6.6 — Read stored settings once per unit of work with Core selects to avoid loader recursion.
+- 2026-11-10 — 6.6 — API default_rank choices are restricted, regular and power to prevent signup escalation.
+
 Rules: only real decisions (a choice between alternatives that later work must
 respect). One line each, max ~120 characters: `date — task — decision (reason)`.
 No status notes, no "left untouched", no results — those go in commit messages.
@@ -397,8 +402,8 @@ concept, "post" the resource.
 - [x] The account page lists the user's share links, paged, each with its post, note, expiry, copy and revoke.
 
 ### 6.6 Site settings and feature switches
-- [ ] A settings API (`GET`/`PUT /settings`, administrator only): settings declared in one registry with type, default and whether they can change at runtime. `config.yaml` gives the starting values; a value changed through the API is stored in the database and wins; settings that need a restart are read-only through the API.
-- [ ] The existing runtime-safe settings move onto it (`visibility`, `nsfw_tag`, `nsfw_hide_names`, `password_reset_mail_interval`, and others found safe); `GET /info` reports the effective values.
+- [x] A settings API (`GET`/`PUT /site-settings`, administrator only): settings declared in one registry with type, default and whether they can change at runtime. `config.yaml` gives the starting values; a value changed through the API is stored in the database and wins; settings that need a restart are read-only through the API.
+- [x] The existing runtime-safe settings move onto it (`visibility`, `nsfw_tag`, `nsfw_hide_names`, `password_reset_mail_interval`, and others found safe); `GET /info` reports the effective values.
 - [ ] Feature switches: pools, favourites, scores, notes, comments. A feature that is off: its API answers as a missing feature, `GET /info` lists it as off, clients hide it. Comments and scores (the engine's up/down votes) default to off; star ratings come later (decision 0009).
 - [ ] Sardonyx: an admin page for the settings and switches (administrator only).
 

@@ -227,7 +227,12 @@ class Entry:
 
 # every PUT route of the application (without the trailing slash, which each
 # also answers to, and without a path converter)
+def _make_site_settings() -> tuple[str, Any]:
+    return "/site-settings", db.session.get(model.SiteSettingsVersion, 1)
+
+
 RESOURCES: dict[str, Entry] = {
+    "/site-settings": Entry(_make_site_settings, {"values": {}}),
     "/post/{post_id}": Entry(_make_post),
     "/post/{post_id}/external-ids": Entry(_make_external_ids, {"externalIds": []}),
     "/typed-relation/{relation_id}": Entry(_make_typed_relation, {"label": None}),

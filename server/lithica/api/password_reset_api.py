@@ -8,7 +8,7 @@ from lithica.api import resources
 from lithica.api.dependencies import read_body
 from lithica.api.routing import ApiRouter
 from lithica.api.schemas import RequestModel, Str, request_body, required
-from lithica.func import mailer, password_reset, users, versions
+from lithica.func import mailer, password_reset, site_settings, users, versions
 
 logger = logging.getLogger(__name__)
 
@@ -78,8 +78,8 @@ def start_password_reset(user_name: str, background: BackgroundTasks) -> Any:
     background.add_task(
         _send_reset_mail,
         recipient,
-        MAIL_SUBJECT.format(name=config.config["name"]),
-        MAIL_BODY.format(name=config.config["name"], url=url),
+        MAIL_SUBJECT.format(name=site_settings.get("name")),
+        MAIL_BODY.format(name=site_settings.get("name"), url=url),
     )
     return {}
 

@@ -13,7 +13,7 @@ from getpass import getpass
 from sys import stderr
 
 from lithica import config, db, errors, model, registry
-from lithica.func import auth, files, images, post_import, util
+from lithica.func import auth, files, images, post_import, site_settings, util
 from lithica.func import posts as postfuncs
 from lithica.func import users as userfuncs
 
@@ -348,6 +348,18 @@ def main(args: list[str] | None = None) -> int:
         "finds duplicates, files of an unknown type and files a module "
         "refuses; a picture that is broken is found by the import only",
     )
+    parser_settings = subparsers.add_parser(
+        "settings", help="inspect or reset site settings"
+    )
+    settings_commands = parser_settings.add_subparsers(
+        dest="settings_command", required=True
+    )
+    settings_commands.add_parser("list", help="show effective and config.yaml values")
+    reset_settings = settings_commands.add_parser(
+        "reset", help="restore config.yaml values"
+    )
+    reset_settings.add_argument("names", nargs="*")
+    reset_settings.add_argument("--all", action="store_true", dest="all_settings")
     parser_create_user = subparsers.add_parser(
         "create-user",
         help="create an account, such as the site's first administrator",
@@ -416,7 +428,26 @@ def main(args: list[str] | None = None) -> int:
     # one command is one unit of work with its own database session
     with db.session_scope():
         try:
-            if command.subcommand == "backfill":
+            if command.subcommand == "settings":
+                if command.settings_command == "list":
+                    for item in site_settings.describe()["settings"]:
+                        print(
+                            f"{item['name']}: {item['value']!r}; config.yaml: "
+                            f"{item['startingValue']!r}; stored: {item['stored']}"
+                        )
+                else:
+                    if bool(command.names) == command.all_settings:
+                        raise errors.ValidationError("Give names or --all")
+                    names = (
+                        list(site_settings.stored())
+                        if command.all_settings
+                        else command.names
+                    )
+                    site_settings.update(
+                        site_settings.version(), dict.fromkeys(names), None
+                    )
+                    db.session.commit()
+            elif command.subcommand == "backfill":
                 logging.basicConfig(level=logging.INFO, format="%(message)s")
                 if not backfill(command.what):
                     return 1

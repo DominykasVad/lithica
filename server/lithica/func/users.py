@@ -5,7 +5,7 @@ from typing import Any
 import sqlalchemy as sa
 
 from lithica import config, db, errors, model
-from lithica.func import auth, files, images, serialization, util
+from lithica.func import auth, files, images, serialization, site_settings, util
 from lithica.func.content import ContentLike
 
 
@@ -218,7 +218,7 @@ def create_user(name: str, password: str, email: str) -> model.User:
     update_user_password(user, password)
     update_user_email(user, email)
     if get_user_count() > 0:
-        user.rank = util.flip(auth.RANK_MAP)[config.config["default_rank"]]
+        user.rank = util.flip(auth.RANK_MAP)[site_settings.get("default_rank")]
     else:
         user.rank = model.User.RANK_ADMINISTRATOR
     user.creation_time = util.utcnow()
