@@ -140,6 +140,8 @@ webhooks:
 default_rank: regular
 
 privileges:
+    jobs:list: administrator
+    jobs:view: administrator
     'users:create:self':            anonymous # Registration permission
     'users:create:any':             administrator
     'users:list':                   regular

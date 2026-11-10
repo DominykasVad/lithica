@@ -1832,3 +1832,15 @@ scores. Existing data stays; deletion and merges still clean up or move it.
 Pool snapshots in `GET /snapshots`, privileges in `/info` and counts in `/info`
 remain available regardless of switches. No tokens or sorts of user, tag or
 snapshot searches refer to these five features.
+
+## Jobs
+
+`GET /jobs` requires `jobs:list` and returns the usual offset/limit page, newest
+first. Optional `status` (`queued`, `running`, `done`, `failed`) and `type` filters
+select jobs. Lists omit payloads. `GET /job/{id}` requires `jobs:view` and includes
+the JSON payload; a missing id gives 404. Both privileges default to administrator
+and are forbidden to app tokens. There are no job mutation routes.
+
+Use `lithica-admin jobs list [--status S] [--type T] [--limit N]` to inspect jobs,
+and `lithica-admin jobs retry <id>...` or `jobs retry --failed` to retry failures.
+Retries reset attempts and scheduling, retaining the last error until success.

@@ -60,7 +60,7 @@ MIME_TYPE_MAX_LENGTH = 32
 EXTENSION_PATTERN = re.compile(r"[a-z0-9]{1,16}")
 
 # the admin CLI's own commands, which a module may not take
-ENGINE_ADMIN_COMMANDS = frozenset({"backfill", "import", "reextract"})
+ENGINE_ADMIN_COMMANDS = frozenset({"backfill", "import", "reextract", "jobs"})
 
 # what is stored for one piece of extracted content: a JSON object
 Payload = dict[str, Any]

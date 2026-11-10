@@ -34,6 +34,7 @@ from lithica.api import (
     docs_api,
     error_handlers,
     info_api,
+    job_api,
     password_reset_api,
     pool_api,
     pool_category_api,
@@ -307,6 +308,7 @@ def create_app(modules: Sequence[registry.Module] | None = None) -> FastAPI:
     for ported in [
         docs_api,
         info_api,
+        job_api,
         site_settings_api,
         user_api,
         user_token_api,

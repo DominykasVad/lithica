@@ -264,3 +264,24 @@ def worker_loop(stop: threading.Event) -> None:
             # Database outages must not permanently stop the worker.
             logger.warning("Job worker error: %s", type(ex).__name__)
         stop.wait(config.config["jobs"]["poll_interval"])
+
+
+def serialize(job: model.Job, *, payload: bool = False) -> dict[str, object]:
+    result: dict[str, object] = {
+        "id": job.id,
+        "type": job.type,
+        "status": job.status,
+        "attempts": job.attempts,
+        "maxAttempts": job.max_attempts,
+        "runAfter": job.run_after,
+        "claimedBy": job.claimed_by,
+        "leaseUntil": job.lease_until,
+        "creationTime": job.creation_time,
+        "startTime": job.start_time,
+        "finishTime": job.finish_time,
+        "lastError": job.last_error,
+        "userId": job.user_id,
+    }
+    if payload:
+        result["payload"] = job.payload
+    return result

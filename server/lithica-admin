@@ -13,7 +13,7 @@ from getpass import getpass
 from sys import stderr
 
 from lithica import config, db, errors, model, registry
-from lithica.func import auth, files, images, post_import, site_settings, util
+from lithica.func import auth, files, images, jobs, post_import, site_settings, util
 from lithica.func import posts as postfuncs
 from lithica.func import users as userfuncs
 
@@ -283,6 +283,15 @@ def main(args: list[str] | None = None) -> int:
         epilog="Look at README.md for more info",
     )
     subparsers = parser_top.add_subparsers(dest="subcommand", metavar="<command>")
+    parser_jobs = subparsers.add_parser("jobs", help="list and retry background jobs")
+    job_commands = parser_jobs.add_subparsers(dest="jobs_command", required=True)
+    job_list = job_commands.add_parser("list")
+    job_list.add_argument("--status", choices=jobs.STATUSES)
+    job_list.add_argument("--type")
+    job_list.add_argument("--limit", type=int, default=100)
+    job_retry = job_commands.add_parser("retry")
+    job_retry.add_argument("ids", type=int, nargs="*")
+    job_retry.add_argument("--failed", action="store_true")
     parser_backfill = subparsers.add_parser(
         "backfill",
         help="compute data that is missing on existing posts",
@@ -428,7 +437,25 @@ def main(args: list[str] | None = None) -> int:
     # one command is one unit of work with its own database session
     with db.session_scope():
         try:
-            if command.subcommand == "settings":
+            if command.subcommand == "jobs":
+                if command.jobs_command == "list":
+                    if command.limit < 1:
+                        parser_top.error("--limit must be positive")
+                    for job in jobs.listing(command.status, command.type).limit(
+                        command.limit
+                    ):
+                        error = (job.last_error or "").replace("\n", " ")[:100]
+                        print(
+                            f"{job.id} {job.type} {job.status} "
+                            f"{job.attempts}/{job.max_attempts} {job.run_after} {error}"
+                        )
+                else:
+                    if bool(command.ids) == command.failed:
+                        parser_top.error("jobs retry requires IDs or --failed")
+                    jobs.retry(command.ids or None)
+                    db.session.commit()
+                return 0
+            elif command.subcommand == "settings":
                 if command.settings_command == "list":
                     for item in site_settings.describe()["settings"]:
                         print(
@@ -485,6 +512,7 @@ def main(args: list[str] | None = None) -> int:
                 regenerate_thumbnails()
         except errors.BaseError as e:
             print(e, file=stderr)
+            return 1 if command.subcommand == "jobs" else 0
     return 0
 
 

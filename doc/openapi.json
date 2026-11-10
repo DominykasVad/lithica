@@ -71,6 +71,196 @@
         }
       }
     },
+    "/jobs": {
+      "get": {
+        "tags": [
+          "Jobs"
+        ],
+        "summary": "List background jobs",
+        "description": "List jobs newest first, without payloads, with status and type filters.\n\nErrors: 403 without jobs:list; 400 for an invalid status or paging value.",
+        "operationId": "get_jobs",
+        "security": [
+          {
+            "basicAuth": []
+          },
+          {
+            "tokenAuth": []
+          },
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Type"
+            }
+          },
+          {
+            "name": "bump-login",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Record this request as a login of the authenticated user.",
+              "default": false,
+              "title": "Bump-Login"
+            },
+            "description": "Record this request as a login of the authenticated user."
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Search query; see the search syntax.",
+              "default": "",
+              "title": "Query"
+            },
+            "description": "Search query; see the search syntax."
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "How many results to skip.",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "How many results to skip."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "How many results to return.",
+              "default": 100,
+              "title": "Limit"
+            },
+            "description": "How many results to return."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Paged_Job_"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "The request was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/job/{id}": {
+      "get": {
+        "tags": [
+          "Jobs"
+        ],
+        "summary": "View a background job",
+        "description": "Read a job, including its payload.\n\nErrors: 403 without jobs:view; 404 when the job does not exist.",
+        "operationId": "get_job",
+        "security": [
+          {
+            "basicAuth": []
+          },
+          {
+            "tokenAuth": []
+          },
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Id"
+            }
+          },
+          {
+            "name": "bump-login",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Record this request as a login of the authenticated user.",
+              "default": false,
+              "title": "Bump-Login"
+            },
+            "description": "Record this request as a login of the authenticated user."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobDetail"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "The request was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/site-settings": {
       "get": {
         "tags": [
@@ -8130,6 +8320,237 @@
         "type": "object",
         "title": "InfoConfig"
       },
+      "Job": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "done",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "attempts": {
+            "type": "integer",
+            "title": "Attempts"
+          },
+          "maxAttempts": {
+            "type": "integer",
+            "title": "Maxattempts"
+          },
+          "runAfter": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Runafter"
+          },
+          "claimedBy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Claimedby"
+          },
+          "leaseUntil": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Leaseuntil"
+          },
+          "creationTime": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Creationtime"
+          },
+          "startTime": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Starttime"
+          },
+          "finishTime": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finishtime"
+          },
+          "lastError": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lasterror"
+          },
+          "userId": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Userid"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Job"
+      },
+      "JobDetail": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "done",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "attempts": {
+            "type": "integer",
+            "title": "Attempts"
+          },
+          "maxAttempts": {
+            "type": "integer",
+            "title": "Maxattempts"
+          },
+          "runAfter": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Runafter"
+          },
+          "claimedBy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Claimedby"
+          },
+          "leaseUntil": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Leaseuntil"
+          },
+          "creationTime": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Creationtime"
+          },
+          "startTime": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Starttime"
+          },
+          "finishTime": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finishtime"
+          },
+          "lastError": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lasterror"
+          },
+          "userId": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Userid"
+          },
+          "payload": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "type": "object",
+            "title": "Payload"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "JobDetail"
+      },
       "JsonValue": {},
       "Lorebook": {
         "properties": {
@@ -8476,6 +8897,40 @@
         "additionalProperties": false,
         "type": "object",
         "title": "Paged[Comment]"
+      },
+      "Paged_Job_": {
+        "properties": {
+          "query": {
+            "type": "string",
+            "title": "Query",
+            "description": "The search query, as it was sent."
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset",
+            "description": "How many results were skipped."
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit",
+            "description": "The page size."
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "description": "How many results the query has in all."
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/Job"
+            },
+            "type": "array",
+            "title": "Results"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Paged[Job]"
       },
       "Paged_Pool_": {
         "properties": {
@@ -9927,6 +10382,10 @@
     }
   },
   "tags": [
+    {
+      "name": "Jobs",
+      "description": "Administrator inspection of background work."
+    },
     {
       "name": "Site settings",
       "description": "Runtime settings and config.yaml starting values."

@@ -208,6 +208,8 @@ Additions only; nothing existing changes shape.
    `FeatureDisabledError`; their fields are omitted and their search tokens
    fail with `SearchError`. Comments and scores default to off.
 
+8. `GET /jobs` and `GET /job/{id}` expose background jobs to administrators only.
+
 ### Allowed dialect exceptions
 
 - `sa.ARRAY` in migrations `8f3a1c2d4e5b` and `b7d2e9a4c1f3` only: they read and (on downgrade) restore the old
@@ -414,7 +416,7 @@ concept, "post" the resource.
 
 ### 6.7 Background jobs
 - [x] A small job queue in the database, worked by the server process (a thread per process, jobs claimed so several processes don't run the same one), with retries and a record of failures. For work that must not run inside a request: archiving, conversions, and later others.
-- [ ] `lithica-admin jobs` lists and retries jobs; an administrator API to see them.
+- [x] `lithica-admin jobs` lists and retries jobs; an administrator API to see them.
 - [ ] Tests: a job runs once with several workers, retries on failure, survives a restart.
 
 ### 6.8 Release `v0.4.0`
