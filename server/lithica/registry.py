@@ -48,6 +48,10 @@ KIND_MAX_LENGTH = 64
 RELATION_TYPE_PATTERN = re.compile(r"[a-z][a-z0-9-]*")
 RELATION_TYPE_MAX_LENGTH = 32
 
+# a job type is stored in job.type
+JOB_TYPE_PATTERN = re.compile(r"[a-z][a-z0-9-]*")
+JOB_TYPE_MAX_LENGTH = 32
+
 # a post type is stored with every post, and is a value of the `type:` token
 POST_TYPE_PATTERN = re.compile(r"[a-z][a-z0-9_]*")
 POST_TYPE_MAX_LENGTH = 32
@@ -236,6 +240,10 @@ class JobType:
     lease_seconds: int = 600
 
 
+# Engine declarations share the same namespace and validation as module types.
+ENGINE_JOB_TYPES: tuple[JobType, ...] = ()
+
+
 @dataclass(frozen=True)
 class AdminCommand:
     """
@@ -361,13 +369,11 @@ def _verify(modules: Sequence[Module]) -> None:
     from lithica import model
 
     _verify_relation_types(modules)
-    from lithica.func.jobs import ENGINE_JOB_TYPES
-
     job_names: set[str] = set()
     for item in [*ENGINE_JOB_TYPES, *(j for m in modules for j in m.job_types)]:
         if (
-            not RELATION_TYPE_PATTERN.fullmatch(item.name)
-            or len(item.name) > RELATION_TYPE_MAX_LENGTH
+            not JOB_TYPE_PATTERN.fullmatch(item.name)
+            or len(item.name) > JOB_TYPE_MAX_LENGTH
             or type(item.max_attempts) is not int
             or item.max_attempts < 1
             or type(item.lease_seconds) is not int

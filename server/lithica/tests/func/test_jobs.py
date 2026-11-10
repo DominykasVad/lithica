@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 
 import pytest
+import sqlalchemy as sa
 
 from lithica import db, errors, model, registry
 from lithica.func import jobs, util
@@ -441,3 +442,44 @@ def test_claim_lease_has_whole_second_precision(queue, monkeypatch) -> None:
     lease = claim[3]
     assert lease == now.replace(microsecond=0) + timedelta(seconds=600)
     assert row(id).lease_until == lease
+
+
+def test_engine_job_types_live_in_registry(monkeypatch) -> None:
+    declaration = registry.JobType("engine-job", lambda payload: None)
+    monkeypatch.setattr(registry, "ENGINE_JOB_TYPES", (declaration,))
+    registry.use([])
+    assert jobs.types()[declaration.name] is declaration
+    with pytest.raises(errors.ConfigError, match="Duplicate job type"):
+        registry.use([registry.Module("duplicate", job_types=[declaration])])
+
+
+def test_job_type_name_limit_matches_column() -> None:
+    column_type = model.Job.__table__.c.type.type
+    assert isinstance(column_type, sa.Unicode)
+    assert registry.JOB_TYPE_MAX_LENGTH == column_type.length
+    registry.use(
+        [
+            registry.Module(
+                "worker",
+                job_types=[
+                    registry.JobType(
+                        "j" * registry.JOB_TYPE_MAX_LENGTH, lambda payload: None
+                    )
+                ],
+            )
+        ]
+    )
+    with pytest.raises(errors.ConfigError, match="Invalid job type"):
+        registry.use(
+            [
+                registry.Module(
+                    "worker",
+                    job_types=[
+                        registry.JobType(
+                            "j" * (registry.JOB_TYPE_MAX_LENGTH + 1),
+                            lambda payload: None,
+                        )
+                    ],
+                )
+            ]
+        )

@@ -23,7 +23,10 @@ def get_jobs(
 ) -> Any:
     """List jobs newest first, without payloads, with status and type filters.
 
-    Errors: 403 without jobs:list; 400 for an invalid status or paging value.
+    Errors:
+
+    - privileges are too low (403)
+    - status or paging values are invalid (400)
     """
     auth.verify_privilege(user, "jobs:list")
     query = jobs.listing(status, type)
@@ -33,7 +36,8 @@ def get_jobs(
         "limit": page.limit,
         "total": query.count(),
         "results": [
-            jobs.serialize(job) for job in query.offset(page.offset).limit(page.limit)
+            jobs.serialize(job, user)
+            for job in query.offset(page.offset).limit(page.limit)
         ],
     }
 
@@ -44,7 +48,10 @@ def get_jobs(
 def get_job(id: int, user: CurrentUser) -> Any:
     """Read a job, including its payload.
 
-    Errors: 403 without jobs:view; 404 when the job does not exist.
+    Errors:
+
+    - privileges are too low (403)
+    - the job does not exist (404)
     """
     auth.verify_privilege(user, "jobs:view")
-    return jobs.serialize(jobs.get(id), payload=True)
+    return jobs.serialize(jobs.get(id), user, payload=True)

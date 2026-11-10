@@ -249,6 +249,7 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 - 2026-11-10 — 6.6 — Read stored settings once per unit of work with Core selects to avoid loader recursion.
 - 2026-11-10 — 6.6 — API default_rank choices are restricted, regular and power to prevent signup escalation.
 - 2026-11-10 — 6.7 — Match attempt and lease on completion/failure so expired workers cannot overwrite a new claim.
+- 2026-11-10 — 6.7 — Use whole-second claim leases so ownership checks survive database timestamp precision loss.
 
 ---
 

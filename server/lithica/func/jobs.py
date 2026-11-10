@@ -16,10 +16,9 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Query
 
 from lithica import config, db, errors, model, registry
-from lithica.func import util
+from lithica.func import users, util
 
 logger = logging.getLogger(__name__)
-ENGINE_JOB_TYPES: tuple[registry.JobType, ...] = ()
 CLAIM_BATCH_SIZE = 20
 STATUSES = ("queued", "running", "done", "failed")
 
@@ -28,7 +27,7 @@ def types() -> dict[str, registry.JobType]:
     return {
         item.name: item
         for item in [
-            *ENGINE_JOB_TYPES,
+            *registry.ENGINE_JOB_TYPES,
             *(item for module in registry.modules() for item in module.job_types),
         ]
     }
@@ -289,7 +288,9 @@ def worker_loop(stop: threading.Event) -> None:
         stop.wait(config.config["jobs"]["poll_interval"])
 
 
-def serialize(job: model.Job, *, payload: bool = False) -> dict[str, object]:
+def serialize(
+    job: model.Job, viewer: model.User, *, payload: bool = False
+) -> dict[str, object]:
     result: dict[str, object] = {
         "id": job.id,
         "type": job.type,
@@ -303,7 +304,7 @@ def serialize(job: model.Job, *, payload: bool = False) -> dict[str, object]:
         "startTime": job.start_time,
         "finishTime": job.finish_time,
         "lastError": job.last_error,
-        "userId": job.user_id,
+        "user": users.serialize_micro_user(job.user, auth_user=viewer),
     }
     if payload:
         result["payload"] = job.payload

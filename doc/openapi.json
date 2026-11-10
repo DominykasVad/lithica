@@ -77,7 +77,7 @@
           "Jobs"
         ],
         "summary": "List background jobs",
-        "description": "List jobs newest first, without payloads, with status and type filters.\n\nErrors: 403 without jobs:list; 400 for an invalid status or paging value.",
+        "description": "List jobs newest first, without payloads, with status and type filters.\n\nErrors:\n\n- privileges are too low (403)\n- status or paging values are invalid (400)",
         "operationId": "get_jobs",
         "security": [
           {
@@ -203,7 +203,7 @@
           "Jobs"
         ],
         "summary": "View a background job",
-        "description": "Read a job, including its payload.\n\nErrors: 403 without jobs:view; 404 when the job does not exist.",
+        "description": "Read a job, including its payload.\n\nErrors:\n\n- privileges are too low (403)\n- the job does not exist (404)",
         "operationId": "get_job",
         "security": [
           {
@@ -8416,16 +8416,15 @@
             ],
             "title": "Lasterror"
           },
-          "userId": {
+          "user": {
             "anyOf": [
               {
-                "type": "integer"
+                "$ref": "#/components/schemas/MicroUser"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Userid"
+            ]
           }
         },
         "additionalProperties": false,
@@ -8528,16 +8527,15 @@
             ],
             "title": "Lasterror"
           },
-          "userId": {
+          "user": {
             "anyOf": [
               {
-                "type": "integer"
+                "$ref": "#/components/schemas/MicroUser"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Userid"
+            ]
           },
           "payload": {
             "additionalProperties": {
