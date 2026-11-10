@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import type { Post } from "./queries";
 
 type CreateShareLink = NonNullable<
-  operations["create"]["requestBody"]
+  operations["create_share_link"]["requestBody"]
 >["content"]["application/json"];
 
 type ShareLink = components["schemas"]["ShareLink"];
