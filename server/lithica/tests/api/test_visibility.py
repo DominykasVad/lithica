@@ -55,6 +55,9 @@ def start(config_injector, tmpdir, tag_category_factory, read_asset):
             defaults
             | {
                 "modules": ["cards"],
+                "features": dict.fromkeys(
+                    ("pools", "favorites", "scores", "notes", "comments"), True
+                ),
                 "visibility": visibility,
                 "nsfw_tag": "nsfw",
                 "data_dir": str(tmpdir.mkdir("data")),

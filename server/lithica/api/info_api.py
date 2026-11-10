@@ -136,6 +136,9 @@ def get_info(user: CurrentUser) -> dict[str, Any]:
         ],
         "maxUploadSize": max_upload_size(),
         "visibility": visibility.mode(),
+        "features": {
+            name: site_settings.enabled(name) for name in site_settings.FEATURES
+        },
         "shareLinksNsfw": site_settings.get("share_links_nsfw"),
         "nsfwTag": visibility.nsfw_tag(),
         "nsfwHidesNames": visibility.nsfw_hides_names(),

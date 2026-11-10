@@ -7877,6 +7877,33 @@
         "type": "object",
         "title": "ExternalId"
       },
+      "Features": {
+        "properties": {
+          "pools": {
+            "type": "boolean",
+            "title": "Pools"
+          },
+          "favorites": {
+            "type": "boolean",
+            "title": "Favorites"
+          },
+          "scores": {
+            "type": "boolean",
+            "title": "Scores"
+          },
+          "notes": {
+            "type": "boolean",
+            "title": "Notes"
+          },
+          "comments": {
+            "type": "boolean",
+            "title": "Comments"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Features"
+      },
       "ImageSearchResult": {
         "properties": {
           "exactPost": {
@@ -7903,6 +7930,9 @@
       },
       "Info": {
         "properties": {
+          "features": {
+            "$ref": "#/components/schemas/Features"
+          },
           "shareLinksNsfw": {
             "type": "boolean",
             "title": "Sharelinksnsfw"

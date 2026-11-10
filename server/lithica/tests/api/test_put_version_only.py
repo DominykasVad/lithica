@@ -289,7 +289,11 @@ def _state(cls: type, key: Any) -> dict[str, Any]:
 
 @pytest.fixture
 def site(config_injector, tmpdir, committing_session) -> dict[str, Any]:
-    config_injector(shipped_config(str(tmpdir.mkdir("data"))))
+    settings = shipped_config(str(tmpdir.mkdir("data")))
+    settings["features"] = dict.fromkeys(
+        ("pools", "favorites", "scores", "notes", "comments"), True
+    )
+    config_injector(settings)
     registry.use(registry.available())
     with db.session_scope():
         category = model.TagCategory("default")

@@ -268,7 +268,14 @@ def every_field() -> list[str]:
 
 
 def config_overrides() -> dict[str, Any]:
-    return {"visibility": "nsfw-login", "nsfw_tag": NSFW, "modules": ["cards"]}
+    return {
+        "features": dict.fromkeys(
+            ("pools", "favorites", "scores", "notes", "comments"), True
+        ),
+        "visibility": "nsfw-login",
+        "nsfw_tag": NSFW,
+        "modules": ["cards"],
+    }
 
 
 def header(name: str) -> dict[str, str]:

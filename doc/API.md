@@ -1813,3 +1813,22 @@ restart-only names answer 400. A no-op does not bump the version. Send null to
 delete an override and restore the starting value. `lithica-admin settings list`
 shows both values; `settings reset <name>...` or `settings reset --all` removes
 overrides from the shell.
+
+
+### Feature switches
+
+`GET /info` includes `features` with boolean `pools`, `favorites`, `scores`,
+`notes` and `comments`. Comments and scores default to off; the other three
+start on. A disabled feature's routes answer 404 `FeatureDisabledError`, naming
+it. Comment scores require both comments and scores. Updating a post with a
+notes key needs notes; creating a post with absent or empty notes still works.
+
+Fields belonging to an off feature are omitted even when explicitly requested
+with `fields=`. Clients should request only enabled fields. Its search filters,
+sorts and special tokens fail with `SearchError`, naming the feature, rather
+than ignoring the filter. `special:tumbleweed` needs comments, favorites and
+scores. Existing data stays; deletion and merges still clean up or move it.
+
+Pool snapshots in `GET /snapshots`, privileges in `/info` and counts in `/info`
+remain available regardless of switches. No tokens or sorts of user, tag or
+snapshot searches refer to these five features.

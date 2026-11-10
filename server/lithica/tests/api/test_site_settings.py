@@ -92,3 +92,23 @@ def test_concurrent_edits_use_one_version(config_injector, tmpdir, committing_se
         assert site_settings.version() == 2
         assert site_settings.get("name") in ("One", "Two")
         assert db.session.query(model.SiteSetting).one().last_edit_time <= util.utcnow()
+
+
+def test_request_reads_stored_settings_once(client, site, session):
+    import sqlalchemy.event as sa_event
+
+    queries: list[str] = []
+
+    def record(conn, cursor, statement, parameters, context, executemany):
+        if "site_setting.value" in statement:
+            queries.append(statement)
+
+    sa_event.listen(session.get_bind(), "before_cursor_execute", record)
+    try:
+        # describe reads every runtime setting; each HTTP request has a new cache.
+        for count in (1, 2):
+            answer = client.get("/site-settings", user=site)
+            assert answer.status_code == 200
+            assert len(queries) == count
+    finally:
+        sa_event.remove(session.get_bind(), "before_cursor_execute", record)

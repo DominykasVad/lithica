@@ -277,6 +277,6 @@ privileges:
 features:
     pools: true
     favorites: true
-    scores: true
+    scores: false
     notes: true
-    comments: true
+    comments: false

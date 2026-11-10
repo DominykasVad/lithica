@@ -25,6 +25,7 @@ from lithica.func import (
     post_kinds,
     scores,
     serialization,
+    site_settings,
     tag_categories,
     tags,
     users,
@@ -197,6 +198,8 @@ class Preloaded:
 
 
 class PostSerializer(serialization.BaseSerializer):
+    feature_resource = "post"
+
     def __init__(
         self,
         post: model.Post,
@@ -489,9 +492,13 @@ def serialize_micro_post(
 def _fields_asked(options: list[str]) -> set[str]:
     """The fields a serialization with these options gives."""
     if options:
-        return set(options)
+        return set(site_settings.active_fields("post", options))
     names = set(get_engine_post_field_names()) | set(registry.post_fields())
-    return names - set(registry.requested_post_fields())
+    return set(
+        site_settings.active_fields(
+            "post", list(names - set(registry.requested_post_fields()))
+        )
+    )
 
 
 def _deferred_counts(fields: set[str]) -> list[tuple[str, Any]]:

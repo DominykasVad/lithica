@@ -89,6 +89,8 @@ def get_disliked_post_count(user: model.User, auth_user: model.User) -> bool | i
 
 
 class UserSerializer(serialization.BaseSerializer):
+    feature_resource = "user"
+
     def __init__(
         self,
         user: model.User,

@@ -68,7 +68,7 @@ def test_one_core_read_per_scope(session):
     queries = []
 
     def record(conn, cursor, statement, parameters, context, executemany):
-        if "FROM site_setting" in statement:
+        if "site_setting.value" in statement:
             queries.append(statement)
 
     sa_event.listen(session.get_bind(), "before_cursor_execute", record)
@@ -82,3 +82,33 @@ def test_one_core_read_per_scope(session):
                 assert len(queries) == count
     finally:
         sa_event.remove(session.get_bind(), "before_cursor_execute", record)
+
+
+def test_snapshot_version_and_refresh_after_lock():
+    with db.session_scope():
+        before = site_settings.describe()
+        with db.session_scope():
+            site_settings.update(1, {"name": "Another writer"}, None)
+            db.session.commit()
+        # A cached response keeps its matching version, even after another save.
+        assert site_settings.describe() == before
+        # A later edit from the new version must refresh that older snapshot.
+        site_settings.update(2, {"nsfw_tag": "adult"}, None)
+        assert site_settings.get("name") == "Another writer"
+        assert site_settings.get("nsfw_tag") == "adult"
+        assert site_settings.describe()["version"] == 3
+
+
+def test_valid_integer_replaces_invalid_boolean_even_when_equal():
+    db.session.add(
+        model.SiteSetting(
+            name="password_reset_mail_interval",
+            value=True,
+            last_edit_time=util.utcnow(),
+        )
+    )
+    db.session.flush()
+    with db.session_scope():
+        site_settings.update(1, {"password_reset_mail_interval": 1}, None)
+        assert site_settings.version() == 2
+        assert type(site_settings.get("password_reset_mail_interval")) is int

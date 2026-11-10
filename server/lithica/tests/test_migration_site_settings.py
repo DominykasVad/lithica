@@ -24,3 +24,4 @@ def test_settings_migration(migration_db: tuple[sa.Engine, Config]) -> None:  # 
     assert "site_setting" not in sa.inspect(engine).get_table_names()
     assert "site_settings_version" not in sa.inspect(engine).get_table_names()
     command.upgrade(settings, "head")
+    command.check(settings)

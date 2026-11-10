@@ -107,6 +107,9 @@ def test_info_api(
             "nsfwTag": "nsfw",
             "nsfwHidesNames": False,
             "shareLinksNsfw": False,
+            "features": dict.fromkeys(
+                ("pools", "favorites", "scores", "notes", "comments"), True
+            ),
             "acceptedTypes": accepted,
             "appTokenRights": rights,
             "config": expected_config_key,
@@ -128,6 +131,9 @@ def test_info_api(
             "nsfwTag": "nsfw",
             "nsfwHidesNames": False,
             "shareLinksNsfw": False,
+            "features": dict.fromkeys(
+                ("pools", "favorites", "scores", "notes", "comments"), True
+            ),
             "acceptedTypes": accepted,
             "appTokenRights": rights,
             "config": expected_config_key,
@@ -145,6 +151,9 @@ def test_info_api(
             "nsfwTag": "nsfw",
             "nsfwHidesNames": False,
             "shareLinksNsfw": False,
+            "features": dict.fromkeys(
+                ("pools", "favorites", "scores", "notes", "comments"), True
+            ),
             "acceptedTypes": accepted,
             "appTokenRights": rights,
             "config": expected_config_key,

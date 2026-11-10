@@ -347,7 +347,16 @@ class AcceptedType(Resource):
     )
 
 
+class Features(Resource):
+    pools: bool
+    favorites: bool
+    scores: bool
+    notes: bool
+    comments: bool
+
+
 class Info(Resource):
+    features: Features
     share_links_nsfw: bool
     typed_relation_types: list[TypedRelationType]
     post_kinds: list[str] = Field(

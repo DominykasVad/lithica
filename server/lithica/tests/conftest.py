@@ -579,3 +579,13 @@ def read_asset():
             return handle.read()
 
     return get
+
+
+@pytest.fixture(autouse=True)
+def enabled_features_for_behavior_tests(monkeypatch):
+    """Existing behavior tests opt into optional features explicitly."""
+    monkeypatch.setitem(
+        config.config,
+        "features",
+        dict.fromkeys(("pools", "favorites", "scores", "notes", "comments"), True),
+    )

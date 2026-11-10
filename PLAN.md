@@ -203,6 +203,12 @@ Additions only; nothing existing changes shape.
 5. Contract: authenticated routes never answer with a redirect (doc/API.md,
    "No redirects").
 
+6. `GET`/`PUT /site-settings` expose administrator-managed settings. `GET /info`
+   reports effective settings and all five `features` switches.
+7. Disabled pools, favorites, scores, notes and comments answer 404
+   `FeatureDisabledError`; their fields are omitted and their search tokens
+   fail with `SearchError`. Comments and scores default to off.
+
 ### Allowed dialect exceptions
 
 - `sa.ARRAY` in migrations `8f3a1c2d4e5b` and `b7d2e9a4c1f3` only: they read and (on downgrade) restore the old
@@ -211,6 +217,8 @@ Additions only; nothing existing changes shape.
   migrations `e2b8d4f6a1c3` and `f3a9c1d27b64` only. The portability gate allows that one import line in those two files.
 
 ### Decision log
+
+- 2026-11-10 — 6.6 — Omit disabled features' fields; reject their search tokens to avoid silently incorrect results.
 
 - 2026-11-10 — 6.6 — Use /site-settings; reserve /settings for per-account settings in 8.3.
 - 2026-11-10 — 6.6 — One locked singleton version covers all site settings for atomic edits.
@@ -404,8 +412,9 @@ concept, "post" the resource.
 ### 6.6 Site settings and feature switches
 - [x] A settings API (`GET`/`PUT /site-settings`, administrator only): settings declared in one registry with type, default and whether they can change at runtime. `config.yaml` gives the starting values; a value changed through the API is stored in the database and wins; settings that need a restart are read-only through the API.
 - [x] The existing runtime-safe settings move onto it (`visibility`, `nsfw_tag`, `nsfw_hide_names`, `password_reset_mail_interval`, and others found safe); `GET /info` reports the effective values.
-- [ ] Feature switches: pools, favourites, scores, notes, comments. A feature that is off: its API answers as a missing feature, `GET /info` lists it as off, clients hide it. Comments and scores (the engine's up/down votes) default to off; star ratings come later (decision 0009).
+- [x] Feature switches: pools, favourites, scores, notes, comments. A feature that is off: its API answers as a missing feature, `GET /info` lists it as off, clients hide it. Comments and scores (the engine's up/down votes) default to off; star ratings come later (decision 0009).
 - [ ] Sardonyx: an admin page for the settings and switches (administrator only).
+- [ ] Browser: change visibility and pools live on both servers; reset overrides on failure and check for leftovers.
 
 ### 6.7 Background jobs
 - [ ] A small job queue in the database, worked by the server process (a thread per process, jobs claimed so several processes don't run the same one), with retries and a record of failures. For work that must not run inside a request: archiving, conversions, and later others.

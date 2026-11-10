@@ -2,12 +2,14 @@ from collections.abc import Callable
 from typing import Any
 
 from lithica import errors, model
+from lithica.func import site_settings
 
 # what a serializer gives: the fields of a resource, or nothing for no resource
 Response = dict[str, Any] | None
 
 
 class BaseSerializer:
+    feature_resource = ""
     _fields: dict[str, Callable[[model.Base], Any]] = {}
 
     def serialize(self, options: list[str]) -> Any:
@@ -15,6 +17,7 @@ class BaseSerializer:
         if not options:
             options = list(field_factories.keys())
         _check(options, list(field_factories))
+        options = site_settings.active_fields(self.feature_resource, options)
         return {key: field_factories[key]() for key in options}
 
     @classmethod

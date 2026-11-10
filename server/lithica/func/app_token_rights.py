@@ -6,7 +6,8 @@ app token is granted a privilege only when one of the token's rights lists
 it *and* its owner's rank grants it (lithica.func.auth.has_privilege); the
 rank is read at request time, so the tokens of a demoted owner shrink with the rank.
 Whatever is about accounts or tokens (`users:`, `user_tokens:`,
-`app_tokens:`) is never granted to an app token, whatever its rights.
+`app_tokens:` and `site_settings:`) is never granted to an app token,
+whatever its rights.
 
 The rights are defined here and nowhere else, not in the configuration.
 Later work adds privileges to these lists; a right means its current list.

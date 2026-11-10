@@ -1881,6 +1881,19 @@ export interface components {
             /** Id */
             id?: string;
         };
+        /** Features */
+        Features: {
+            /** Pools */
+            pools?: boolean;
+            /** Favorites */
+            favorites?: boolean;
+            /** Scores */
+            scores?: boolean;
+            /** Notes */
+            notes?: boolean;
+            /** Comments */
+            comments?: boolean;
+        };
         /** ImageSearchResult */
         ImageSearchResult: {
             exactPost?: components["schemas"]["Post"] | null;
@@ -1889,6 +1902,7 @@ export interface components {
         };
         /** Info */
         Info: {
+            features?: components["schemas"]["Features"];
             /** Sharelinksnsfw */
             shareLinksNsfw?: boolean;
             /** Typedrelationtypes */

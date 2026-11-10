@@ -44,6 +44,10 @@ class NotFoundError(BaseError):
     pass
 
 
+class FeatureDisabledError(NotFoundError):
+    pass
+
+
 class ProcessingError(BaseError):
     pass
 

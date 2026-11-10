@@ -236,3 +236,13 @@ def test_refuses_nsfw_hide_names_that_is_not_true_or_false(config_injector, hide
     config_injector({"nsfw_hide_names": hide})
     with pytest.raises(errors.ConfigError, match="'nsfw_hide_names' must be true"):
         config.validate_visibility()
+
+
+@pytest.mark.parametrize(
+    "feature", ["pools", "favorites", "scores", "notes", "comments"]
+)
+@pytest.mark.parametrize("value", ["false", 0, None, []])
+def test_features_require_booleans(valid_config, feature, value):
+    valid_config["features"][feature] = value
+    with pytest.raises(errors.ConfigError, match="features"):
+        config.validate()
