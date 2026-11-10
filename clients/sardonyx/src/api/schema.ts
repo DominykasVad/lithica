@@ -1560,16 +1560,16 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List Post
+         * Get Post Share Links
          * @description List your links of this visible post, or all with share_links:list:any.
          */
-        get: operations["list_post"];
+        get: operations["get_post_share_links"];
         put?: never;
         /**
-         * Create
+         * Create Share Link
          * @description Create a reusable bearer link with an optional note and expiry.
          */
-        post: operations["create"];
+        post: operations["create_share_link"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1584,10 +1584,10 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List User
+         * Get User Share Links
          * @description Page through a user's share links; another user requires share_links:list:any.
          */
-        get: operations["list_user"];
+        get: operations["get_user_share_links"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1607,10 +1607,10 @@ export interface paths {
         put?: never;
         post?: never;
         /**
-         * Delete
+         * Delete Share Link
          * @description Revoke a share link by id, for its owner or a caller with delete:any.
          */
-        delete: operations["delete"];
+        delete: operations["delete_share_link"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1624,13 +1624,13 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Deliver
+         * Deliver Share Link
          * @description Authorize anonymous file delivery through nginx. Every refusal is the same 404.
          *
          *     The server itself returns no bytes; nginx preserves Content-Type and serves
          *     the internal X-Accel-Redirect target. Authorization headers are ignored.
          */
-        get: operations["deliver"];
+        get: operations["deliver_share_link"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5668,7 +5668,7 @@ export interface operations {
             };
         };
     };
-    list_post: {
+    get_post_share_links: {
         parameters: {
             query?: {
                 /** @description Record this request as a login of the authenticated user. */
@@ -5702,7 +5702,7 @@ export interface operations {
             };
         };
     };
-    create: {
+    create_share_link: {
         parameters: {
             query?: {
                 /** @description Record this request as a login of the authenticated user. */
@@ -5743,7 +5743,7 @@ export interface operations {
             };
         };
     };
-    list_user: {
+    get_user_share_links: {
         parameters: {
             query?: {
                 /** @description Record this request as a login of the authenticated user. */
@@ -5783,7 +5783,7 @@ export interface operations {
             };
         };
     };
-    delete: {
+    delete_share_link: {
         parameters: {
             query?: {
                 /** @description Record this request as a login of the authenticated user. */
@@ -5817,7 +5817,7 @@ export interface operations {
             };
         };
     };
-    deliver: {
+    deliver_share_link: {
         parameters: {
             query?: {
                 /** @description Record this request as a login of the authenticated user. */

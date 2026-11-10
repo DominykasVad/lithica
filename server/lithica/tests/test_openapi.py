@@ -23,6 +23,7 @@ NO_BODY = {
     "set_pool_category_as_default",
     "add_post_to_favorites",
     "delete_typed_relation",
+    "delete_share_link",
 }
 
 
@@ -87,9 +88,10 @@ def test_document_describes_the_whole_api(document):
     assert not any(path.endswith("/") for path in document["paths"])
 
 
-def test_operation_ids_are_the_handler_names(document):
+def test_operation_ids_are_the_handler_names(document: dict[str, Any]) -> None:
     ids = [operation["operationId"] for _m, _p, operation in _operations(document)]
     assert len(set(ids)) == len(ids)
+    assert all("_" in operation_id for operation_id in ids)
     assert "create_post" in ids and "get_tag_siblings" in ids
     assert all(id.isidentifier() for id in ids)
 

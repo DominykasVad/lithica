@@ -26,7 +26,7 @@ class ShareLinkCreate(RequestModel):
     response_model=resources.ShareLink,
     openapi_extra=request_body(ShareLinkCreate),
 )
-def create(
+def create_share_link(
     post_id: int,
     user: CurrentUser,
     body: Annotated[ShareLinkCreate, Depends(read_body(ShareLinkCreate))],
@@ -43,7 +43,7 @@ def create(
 @router.get(
     "/post/{post_id}/share-links", response_model=resources.Unpaged[resources.ShareLink]
 )
-def list_post(post_id: int, user: CurrentUser) -> Any:
+def get_post_share_links(post_id: int, user: CurrentUser) -> Any:
     """List your links of this visible post, or all with share_links:list:any."""
     posts.get_post_by_id(post_id)
     query = db.session.query(model.ShareLink).filter_by(post_id=post_id)
@@ -61,7 +61,7 @@ def list_post(post_id: int, user: CurrentUser) -> Any:
 @router.get(
     "/user/{user_name}/share-links", response_model=resources.Paged[resources.ShareLink]
 )
-def list_user(
+def get_user_share_links(
     user_name: str, user: CurrentUser, page: Annotated[Page, Depends(get_page)]
 ) -> Any:
     """Page through a user's share links; another user requires share_links:list:any."""
@@ -90,7 +90,7 @@ def list_user(
 
 
 @router.delete("/share-link/{link_id}", response_model=resources.Empty)
-def delete(link_id: int, user: CurrentUser) -> Any:
+def delete_share_link(link_id: int, user: CurrentUser) -> Any:
     """Revoke a share link by id, for its owner or a caller with delete:any."""
     link = db.session.get(model.ShareLink, link_id)
     if link is None:
@@ -106,7 +106,7 @@ def delete(link_id: int, user: CurrentUser) -> Any:
 @delivery_router.get(
     SHARE_LINK_PATH, response_class=Response, openapi_extra={"security": []}
 )
-def deliver(token: str) -> Response:
+def deliver_share_link(token: str) -> Response:
     """Authorize anonymous file delivery through nginx. Every refusal is the same 404.
 
     The server itself returns no bytes; nginx preserves Content-Type and serves

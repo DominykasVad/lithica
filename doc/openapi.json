@@ -6938,9 +6938,9 @@
         "tags": [
           "Share links"
         ],
-        "summary": "Create",
+        "summary": "Create Share Link",
         "description": "Create a reusable bearer link with an optional note and expiry.",
-        "operationId": "create",
+        "operationId": "create_share_link",
         "security": [
           {
             "basicAuth": []
@@ -7031,9 +7031,9 @@
         "tags": [
           "Share links"
         ],
-        "summary": "List Post",
+        "summary": "Get Post Share Links",
         "description": "List your links of this visible post, or all with share_links:list:any.",
-        "operationId": "list_post",
+        "operationId": "get_post_share_links",
         "security": [
           {
             "basicAuth": []
@@ -7095,9 +7095,9 @@
         "tags": [
           "Share links"
         ],
-        "summary": "List User",
+        "summary": "Get User Share Links",
         "description": "Page through a user's share links; another user requires share_links:list:any.",
-        "operationId": "list_user",
+        "operationId": "get_user_share_links",
         "security": [
           {
             "basicAuth": []
@@ -7198,9 +7198,9 @@
         "tags": [
           "Share links"
         ],
-        "summary": "Delete",
+        "summary": "Delete Share Link",
         "description": "Revoke a share link by id, for its owner or a caller with delete:any.",
-        "operationId": "delete",
+        "operationId": "delete_share_link",
         "security": [
           {
             "basicAuth": []
@@ -7262,9 +7262,9 @@
         "tags": [
           "Share links"
         ],
-        "summary": "Deliver",
+        "summary": "Deliver Share Link",
         "description": "Authorize anonymous file delivery through nginx. Every refusal is the same 404.\n\nThe server itself returns no bytes; nginx preserves Content-Type and serves\nthe internal X-Accel-Redirect target. Authorization headers are ignored.",
-        "operationId": "deliver",
+        "operationId": "deliver_share_link",
         "security": [],
         "parameters": [
           {
