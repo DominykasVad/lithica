@@ -23,26 +23,24 @@ has the roadmap.
 
 ## Features
 
-- Post content: images (JPG, PNG, GIF, animated GIF), videos (MP4, WEBM), Flash animations
-- Ability to retrieve web video content using [yt-dlp](https://github.com/yt-dlp/yt-dlp)
-- Post comments (off by default; API only)
-- Post notes / annotations, including arbitrary polygons
-- Rich JSON REST API ([see documentation](doc/API.md)), with an OpenAPI contract ([doc/openapi.json](doc/openapi.json))
-- Optional modules that read content embedded in uploaded files, tag posts from it and extend the search and the API
-- Token based authentication for clients
-- Rich search system
-- Rich privilege system
-- Autocomplete in search and while editing tags
-- Tag categories
-- Tag suggestions
-- Tag implications (adding a tag automatically adds another)
-- Tag aliases
-- Pools and pool categories
-- Duplicate detection
-- Post scores (off by default) and favorites; comment scores (API only)
-- Polished UI
-- Browser configurable endless paging
-- Browser configurable backdrop grid for transparent images
+**Server and API** ([reference](doc/API.md)):
+
+- Images, animation, video and Flash posts; duplicate detection and bulk import.
+- Search, privileges, hashed login tokens and app tokens with scoped rights.
+- Tags, aliases, implications and suggestions; pools, notes and favorites.
+  Comments and up/down scores are off by default.
+- Optional content modules, including character cards from PNG and CHARX;
+  post kinds, typed relations, external IDs and unlisted posts.
+- Revocable share links, runtime site settings and a durable job queue;
+  JSON REST API with a generated [OpenAPI contract](doc/openapi.json).
+
+**Sardonyx**, the web client ([details and current limits](doc/INSTALL.md#the-web-client)):
+
+- Library browsing and search with tag completion and card filters;
+  card text, greetings and lorebooks, with Readable, Source and Styled views.
+- Upload, download, post editing and deletion; tag completion when editing.
+- Login, password reset and password changes; app-token and share-link management.
+- Administrator site settings and feature switches.
 
 ## Installation
 

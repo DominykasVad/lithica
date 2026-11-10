@@ -188,7 +188,7 @@ environment and anything you write for them in `config.yaml` is ignored.
 | `PORT` | Where the web client, Sardonyx, listens, e.g. `8080`, or `127.0.0.1:8080` behind a reverse proxy. |
 | `FILE_LINK_SECRET` | The secret of signed file links, for the server and the client image alike. Empty: links are not signed. See [Who sees what](#who-sees-what). |
 | `THREADS` | How many requests one server process works on at once. Default 4. |
-| `WORKERS` | How many server processes to start (default 1), each with its own job worker thread. Jobs are claimed across processes. |
+| `WORKERS` | How many server processes to start. Leave at 1: several processes have not been verified as a whole. The job queue claims jobs safely across processes; each process runs one job worker when enabled. |
 | `BUILD_INFO` | The version label of the client image you build yourself. |
 
 Further variables can be set on the `server` service in `docker-compose.yml`:
@@ -249,9 +249,11 @@ the client alongside `/api/` and `/data/` in a reverse proxy. See
 
 A durable database queue runs work outside requests. With `jobs.worker: true`
 (default), every server process starts one worker thread. `WORKERS` sets the
-number of server processes (default 1); claims prevent them from running the
-same live job concurrently. Expired leases allow work to be retried after a
-crash, so job handlers must tolerate retries.
+number of server processes. **Leave it at 1:** several server processes have
+not been verified as a whole. The job queue has been verified to claim each
+job once across processes; claims prevent workers from running the same live
+job concurrently. Expired leases allow work to be retried after a crash, so
+job handlers must tolerate retries.
 
 `jobs.poll_interval` defaults to 5 seconds; `jobs.keep_done_days` defaults to
 7 days for completed records. Failures are retained, with retry attempts and

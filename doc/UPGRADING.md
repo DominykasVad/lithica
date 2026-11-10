@@ -48,9 +48,21 @@ settings and background jobs. Sardonyx is now the only shipped web client.
     tagged `v0.4.0` for both server and client first
     ([instructions](INSTALL.md#using-published-images)). Server startup runs
     `alembic upgrade head` before serving. Existing login tokens are hashed
-    in place and keep working. Downgrading the token-hash migration deletes
-    all tokens and logs everyone out; an older image alone does not undo
-    database changes.
+    in place and remain valid on the server, including for scripts.
+    Sardonyx's own tokens expire automatically: after 24 hours for a normal
+    session or 90 days with "remember me". Tokens made by the legacy client
+    or scripts may have no expiry. In v0.3.0, the legacy client's normal
+    login token had no expiry; "remember me" set a 365-day expiry. Its
+    token-management page also allowed tokens without an expiry.
+
+    Sardonyx does not list login tokens. List them with
+    `GET /user-tokens/{name}` and revoke unneeded ones with
+    `DELETE /user-token/{name}/{id}` (through the client image, prefix these
+    paths with `/api`). See [Token authentication](API.md#user-token-authentication)
+    and the [user token fields](API.md#user-token).
+
+    **To go back to 0.3.0, restore the backup from step 1 (database and
+    configuration).** The 0.3.0 server does not run on the 0.4.0 schema.
 5. **With `cards` enabled, derive existing post kinds once, immediately
    after upgrading:**
 
@@ -84,7 +96,9 @@ settings and background jobs. Sardonyx is now the only shipped web client.
 - **Site settings in the database**, an administrator settings page and
   **feature switches**. See [Site settings](INSTALL.md#site-settings).
 - **Background jobs**, with a database queue and one worker thread per server
-  process (`WORKERS`). See [Background jobs](INSTALL.md#background-jobs).
+  process when enabled. Keep `WORKERS=1`: several server processes have not
+  been verified as a whole; the job queue has been verified to claim each
+  job once across processes. See [Background jobs](INSTALL.md#background-jobs).
 
 ### New and changed settings
 
