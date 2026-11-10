@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Copy } from "lucide-react";
-import { useEffect, useId, useRef, useState } from "react";
+import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { api } from "@/api/client";
 import { unwrap } from "@/api/errors";
 import type { components, operations } from "@/api/schema";
@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import type { Post } from "./queries";
 
 type CreateShareLink = NonNullable<
-  operations["create"]["requestBody"]
+  operations["create_share_link"]["requestBody"]
 >["content"]["application/json"];
 
 type ShareLink = components["schemas"]["ShareLink"];
@@ -38,11 +38,13 @@ export async function refreshShareLinks(client: ReturnType<typeof useQueryClient
 
 export function ShareLinkRow({
   link,
+  header,
   blocked = false,
   focusCopy = false,
   onRevoked,
 }: {
   link: ShareLink;
+  header?: ReactNode;
   blocked?: boolean;
   focusCopy?: boolean;
   onRevoked?(): void;
@@ -91,6 +93,7 @@ export function ShareLinkRow({
     <li
       className={`flex min-w-0 flex-col gap-2 rounded-xl border p-3 text-sm ${link.expired ? "text-muted-foreground" : ""}`}
     >
+      {header}
       <p className="break-words font-medium">{link.note || "No note"}</p>
       {link.user?.name && link.user.name !== user ? <p>By {link.user.name}</p> : null}
       {link.creationTime ? <p>Created {date(link.creationTime)}</p> : null}

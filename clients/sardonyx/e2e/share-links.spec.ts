@@ -88,8 +88,7 @@ test("share links can be created, found on the account and revoked in Sardonyx",
   const accountRow = page
     .getByRole("list", { name: "Your share links" })
     .getByRole("listitem")
-    .filter({ hasText: note })
-    .first();
+    .filter({ hasText: note });
   await expect(
     accountRow.getByRole("link", { name: `Post ${post.id}`, exact: true }),
   ).toBeVisible();
