@@ -8,12 +8,14 @@ import json
 import logging
 import os
 import socket
+import threading
+import time
 from datetime import datetime, timedelta
 
 import sqlalchemy as sa
 from sqlalchemy.orm import Query
 
-from lithica import db, errors, model, registry
+from lithica import config, db, errors, model, registry
 from lithica.func import util
 
 logger = logging.getLogger(__name__)
@@ -246,3 +248,19 @@ def retry(ids: list[int] | None = None) -> None:
         )
         if changed != 1:
             raise errors.ValidationError("Job %s is not failed." % job.id)
+
+
+def worker_loop(stop: threading.Event) -> None:
+    """One loop per process; stop claiming on shutdown, let current work finish."""
+    next_retention = 0.0
+    while not stop.is_set():
+        try:
+            if time.monotonic() >= next_retention:
+                retain(config.config["jobs"]["keep_done_days"])
+                next_retention = time.monotonic() + 3600
+            if work_once():
+                continue
+        except Exception as ex:
+            # Database outages must not permanently stop the worker.
+            logger.warning("Job worker error: %s", type(ex).__name__)
+        stop.wait(config.config["jobs"]["poll_interval"])

@@ -281,3 +281,9 @@ features:
     scores: false
     notes: true
     comments: false
+
+# Durable background work; each server process runs one worker.
+jobs:
+    worker: true
+    poll_interval: 5
+    keep_done_days: 7

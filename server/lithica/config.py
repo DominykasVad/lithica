@@ -232,6 +232,20 @@ def validate() -> None:
             "features must contain boolean switches for all five features"
         )
 
+    jobs = config.get("jobs")
+    if (
+        not isinstance(jobs, dict)
+        or type(jobs.get("worker")) is not bool
+        or type(jobs.get("poll_interval")) is not int
+        or jobs["poll_interval"] < 1
+        or type(jobs.get("keep_done_days")) is not int
+        or jobs["keep_done_days"] < 0
+    ):
+        raise errors.ConfigError(
+            "jobs requires boolean worker, positive poll_interval "
+            "and nonnegative keep_done_days"
+        )
+
     validate_mail_domain()
 
     if config["smtp"]["host"]:

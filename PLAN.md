@@ -413,7 +413,7 @@ concept, "post" the resource.
 - [x] Sardonyx: an admin page for the settings and switches (administrator only).
 
 ### 6.7 Background jobs
-- [ ] A small job queue in the database, worked by the server process (a thread per process, jobs claimed so several processes don't run the same one), with retries and a record of failures. For work that must not run inside a request: archiving, conversions, and later others.
+- [x] A small job queue in the database, worked by the server process (a thread per process, jobs claimed so several processes don't run the same one), with retries and a record of failures. For work that must not run inside a request: archiving, conversions, and later others.
 - [ ] `lithica-admin jobs` lists and retries jobs; an administrator API to see them.
 - [ ] Tests: a job runs once with several workers, retries on failure, survives a restart.
 
