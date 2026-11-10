@@ -522,3 +522,44 @@ def test_settings_list_and_reset(admin, config_injector, tmpdir, capsys):
     with db.session_scope():
         assert site_settings.version() == 5
         assert site_settings.stored() == {}
+
+
+def test_jobs_list_retry(admin, config_injector, tmp_path, capsys):
+    from lithica import registry
+    from lithica.func import jobs
+
+    config_injector(enabled_config({"data_dir": str(tmp_path), "modules": []}))
+    registry.use(
+        [
+            registry.Module(
+                "worker", job_types=[registry.JobType("record", lambda p: None)]
+            )
+        ]
+    )
+    job = jobs.enqueue("record", {"secret": "NEVER-SHOW-PAYLOAD"})
+    job.status = "failed"
+    job.attempts = 5
+    job.last_error = "ValueError: test"
+    db.session.commit()
+    id = job.id
+    assert (
+        admin.main(
+            ["jobs", "list", "--status", "failed", "--type", "record", "--limit", "1"]
+        )
+        == 0
+    )
+    output = capsys.readouterr().out
+    assert "5/5" in output and "ValueError: test" in output
+    assert "NEVER-SHOW-PAYLOAD" not in output
+    assert admin.main(["jobs", "retry", str(id)]) == 0
+    assert jobs.get(id).status == "queued"
+    assert jobs.get(id).attempts == 0
+    assert jobs.get(id).last_error == "ValueError: test"
+    error_output = io.StringIO()
+    with patch.object(admin, "stderr", error_output):
+        assert admin.main(["jobs", "retry", str(id)]) == 1
+    assert f"Job {id} is not failed" in error_output.getvalue()
+    jobs.get(id).status = "failed"
+    db.session.commit()
+    assert admin.main(["jobs", "retry", "--failed"]) == 0
+    assert jobs.get(id).status == "queued"

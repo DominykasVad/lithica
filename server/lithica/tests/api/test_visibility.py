@@ -284,6 +284,8 @@ def _gets(site: Site) -> dict[str, Sequence[tuple[str, Mapping[str, Any], bool |
             ("/user/the_admin/share-links", {}, False)
         ],
         "GET /site-settings": [("/site-settings", {}, False)],
+        "GET /jobs": [("/jobs", {}, False)],
+        "GET /job/{id}": [("/job/1", {}, False)],
         "GET /info": [("/info", {}, False)],
         "GET /external-id": [
             ("/external-id", {"host": "hidden-home", "id": "Hidden Mixed /: ID"}, True)

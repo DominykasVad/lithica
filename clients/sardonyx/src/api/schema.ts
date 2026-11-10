@@ -48,6 +48,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List background jobs
+         * @description List jobs newest first, without payloads, with status and type filters.
+         *
+         *     Errors: 403 without jobs:list; 400 for an invalid status or paging value.
+         */
+        get: operations["get_jobs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/job/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * View a background job
+         * @description Read a job, including its payload.
+         *
+         *     Errors: 403 without jobs:view; 404 when the job does not exist.
+         */
+        get: operations["get_job"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/site-settings": {
         parameters: {
             query?: never;
@@ -2005,6 +2049,86 @@ export interface components {
                 [key: string]: string;
             };
         };
+        /** Job */
+        Job: {
+            /** Id */
+            id?: number;
+            /** Type */
+            type?: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status?: "queued" | "running" | "done" | "failed";
+            /** Attempts */
+            attempts?: number;
+            /** Maxattempts */
+            maxAttempts?: number;
+            /**
+             * Runafter
+             * Format: date-time
+             */
+            runAfter?: string;
+            /** Claimedby */
+            claimedBy?: string | null;
+            /** Leaseuntil */
+            leaseUntil?: string | null;
+            /**
+             * Creationtime
+             * Format: date-time
+             */
+            creationTime?: string;
+            /** Starttime */
+            startTime?: string | null;
+            /** Finishtime */
+            finishTime?: string | null;
+            /** Lasterror */
+            lastError?: string | null;
+            /** Userid */
+            userId?: number | null;
+        };
+        /** JobDetail */
+        JobDetail: {
+            /** Id */
+            id?: number;
+            /** Type */
+            type?: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status?: "queued" | "running" | "done" | "failed";
+            /** Attempts */
+            attempts?: number;
+            /** Maxattempts */
+            maxAttempts?: number;
+            /**
+             * Runafter
+             * Format: date-time
+             */
+            runAfter?: string;
+            /** Claimedby */
+            claimedBy?: string | null;
+            /** Leaseuntil */
+            leaseUntil?: string | null;
+            /**
+             * Creationtime
+             * Format: date-time
+             */
+            creationTime?: string;
+            /** Starttime */
+            startTime?: string | null;
+            /** Finishtime */
+            finishTime?: string | null;
+            /** Lasterror */
+            lastError?: string | null;
+            /** Userid */
+            userId?: number | null;
+            /** Payload */
+            payload?: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+        };
         JsonValue: unknown;
         /** Lorebook */
         Lorebook: {
@@ -2133,6 +2257,31 @@ export interface components {
             total?: number;
             /** Results */
             results?: components["schemas"]["Comment"][];
+        };
+        /** Paged[Job] */
+        Paged_Job_: {
+            /**
+             * Query
+             * @description The search query, as it was sent.
+             */
+            query?: string;
+            /**
+             * Offset
+             * @description How many results were skipped.
+             */
+            offset?: number;
+            /**
+             * Limit
+             * @description The page size.
+             */
+            limit?: number;
+            /**
+             * Total
+             * @description How many results the query has in all.
+             */
+            total?: number;
+            /** Results */
+            results?: components["schemas"]["Job"][];
         };
         /** Paged[Pool] */
         Paged_Pool_: {
@@ -2813,6 +2962,80 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Info"];
+                };
+            };
+            /** @description The request was refused. */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_jobs: {
+        parameters: {
+            query?: {
+                status?: string | null;
+                type?: string | null;
+                /** @description Record this request as a login of the authenticated user. */
+                "bump-login"?: boolean;
+                /** @description Search query; see the search syntax. */
+                query?: string;
+                /** @description How many results to skip. */
+                offset?: number;
+                /** @description How many results to return. */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Paged_Job_"];
+                };
+            };
+            /** @description The request was refused. */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_job: {
+        parameters: {
+            query?: {
+                /** @description Record this request as a login of the authenticated user. */
+                "bump-login"?: boolean;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobDetail"];
                 };
             };
             /** @description The request was refused. */

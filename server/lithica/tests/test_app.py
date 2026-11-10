@@ -65,6 +65,7 @@ def test_documentation_is_not_served(client):
 @pytest.fixture
 def valid_config(config_injector, tmpdir):
     content = config._file_config("config.yaml.dist")
+    content["jobs"]["worker"] = False
     content.update(
         {
             "secret": "5c6f0b6d1d5a4d0f9a2b",
@@ -252,3 +253,23 @@ def test_starts_although_the_temporary_folder_cannot_be_prepared(
         with TestClient(lithica_app.app) as client:
             assert client.get("/no-such-path").status_code == 404
     assert "read-only file system" in caplog.text
+
+
+def test_job_worker_lifespan(valid_config, no_logging_setup):
+    valid_config["jobs"]["worker"] = True
+    started = threading.Event()
+    stopped = threading.Event()
+
+    def worker(stop):
+        started.set()
+        stop.wait(5)
+        if stop.is_set():
+            stopped.set()
+
+    with (
+        patch("lithica.func.jobs.worker_loop", worker),
+        patch("lithica.func.file_uploads.purge_old_uploads_once"),
+    ):
+        with TestClient(lithica_app.create_app()):
+            assert started.wait(2)
+        assert stopped.wait(2)

@@ -60,7 +60,7 @@ MIME_TYPE_MAX_LENGTH = 32
 EXTENSION_PATTERN = re.compile(r"[a-z0-9]{1,16}")
 
 # the admin CLI's own commands, which a module may not take
-ENGINE_ADMIN_COMMANDS = frozenset({"backfill", "import", "reextract"})
+ENGINE_ADMIN_COMMANDS = frozenset({"backfill", "import", "reextract", "jobs"})
 
 # what is stored for one piece of extracted content: a JSON object
 Payload = dict[str, Any]
@@ -222,6 +222,21 @@ class RelationType:
 
 
 @dataclass(frozen=True)
+class JobType:
+    """Background work run with a payload, without a request or visibility limits.
+
+    Handlers must be idempotent: an expired lease may cause a job to run twice.
+    Writes use the current session and must not commit it themselves; completion
+    and the handler's writes are committed together by the queue.
+    """
+
+    name: str
+    run: Callable[[Payload], None]
+    max_attempts: int = 5
+    lease_seconds: int = 600
+
+
+@dataclass(frozen=True)
 class AdminCommand:
     """
     A subcommand of `lithica-admin`. `configure` adds its arguments to the
@@ -276,6 +291,7 @@ class Module:
                     the fields above (a pydantic model, or any type pydantic
                     can describe), by field name. A field without one is
                     described as any JSON value.
+    job_types       background job types
     admin_commands  subcommands of `lithica-admin`
     """
 
@@ -297,6 +313,7 @@ class Module:
     )
     post_field_schemas: Mapping[str, Any] = field(default_factory=dict[str, Any])
     admin_commands: Sequence[AdminCommand] = ()
+    job_types: Sequence[JobType] = ()
 
 
 _modules: tuple[Module, ...] = ()
@@ -344,6 +361,22 @@ def _verify(modules: Sequence[Module]) -> None:
     from lithica import model
 
     _verify_relation_types(modules)
+    from lithica.func.jobs import ENGINE_JOB_TYPES
+
+    job_names: set[str] = set()
+    for item in [*ENGINE_JOB_TYPES, *(j for m in modules for j in m.job_types)]:
+        if (
+            not RELATION_TYPE_PATTERN.fullmatch(item.name)
+            or len(item.name) > RELATION_TYPE_MAX_LENGTH
+            or type(item.max_attempts) is not int
+            or item.max_attempts < 1
+            or type(item.lease_seconds) is not int
+            or item.lease_seconds < 1
+        ):
+            raise errors.ConfigError("Invalid job type %r." % item.name)
+        if item.name in job_names:
+            raise errors.ConfigError("Duplicate job type %r." % item.name)
+        job_names.add(item.name)
     names: set[str] = set()
     kinds: set[str] = set()
     post_kind_names = {"media"}

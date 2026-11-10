@@ -16,6 +16,8 @@ import sqlalchemy.orm as sa_orm
 
 from lithica import config
 
+config.config["jobs"]["worker"] = False
+
 _DEFAULT_DATABASE_URL = "postgresql://postgres:postgres@localhost:5433/postgres"
 
 # lithica.db builds its engine at import time from the config. Outside a

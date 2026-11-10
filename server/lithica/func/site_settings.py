@@ -56,6 +56,8 @@ SETTINGS = {
         Setting("contact_email", "string", max_length=64),
         Setting("default_rank", "choice", choices=("restricted", "regular", "power")),
         *(Setting("features." + name, "boolean") for name in FEATURES),
+        Setting("jobs.worker", "boolean", runtime=False),
+        Setting("jobs.poll_interval", "integer", runtime=False, min=1),
         Setting("modules", "list", runtime=False),
         Setting("max_upload_size", "integer", runtime=False, min=1),
         Setting("api_docs", "boolean", runtime=False),

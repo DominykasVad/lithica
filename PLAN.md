@@ -208,6 +208,8 @@ Additions only; nothing existing changes shape.
    `FeatureDisabledError`; their fields are omitted and their search tokens
    fail with `SearchError`. Comments and scores default to off.
 
+8. `GET /jobs` and `GET /job/{id}` expose background jobs to administrators only.
+
 ### Allowed dialect exceptions
 
 - `sa.ARRAY` in migrations `8f3a1c2d4e5b` and `b7d2e9a4c1f3` only: they read and (on downgrade) restore the old
@@ -246,6 +248,7 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 - 2026-11-10 — 6.6 — One locked singleton version covers all site settings for atomic edits.
 - 2026-11-10 — 6.6 — Read stored settings once per unit of work with Core selects to avoid loader recursion.
 - 2026-11-10 — 6.6 — API default_rank choices are restricted, regular and power to prevent signup escalation.
+- 2026-11-10 — 6.7 — Match attempt and lease on completion/failure so expired workers cannot overwrite a new claim.
 
 ---
 
@@ -413,9 +416,9 @@ concept, "post" the resource.
 - [x] Sardonyx: an admin page for the settings and switches (administrator only).
 
 ### 6.7 Background jobs
-- [ ] A small job queue in the database, worked by the server process (a thread per process, jobs claimed so several processes don't run the same one), with retries and a record of failures. For work that must not run inside a request: archiving, conversions, and later others.
-- [ ] `lithica-admin jobs` lists and retries jobs; an administrator API to see them.
-- [ ] Tests: a job runs once with several workers, retries on failure, survives a restart.
+- [x] A small job queue in the database, worked by the server process (a thread per process, jobs claimed so several processes don't run the same one), with retries and a record of failures. For work that must not run inside a request: archiving, conversions, and later others.
+- [x] `lithica-admin jobs` lists and retries jobs; an administrator API to see them.
+- [x] Tests: a job runs once with several workers, retries on failure, survives a restart.
 
 ### 6.8 Release `v0.4.0`
 - [ ] `doc/UPGRADING.md` 0.3.0 → 0.4.0: hashed login tokens (values can't be listed any more) and app tokens, kinds, relations and external IDs, listed, share links and their nginx route in the client image, settings in the database and their precedence over `config.yaml`, feature switches with comments and scores off, jobs; the legacy client removed (its image, profile, LEGACY_PORT, BASE_URL). Version, images and release as for 0.3.0.

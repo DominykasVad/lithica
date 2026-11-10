@@ -34,6 +34,7 @@ from lithica.api import (
     docs_api,
     error_handlers,
     info_api,
+    job_api,
     password_reset_api,
     pool_api,
     pool_category_api,
@@ -50,7 +51,7 @@ from lithica.api import (
 )
 from lithica.api.dependencies import LOG_USER_KEY
 from lithica.api.paths import SHARE_LINK_PREFIX
-from lithica.func import content, file_uploads, posts, visibility
+from lithica.func import content, file_uploads, jobs, posts, visibility
 from lithica.version import get_version
 
 logger = logging.getLogger(__name__)
@@ -230,9 +231,15 @@ async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
         name="upload-purge",
         daemon=True,
     ).start()
+    stop_jobs = threading.Event()
+    if config.config["jobs"]["worker"]:
+        threading.Thread(
+            target=jobs.worker_loop, args=(stop_jobs,), name="job-worker", daemon=True
+        ).start()
     try:
         yield
     finally:
+        stop_jobs.set()
         stop_purging.set()
 
 
@@ -301,6 +308,7 @@ def create_app(modules: Sequence[registry.Module] | None = None) -> FastAPI:
     for ported in [
         docs_api,
         info_api,
+        job_api,
         site_settings_api,
         user_api,
         user_token_api,

@@ -12,14 +12,16 @@ and after it, optionally, a picture, which is the thumbnail of the post.
 Posts of such files have the type `dummyfile`.
 """
 
+import re
 import struct
 from collections.abc import Iterator, Mapping, Sequence
+from pathlib import Path
 from typing import Annotated, Any, BinaryIO
 
 import sqlalchemy as sa
 from fastapi import Depends
 
-from lithica import db, model, registry
+from lithica import config, db, model, registry
 from lithica.api.dependencies import require
 from lithica.api.routing import ApiRouter
 from lithica.search.configs import util as search_util
@@ -158,8 +160,23 @@ def get_stats(
     return {"posts": posts, "chunks": chunks}
 
 
+def record_job(payload: registry.Payload) -> None:
+    """Record attempts across processes, optionally fail the first N attempts."""
+    name = str(payload["record"])
+    if not re.fullmatch(r"[a-zA-Z0-9-]+", name):
+        raise ValueError("Invalid dummy record name")
+    directory = Path(config.config["data_dir"]) / "dummy-jobs"
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / name
+    with path.open("a") as handle:
+        handle.write("run\n")
+    if len(path.read_text().splitlines()) <= int(payload.get("failures", 0)):
+        raise ValueError("Dummy job failure")
+
+
 module = registry.Module(
     name="dummy",
+    job_types=[registry.JobType("dummy-record", record_job)],
     router=router,
     content_kinds=[registry.ContentKind(KIND)],
     file_types=[

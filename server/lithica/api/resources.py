@@ -444,3 +444,23 @@ class SiteSettings(Resource):
     version: int
     file_links_signed: bool
     settings: list[SiteSetting]
+
+
+class Job(Resource):
+    id: int
+    type: str
+    status: Literal["queued", "running", "done", "failed"]
+    attempts: int
+    max_attempts: int
+    run_after: datetime
+    claimed_by: str | None
+    lease_until: datetime | None
+    creation_time: datetime
+    start_time: datetime | None
+    finish_time: datetime | None
+    last_error: str | None
+    user_id: int | None
+
+
+class JobDetail(Job):
+    payload: dict[str, JsonValue]
