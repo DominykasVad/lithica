@@ -4,19 +4,21 @@ import pytest
 
 from lithica import db, errors, model
 from lithica.func import posts, snapshots
-from lithica.tests.api.http import assert_error, ok
+from lithica.tests.api.http import assert_error, enabled_config, ok
 
 
 @pytest.fixture(autouse=True)
 def inject_config(config_injector):
     config_injector(
-        {
-            "privileges": {
-                "posts:feature": model.User.RANK_REGULAR,
-                "posts:view": model.User.RANK_REGULAR,
-                "posts:view:featured": model.User.RANK_REGULAR,
-            },
-        }
+        enabled_config(
+            {
+                "privileges": {
+                    "posts:feature": model.User.RANK_REGULAR,
+                    "posts:view": model.User.RANK_REGULAR,
+                    "posts:view:featured": model.User.RANK_REGULAR,
+                },
+            }
+        )
     )
 
 

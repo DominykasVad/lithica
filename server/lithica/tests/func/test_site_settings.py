@@ -1,12 +1,14 @@
 import pytest
 import sqlalchemy.event as sa_event
+import sqlalchemy.exc as sa_exc
 
 from lithica import db, errors, model
 from lithica.func import site_settings, util, visibility
+from lithica.tests.api.http import enabled_config
 
 
 def test_precedence_reset_and_scope(config_injector):
-    config_injector({"name": "Starting"})
+    config_injector(enabled_config({"name": "Starting"}))
     with db.session_scope():
         assert site_settings.get("name") == "Starting"
         site_settings.update(1, {"name": "Stored"}, None)
@@ -51,7 +53,7 @@ def test_stale_version():
 
 
 def test_invalid_stored_value(config_injector, caplog):
-    config_injector({"visibility": "open"})
+    config_injector(enabled_config({"visibility": "open"}))
     db.session.add(
         model.SiteSetting(
             name="visibility", value="removed-choice", last_edit_time=util.utcnow()
@@ -112,3 +114,17 @@ def test_valid_integer_replaces_invalid_boolean_even_when_equal():
         site_settings.update(1, {"password_reset_mail_interval": 1}, None)
         assert site_settings.version() == 2
         assert type(site_settings.get("password_reset_mail_interval")) is int
+
+
+def test_version_table_refuses_a_second_row(session):
+    with pytest.raises(sa_exc.IntegrityError), session.begin_nested():
+        session.add(model.SiteSettingsVersion(id=2, version=1))
+        session.flush()
+
+
+def test_starting_does_not_supply_missing_config_values(config_injector):
+    config_injector({})
+    with pytest.raises(KeyError, match="visibility"):
+        site_settings.starting("visibility")
+    with pytest.raises(KeyError, match="features"):
+        site_settings.starting("features.pools")

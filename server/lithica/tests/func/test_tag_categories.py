@@ -4,6 +4,7 @@ import pytest
 
 from lithica import db, model
 from lithica.func import tag_categories
+from lithica.tests.api.http import enabled_config
 
 
 def test_serialize_category_when_empty():
@@ -64,7 +65,7 @@ def test_update_category_name_with_empty_string(tag_category_factory):
 
 
 def test_update_category_name_with_invalid_name(config_injector, tag_category_factory):
-    config_injector({"tag_category_name_regex": "^[a-z]+$"})
+    config_injector(enabled_config({"tag_category_name_regex": "^[a-z]+$"}))
     category = tag_category_factory()
     with pytest.raises(tag_categories.InvalidTagCategoryNameError):
         tag_categories.update_category_name(category, "0")
@@ -73,14 +74,14 @@ def test_update_category_name_with_invalid_name(config_injector, tag_category_fa
 def test_update_category_name_with_too_long_string(
     config_injector, tag_category_factory
 ):
-    config_injector({"tag_category_name_regex": "^[a-z]+$"})
+    config_injector(enabled_config({"tag_category_name_regex": "^[a-z]+$"}))
     category = tag_category_factory()
     with pytest.raises(tag_categories.InvalidTagCategoryNameError):
         tag_categories.update_category_name(category, "a" * 3000)
 
 
 def test_update_category_name_reusing_other_name(config_injector, tag_category_factory):
-    config_injector({"tag_category_name_regex": ".*"})
+    config_injector(enabled_config({"tag_category_name_regex": ".*"}))
     db.session.add(tag_category_factory(name="name"))
     db.session.flush()
     category = tag_category_factory()
@@ -94,7 +95,7 @@ def test_update_category_name_reusing_other_name(config_injector, tag_category_f
 def test_update_category_name_reusing_own_name(
     config_injector, tag_category_factory, name
 ):
-    config_injector({"tag_category_name_regex": ".*"})
+    config_injector(enabled_config({"tag_category_name_regex": ".*"}))
     category = tag_category_factory(name="name")
     db.session.add(category)
     db.session.flush()

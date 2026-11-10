@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from lithica import db, errors, model, registry
 from lithica.api import resources
 from lithica.func import posts, tags
-from lithica.tests.api.http import assert_error, assert_fits, ok
+from lithica.tests.api.http import assert_error, assert_fits, enabled_config, ok
 
 EXTRACTED_AT = datetime(2020, 2, 3, 4, 5, 6)
 
@@ -53,35 +53,37 @@ def _probe_module(extract=_extract, auto_tag=_auto_tag, version=7):
 @pytest.fixture(autouse=True)
 def site(config_injector, tmpdir, tag_category_factory, fake_datetime):
     config_injector(
-        {
-            "data_dir": str(tmpdir.mkdir("data")),
-            "data_url": "http://example.com/data/",
-            "secret": "test",
-            "allow_broken_uploads": False,
-            "delete_source_files": True,
-            "thumbnails": {
-                "post_width": 300,
-                "post_height": 300,
-                "avatar_width": 30,
-                "avatar_height": 30,
-            },
-            "convert": {"gif": {"to_mp4": False, "to_webm": False}},
-            "tag_name_regex": r"^\S+$",
-            "webhooks": [],
-            "privileges": {
-                "posts:create:identified": model.User.RANK_REGULAR,
-                "posts:edit:content": model.User.RANK_REGULAR,
-                "posts:edit:tags": model.User.RANK_REGULAR,
-                "posts:edit:safety": model.User.RANK_REGULAR,
-                "posts:merge": model.User.RANK_REGULAR,
-                "posts:view": model.User.RANK_REGULAR,
-                "posts:view:content:private": model.User.RANK_MODERATOR,
-                "uploads:use_downloader": model.User.RANK_POWER,
-                # nobody in these tests may create a tag by hand
-                "tags:create": model.User.RANK_ADMINISTRATOR,
-                "users:edit:any:email": model.User.RANK_MODERATOR,
-            },
-        }
+        enabled_config(
+            {
+                "data_dir": str(tmpdir.mkdir("data")),
+                "data_url": "http://example.com/data/",
+                "secret": "test",
+                "allow_broken_uploads": False,
+                "delete_source_files": True,
+                "thumbnails": {
+                    "post_width": 300,
+                    "post_height": 300,
+                    "avatar_width": 30,
+                    "avatar_height": 30,
+                },
+                "convert": {"gif": {"to_mp4": False, "to_webm": False}},
+                "tag_name_regex": r"^\S+$",
+                "webhooks": [],
+                "privileges": {
+                    "posts:create:identified": model.User.RANK_REGULAR,
+                    "posts:edit:content": model.User.RANK_REGULAR,
+                    "posts:edit:tags": model.User.RANK_REGULAR,
+                    "posts:edit:safety": model.User.RANK_REGULAR,
+                    "posts:merge": model.User.RANK_REGULAR,
+                    "posts:view": model.User.RANK_REGULAR,
+                    "posts:view:content:private": model.User.RANK_MODERATOR,
+                    "uploads:use_downloader": model.User.RANK_POWER,
+                    # nobody in these tests may create a tag by hand
+                    "tags:create": model.User.RANK_ADMINISTRATOR,
+                    "users:edit:any:email": model.User.RANK_MODERATOR,
+                },
+            }
+        )
     )
     db.session.add_all(
         [

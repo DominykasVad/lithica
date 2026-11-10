@@ -69,16 +69,7 @@ SETTINGS = {
 def starting(name: str) -> Any:
     value: Any = config.config
     for part in name.split("."):
-        value = value.get(
-            part,
-            {
-                "visibility": "open",
-                "nsfw_tag": "nsfw",
-                "nsfw_hide_names": False,
-                "share_links_nsfw": False,
-                "features": dict.fromkeys(FEATURES, True),
-            }.get(part),
-        )
+        value = value[part]
     return value
 
 

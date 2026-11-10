@@ -11,20 +11,23 @@ import pytest
 from lithica import db, model, search
 from lithica.app import app as lithica_app
 from lithica.func import auth, util
+from lithica.tests.api.http import enabled_config
 
 
 @pytest.fixture
 def site(config_injector, tmpdir):
     config_injector(
-        {
-            "data_dir": str(tmpdir.mkdir("data")),
-            "data_url": "http://example.com/data/",
-            "secret": "test",
-            "privileges": {
-                "posts:list": model.User.RANK_ANONYMOUS,
-                "posts:view": model.User.RANK_ANONYMOUS,
-            },
-        }
+        enabled_config(
+            {
+                "data_dir": str(tmpdir.mkdir("data")),
+                "data_url": "http://example.com/data/",
+                "secret": "test",
+                "privileges": {
+                    "posts:list": model.User.RANK_ANONYMOUS,
+                    "posts:view": model.User.RANK_ANONYMOUS,
+                },
+            }
+        )
     )
 
 

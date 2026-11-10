@@ -3,7 +3,7 @@ from datetime import datetime
 import pytest
 
 from lithica import db, errors, model
-from lithica.tests.api.http import assert_error, ok
+from lithica.tests.api.http import assert_error, enabled_config, ok
 
 
 def snapshot_factory():
@@ -20,9 +20,11 @@ def snapshot_factory():
 @pytest.fixture(autouse=True)
 def inject_config(config_injector):
     config_injector(
-        {
-            "privileges": {"snapshots:list": model.User.RANK_REGULAR},
-        }
+        enabled_config(
+            {
+                "privileges": {"snapshots:list": model.User.RANK_REGULAR},
+            }
+        )
     )
 
 
@@ -65,11 +67,13 @@ def test_snapshot_fits_its_response_model(
     from lithica.tests.api.http import assert_fits
 
     config_injector(
-        {
-            "thumbnails": {"avatar_width": 30, "avatar_height": 30},
-            "privileges": {"snapshots:list": model.User.RANK_REGULAR},
-            "webhooks": [],
-        }
+        enabled_config(
+            {
+                "thumbnails": {"avatar_width": 30, "avatar_height": 30},
+                "privileges": {"snapshots:list": model.User.RANK_REGULAR},
+                "webhooks": [],
+            }
+        )
     )
     user = user_factory(name="editor", rank=model.User.RANK_REGULAR)
     tag = tag_factory(names=["tag"])

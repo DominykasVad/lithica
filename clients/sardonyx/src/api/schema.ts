@@ -56,13 +56,24 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get Site Settings
-         * @description Read effective settings and their config.yaml starting values.
+         * Get site settings
+         * @description Retrieves effective site settings and their config.yaml starting values.
+         *
+         *     Errors:
+         *
+         *     - privileges are too low (403)
          */
         get: operations["get_site_settings"];
         /**
-         * Update Site Settings
-         * @description Atomically change named runtime settings; null restores config.yaml.
+         * Update site settings
+         * @description Updates named runtime settings atomically. A null value restores the
+         *     starting value from config.yaml.
+         *
+         *     Errors:
+         *
+         *     - a setting is unknown, needs a restart or has an invalid value (400)
+         *     - the version is outdated (409)
+         *     - privileges are too low (403)
          */
         put: operations["update_site_settings"];
         post?: never;

@@ -23,7 +23,7 @@ def upgrade() -> None:
         "site_settings_version",
         sa.Column("id", sa.Integer, primary_key=True),
         sa.Column("version", sa.Integer, nullable=False),
-        sa.CheckConstraint("id = 1"),
+        sa.CheckConstraint(sa.column("id") == 1, name="ck_site_settings_version_singleton"),
     )
     op.bulk_insert(table, [{"id": 1, "version": 1}])
 

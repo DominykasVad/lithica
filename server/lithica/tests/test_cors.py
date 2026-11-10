@@ -2,6 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from lithica import app as lithica_app
+from lithica.tests.api.http import enabled_config
 
 
 @pytest.fixture
@@ -24,7 +25,7 @@ def _preflight(client, origin):
 
 @pytest.mark.parametrize("cors_origins", [[], None])
 def test_no_cors_headers_by_default(client, config_injector, cors_origins):
-    config_injector({"cors_origins": cors_origins})
+    config_injector(enabled_config({"cors_origins": cors_origins}))
     response = _get(client, "https://other.example.com")
     assert response.status_code == 404
     assert "Access-Control-Allow-Origin" not in response.headers
@@ -32,13 +33,13 @@ def test_no_cors_headers_by_default(client, config_injector, cors_origins):
 
 
 def test_no_cors_headers_without_the_setting(client, config_injector):
-    config_injector({})
+    config_injector(enabled_config({}))
     response = _get(client, "https://other.example.com")
     assert "Access-Control-Allow-Origin" not in response.headers
 
 
 def test_preflight_is_not_answered_by_default(client, config_injector):
-    config_injector({"cors_origins": []})
+    config_injector(enabled_config({"cors_origins": []}))
     response = _preflight(client, "https://other.example.com")
     assert response.status_code != 200
     assert "Access-Control-Allow-Origin" not in response.headers
@@ -47,7 +48,9 @@ def test_preflight_is_not_answered_by_default(client, config_injector):
 
 def test_cors_headers_for_listed_origin(client, config_injector):
     config_injector(
-        {"cors_origins": ["https://app.example.com", "https://b.example.com"]}
+        enabled_config(
+            {"cors_origins": ["https://app.example.com", "https://b.example.com"]}
+        )
     )
     response = _get(client, "https://b.example.com")
     # the headers are sent on error responses too, or the client could not
@@ -70,20 +73,20 @@ def test_cors_headers_for_listed_origin(client, config_injector):
     ],
 )
 def test_no_cors_headers_for_unlisted_origin(client, config_injector, origin):
-    config_injector({"cors_origins": ["https://app.example.com"]})
+    config_injector(enabled_config({"cors_origins": ["https://app.example.com"]}))
     response = _get(client, origin)
     assert "Access-Control-Allow-Origin" not in response.headers
     assert response.headers["Vary"] == "Origin"
 
 
 def test_no_allow_origin_without_origin_header(client, config_injector):
-    config_injector({"cors_origins": ["https://app.example.com"]})
+    config_injector(enabled_config({"cors_origins": ["https://app.example.com"]}))
     response = _get(client)
     assert "Access-Control-Allow-Origin" not in response.headers
 
 
 def test_preflight_for_listed_origin(client, config_injector):
-    config_injector({"cors_origins": ["https://app.example.com"]})
+    config_injector(enabled_config({"cors_origins": ["https://app.example.com"]}))
     response = _preflight(client, "https://app.example.com")
     assert response.status_code == 200
     assert response.content == b""
@@ -97,7 +100,7 @@ def test_preflight_for_listed_origin(client, config_injector):
 
 
 def test_preflight_for_unlisted_origin(client, config_injector):
-    config_injector({"cors_origins": ["https://app.example.com"]})
+    config_injector(enabled_config({"cors_origins": ["https://app.example.com"]}))
     response = _preflight(client, "https://evil.example.com")
     assert response.status_code != 200
     assert "Access-Control-Allow-Origin" not in response.headers
@@ -105,7 +108,7 @@ def test_preflight_for_unlisted_origin(client, config_injector):
 
 
 def test_each_header_is_sent_once(client, config_injector):
-    config_injector({"cors_origins": ["https://app.example.com"]})
+    config_injector(enabled_config({"cors_origins": ["https://app.example.com"]}))
     response = _get(client, "https://app.example.com")
     assert response.headers.get_list("Access-Control-Allow-Origin") == [
         "https://app.example.com"

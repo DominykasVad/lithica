@@ -4,22 +4,24 @@ import pytest
 
 from lithica import db, errors, model
 from lithica.func import snapshots, tags
-from lithica.tests.api.http import assert_error, ok
+from lithica.tests.api.http import assert_error, enabled_config, ok
 
 
 @pytest.fixture(autouse=True)
 def inject_config(config_injector):
     config_injector(
-        {
-            "privileges": {
-                "tags:create": model.User.RANK_REGULAR,
-                "tags:edit:names": model.User.RANK_REGULAR,
-                "tags:edit:category": model.User.RANK_REGULAR,
-                "tags:edit:description": model.User.RANK_REGULAR,
-                "tags:edit:suggestions": model.User.RANK_REGULAR,
-                "tags:edit:implications": model.User.RANK_REGULAR,
-            },
-        }
+        enabled_config(
+            {
+                "privileges": {
+                    "tags:create": model.User.RANK_REGULAR,
+                    "tags:edit:names": model.User.RANK_REGULAR,
+                    "tags:edit:category": model.User.RANK_REGULAR,
+                    "tags:edit:description": model.User.RANK_REGULAR,
+                    "tags:edit:suggestions": model.User.RANK_REGULAR,
+                    "tags:edit:implications": model.User.RANK_REGULAR,
+                },
+            }
+        )
     )
 
 
@@ -143,13 +145,15 @@ def test_trying_to_create_tags_without_privileges(
     db.session.add(tag)
     db.session.commit()
     config_injector(
-        {
-            "privileges": {
-                "tags:create": model.User.RANK_ADMINISTRATOR,
-                "tags:edit:suggestions": model.User.RANK_REGULAR,
-                "tags:edit:implications": model.User.RANK_REGULAR,
+        enabled_config(
+            {
+                "privileges": {
+                    "tags:create": model.User.RANK_ADMINISTRATOR,
+                    "tags:edit:suggestions": model.User.RANK_REGULAR,
+                    "tags:edit:implications": model.User.RANK_REGULAR,
+                }
             }
-        }
+        )
     )
     with patch("lithica.func.tags.get_or_create_tags_by_names"):
         tags.get_or_create_tags_by_names.return_value = ([], ["new-tag"])

@@ -16,6 +16,7 @@ from lithica.func import (
     users,
     util,
 )
+from lithica.tests.api.http import enabled_config
 
 
 @pytest.mark.parametrize(
@@ -27,7 +28,9 @@ from lithica.func import (
     ],
 )
 def test_get_post_url(input_mime_type, expected_url, config_injector):
-    config_injector({"data_url": "http://example.com/", "secret": "test"})
+    config_injector(
+        enabled_config({"data_url": "http://example.com/", "secret": "test"})
+    )
     post = model.Post()
     post.post_id = 1
     post.mime_type = input_mime_type
@@ -36,7 +39,9 @@ def test_get_post_url(input_mime_type, expected_url, config_injector):
 
 @pytest.mark.parametrize("input_mime_type", ["image/jpeg", "image/gif"])
 def test_get_post_thumbnail_url(input_mime_type, config_injector):
-    config_injector({"data_url": "http://example.com/", "secret": "test"})
+    config_injector(
+        enabled_config({"data_url": "http://example.com/", "secret": "test"})
+    )
     post = model.Post()
     post.post_id = 1
     post.mime_type = input_mime_type
@@ -55,7 +60,7 @@ def test_get_post_thumbnail_url(input_mime_type, config_injector):
     ],
 )
 def test_get_post_content_path(input_mime_type, expected_path, config_injector):
-    config_injector({"secret": "test"})
+    config_injector(enabled_config({"secret": "test"}))
     post = model.Post()
     post.post_id = 1
     post.mime_type = input_mime_type
@@ -64,7 +69,7 @@ def test_get_post_content_path(input_mime_type, expected_path, config_injector):
 
 @pytest.mark.parametrize("input_mime_type", ["image/jpeg", "image/gif"])
 def test_get_post_thumbnail_path(input_mime_type, config_injector):
-    config_injector({"secret": "test"})
+    config_injector(enabled_config({"secret": "test"}))
     post = model.Post()
     post.post_id = 1
     post.mime_type = input_mime_type
@@ -76,7 +81,7 @@ def test_get_post_thumbnail_path(input_mime_type, config_injector):
 
 @pytest.mark.parametrize("input_mime_type", ["image/jpeg", "image/gif"])
 def test_get_post_thumbnail_backup_path(input_mime_type, config_injector):
-    config_injector({"secret": "test"})
+    config_injector(enabled_config({"secret": "test"}))
     post = model.Post()
     post.post_id = 1
     post.mime_type = input_mime_type
@@ -109,7 +114,9 @@ def test_serialize_post(
     pool_category_factory,
     config_injector,
 ):
-    config_injector({"data_url": "http://example.com/", "secret": "test"})
+    config_injector(
+        enabled_config({"data_url": "http://example.com/", "secret": "test"})
+    )
     with (
         patch("lithica.func.comments.serialize_comment"),
         patch("lithica.func.users.serialize_micro_user"),
@@ -491,15 +498,17 @@ def test_update_post_content_for_new_post(
         util.get_sha1.return_value = "crc"
         util.get_md5.return_value = "md5"
         config_injector(
-            {
-                "data_dir": str(tmpdir.mkdir("data")),
-                "thumbnails": {
-                    "post_width": 300,
-                    "post_height": 300,
-                },
-                "secret": "test",
-                "allow_broken_uploads": False,
-            }
+            enabled_config(
+                {
+                    "data_dir": str(tmpdir.mkdir("data")),
+                    "thumbnails": {
+                        "post_width": 300,
+                        "post_height": 300,
+                    },
+                    "secret": "test",
+                    "allow_broken_uploads": False,
+                }
+            )
         )
         output_file_path = f"{tmpdir}/data/posts/{output_file_name}"
         post = post_factory(id=1)
@@ -527,16 +536,18 @@ def test_update_post_content_to_existing_content(
     tmpdir, config_injector, post_factory, read_asset
 ):
     config_injector(
-        {
-            "data_dir": str(tmpdir.mkdir("data")),
-            "data_url": "example.com",
-            "thumbnails": {
-                "post_width": 300,
-                "post_height": 300,
-            },
-            "secret": "test",
-            "allow_broken_uploads": False,
-        }
+        enabled_config(
+            {
+                "data_dir": str(tmpdir.mkdir("data")),
+                "data_url": "example.com",
+                "thumbnails": {
+                    "post_width": 300,
+                    "post_height": 300,
+                },
+                "secret": "test",
+                "allow_broken_uploads": False,
+            }
+        )
     )
     post = post_factory()
     another_post = post_factory()
@@ -555,15 +566,17 @@ def test_update_post_content_with_broken_content(
     # server software thinks it's broken. chances are the server is wrong,
     # especially about flash movies.
     config_injector(
-        {
-            "data_dir": str(tmpdir.mkdir("data")),
-            "thumbnails": {
-                "post_width": 300,
-                "post_height": 300,
-            },
-            "secret": "test",
-            "allow_broken_uploads": allow_broken_uploads,
-        }
+        enabled_config(
+            {
+                "data_dir": str(tmpdir.mkdir("data")),
+                "thumbnails": {
+                    "post_width": 300,
+                    "post_height": 300,
+                },
+                "secret": "test",
+                "allow_broken_uploads": allow_broken_uploads,
+            }
+        )
     )
     post = post_factory()
     another_post = post_factory()
@@ -582,9 +595,11 @@ def test_update_post_content_with_broken_content(
 @pytest.mark.parametrize("input_content", [None, b"not a media file"])
 def test_update_post_content_with_invalid_content(config_injector, input_content):
     config_injector(
-        {
-            "allow_broken_uploads": True,
-        }
+        enabled_config(
+            {
+                "allow_broken_uploads": True,
+            }
+        )
     )
     post = model.Post()
     with pytest.raises(posts.InvalidPostContentError):
@@ -596,15 +611,17 @@ def test_update_post_thumbnail_to_new_one(
     tmpdir, config_injector, read_asset, post_factory, is_existing
 ):
     config_injector(
-        {
-            "data_dir": str(tmpdir.mkdir("data")),
-            "thumbnails": {
-                "post_width": 300,
-                "post_height": 300,
-            },
-            "secret": "test",
-            "allow_broken_uploads": False,
-        }
+        enabled_config(
+            {
+                "data_dir": str(tmpdir.mkdir("data")),
+                "thumbnails": {
+                    "post_width": 300,
+                    "post_height": 300,
+                },
+                "secret": "test",
+                "allow_broken_uploads": False,
+            }
+        )
     )
     post = post_factory(id=1)
     db.session.add(post)
@@ -631,15 +648,17 @@ def test_update_post_thumbnail_to_default(
     tmpdir, config_injector, read_asset, post_factory, is_existing
 ):
     config_injector(
-        {
-            "data_dir": str(tmpdir.mkdir("data")),
-            "thumbnails": {
-                "post_width": 300,
-                "post_height": 300,
-            },
-            "secret": "test",
-            "allow_broken_uploads": False,
-        }
+        enabled_config(
+            {
+                "data_dir": str(tmpdir.mkdir("data")),
+                "thumbnails": {
+                    "post_width": 300,
+                    "post_height": 300,
+                },
+                "secret": "test",
+                "allow_broken_uploads": False,
+            }
+        )
     )
     post = post_factory(id=1)
     db.session.add(post)
@@ -665,15 +684,17 @@ def test_update_post_thumbnail_with_broken_thumbnail(
     tmpdir, config_injector, read_asset, post_factory, is_existing
 ):
     config_injector(
-        {
-            "data_dir": str(tmpdir.mkdir("data")),
-            "thumbnails": {
-                "post_width": 300,
-                "post_height": 300,
-            },
-            "secret": "test",
-            "allow_broken_uploads": False,
-        }
+        enabled_config(
+            {
+                "data_dir": str(tmpdir.mkdir("data")),
+                "thumbnails": {
+                    "post_width": 300,
+                    "post_height": 300,
+                },
+                "secret": "test",
+                "allow_broken_uploads": False,
+            }
+        )
     )
     post = post_factory(id=1)
     db.session.add(post)
@@ -703,15 +724,17 @@ def test_update_post_content_leaving_custom_thumbnail(
     tmpdir, config_injector, read_asset, post_factory
 ):
     config_injector(
-        {
-            "data_dir": str(tmpdir.mkdir("data")),
-            "thumbnails": {
-                "post_width": 300,
-                "post_height": 300,
-            },
-            "secret": "test",
-            "allow_broken_uploads": False,
-        }
+        enabled_config(
+            {
+                "data_dir": str(tmpdir.mkdir("data")),
+                "thumbnails": {
+                    "post_width": 300,
+                    "post_height": 300,
+                },
+                "secret": "test",
+                "allow_broken_uploads": False,
+            }
+        )
     )
     post = post_factory(id=1)
     db.session.add(post)
@@ -730,15 +753,17 @@ def test_update_post_content_convert_heif_to_png_when_processing(
     tmpdir, config_injector, read_asset, post_factory, filename
 ):
     config_injector(
-        {
-            "data_dir": str(tmpdir.mkdir("data")),
-            "thumbnails": {
-                "post_width": 300,
-                "post_height": 300,
-            },
-            "secret": "test",
-            "allow_broken_uploads": False,
-        }
+        enabled_config(
+            {
+                "data_dir": str(tmpdir.mkdir("data")),
+                "thumbnails": {
+                    "post_width": 300,
+                    "post_height": 300,
+                },
+                "secret": "test",
+                "allow_broken_uploads": False,
+            }
+        )
     )
     post = post_factory(id=1)
     db.session.add(post)
@@ -879,7 +904,7 @@ def test_feature_post(post_factory, user_factory):
 
 
 def test_delete(post_factory, config_injector):
-    config_injector({"delete_source_files": False})
+    config_injector(enabled_config({"delete_source_files": False}))
     post = post_factory()
     db.session.add(post)
     db.session.flush()
@@ -890,7 +915,7 @@ def test_delete(post_factory, config_injector):
 
 
 def test_merge_posts_deletes_source_post(post_factory, config_injector):
-    config_injector({"delete_source_files": False})
+    config_injector(enabled_config({"delete_source_files": False}))
     source_post = post_factory()
     target_post = post_factory()
     db.session.add_all([source_post, target_post])
@@ -903,7 +928,7 @@ def test_merge_posts_deletes_source_post(post_factory, config_injector):
 
 
 def test_merge_posts_with_itself(post_factory, config_injector):
-    config_injector({"delete_source_files": False})
+    config_injector(enabled_config({"delete_source_files": False}))
     source_post = post_factory()
     db.session.add(source_post)
     db.session.flush()
@@ -912,7 +937,7 @@ def test_merge_posts_with_itself(post_factory, config_injector):
 
 
 def test_merge_posts_moves_tags(post_factory, tag_factory, config_injector):
-    config_injector({"delete_source_files": False})
+    config_injector(enabled_config({"delete_source_files": False}))
     source_post = post_factory()
     target_post = post_factory()
     tag = tag_factory()
@@ -928,7 +953,7 @@ def test_merge_posts_moves_tags(post_factory, tag_factory, config_injector):
 
 
 def test_merge_posts_doesnt_duplicate_tags(post_factory, tag_factory, config_injector):
-    config_injector({"delete_source_files": False})
+    config_injector(enabled_config({"delete_source_files": False}))
     source_post = post_factory()
     target_post = post_factory()
     tag = tag_factory()
@@ -944,7 +969,7 @@ def test_merge_posts_doesnt_duplicate_tags(post_factory, tag_factory, config_inj
 
 
 def test_merge_posts_moves_comments(post_factory, comment_factory, config_injector):
-    config_injector({"delete_source_files": False})
+    config_injector(enabled_config({"delete_source_files": False}))
     source_post = post_factory()
     target_post = post_factory()
     comment = comment_factory(post=source_post)
@@ -959,7 +984,7 @@ def test_merge_posts_moves_comments(post_factory, comment_factory, config_inject
 
 
 def test_merge_posts_moves_scores(post_factory, post_score_factory, config_injector):
-    config_injector({"delete_source_files": False})
+    config_injector(enabled_config({"delete_source_files": False}))
     source_post = post_factory()
     target_post = post_factory()
     score = post_score_factory(post=source_post, score=1)
@@ -976,7 +1001,7 @@ def test_merge_posts_moves_scores(post_factory, post_score_factory, config_injec
 def test_merge_posts_doesnt_duplicate_scores(
     post_factory, user_factory, post_score_factory, config_injector
 ):
-    config_injector({"delete_source_files": False})
+    config_injector(enabled_config({"delete_source_files": False}))
     source_post = post_factory()
     target_post = post_factory()
     user = user_factory()
@@ -995,7 +1020,7 @@ def test_merge_posts_doesnt_duplicate_scores(
 def test_merge_posts_moves_favorites(
     post_factory, post_favorite_factory, config_injector
 ):
-    config_injector({"delete_source_files": False})
+    config_injector(enabled_config({"delete_source_files": False}))
     source_post = post_factory()
     target_post = post_factory()
     favorite = post_favorite_factory(post=source_post)
@@ -1012,7 +1037,7 @@ def test_merge_posts_moves_favorites(
 def test_merge_posts_doesnt_duplicate_favorites(
     post_factory, user_factory, post_favorite_factory, config_injector
 ):
-    config_injector({"delete_source_files": False})
+    config_injector(enabled_config({"delete_source_files": False}))
     source_post = post_factory()
     target_post = post_factory()
     user = user_factory()
@@ -1029,7 +1054,7 @@ def test_merge_posts_doesnt_duplicate_favorites(
 
 
 def test_merge_posts_moves_child_relations(post_factory, config_injector):
-    config_injector({"delete_source_files": False})
+    config_injector(enabled_config({"delete_source_files": False}))
     source_post = post_factory()
     target_post = post_factory()
     related_post = post_factory()
@@ -1045,7 +1070,7 @@ def test_merge_posts_moves_child_relations(post_factory, config_injector):
 
 
 def test_merge_posts_doesnt_duplicate_child_relations(post_factory, config_injector):
-    config_injector({"delete_source_files": False})
+    config_injector(enabled_config({"delete_source_files": False}))
     source_post = post_factory()
     target_post = post_factory()
     related_post = post_factory()
@@ -1062,7 +1087,7 @@ def test_merge_posts_doesnt_duplicate_child_relations(post_factory, config_injec
 
 
 def test_merge_posts_moves_parent_relations(post_factory, config_injector):
-    config_injector({"delete_source_files": False})
+    config_injector(enabled_config({"delete_source_files": False}))
     source_post = post_factory()
     target_post = post_factory()
     related_post = post_factory()
@@ -1082,7 +1107,7 @@ def test_merge_posts_moves_parent_relations(post_factory, config_injector):
 
 
 def test_merge_posts_doesnt_duplicate_parent_relations(post_factory, config_injector):
-    config_injector({"delete_source_files": False})
+    config_injector(enabled_config({"delete_source_files": False}))
     source_post = post_factory()
     target_post = post_factory()
     related_post = post_factory()
@@ -1105,7 +1130,7 @@ def test_merge_posts_doesnt_duplicate_parent_relations(post_factory, config_inje
 def test_merge_posts_doesnt_create_relation_loop_for_children(
     post_factory, config_injector
 ):
-    config_injector({"delete_source_files": False})
+    config_injector(enabled_config({"delete_source_files": False}))
     source_post = post_factory()
     target_post = post_factory()
     # both ways, as update_post_relations stores a relation
@@ -1124,7 +1149,7 @@ def test_merge_posts_doesnt_create_relation_loop_for_children(
 def test_merge_posts_doesnt_create_relation_loop_for_parents(
     post_factory, config_injector
 ):
-    config_injector({"delete_source_files": False})
+    config_injector(enabled_config({"delete_source_files": False}))
     source_post = post_factory()
     target_post = post_factory()
     # both ways, as update_post_relations stores a relation
@@ -1144,16 +1169,18 @@ def test_merge_posts_replaces_content(
     post_factory, config_injector, tmpdir, read_asset
 ):
     config_injector(
-        {
-            "data_dir": str(tmpdir.mkdir("data")),
-            "data_url": "example.com",
-            "delete_source_files": False,
-            "thumbnails": {
-                "post_width": 300,
-                "post_height": 300,
-            },
-            "secret": "test",
-        }
+        enabled_config(
+            {
+                "data_dir": str(tmpdir.mkdir("data")),
+                "data_url": "example.com",
+                "delete_source_files": False,
+                "thumbnails": {
+                    "post_width": 300,
+                    "post_height": 300,
+                },
+                "secret": "test",
+            }
+        )
     )
     source_post = post_factory(id=1)
     target_post = post_factory(id=2)
@@ -1179,7 +1206,7 @@ def test_merge_posts_replaces_content(
 
 
 def test_search_by_image(post_factory, config_injector, read_asset):
-    config_injector({"allow_broken_uploads": False})
+    config_injector(enabled_config({"allow_broken_uploads": False}))
     post = post_factory()
     posts.generate_post_signature(post, read_asset("jpeg.jpg"))
     db.session.flush()
@@ -1230,7 +1257,7 @@ def _expected_similar_signatures(stored_words, query_words):
 
 @pytest.fixture
 def asset_signatures(post_factory, config_injector, read_asset):
-    config_injector({"allow_broken_uploads": False})
+    config_injector(enabled_config({"allow_broken_uploads": False}))
     stored_words = {}
     for asset in SIGNATURE_ASSETS:
         content = read_asset(asset)
@@ -1343,7 +1370,7 @@ def test_search_by_image_finds_the_asset_itself(
 def test_updating_content_replaces_signature_words(
     post_factory, config_injector, read_asset
 ):
-    config_injector({"allow_broken_uploads": False})
+    config_injector(enabled_config({"allow_broken_uploads": False}))
     post = post_factory()
     db.session.add(post)
     db.session.flush()
@@ -1368,7 +1395,9 @@ def test_updating_content_replaces_signature_words(
 def test_deleting_post_deletes_signature_words(
     post_factory, config_injector, read_asset
 ):
-    config_injector({"allow_broken_uploads": False, "delete_source_files": False})
+    config_injector(
+        enabled_config({"allow_broken_uploads": False, "delete_source_files": False})
+    )
     post = post_factory()
     db.session.add(post)
     db.session.flush()
@@ -1388,12 +1417,14 @@ def backfill_posts(tmpdir, config_injector, post_factory, read_asset):
     and no MD5 checksum. One image has lost its file.
     """
     config_injector(
-        {
-            "data_dir": str(tmpdir.mkdir("data")),
-            "secret": "test",
-            "allow_broken_uploads": False,
-            "delete_source_files": False,
-        }
+        enabled_config(
+            {
+                "data_dir": str(tmpdir.mkdir("data")),
+                "secret": "test",
+                "allow_broken_uploads": False,
+                "delete_source_files": False,
+            }
+        )
     )
     specs = [
         ("png", model.Post.TYPE_IMAGE, "png.png"),

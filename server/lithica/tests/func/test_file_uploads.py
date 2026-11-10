@@ -6,11 +6,12 @@ from unittest.mock import patch
 import pytest
 
 from lithica.func import file_uploads, files, util
+from lithica.tests.api.http import enabled_config
 
 
 @pytest.fixture(autouse=True)
 def inject_config(tmpdir, config_injector):
-    config_injector({"data_dir": str(tmpdir.mkdir("data"))})
+    config_injector(enabled_config({"data_dir": str(tmpdir.mkdir("data"))}))
 
 
 def _stored_names():

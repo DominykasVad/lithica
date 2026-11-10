@@ -14,6 +14,7 @@ from lithica.api import dependencies, error_handlers
 from lithica.api.dependencies import CurrentUser, require
 from lithica.app import SessionScopeMiddleware
 from lithica.func import auth, user_tokens, users
+from lithica.tests.api.http import enabled_config
 
 
 def _header(scheme: str, user_name: str, secret: str) -> dict[str, str]:
@@ -31,13 +32,15 @@ def _password_hash(password: str) -> str:
 @pytest.fixture
 def client(config_injector):
     config_injector(
-        {
-            "secret": "test",
-            "privileges": {
-                "tags:list": model.User.RANK_REGULAR,
-                "tags:delete": model.User.RANK_ADMINISTRATOR,
-            },
-        }
+        enabled_config(
+            {
+                "secret": "test",
+                "privileges": {
+                    "tags:list": model.User.RANK_REGULAR,
+                    "tags:delete": model.User.RANK_ADMINISTRATOR,
+                },
+            }
+        )
     )
     app = FastAPI()
     error_handlers.install(app)

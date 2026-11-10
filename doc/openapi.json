@@ -76,8 +76,8 @@
         "tags": [
           "Site settings"
         ],
-        "summary": "Get Site Settings",
-        "description": "Read effective settings and their config.yaml starting values.",
+        "summary": "Get site settings",
+        "description": "Retrieves effective site settings and their config.yaml starting values.\n\nErrors:\n\n- privileges are too low (403)",
         "operationId": "get_site_settings",
         "security": [
           {
@@ -129,8 +129,8 @@
         "tags": [
           "Site settings"
         ],
-        "summary": "Update Site Settings",
-        "description": "Atomically change named runtime settings; null restores config.yaml.",
+        "summary": "Update site settings",
+        "description": "Updates named runtime settings atomically. A null value restores the\nstarting value from config.yaml.\n\nErrors:\n\n- a setting is unknown, needs a restart or has an invalid value (400)\n- the version is outdated (409)\n- privileges are too low (403)",
         "operationId": "update_site_settings",
         "security": [
           {

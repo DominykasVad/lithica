@@ -4,12 +4,14 @@ import pytest
 
 from lithica import errors, model
 from lithica.func import snapshots, tags
-from lithica.tests.api.http import assert_error, ok
+from lithica.tests.api.http import assert_error, enabled_config, ok
 
 
 @pytest.fixture(autouse=True)
 def inject_config(config_injector):
-    config_injector({"privileges": {"tags:create": model.User.RANK_REGULAR}})
+    config_injector(
+        enabled_config({"privileges": {"tags:create": model.User.RANK_REGULAR}})
+    )
 
 
 def test_creating_simple_tags(tag_factory, user_factory, client):

@@ -3,11 +3,16 @@ from datetime import datetime
 import pytest
 
 from lithica import db, model
+from lithica.tests.api.http import enabled_config
 
 
 @pytest.fixture(autouse=True)
 def inject_config(config_injector):
-    config_injector({"secret": "secret", "data_dir": "", "delete_source_files": False})
+    config_injector(
+        enabled_config(
+            {"secret": "secret", "data_dir": "", "delete_source_files": False}
+        )
+    )
 
 
 def test_saving_post(post_factory, user_factory, tag_factory):

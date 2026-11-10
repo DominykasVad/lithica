@@ -4,12 +4,14 @@ import pytest
 
 from lithica import db
 from lithica.func import user_tokens, users
-from lithica.tests.api.http import ok
+from lithica.tests.api.http import enabled_config, ok
 
 
 @pytest.fixture(autouse=True)
 def inject_config(config_injector):
-    config_injector({"privileges": {"user_tokens:delete:self": "regular"}})
+    config_injector(
+        enabled_config({"privileges": {"user_tokens:delete:self": "regular"}})
+    )
 
 
 def test_deleting_user_token(user_token_factory, client, fake_datetime):

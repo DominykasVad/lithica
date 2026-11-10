@@ -4,12 +4,14 @@ import pytest
 
 from lithica import db, errors, model
 from lithica.func import pools, snapshots
-from lithica.tests.api.http import assert_error, ok
+from lithica.tests.api.http import assert_error, enabled_config, ok
 
 
 @pytest.fixture(autouse=True)
 def inject_config(config_injector):
-    config_injector({"privileges": {"pools:merge": model.User.RANK_REGULAR}})
+    config_injector(
+        enabled_config({"privileges": {"pools:merge": model.User.RANK_REGULAR}})
+    )
 
 
 def test_merging(user_factory, pool_factory, client, post_factory):

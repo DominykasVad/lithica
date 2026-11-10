@@ -4,12 +4,12 @@ import pytest
 
 from lithica import errors, model
 from lithica.func import users
-from lithica.tests.api.http import assert_error, ok
+from lithica.tests.api.http import assert_error, enabled_config, ok
 
 
 @pytest.fixture(autouse=True)
 def inject_config(config_injector):
-    config_injector({"privileges": {"users:create:self": "regular"}})
+    config_injector(enabled_config({"privileges": {"users:create:self": "regular"}}))
 
 
 def test_creating_user(user_factory, client, fake_datetime):

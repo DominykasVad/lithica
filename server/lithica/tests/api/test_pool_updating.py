@@ -4,21 +4,23 @@ import pytest
 
 from lithica import db, errors, model
 from lithica.func import pools, posts, snapshots
-from lithica.tests.api.http import assert_error, ok
+from lithica.tests.api.http import assert_error, enabled_config, ok
 
 
 @pytest.fixture(autouse=True)
 def inject_config(config_injector):
     config_injector(
-        {
-            "privileges": {
-                "pools:create": model.User.RANK_REGULAR,
-                "pools:edit:names": model.User.RANK_REGULAR,
-                "pools:edit:category": model.User.RANK_REGULAR,
-                "pools:edit:description": model.User.RANK_REGULAR,
-                "pools:edit:posts": model.User.RANK_REGULAR,
-            },
-        }
+        enabled_config(
+            {
+                "privileges": {
+                    "pools:create": model.User.RANK_REGULAR,
+                    "pools:edit:names": model.User.RANK_REGULAR,
+                    "pools:edit:category": model.User.RANK_REGULAR,
+                    "pools:edit:description": model.User.RANK_REGULAR,
+                    "pools:edit:posts": model.User.RANK_REGULAR,
+                },
+            }
+        )
     )
 
 
@@ -137,13 +139,15 @@ def test_trying_to_create_pools_without_privileges(
     db.session.add(pool)
     db.session.commit()
     config_injector(
-        {
-            "privileges": {
-                "pools:create": model.User.RANK_ADMINISTRATOR,
-                "pools:edit:posts": model.User.RANK_REGULAR,
-            },
-            "delete_source_files": False,
-        }
+        enabled_config(
+            {
+                "privileges": {
+                    "pools:create": model.User.RANK_ADMINISTRATOR,
+                    "pools:edit:posts": model.User.RANK_REGULAR,
+                },
+                "delete_source_files": False,
+            }
+        )
     )
     with patch("lithica.func.posts.get_posts_by_ids"):
         posts.get_posts_by_ids.return_value = ([], ["new-post"])

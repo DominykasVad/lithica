@@ -4,21 +4,23 @@ import pytest
 
 from lithica import db, errors, model
 from lithica.func import net, posts, snapshots
-from lithica.tests.api.http import assert_error, ok
+from lithica.tests.api.http import assert_error, enabled_config, ok
 
 
 @pytest.fixture(autouse=True)
 def inject_config(config_injector):
     config_injector(
-        {
-            "privileges": {
-                "posts:create:anonymous": model.User.RANK_REGULAR,
-                "posts:create:identified": model.User.RANK_REGULAR,
-                "tags:create": model.User.RANK_REGULAR,
-                "uploads:use_downloader": model.User.RANK_REGULAR,
-            },
-            "allow_broken_uploads": False,
-        }
+        enabled_config(
+            {
+                "privileges": {
+                    "posts:create:anonymous": model.User.RANK_REGULAR,
+                    "posts:create:identified": model.User.RANK_REGULAR,
+                    "tags:create": model.User.RANK_REGULAR,
+                    "uploads:use_downloader": model.User.RANK_REGULAR,
+                },
+                "allow_broken_uploads": False,
+            }
+        )
     )
 
 
@@ -135,12 +137,14 @@ def test_anonymous_uploads(config_injector, client, post_factory, user_factory):
         patch("lithica.func.snapshots._post_to_webhooks"),
     ):
         config_injector(
-            {
-                "privileges": {
-                    "posts:create:anonymous": model.User.RANK_REGULAR,
-                    "uploads:use_downloader": model.User.RANK_POWER,
-                },
-            }
+            enabled_config(
+                {
+                    "privileges": {
+                        "posts:create:anonymous": model.User.RANK_REGULAR,
+                        "uploads:use_downloader": model.User.RANK_POWER,
+                    },
+                }
+            )
         )
         posts.create_post.return_value = [post, []]
         ok(
@@ -178,12 +182,14 @@ def test_creating_from_url_saves_source(
         patch("lithica.func.snapshots._post_to_webhooks"),
     ):
         config_injector(
-            {
-                "privileges": {
-                    "posts:create:identified": model.User.RANK_REGULAR,
-                    "uploads:use_downloader": model.User.RANK_POWER,
-                },
-            }
+            enabled_config(
+                {
+                    "privileges": {
+                        "posts:create:identified": model.User.RANK_REGULAR,
+                        "uploads:use_downloader": model.User.RANK_POWER,
+                    },
+                }
+            )
         )
         net.download.return_value = b"content"
         posts.create_post.return_value = [post, []]
@@ -221,12 +227,14 @@ def test_creating_from_url_with_source_specified(
         patch("lithica.func.snapshots._post_to_webhooks"),
     ):
         config_injector(
-            {
-                "privileges": {
-                    "posts:create:identified": model.User.RANK_REGULAR,
-                    "uploads:use_downloader": model.User.RANK_REGULAR,
-                },
-            }
+            enabled_config(
+                {
+                    "privileges": {
+                        "posts:create:identified": model.User.RANK_REGULAR,
+                        "uploads:use_downloader": model.User.RANK_REGULAR,
+                    },
+                }
+            )
         )
         net.download.return_value = b"content"
         posts.create_post.return_value = [post, []]
@@ -308,19 +316,21 @@ def test_errors_not_spending_ids(
     config_injector, tmpdir, client, read_asset, user_factory
 ):
     config_injector(
-        {
-            "data_dir": str(tmpdir.mkdir("data")),
-            "data_url": "example.com",
-            "thumbnails": {
-                "post_width": 300,
-                "post_height": 300,
-            },
-            "privileges": {
-                "posts:create:identified": model.User.RANK_REGULAR,
-                "uploads:use_downloader": model.User.RANK_POWER,
-            },
-            "secret": "test",
-        }
+        enabled_config(
+            {
+                "data_dir": str(tmpdir.mkdir("data")),
+                "data_url": "example.com",
+                "thumbnails": {
+                    "post_width": 300,
+                    "post_height": 300,
+                },
+                "privileges": {
+                    "posts:create:identified": model.User.RANK_REGULAR,
+                    "uploads:use_downloader": model.User.RANK_POWER,
+                },
+                "secret": "test",
+            }
+        )
     )
     auth_user = user_factory(rank=model.User.RANK_REGULAR)
 
@@ -398,14 +408,16 @@ def test_trying_to_create_tags_without_privileges(
     config_injector, client, user_factory
 ):
     config_injector(
-        {
-            "privileges": {
-                "posts:create:anonymous": model.User.RANK_REGULAR,
-                "posts:create:identified": model.User.RANK_REGULAR,
-                "tags:create": model.User.RANK_ADMINISTRATOR,
-                "uploads:use_downloader": model.User.RANK_POWER,
-            },
-        }
+        enabled_config(
+            {
+                "privileges": {
+                    "posts:create:anonymous": model.User.RANK_REGULAR,
+                    "posts:create:identified": model.User.RANK_REGULAR,
+                    "tags:create": model.User.RANK_ADMINISTRATOR,
+                    "uploads:use_downloader": model.User.RANK_POWER,
+                },
+            }
+        )
     )
     with (
         patch("lithica.func.posts.update_post_content"),
@@ -441,26 +453,28 @@ def test_large_post_is_stored_and_no_temporary_file_is_left(
         pytest.skip("ffmpeg is not installed")
     data_dir = str(tmpdir.mkdir("data"))
     config_injector(
-        {
-            "data_dir": data_dir,
-            "data_url": "http://example.com/data/",
-            "secret": "test",
-            "allow_broken_uploads": False,
-            "delete_source_files": True,
-            "thumbnails": {
-                "post_width": 300,
-                "post_height": 300,
-                "avatar_width": 30,
-                "avatar_height": 30,
-            },
-            "convert": {"gif": {"to_mp4": False, "to_webm": False}},
-            "privileges": {
-                "posts:create:identified": model.User.RANK_REGULAR,
-                "uploads:use_downloader": model.User.RANK_POWER,
-                "users:edit:any:email": model.User.RANK_MODERATOR,
-            },
-            "webhooks": [],
-        }
+        enabled_config(
+            {
+                "data_dir": data_dir,
+                "data_url": "http://example.com/data/",
+                "secret": "test",
+                "allow_broken_uploads": False,
+                "delete_source_files": True,
+                "thumbnails": {
+                    "post_width": 300,
+                    "post_height": 300,
+                    "avatar_width": 30,
+                    "avatar_height": 30,
+                },
+                "convert": {"gif": {"to_mp4": False, "to_webm": False}},
+                "privileges": {
+                    "posts:create:identified": model.User.RANK_REGULAR,
+                    "uploads:use_downloader": model.User.RANK_POWER,
+                    "users:edit:any:email": model.User.RANK_MODERATOR,
+                },
+                "webhooks": [],
+            }
+        )
     )
     video = str(tmpdir.join("video.mp4"))
     make_large_video(video, 3 * 1024 * 1024, read_asset("mp4.mp4"))

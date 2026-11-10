@@ -19,6 +19,7 @@ import pytest
 
 from lithica import model
 from lithica.func import file_links, posts
+from lithica.tests.api.http import enabled_config
 
 ROOT = Path(__file__).resolve().parents[3]
 SARDONYX = ROOT / "clients" / "sardonyx"
@@ -85,7 +86,7 @@ def _start(args: list[str], copies: dict[Path, str] | None = None) -> Iterator[s
 
 @pytest.fixture
 def data(tmp_path, config_injector) -> Path:
-    config_injector({"data_url": "data/", "secret": "test"})
+    config_injector(enabled_config({"data_url": "data/", "secret": "test"}))
     root = tmp_path / "data"
     for folder in ("posts", "generated-thumbnails", "avatars"):
         (root / folder).mkdir(parents=True)
@@ -144,7 +145,13 @@ def test_a_signed_link_of_the_server_is_served_and_nothing_else(
 ):
     for base in IMAGES[image](data, tmp_path, SECRET):
         config_injector(
-            {"data_url": base + "/data/", "secret": "test", "file_link_secret": SECRET}
+            enabled_config(
+                {
+                    "data_url": base + "/data/",
+                    "secret": "test",
+                    "file_link_secret": SECRET,
+                }
+            )
         )
         post = _post()
         for url, text, path in [
@@ -183,7 +190,7 @@ def test_without_a_secret_files_are_served_as_before(
     image, data, tmp_path, config_injector
 ):
     for base in IMAGES[image](data, tmp_path, ""):
-        config_injector({"data_url": base + "/data/", "secret": "test"})
+        config_injector(enabled_config({"data_url": base + "/data/", "secret": "test"}))
         url = posts.get_post_content_url(_post())
         assert "?" not in url
         assert _read(url) == "the file"

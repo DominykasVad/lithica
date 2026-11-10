@@ -9,7 +9,7 @@ from fastapi import BackgroundTasks
 from lithica import config, db, errors, model
 from lithica.api import password_reset_api
 from lithica.func import auth, mailer, password_reset
-from lithica.tests.api.http import assert_error, ok
+from lithica.tests.api.http import assert_error, enabled_config, ok
 
 URL_PREFIX = "http://example.com/password-reset/u1:"
 
@@ -17,18 +17,20 @@ URL_PREFIX = "http://example.com/password-reset/u1:"
 @pytest.fixture(autouse=True)
 def inject_config(config_injector):
     config_injector(
-        {
-            "secret": "x",
-            "domain": "http://example.com",
-            "name": "Test instance",
-            "password_reset_token_lifetime": 3600,
-            "password_reset_mail_interval": 300,
-            # a site that sends mail (the tests catch the mail itself)
-            "smtp": {
-                "host": "mail.example.com",
-                "from": "noreply@example.com",
-            },
-        }
+        enabled_config(
+            {
+                "secret": "x",
+                "domain": "http://example.com",
+                "name": "Test instance",
+                "password_reset_token_lifetime": 3600,
+                "password_reset_mail_interval": 300,
+                # a site that sends mail (the tests catch the mail itself)
+                "smtp": {
+                    "host": "mail.example.com",
+                    "from": "noreply@example.com",
+                },
+            }
+        )
     )
 
 
@@ -109,13 +111,15 @@ def test_reset_link_ignores_request_headers(client, user, headers):
 
 def test_reset_link_tolerates_trailing_slash_in_domain(client, user, config_injector):
     config_injector(
-        {
-            "domain": "http://example.com/",
-            "name": "Test instance",
-            "password_reset_token_lifetime": 3600,
-            "password_reset_mail_interval": 300,
-            "smtp": {"host": "mail.example.com", "from": "noreply@example.com"},
-        }
+        enabled_config(
+            {
+                "domain": "http://example.com/",
+                "name": "Test instance",
+                "password_reset_token_lifetime": 3600,
+                "password_reset_mail_interval": 300,
+                "smtp": {"host": "mail.example.com", "from": "noreply@example.com"},
+            }
+        )
     )
     with patch("lithica.func.mailer.send_mail"):
         ok(client.get("/password-reset/u1"))
@@ -259,12 +263,14 @@ def test_no_window_when_the_interval_is_zero(user, request_token):
 
 def test_trying_to_reset_on_a_site_that_cannot_send_mail(client, user, config_injector):
     config_injector(
-        {
-            "secret": "x",
-            "domain": "http://example.com",
-            "name": "Test instance",
-            "smtp": {"host": None, "from": "noreply@example.com"},
-        }
+        enabled_config(
+            {
+                "secret": "x",
+                "domain": "http://example.com",
+                "name": "Test instance",
+                "smtp": {"host": None, "from": "noreply@example.com"},
+            }
+        )
     )
     # no mail server, and nothing patched: the reset says so
     response = client.get("/password-reset/u1")

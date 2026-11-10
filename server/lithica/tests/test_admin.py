@@ -9,6 +9,7 @@ import pytest
 
 from lithica import db, model
 from lithica.func import auth, files, posts, util
+from lithica.tests.api.http import enabled_config
 
 ADMIN_PATH = Path(__file__).resolve().parent.parent.parent / "lithica-admin"
 
@@ -27,11 +28,13 @@ def admin():
 @pytest.fixture
 def old_posts(tmpdir, config_injector, post_factory, read_asset):
     config_injector(
-        {
-            "data_dir": str(tmpdir.mkdir("data")),
-            "secret": "test",
-            "allow_broken_uploads": False,
-        }
+        enabled_config(
+            {
+                "data_dir": str(tmpdir.mkdir("data")),
+                "secret": "test",
+                "allow_broken_uploads": False,
+            }
+        )
     )
     post_ids = []
     for asset in ["png.png", "jpeg.jpg"]:
@@ -158,12 +161,14 @@ def probe(module_package, tmpdir, config_injector):
     """A site whose configuration switches on a module that extracts content."""
     module_package("probe", PROBE_MODULE)
     config_injector(
-        {
-            "data_dir": str(tmpdir.mkdir("data")),
-            "secret": "test",
-            "allow_broken_uploads": False,
-            "modules": ["probe"],
-        }
+        enabled_config(
+            {
+                "data_dir": str(tmpdir.mkdir("data")),
+                "secret": "test",
+                "allow_broken_uploads": False,
+                "modules": ["probe"],
+            }
+        )
     )
     import some_modules.probe  # pyright: ignore[reportMissingImports]  (written by the fixture)
 
@@ -382,15 +387,17 @@ def test_reextract_changes_nothing_but_the_extracted_content(
 @pytest.fixture
 def user_rules(config_injector):
     config_injector(
-        {
-            "secret": "test",
-            "user_name_regex": r"^[a-zA-Z0-9_-]{1,32}$",
-            "password_regex": r"^.{5,}$",
-            "default_rank": "power",
-            # whatever the site lets visitors do, the command is the admin's
-            "visibility": "login",
-            "privileges": {"users:create:self": "nobody"},
-        }
+        enabled_config(
+            {
+                "secret": "test",
+                "user_name_regex": r"^[a-zA-Z0-9_-]{1,32}$",
+                "password_regex": r"^.{5,}$",
+                "default_rank": "power",
+                # whatever the site lets visitors do, the command is the admin's
+                "visibility": "login",
+                "privileges": {"users:create:self": "nobody"},
+            }
+        )
     )
 
 

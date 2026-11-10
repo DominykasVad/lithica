@@ -5,18 +5,20 @@ import pytest
 
 from lithica import db, errors, model
 from lithica.func import posts
-from lithica.tests.api.http import assert_error, ok
+from lithica.tests.api.http import assert_error, enabled_config, ok
 
 
 @pytest.fixture(autouse=True)
 def inject_config(config_injector):
     config_injector(
-        {
-            "privileges": {
-                "posts:list": model.User.RANK_REGULAR,
-                "posts:view": model.User.RANK_REGULAR,
-            },
-        }
+        enabled_config(
+            {
+                "privileges": {
+                    "posts:list": model.User.RANK_REGULAR,
+                    "posts:view": model.User.RANK_REGULAR,
+                },
+            }
+        )
     )
 
 
@@ -72,9 +74,11 @@ def test_trying_to_use_special_tokens_without_logging_in(
     user_factory, client, config_injector
 ):
     config_injector(
-        {
-            "privileges": {"posts:list": "anonymous"},
-        }
+        enabled_config(
+            {
+                "privileges": {"posts:list": "anonymous"},
+            }
+        )
     )
     assert_error(
         client.get(
@@ -126,23 +130,25 @@ def test_trying_to_retrieve_single_without_privileges(user_factory, client):
 def real_post(config_injector, tmpdir, post_factory, user_factory, tag_factory):
     """A post with everything a serialized post can hold, and its uploader."""
     config_injector(
-        {
-            "secret": "test",
-            "data_dir": str(tmpdir),
-            "data_url": "http://example.com/data/",
-            "thumbnails": {
-                "avatar_width": 30,
-                "avatar_height": 30,
-                "post_width": 300,
-                "post_height": 300,
-            },
-            "privileges": {
-                "posts:list": model.User.RANK_REGULAR,
-                "posts:view": model.User.RANK_REGULAR,
-                "posts:view:featured": model.User.RANK_REGULAR,
-                "users:edit:any:email": model.User.RANK_MODERATOR,
-            },
-        }
+        enabled_config(
+            {
+                "secret": "test",
+                "data_dir": str(tmpdir),
+                "data_url": "http://example.com/data/",
+                "thumbnails": {
+                    "avatar_width": 30,
+                    "avatar_height": 30,
+                    "post_width": 300,
+                    "post_height": 300,
+                },
+                "privileges": {
+                    "posts:list": model.User.RANK_REGULAR,
+                    "posts:view": model.User.RANK_REGULAR,
+                    "posts:view:featured": model.User.RANK_REGULAR,
+                    "users:edit:any:email": model.User.RANK_MODERATOR,
+                },
+            }
+        )
     )
     user = user_factory(name="uploader", rank=model.User.RANK_REGULAR)
     category = model.TagCategory("meta")
@@ -233,14 +239,16 @@ def test_post_id_that_is_not_a_number(
     client, user_factory, config_injector, method, path
 ):
     config_injector(
-        {
-            "privileges": {
-                "posts:list": model.User.RANK_REGULAR,
-                "posts:view": model.User.RANK_REGULAR,
-                "posts:score": model.User.RANK_REGULAR,
-                "posts:favorite": model.User.RANK_REGULAR,
+        enabled_config(
+            {
+                "privileges": {
+                    "posts:list": model.User.RANK_REGULAR,
+                    "posts:view": model.User.RANK_REGULAR,
+                    "posts:score": model.User.RANK_REGULAR,
+                    "posts:favorite": model.User.RANK_REGULAR,
+                }
             }
-        }
+        )
     )
     assert_error(
         client.request(method, path, user=user_factory(rank=model.User.RANK_REGULAR)),

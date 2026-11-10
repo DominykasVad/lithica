@@ -3,6 +3,7 @@ import yaml
 
 from lithica import db, model
 from lithica.func import app_token_rights, auth, users
+from lithica.tests.api.http import enabled_config
 
 
 def _dist_privileges() -> dict[str, str]:
@@ -43,7 +44,7 @@ def test_unknown_rights_list_nothing():
 
 @pytest.fixture
 def dist_config(config_injector):
-    config_injector({"privileges": _dist_privileges()})
+    config_injector(enabled_config({"privileges": _dist_privileges()}))
 
 
 def _user(user_factory, rank: str) -> model.User:

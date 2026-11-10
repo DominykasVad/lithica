@@ -22,9 +22,11 @@ class SiteSetting(Base):
 
 class SiteSettingsVersion(Base):
     __tablename__ = "site_settings_version"
-    __table_args__ = (sa.CheckConstraint("id = 1"),)
     id: Mapped[int] = mapped_column(primary_key=True)
     version: Mapped[int] = mapped_column(default=1)
+    __table_args__ = (
+        sa.CheckConstraint(id == 1, name="ck_site_settings_version_singleton"),
+    )
 
 
 @sa_event.listens_for(SiteSettingsVersion.__table__, "after_create")

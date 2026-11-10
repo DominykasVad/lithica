@@ -5,11 +5,16 @@ import sqlalchemy as sa
 import sqlalchemy.exc as sa_exc
 
 from lithica import db, model
+from lithica.tests.api.http import enabled_config
 
 
 @pytest.fixture(autouse=True)
 def inject_config(config_injector):
-    config_injector({"secret": "secret", "data_dir": "", "delete_source_files": False})
+    config_injector(
+        enabled_config(
+            {"secret": "secret", "data_dir": "", "delete_source_files": False}
+        )
+    )
 
 
 def _content(kind="some_kind", payload=None, schema_version=1):
