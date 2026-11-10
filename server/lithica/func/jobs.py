@@ -20,6 +20,7 @@ from lithica.func import util
 
 logger = logging.getLogger(__name__)
 ENGINE_JOB_TYPES: tuple[registry.JobType, ...] = ()
+CLAIM_BATCH_SIZE = 20
 STATUSES = ("queued", "running", "done", "failed")
 
 
@@ -81,9 +82,14 @@ def _claim() -> tuple[int, str, int, datetime] | None:
             db.session.query(model.Job.id, model.Job.type)
             .filter(_eligible(now), model.Job.type.in_(known))
             .order_by(model.Job.run_after, model.Job.id)
+            .limit(CLAIM_BATCH_SIZE)
             .all()
         )
         for job_id, name in candidates:
+            # Some databases store timestamps only to whole-second precision.
+            lease_until = now.replace(microsecond=0) + timedelta(
+                seconds=known[name].lease_seconds
+            )
             # The predicate is repeated after any lock wait: only one worker wins.
             changed = (
                 db.session.query(model.Job)
@@ -92,8 +98,7 @@ def _claim() -> tuple[int, str, int, datetime] | None:
                     {
                         "status": "running",
                         "claimed_by": f"{socket.gethostname()}:{os.getpid()}",
-                        "lease_until": now
-                        + timedelta(seconds=known[name].lease_seconds),
+                        "lease_until": lease_until,
                         "attempts": model.Job.attempts + 1,
                         "start_time": now,
                     },
@@ -109,7 +114,7 @@ def _claim() -> tuple[int, str, int, datetime] | None:
                     job_id,
                     name,
                     attempt,
-                    now + timedelta(seconds=known[name].lease_seconds),
+                    lease_until,
                 )
             db.session.rollback()
     return None

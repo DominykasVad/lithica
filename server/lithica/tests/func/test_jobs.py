@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 import pytest
 
@@ -405,3 +405,39 @@ def test_stale_handler_cannot_finish_or_fail_new_claim(queue, fail):
     assert row(id).last_error is None
     with db.session_scope():
         assert db.session.get(model.SiteSetting, "stale-write") is None
+
+
+def test_backlog_larger_than_claim_batch_preserves_order(queue) -> None:
+    seen: list[int] = []
+
+    def record(payload: registry.Payload) -> None:
+        seen.append(payload["n"])
+
+    registry.use(
+        [registry.Module("worker", job_types=[registry.JobType("record", record)])]
+    )
+    count = jobs.CLAIM_BATCH_SIZE * 2 + 5
+    expected: list[tuple[datetime, int, int]] = []
+    with db.session_scope():
+        now = util.utcnow()
+        for n in range(count):
+            scheduled = now - timedelta(seconds=n % 3 + 1)
+            job = jobs.enqueue("record", {"n": n}, run_after=scheduled)
+            db.session.flush()
+            expected.append((scheduled, job.id, n))
+        db.session.commit()
+    while jobs.work_once():
+        pass
+    assert seen == [n for _, _, n in sorted(expected)]
+
+
+def test_claim_lease_has_whole_second_precision(queue, monkeypatch) -> None:
+    now = datetime(2026, 11, 10, 12, 0, 0, 123456)
+    monkeypatch.setattr(util, "utcnow", lambda: now)
+    id = add()
+    claim = jobs._claim()
+    assert claim is not None
+    assert claim[0] == id
+    lease = claim[3]
+    assert lease == now.replace(microsecond=0) + timedelta(seconds=600)
+    assert row(id).lease_until == lease
