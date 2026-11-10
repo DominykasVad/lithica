@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { DELETE_PRIVILEGE, EDIT_PRIVILEGES } from "@/post/edit";
+import { SHARE_LINK_PRIVILEGES } from "@/post/ShareLinks";
 import { CREATE_CATEGORY_PRIVILEGE, LIST_PRIVILEGE } from "@/tags/TagsPage";
 import { UPLOAD_PRIVILEGES } from "./privileges";
 
@@ -30,6 +31,7 @@ describe("the privileges the app asks about", () => {
     expect(known.length).toBeGreaterThan(50);
     const used = [
       ...UPLOAD_PRIVILEGES,
+      ...SHARE_LINK_PRIVILEGES,
       ...Object.values(EDIT_PRIVILEGES),
       DELETE_PRIVILEGE,
       LIST_PRIVILEGE,

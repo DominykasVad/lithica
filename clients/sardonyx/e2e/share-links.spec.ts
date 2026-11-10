@@ -2,7 +2,7 @@
 import { randomInt } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { charxCard, picture, pngCard, v3Card } from "./cards.ts";
-import { ADMIN, api, compose, NSFW_SITE, SITE, upload } from "./support.ts";
+import { ADMIN, api, compose, logIn, NSFW_SITE, SITE, upload } from "./support.ts";
 
 for (const kind of ["picture", "png", "charx"] as const) {
   test(`a ${kind} share delivers the original bytes and MIME type`, async ({
@@ -63,4 +63,39 @@ test("an NSFW share is refused on the nsfw-login site", async ({ request }) => {
   ).toBe(200);
   const path = new URL(String(made.body.url), SITE).pathname;
   expect((await request.get(`${NSFW_SITE}${path}`)).status()).toBe(404);
+});
+
+test("share links can be created, found on the account and revoked in Sardonyx", async ({
+  page,
+  request,
+}) => {
+  const bytes = picture(randomInt(1_000_000));
+  const post = await upload(request, "ui-share.png", bytes);
+  await logIn(page);
+  await page.goto(`/posts/${post.id}`);
+  const section = page.getByRole("region", { name: "Share links" });
+  const note = `UI share ${post.id}`;
+  await section.getByLabel("Note (optional)").fill(note);
+  await section.getByRole("button", { name: "Create link" }).click();
+  const row = section.getByRole("listitem").filter({ hasText: note });
+  const field = row.getByLabel("Share link URL");
+  await expect(field).toBeVisible();
+  const url = await field.inputValue();
+  const file = await request.get(url);
+  expect(file.status()).toBe(200);
+  expect(await file.body()).toEqual(bytes);
+  await page.goto("/account");
+  const accountRow = page
+    .getByRole("list", { name: "Your share links" })
+    .getByRole("listitem")
+    .filter({ hasText: note })
+    .first();
+  await expect(
+    accountRow.getByRole("link", { name: `Post ${post.id}`, exact: true }),
+  ).toBeVisible();
+  await page.goto(`/posts/${post.id}`);
+  await row.getByRole("button", { name: "Revoke", exact: true }).click();
+  await row.getByRole("button", { name: "Confirm revoke" }).click();
+  await expect(row).toHaveCount(0);
+  expect((await request.get(url)).status()).toBe(404);
 });

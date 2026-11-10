@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AppTokens } from "./AppTokens";
+import { AccountShareLinks } from "./ShareLinks";
 
 /**
  * The site's rule for passwords (`passwordRegex` of GET /info), when this
@@ -161,6 +162,7 @@ export function AccountPage() {
           <AppTokens user={user} />
         </CardContent>
       </Card>
+      <AccountShareLinks user={user} />
     </main>
   );
 }

@@ -34,6 +34,7 @@ import {
   postFields,
   postQuery,
 } from "./queries";
+import { ShareLinks } from "./ShareLinks";
 import { fromLibrary } from "./search";
 
 // The URLs of the API, which may be relative to the site: resolved against
@@ -500,6 +501,7 @@ function CardParts({
           postFields={fields}
           from={from}
         />
+        <ShareLinks post={post} />
         <PostDetails post={post} hideCreators={namesHidden} />
       </aside>
       <div className="min-w-0 flex-1">
@@ -637,6 +639,7 @@ export function PostPage() {
             <h1 className="font-semibold font-serif text-3xl">{title}</h1>
             <DownloadButton post={data} card={null} />
             <PostActions post={data} name={null} postFields={fields} from={from} />
+            <ShareLinks post={data} />
             <PostDetails post={data} hideCreators={false} />
           </aside>
         </div>
