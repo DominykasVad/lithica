@@ -48,10 +48,15 @@ settings and background jobs. Sardonyx is now the only shipped web client.
     tagged `v0.4.0` for both server and client first
     ([instructions](INSTALL.md#using-published-images)). Server startup runs
     `alembic upgrade head` before serving. Existing login tokens are hashed
-    in place and remain valid on the server, including for scripts.
-    Sardonyx's own tokens expire automatically: after 24 hours for a normal
-    session or 90 days with "remember me". Tokens made by the legacy client
-    or scripts may have no expiry. In v0.3.0, the legacy client's normal
+    in place and keep working, including Sardonyx sessions from 0.3.0:
+    **nobody has to log in again because of the upgrade.**
+
+    Logging out of such an old session in Sardonyx forgets it in the browser
+    but cannot revoke its token on the site, because the session has no token
+    ID. That token stays valid until its expiry unless revoked separately.
+    Sardonyx sessions always have an expiry: 24 hours for a normal session
+    or 90 days with "remember me". Tokens made by the legacy client or
+    scripts may have no expiry. In v0.3.0, the legacy client's normal
     login token had no expiry; "remember me" set a 365-day expiry. Its
     token-management page also allowed tokens without an expiry.
 
