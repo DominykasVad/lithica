@@ -42,7 +42,6 @@ ALL_POSTS = "lithica_all_posts"
 
 _REQUEST = "visibility.request"
 _SEES_ALL = "visibility.sees_all"
-_HIDING_TAGS = "visibility.hiding_tags"
 _WORKING = "visibility.working"
 
 
@@ -115,8 +114,8 @@ def hiding_tag_ids() -> frozenset[int]:
     implication changed is seen by the next one).
     """
     values = db.scope_values()
-    if values is not None and _HIDING_TAGS in values:
-        return values[_HIDING_TAGS]
+    if values is not None and site_settings.HIDING_TAGS_SCOPE_KEY in values:
+        return values[site_settings.HIDING_TAGS_SCOPE_KEY]
     if values is not None:
         values[_WORKING] = True
     try:
@@ -125,7 +124,7 @@ def hiding_tag_ids() -> frozenset[int]:
         if values is not None:
             values.pop(_WORKING, None)
     if values is not None:
-        values[_HIDING_TAGS] = ids
+        values[site_settings.HIDING_TAGS_SCOPE_KEY] = ids
     return ids
 
 

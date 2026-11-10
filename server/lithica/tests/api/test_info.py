@@ -4,7 +4,7 @@ import pytest
 
 from lithica import db, model
 from lithica.api import dependencies, info_api
-from lithica.func import app_token_rights, mime, util
+from lithica.func import app_token_rights, mime, site_settings, util
 from lithica.tests.api.http import assert_fits, ok
 
 
@@ -107,9 +107,7 @@ def test_info_api(
             "nsfwTag": "nsfw",
             "nsfwHidesNames": False,
             "shareLinksNsfw": False,
-            "features": dict.fromkeys(
-                ("pools", "favorites", "scores", "notes", "comments"), True
-            ),
+            "features": dict.fromkeys(site_settings.FEATURES, True),
             "acceptedTypes": accepted,
             "appTokenRights": rights,
             "config": expected_config_key,
@@ -131,9 +129,7 @@ def test_info_api(
             "nsfwTag": "nsfw",
             "nsfwHidesNames": False,
             "shareLinksNsfw": False,
-            "features": dict.fromkeys(
-                ("pools", "favorites", "scores", "notes", "comments"), True
-            ),
+            "features": dict.fromkeys(site_settings.FEATURES, True),
             "acceptedTypes": accepted,
             "appTokenRights": rights,
             "config": expected_config_key,
@@ -151,9 +147,7 @@ def test_info_api(
             "nsfwTag": "nsfw",
             "nsfwHidesNames": False,
             "shareLinksNsfw": False,
-            "features": dict.fromkeys(
-                ("pools", "favorites", "scores", "notes", "comments"), True
-            ),
+            "features": dict.fromkeys(site_settings.FEATURES, True),
             "acceptedTypes": accepted,
             "appTokenRights": rights,
             "config": expected_config_key,

@@ -23,7 +23,7 @@ import yaml
 from lithica import config, db, model, registry
 from lithica.api.post_api import _search_executor
 from lithica.app import create_app
-from lithica.func import auth, posts, snapshots, util, visibility
+from lithica.func import auth, posts, site_settings, snapshots, util, visibility
 from lithica.tests.conftest import ApiClient
 from lithica.tests.modules import cards
 
@@ -55,9 +55,7 @@ def start(config_injector, tmpdir, tag_category_factory, read_asset):
             defaults
             | {
                 "modules": ["cards"],
-                "features": dict.fromkeys(
-                    ("pools", "favorites", "scores", "notes", "comments"), True
-                ),
+                "features": dict.fromkeys(site_settings.FEATURES, True),
                 "visibility": visibility,
                 "nsfw_tag": "nsfw",
                 "data_dir": str(tmpdir.mkdir("data")),

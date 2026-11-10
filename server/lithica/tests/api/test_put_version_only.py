@@ -28,7 +28,7 @@ from fastapi.testclient import TestClient
 
 from lithica import db, errors, model, registry
 from lithica.app import create_app
-from lithica.func import auth, user_tokens, util
+from lithica.func import auth, site_settings, user_tokens, util
 from lithica.tests.api.http import assert_error, shipped_config
 from lithica.tests.conftest import get_unique_name
 
@@ -290,9 +290,7 @@ def _state(cls: type, key: Any) -> dict[str, Any]:
 @pytest.fixture
 def site(config_injector, tmpdir, committing_session) -> dict[str, Any]:
     settings = shipped_config(str(tmpdir.mkdir("data")))
-    settings["features"] = dict.fromkeys(
-        ("pools", "favorites", "scores", "notes", "comments"), True
-    )
+    settings["features"] = dict.fromkeys(site_settings.FEATURES, True)
     config_injector(settings)
     registry.use(registry.available())
     with db.session_scope():

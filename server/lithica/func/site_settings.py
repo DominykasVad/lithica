@@ -13,6 +13,8 @@ logger = logging.getLogger(__name__)
 Type = Literal["boolean", "integer", "string", "choice", "list"]
 _CACHE = "site_settings.rows"
 _CACHE_VERSION = "site_settings.version"
+HIDING_TAGS_SCOPE_KEY = "visibility.hiding_tags"
+FEATURES = ("pools", "favorites", "scores", "notes", "comments")
 
 
 @dataclass(frozen=True)
@@ -53,10 +55,7 @@ SETTINGS = {
         Setting("name", "string", max_length=100, blank=False),
         Setting("contact_email", "string", max_length=64),
         Setting("default_rank", "choice", choices=("restricted", "regular", "power")),
-        *(
-            Setting("features." + name, "boolean")
-            for name in ("pools", "favorites", "scores", "notes", "comments")
-        ),
+        *(Setting("features." + name, "boolean") for name in FEATURES),
         Setting("modules", "list", runtime=False),
         Setting("max_upload_size", "integer", runtime=False, min=1),
         Setting("api_docs", "boolean", runtime=False),
@@ -200,10 +199,7 @@ def update(expected: int, changes: dict[str, Any], user: model.User | None) -> N
     if values is not None:
         values[_CACHE] = rows
         values[_CACHE_VERSION] = current + int(changed)
-        values.pop("visibility.hiding_tags", None)
-
-
-FEATURES = ("pools", "favorites", "scores", "notes", "comments")
+        values.pop(HIDING_TAGS_SCOPE_KEY, None)
 
 
 def enabled(feature: str) -> bool:

@@ -1,6 +1,7 @@
 import pytest
 
 from lithica import config, errors
+from lithica.func import site_settings
 
 
 def test_default_secret_is_the_one_from_the_dist_file():
@@ -238,9 +239,7 @@ def test_refuses_nsfw_hide_names_that_is_not_true_or_false(config_injector, hide
         config.validate_visibility()
 
 
-@pytest.mark.parametrize(
-    "feature", ["pools", "favorites", "scores", "notes", "comments"]
-)
+@pytest.mark.parametrize("feature", site_settings.FEATURES)
 @pytest.mark.parametrize("value", ["false", 0, None, []])
 def test_features_require_booleans(valid_config, feature, value):
     valid_config["features"][feature] = value
