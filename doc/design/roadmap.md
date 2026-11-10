@@ -32,6 +32,11 @@ into the current card model would mean converting everything twice.
    - Library (media, picture-first) and Cards sections in one client,
      sharing login, upload, tags, settings and admin.
    - Settings per account (per page, theme, Show NSFW).
+   - Site settings page polish (from the 6.6 review): Save sticky at the
+     bottom of the view while there are unsaved changes, and a warning
+     before leaving with them; no separator under the last row of a card;
+     readable labels for choices and restart settings instead of raw
+     values, names and JSON ("not set" for an empty value).
 4. **Phase 9, card editor in Sardonyx** (`v0.7.0`) ([0005](decisions/0005-cards-as-data-and-versions.md),
    [0010](decisions/0010-lorebooks-as-their-own-kind.md))
    - Making and editing cards and lorebooks, with an image picker that
