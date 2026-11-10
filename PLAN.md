@@ -422,7 +422,7 @@ concept, "post" the resource.
 - [x] Tests: a job runs once with several workers, retries on failure, survives a restart.
 
 ### 6.8 Release `v0.4.0`
-- [ ] `doc/UPGRADING.md` 0.3.0 → 0.4.0: hashed login tokens (values can't be listed any more) and app tokens, kinds, relations and external IDs, listed, share links and their nginx route in the client image, settings in the database and their precedence over `config.yaml`, feature switches with comments and scores off, jobs; the legacy client removed (its image, profile, LEGACY_PORT, BASE_URL). Version, images and release as for 0.3.0.
+- [x] `doc/UPGRADING.md` 0.3.0 → 0.4.0: hashed login tokens (values can't be listed any more) and app tokens, kinds, relations and external IDs, listed, share links and their nginx route in the client image, settings in the database and their precedence over `config.yaml`, feature switches with comments and scores off, jobs; the legacy client removed (its image, profile, LEGACY_PORT, BASE_URL). Version, images and release as for 0.3.0.
 
 **Done when:** an app token with read-only rights can read cards and is refused an upload and the admin settings; a login token can't be read back; a card post is `card` and a picture `media`; a related, unlisted post doesn't show in the library but shows on its relation, with its label; a post is found by its external ID; a share link opens a post's file without login and stops on revoke; an administrator changes visibility and switches pools off in Sardonyx without a restart; a job runs once across two server processes.
 

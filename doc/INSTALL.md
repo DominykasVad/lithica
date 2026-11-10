@@ -40,7 +40,7 @@ from your existing data.
    configuration template, also when you run published images:
 
     ```console
-    user@host:~$ git clone --branch v0.3.0 https://github.com/DominykasVad/lithica.git lithica
+    user@host:~$ git clone --branch v0.4.0 https://github.com/DominykasVad/lithica.git lithica
     user@host:~$ cd lithica
     ```
 
