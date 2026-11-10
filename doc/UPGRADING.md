@@ -1,8 +1,173 @@
 # Upgrading
 
+- [From 0.3.0 to 0.4.0](#from-030-to-040)
 - [From 0.2.0 to 0.3.0](#from-020-to-030)
 - [From 0.1.0 to 0.2.0](#from-010-to-020)
 - [From szurubooru to Lithica 0.1.0](#from-szurubooru-to-lithica-010)
+
+## From 0.3.0 to 0.4.0
+
+0.4.0 adds app tokens, post metadata, share links, database-backed site
+settings and background jobs. Sardonyx is now the only shipped web client.
+
+### Steps
+
+1. **Back up** uploads (`MOUNT_DATA`), the database, `server/config.yaml`
+   and `.env` before changing anything.
+2. **Remove the legacy client setup.** The `client-legacy` service, `legacy`
+   profile, release image for new versions and `LEGACY_PORT` are gone
+   ([decision 0012](design/decisions/0012-legacy-client-removed.md)). Remove
+   `COMPOSE_PROFILES=legacy`, `LEGACY_PORT` and `BASE_URL` from `.env`.
+   Published v0.3.0 images stay on GHCR for sites staying on that version.
+   **A site under a path must move to its own host or subdomain first:**
+   for example, move `https://example.com/lithica/` to
+   `https://booru.example.com/`. Point that host's reverse proxy at
+   Sardonyx's `PORT`, forwarding the whole root `/` (including `/api/`,
+   `/data/` and `/share/`), rather than stripping a `/lithica/` prefix.
+   Set `domain` in `config.yaml` to the new public address and update any
+   external links. See [Deployment notes](INSTALL.md#deployment-notes).
+3. **Get the release:**
+
+    ```console
+    user@host:lithica$ git fetch --tags && git checkout v0.4.0
+    ```
+
+    Reapply local compose customisations to the new `docker-compose.yml`:
+    it has only `server`, `client` (Sardonyx) and `sql`; the legacy service
+    and profile have been removed. Compare `.env` with `doc/example.env`.
+4. **Build or pull, and start:**
+
+    ```console
+    user@host:lithica$ docker compose build     # or: docker compose pull
+    user@host:lithica$ docker compose up -d
+    ```
+
+    For published images, replace the `build` sections with `image` lines
+    tagged `v0.4.0` for both server and client first
+    ([instructions](INSTALL.md#using-published-images)). Server startup runs
+    `alembic upgrade head` before serving. Existing login tokens are hashed
+    in place and keep working. Downgrading the token-hash migration deletes
+    all tokens and logs everyone out; an older image alone does not undo
+    database changes.
+5. **With `cards` enabled, derive existing post kinds once, immediately
+   after upgrading:**
+
+    ```console
+    user@host:lithica$ docker compose run --rm server ./lithica-admin backfill kinds
+    ```
+
+    The migration initially makes every existing post `media`. This command
+    derives `card` from stored extracted card rows, in batches without reading
+    files. It resets kinds set by hand, so run it before curating kinds.
+    **No `reextract` is needed for this upgrade from 0.3.0:** the cards payload
+    schema is unchanged. If you are enabling cards for the first time or
+    skipped an earlier extraction, follow [The cards module](INSTALL.md#the-cards-module)
+    to extract those files first; the kinds backfill cannot discover missing
+    card rows.
+
+### What is new
+
+- **App tokens** with `read`, `write` and `upload` rights limited by the
+  owner's privileges; login and app token values are stored hashed, shown
+  only on creation, and addressed by ID. See [App tokens](INSTALL.md#app-tokens).
+- **Post kinds** (`media`, and `card` with cards enabled), with kind search
+  and a privileged kind endpoint. See [Post kinds](API.md#post-kinds-and-content-kinds).
+- **Typed, directed relations** with labels and file URLs, and **external
+  IDs** with exact lookup. See [Relations and IDs](API.md#typed-relations-and-external-ids).
+- **Listed posts**: unlisted posts stay out of default searches, but remain
+  accessible by URL, pool and relation. See [Listed posts](API.md#listed-posts).
+- **Share links**: create and revoke file links on the post or account page.
+  Delivery needs the client image's nginx at `/share/`; the server alone
+  delivers no file, and `/api/share/` returns 404. See [Share links](INSTALL.md#share-links).
+- **Site settings in the database**, an administrator settings page and
+  **feature switches**. See [Site settings](INSTALL.md#site-settings).
+- **Background jobs**, with a database queue and one worker thread per server
+  process (`WORKERS`). See [Background jobs](INSTALL.md#background-jobs).
+
+### New and changed settings
+
+**Comments and scores are off after the upgrade** unless explicitly enabled.
+Their data is kept. Turn them back on in Sardonyx's administrator settings
+page (`/admin/settings`), or in `server/config.yaml`:
+
+```yaml
+features:
+    comments: true
+    scores: true
+```
+
+**A value saved through the settings page wins over `config.yaml`**, even
+after a restart. Inspect overrides with `lithica-admin settings list`; remove
+one with `lithica-admin settings reset <name>`, or all with
+`lithica-admin settings reset --all`, to use the file's values again.
+Run these commands in a server container as described in
+[Administration](INSTALL.md#administration-from-the-command-line).
+
+Defaults below apply when not overridden in your file or database.
+Privileges are minimum ranks, set under `privileges:` in `config.yaml`.
+
+| Setting | Default | Effect after upgrading |
+|---|---|---|
+| `features.pools`, `features.favorites`, `features.notes` | `true` | Keep existing features available. |
+| `features.comments`, `features.scores` | `false` | Disable comments and up/down votes, retaining data. These are not star ratings. |
+| `share_links_nsfw` | `false` | Refuse creation and delivery of NSFW shares; enabling permits anonymous access even on a `nsfw-login` site. |
+| `jobs.worker` | `true` | Start one job worker thread per server process. |
+| `jobs.poll_interval` | `5` | Seconds between worker polls. |
+| `jobs.keep_done_days` | `7` | Retain completed jobs this many days; failed jobs remain. |
+| `app_tokens:list:self`, `app_tokens:create:self`, `app_tokens:edit:self`, `app_tokens:delete:self` | `regular` | Let users manage their own app tokens. |
+| `app_tokens:list:any`, `app_tokens:create:any`, `app_tokens:edit:any`, `app_tokens:delete:any` | `administrator` | Manage other users' app tokens. |
+| `share_links:create`, `share_links:list:self`, `share_links:delete:self` | `regular` | Create and manage own share links. |
+| `share_links:list:any`, `share_links:delete:any` | `administrator` | List and revoke others' links. |
+| `posts:edit:typed_relations`, `posts:edit:external_ids`, `posts:edit:listed` | `regular` | Edit new post metadata; included in app-token `write`. Existing posts start listed. |
+| `posts:edit:kind` | `power` | Change to a kind supported by the content; unavailable to app tokens. |
+| `site_settings:view`, `site_settings:edit` | `administrator` | Read and edit site settings; unavailable to app tokens. |
+| `jobs:list`, `jobs:view` | `administrator` | Inspect jobs; unavailable to app tokens. |
+
+Runtime changes: `visibility`, `nsfw_tag`, `nsfw_hide_names`,
+`share_links_nsfw`, `password_reset_mail_interval`, `name`, `contact_email`,
+`default_rank`, and all five `features.*` switches. File values keep their
+previous defaults for the existing settings. The settings page applies
+changes without a restart across server processes.
+
+Restart required: `jobs.*`, `modules`, `max_upload_size`, `api_docs`,
+`domain`, `cors_origins`, `allow_private_downloads`, privileges and other
+file-only configuration. Restart-only settings exposed on the settings page
+are read-only; `jobs.keep_done_days` is file-only. After editing config.yaml,
+restart the server (`docker compose restart server`); after editing `.env`,
+recreate affected containers (`docker compose up -d`).
+
+### API changes for scripts and other clients
+
+Paths below are server paths; through the client image prefix API routes
+with `/api`, except share delivery. See the generated [contract](openapi.json).
+
+1. Login and app token `token` values are returned only by creation; lists,
+   updates and `fields` selections return null. See [Token authentication](API.md#user-token-authentication).
+2. Update and delete token routes use numeric `id`: `PUT`/`DELETE
+   /user-token/{name}/{id}` and `/app-token/{name}/{id}`. A token value in
+   place of the ID gives 404 on PUT; DELETE of an unknown token still gives
+   `{}`. Log out by ID. See [User token](API.md#user-token).
+3. New login token values are 43 URL-safe base64 characters rather than
+   UUIDs; existing UUID values still authenticate. See [Token authentication](API.md#user-token-authentication).
+4. User tokens gain `id`; app tokens add `GET /app-tokens/{name}`, `POST
+   /app-token/{name}` and PUT/DELETE by ID, with `app_tokens:*` privileges.
+   `/info` adds `appTokenRights`. See [App tokens](API.md#app-tokens).
+5. Authenticated API routes never redirect. See [No redirects](API.md#no-redirects).
+6. `GET`/`PUT /site-settings` expose administrator settings; `/info` reports
+   effective values and `features`. See [Site settings](API.md#site-settings).
+7. Disabled pools, favorites, scores, notes and comments give 404
+   `FeatureDisabledError`; related fields are omitted even when requested,
+   and their search tokens give `SearchError`. Comments and scores default
+   off. See [Feature switches](API.md#feature-switches).
+8. `GET /jobs` and `GET /job/{id}` expose jobs to administrators.
+   See [Jobs](API.md#jobs).
+
+Other additions: posts gain `kind`, `listed` and `externalIds`; kind editing,
+typed-relation CRUD, external-ID replacement/lookup and share-link
+creation/listing/revocation routes are new. `/info` adds `postKinds`,
+`typedRelationTypes`, and `shareLinksNsfw`. See [Kinds](API.md#post-kinds-and-content-kinds),
+[Relations and IDs](API.md#typed-relations-and-external-ids),
+[Listed posts](API.md#listed-posts) and [Share links](API.md#share-links).
 
 ## From 0.2.0 to 0.3.0
 
