@@ -202,6 +202,11 @@ Additions only; nothing existing changes shape.
    `appTokenRights` in `GET /info`.
 5. Contract: authenticated routes never answer with a redirect (doc/API.md,
    "No redirects").
+6. `GET`/`PUT /site-settings` expose administrator-managed settings. `GET /info`
+   reports effective settings and all five `features` switches.
+7. Disabled pools, favorites, scores, notes and comments answer 404
+   `FeatureDisabledError`; their fields are omitted and their search tokens
+   fail with `SearchError`. Comments and scores default to off.
 
 ### Allowed dialect exceptions
 
@@ -236,6 +241,11 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 - 2026-11-09 — 6.4 — Add listed editing to app-token write (imports curate it).
 - 2026-11-09 — 6.4 — Merges retain the target's listed flag, as with safety.
 - 2026-11-09 — 6.5 — Share link tokens derived from `secret` and a salt (links shown again, reused by export)
+- 2026-11-10 — 6.6 — Omit disabled features' fields; reject their search tokens to avoid silently incorrect results.
+- 2026-11-10 — 6.6 — Use /site-settings; reserve /settings for per-account settings in 8.3.
+- 2026-11-10 — 6.6 — One locked singleton version covers all site settings for atomic edits.
+- 2026-11-10 — 6.6 — Read stored settings once per unit of work with Core selects to avoid loader recursion.
+- 2026-11-10 — 6.6 — API default_rank choices are restricted, regular and power to prevent signup escalation.
 
 ---
 
@@ -397,10 +407,10 @@ concept, "post" the resource.
 - [x] The account page lists the user's share links, paged, each with its post, note, expiry, copy and revoke.
 
 ### 6.6 Site settings and feature switches
-- [ ] A settings API (`GET`/`PUT /settings`, administrator only): settings declared in one registry with type, default and whether they can change at runtime. `config.yaml` gives the starting values; a value changed through the API is stored in the database and wins; settings that need a restart are read-only through the API.
-- [ ] The existing runtime-safe settings move onto it (`visibility`, `nsfw_tag`, `nsfw_hide_names`, `password_reset_mail_interval`, and others found safe); `GET /info` reports the effective values.
-- [ ] Feature switches: pools, favourites, scores, notes, comments. A feature that is off: its API answers as a missing feature, `GET /info` lists it as off, clients hide it. Comments and scores (the engine's up/down votes) default to off; star ratings come later (decision 0009).
-- [ ] Sardonyx: an admin page for the settings and switches (administrator only).
+- [x] A settings API (`GET`/`PUT /site-settings`, administrator only): settings declared in one registry with type, default and whether they can change at runtime. `config.yaml` gives the starting values; a value changed through the API is stored in the database and wins; settings that need a restart are read-only through the API.
+- [x] The existing runtime-safe settings move onto it (`visibility`, `nsfw_tag`, `nsfw_hide_names`, `password_reset_mail_interval`, and others found safe); `GET /info` reports the effective values.
+- [x] Feature switches: pools, favourites, scores, notes, comments. A feature that is off: its API answers as a missing feature, `GET /info` lists it as off, clients hide it. Comments and scores (the engine's up/down votes) default to off; star ratings come later (decision 0009).
+- [x] Sardonyx: an admin page for the settings and switches (administrator only).
 
 ### 6.7 Background jobs
 - [ ] A small job queue in the database, worked by the server process (a thread per process, jobs claimed so several processes don't run the same one), with retries and a record of failures. For work that must not run inside a request: archiving, conversions, and later others.

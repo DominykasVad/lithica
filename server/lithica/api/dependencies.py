@@ -32,6 +32,7 @@ from lithica.func import (
     file_uploads,
     net,
     serialization,
+    site_settings,
     user_tokens,
     users,
     visibility,
@@ -567,3 +568,16 @@ def read_body[M: RequestModel](
         return model.from_params(data.params)
 
     return dependency
+
+
+def require_feature(feature: str) -> Callable[[], None]:
+    def dependency() -> None:
+        if not site_settings.enabled(feature):
+            raise errors.FeatureDisabledError("Feature disabled: " + feature)
+
+    return dependency
+
+
+def require_notes(request: Request, data: RequestDataParam) -> None:
+    if "notes" in data.params and (request.method == "PUT" or data.params["notes"]):
+        require_feature("notes")()

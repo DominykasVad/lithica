@@ -15,10 +15,9 @@ export interface paths {
          * Get global info
          * @description Retrieves simple statistics. `<featured-post>` is null if there is no
          *     featured post yet. `<server-time>` is pretty much the same as the `Date`
-         *     HTTP field, only formatted in a manner consistent with other dates. Values
-         *     in `config` key are taken directly from the server config, with the
-         *     exception of privilege array keys being converted to lower camel case to
-         *     match the API convention.
+         *     HTTP field, only formatted in a manner consistent with other dates.
+         *     Values in `config` report effective site settings; privilege keys use
+         *     lower camel case to match the API convention.
          *
          *     `<modules>` are the names of the optional modules this server has switched
          *     on, in the order of its configuration; empty on a plain installation. A
@@ -42,6 +41,41 @@ export interface paths {
          */
         get: operations["get_info"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/site-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get site settings
+         * @description Retrieves effective site settings and their config.yaml starting values.
+         *
+         *     Errors:
+         *
+         *     - privileges are too low (403)
+         */
+        get: operations["get_site_settings"];
+        /**
+         * Update site settings
+         * @description Updates named runtime settings atomically. A null value restores the
+         *     starting value from config.yaml.
+         *
+         *     Errors:
+         *
+         *     - a setting is unknown, needs a restart or has an invalid value (400)
+         *     - the version is outdated (409)
+         *     - privileges are too low (403)
+         */
+        put: operations["update_site_settings"];
         post?: never;
         delete?: never;
         options?: never;
@@ -1858,6 +1892,19 @@ export interface components {
             /** Id */
             id?: string;
         };
+        /** Features */
+        Features: {
+            /** Pools */
+            pools?: boolean;
+            /** Favorites */
+            favorites?: boolean;
+            /** Scores */
+            scores?: boolean;
+            /** Notes */
+            notes?: boolean;
+            /** Comments */
+            comments?: boolean;
+        };
         /** ImageSearchResult */
         ImageSearchResult: {
             exactPost?: components["schemas"]["Post"] | null;
@@ -1866,6 +1913,7 @@ export interface components {
         };
         /** Info */
         Info: {
+            features?: components["schemas"]["Features"];
             /** Sharelinksnsfw */
             shareLinksNsfw?: boolean;
             /** Typedrelationtypes */
@@ -1957,6 +2005,7 @@ export interface components {
                 [key: string]: string;
             };
         };
+        JsonValue: unknown;
         /** Lorebook */
         Lorebook: {
             /** Name */
@@ -2441,6 +2490,35 @@ export interface components {
             distance?: number;
             post?: components["schemas"]["Post"];
         };
+        /** SiteSetting */
+        SiteSetting: {
+            /** Name */
+            name?: string;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type?: "boolean" | "integer" | "string" | "choice" | "list";
+            value?: components["schemas"]["JsonValue"];
+            startingValue?: components["schemas"]["JsonValue"];
+            /** Stored */
+            stored?: boolean;
+            /** Runtime */
+            runtime?: boolean;
+            /** Choices */
+            choices?: string[] | null;
+            /** Min */
+            min?: number | null;
+        };
+        /** SiteSettings */
+        SiteSettings: {
+            /** Version */
+            version?: number;
+            /** Filelinkssigned */
+            fileLinksSigned?: boolean;
+            /** Settings */
+            settings?: components["schemas"]["SiteSetting"][];
+        };
         /** Snapshot */
         Snapshot: {
             /** Operation */
@@ -2735,6 +2813,79 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Info"];
+                };
+            };
+            /** @description The request was refused. */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_site_settings: {
+        parameters: {
+            query?: {
+                /** @description Record this request as a login of the authenticated user. */
+                "bump-login"?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteSettings"];
+                };
+            };
+            /** @description The request was refused. */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    update_site_settings: {
+        parameters: {
+            query?: {
+                /** @description Record this request as a login of the authenticated user. */
+                "bump-login"?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    version: number;
+                    values: {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteSettings"];
                 };
             };
             /** @description The request was refused. */

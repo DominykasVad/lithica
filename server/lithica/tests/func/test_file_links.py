@@ -10,6 +10,7 @@ import pytest
 
 from lithica import config, errors, model
 from lithica.func import file_links, posts, users
+from lithica.tests.api.http import enabled_config
 
 SECRET = "test-secret-of-signed-file-links-0123456789"
 
@@ -28,7 +29,9 @@ def post():
 
 
 def test_without_a_secret_the_addresses_are_as_they_always_were(config_injector, post):
-    config_injector({"data_url": "http://example.com/data/", "secret": "test"})
+    config_injector(
+        enabled_config({"data_url": "http://example.com/data/", "secret": "test"})
+    )
     hash_ = posts.get_post_security_hash(5)
     assert posts.get_post_content_url(post) == (
         "http://example.com/data/posts/5_%s.png" % hash_
@@ -39,7 +42,11 @@ def test_without_a_secret_the_addresses_are_as_they_always_were(config_injector,
 
 
 def test_with_a_secret_the_addresses_are_signed(config_injector, post, fake_datetime):
-    config_injector({"data_url": "data/", "secret": "test", "file_link_secret": SECRET})
+    config_injector(
+        enabled_config(
+            {"data_url": "data/", "secret": "test", "file_link_secret": SECRET}
+        )
+    )
     with fake_datetime("2026-10-27 15:04:05"):
         url = posts.get_post_content_url(post)
         thumbnail = posts.get_post_thumbnail_url(post)
@@ -61,12 +68,14 @@ def test_with_a_secret_the_addresses_are_signed(config_injector, post, fake_date
 
 def test_an_avatar_is_not_signed(config_injector, user_factory):
     config_injector(
-        {
-            "data_url": "data/",
-            "secret": "test",
-            "file_link_secret": SECRET,
-            "thumbnails": {"avatar_width": 30, "avatar_height": 30},
-        }
+        enabled_config(
+            {
+                "data_url": "data/",
+                "secret": "test",
+                "file_link_secret": SECRET,
+                "thumbnails": {"avatar_width": 30, "avatar_height": 30},
+            }
+        )
     )
     user = user_factory(name="someone")
     user.avatar_style = model.User.AVATAR_MANUAL
@@ -115,15 +124,15 @@ def test_the_signature_is_nginxs_secure_link_md5():
     ["short", "x" * 31, "with space " + "x" * 32, 'quote"' + "x" * 32, "$" + "x" * 32],
 )
 def test_a_secret_nginx_could_misread_is_refused(config_injector, secret):
-    config_injector({"file_link_secret": secret})
+    config_injector(enabled_config({"file_link_secret": secret}))
     with pytest.raises(errors.ConfigError):
         config.validate_file_link_secret()
 
 
 def test_a_good_secret_and_none_are_taken(config_injector):
-    config_injector({"file_link_secret": SECRET})
+    config_injector(enabled_config({"file_link_secret": SECRET}))
     config.validate_file_link_secret()
-    config_injector({"file_link_secret": None})
+    config_injector(enabled_config({"file_link_secret": None}))
     config.validate_file_link_secret()
 
 
@@ -131,7 +140,9 @@ def test_a_good_secret_and_none_are_taken(config_injector):
 def test_a_closed_site_without_a_secret_is_warned_of(
     config_injector, caplog, visibility
 ):
-    config_injector({"visibility": visibility, "file_link_secret": None})
+    config_injector(
+        enabled_config({"visibility": visibility, "file_link_secret": None})
+    )
     with caplog.at_level(logging.WARNING, logger="lithica.config"):
         config.validate_file_link_secret()
     assert len(caplog.records) == 1

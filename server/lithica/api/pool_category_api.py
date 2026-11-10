@@ -4,7 +4,13 @@ from fastapi import Depends
 
 from lithica import db, model
 from lithica.api import resources
-from lithica.api.dependencies import CurrentUser, fields_of, read_body, require
+from lithica.api.dependencies import (
+    CurrentUser,
+    fields_of,
+    read_body,
+    require,
+    require_feature,
+)
 from lithica.api.routing import ApiRouter
 from lithica.api.schemas import (
     Int,
@@ -23,6 +29,7 @@ CheckedFields = Annotated[
 ]
 
 router = ApiRouter(tags=["Pool categories"])
+router.dependencies.append(Depends(require_feature("pools")))
 
 
 class PoolCategoryCreate(RequestModel):

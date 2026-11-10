@@ -11,6 +11,8 @@ from lithica.api.dependencies import (
     fields_of,
     read_body,
     require,
+    require_feature,
+    require_notes,
 )
 from lithica.api.dependencies import search as run_search
 from lithica.api.routing import ApiRouter
@@ -160,6 +162,7 @@ def get_posts(
     "/posts",
     response_model=resources.Post,
     summary="Create a post",
+    dependencies=[Depends(require_notes)],
     openapi_extra=request_body(PostCreate, "content", "thumbnail"),
 )
 def create_post(
@@ -320,6 +323,7 @@ def get_post_content(
     "/post/{post_id}",
     response_model=resources.Post,
     summary="Update a post",
+    dependencies=[Depends(require_notes)],
     openapi_extra=request_body(PostUpdate, "content", "thumbnail"),
 )
 def update_post(
@@ -532,6 +536,7 @@ def set_featured_post(
 
 @router.put(
     "/post/{post_id}/score",
+    dependencies=[Depends(require_feature("scores"))],
     response_model=resources.Post,
     summary="Rate a post",
     openapi_extra=request_body(ScoreUpdate),
@@ -561,6 +566,7 @@ def set_post_score(
 
 @router.delete(
     "/post/{post_id}/score",
+    dependencies=[Depends(require_feature("scores"))],
     response_model=resources.Post,
     summary="Take back the rating of a post",
 )
@@ -586,6 +592,7 @@ def delete_post_score(
 
 @router.post(
     "/post/{post_id}/favorite",
+    dependencies=[Depends(require_feature("favorites"))],
     response_model=resources.Post,
     summary="Add a post to the favorites",
 )
@@ -610,6 +617,7 @@ def add_post_to_favorites(
 
 @router.delete(
     "/post/{post_id}/favorite",
+    dependencies=[Depends(require_feature("favorites"))],
     response_model=resources.Post,
     summary="Remove a post from the favorites",
 )

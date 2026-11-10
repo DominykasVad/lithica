@@ -4,8 +4,8 @@ import pytest
 
 from lithica import db, model
 from lithica.api import dependencies, info_api
-from lithica.func import app_token_rights, mime, util
-from lithica.tests.api.http import assert_fits, ok
+from lithica.func import app_token_rights, mime, site_settings, util
+from lithica.tests.api.http import assert_fits, enabled_config, ok
 
 
 class _ImmediateThread:
@@ -40,25 +40,27 @@ def test_info_api(
     auth_user = user_factory(rank=model.User.RANK_REGULAR)
     anon_user = user_factory(rank=model.User.RANK_ANONYMOUS)
     config_injector(
-        {
-            "name": "test installation",
-            "contact_email": "test@example.com",
-            "enable_safety": True,
-            "data_dir": str(directory),
-            "user_name_regex": "1",
-            "password_regex": "2",
-            "tag_name_regex": "3",
-            "tag_category_name_regex": "4",
-            "default_rank": "5",
-            "privileges": {
-                "test_key1": "test_value1",
-                "test_key2": "test_value2",
-                "posts:view:featured": "regular",
-            },
-            "smtp": {
-                "host": "example.com",
-            },
-        }
+        enabled_config(
+            {
+                "name": "test installation",
+                "contact_email": "test@example.com",
+                "enable_safety": True,
+                "data_dir": str(directory),
+                "user_name_regex": "1",
+                "password_regex": "2",
+                "tag_name_regex": "3",
+                "tag_category_name_regex": "4",
+                "default_rank": "5",
+                "privileges": {
+                    "test_key1": "test_value1",
+                    "test_key2": "test_value2",
+                    "posts:view:featured": "regular",
+                },
+                "smtp": {
+                    "host": "example.com",
+                },
+            }
+        )
     )
     db.session.add_all([post_factory(), post_factory()])
     db.session.flush()
@@ -107,6 +109,7 @@ def test_info_api(
             "nsfwTag": "nsfw",
             "nsfwHidesNames": False,
             "shareLinksNsfw": False,
+            "features": dict.fromkeys(site_settings.FEATURES, True),
             "acceptedTypes": accepted,
             "appTokenRights": rights,
             "config": expected_config_key,
@@ -128,6 +131,7 @@ def test_info_api(
             "nsfwTag": "nsfw",
             "nsfwHidesNames": False,
             "shareLinksNsfw": False,
+            "features": dict.fromkeys(site_settings.FEATURES, True),
             "acceptedTypes": accepted,
             "appTokenRights": rights,
             "config": expected_config_key,
@@ -145,6 +149,7 @@ def test_info_api(
             "nsfwTag": "nsfw",
             "nsfwHidesNames": False,
             "shareLinksNsfw": False,
+            "features": dict.fromkeys(site_settings.FEATURES, True),
             "acceptedTypes": accepted,
             "appTokenRights": rights,
             "config": expected_config_key,
@@ -155,7 +160,7 @@ def test_info_api(
 def data_dir(tmpdir, config_injector):
     directory = tmpdir.mkdir("data")
     directory.join("test.txt").write("abc")
-    config_injector({"data_dir": str(directory)})
+    config_injector(enabled_config({"data_dir": str(directory)}))
     return directory
 
 
@@ -247,25 +252,31 @@ def test_info_fits_its_response_model(
     )
     monkeypatch.setattr(info_api, "_disk_usage", info_api._DiskUsage())
     config_injector(
-        {
-            "name": "test installation",
-            "contact_email": None,
-            "enable_safety": True,
-            "data_dir": str(tmpdir),
-            "data_url": "http://example.com/data/",
-            "secret": "test",
-            "user_name_regex": "1",
-            "password_regex": "2",
-            "tag_name_regex": "3",
-            "tag_category_name_regex": "4",
-            "default_rank": "regular",
-            "thumbnails": {"post_width": 300, "post_height": 300, "avatar_width": 30},
-            "privileges": {
-                "posts:view:featured": "regular",
-                "users:edit:any:email": "moderator",
-            },
-            "smtp": {"host": None},
-        }
+        enabled_config(
+            {
+                "name": "test installation",
+                "contact_email": None,
+                "enable_safety": True,
+                "data_dir": str(tmpdir),
+                "data_url": "http://example.com/data/",
+                "secret": "test",
+                "user_name_regex": "1",
+                "password_regex": "2",
+                "tag_name_regex": "3",
+                "tag_category_name_regex": "4",
+                "default_rank": "regular",
+                "thumbnails": {
+                    "post_width": 300,
+                    "post_height": 300,
+                    "avatar_width": 30,
+                },
+                "privileges": {
+                    "posts:view:featured": "regular",
+                    "users:edit:any:email": "moderator",
+                },
+                "smtp": {"host": None},
+            }
+        )
     )
     user = user_factory(rank=model.User.RANK_REGULAR)
     post = post_factory()
@@ -291,19 +302,21 @@ def test_info_fits_its_response_model(
 def test_info_with_a_trailing_slash(client, config_injector, tmpdir, monkeypatch):
     monkeypatch.setattr(info_api, "_disk_usage", info_api._DiskUsage())
     config_injector(
-        {
-            "name": "n",
-            "contact_email": None,
-            "enable_safety": True,
-            "data_dir": str(tmpdir),
-            "user_name_regex": "1",
-            "password_regex": "2",
-            "tag_name_regex": "3",
-            "tag_category_name_regex": "4",
-            "default_rank": "regular",
-            "privileges": {"posts:view:featured": "regular"},
-            "smtp": {"host": None},
-        }
+        enabled_config(
+            {
+                "name": "n",
+                "contact_email": None,
+                "enable_safety": True,
+                "data_dir": str(tmpdir),
+                "user_name_regex": "1",
+                "password_regex": "2",
+                "tag_name_regex": "3",
+                "tag_category_name_regex": "4",
+                "default_rank": "regular",
+                "privileges": {"posts:view:featured": "regular"},
+                "smtp": {"host": None},
+            }
+        )
     )
     assert ok(client.get("/info/"))["postCount"] == 0
 
@@ -314,22 +327,24 @@ def test_info_says_the_upload_limit_the_server_checks(
     monkeypatch.setattr(info_api, "_disk_usage", info_api._DiskUsage())
     monkeypatch.setattr(info_api._DiskUsage, "_start_measuring", lambda self: None)
     config_injector(
-        {
-            "name": "x",
-            "contact_email": None,
-            "enable_safety": True,
-            "user_name_regex": "1",
-            "password_regex": "2",
-            "tag_name_regex": "3",
-            "tag_category_name_regex": "4",
-            "default_rank": "regular",
-            "privileges": {
-                "posts:view:featured": "regular",
-                "uploads:create": "regular",
-            },
-            "smtp": {"host": None},
-            "max_upload_size": 2048,
-        }
+        enabled_config(
+            {
+                "name": "x",
+                "contact_email": None,
+                "enable_safety": True,
+                "user_name_regex": "1",
+                "password_regex": "2",
+                "tag_name_regex": "3",
+                "tag_category_name_regex": "4",
+                "default_rank": "regular",
+                "privileges": {
+                    "posts:view:featured": "regular",
+                    "uploads:create": "regular",
+                },
+                "smtp": {"host": None},
+                "max_upload_size": 2048,
+            }
+        )
     )
     user = user_factory(rank=model.User.RANK_REGULAR)
     reported = ok(client.get("/info", user=user))["maxUploadSize"]
@@ -348,19 +363,21 @@ def test_info_says_whether_clients_hide_nsfw_names(
 ):
     monkeypatch.setattr(info_api, "_disk_usage", info_api._DiskUsage())
     config_injector(
-        {
-            "name": "n",
-            "contact_email": None,
-            "enable_safety": True,
-            "data_dir": str(tmpdir),
-            "user_name_regex": "1",
-            "password_regex": "2",
-            "tag_name_regex": "3",
-            "tag_category_name_regex": "4",
-            "default_rank": "regular",
-            "privileges": {"posts:view:featured": "regular"},
-            "smtp": {"host": None},
-            "nsfw_hide_names": hide,
-        }
+        enabled_config(
+            {
+                "name": "n",
+                "contact_email": None,
+                "enable_safety": True,
+                "data_dir": str(tmpdir),
+                "user_name_regex": "1",
+                "password_regex": "2",
+                "tag_name_regex": "3",
+                "tag_category_name_regex": "4",
+                "default_rank": "regular",
+                "privileges": {"posts:view:featured": "regular"},
+                "smtp": {"host": None},
+                "nsfw_hide_names": hide,
+            }
+        )
     )
     assert ok(client.get("/info"))["nsfwHidesNames"] is hide

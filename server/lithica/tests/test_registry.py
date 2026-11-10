@@ -13,7 +13,7 @@ from lithica import db, errors, model, openapi, registry
 from lithica.api.routing import ApiRouter
 from lithica.app import create_app
 from lithica.search.configs import util as search_util
-from lithica.tests.api.http import assert_error, ok
+from lithica.tests.api.http import assert_error, enabled_config, ok
 from lithica.tests.conftest import ApiClient
 
 ADMIN_PATH = Path(__file__).resolve().parent.parent.parent / "lithica-admin"
@@ -23,14 +23,16 @@ ADMIN_PATH = Path(__file__).resolve().parent.parent.parent / "lithica-admin"
 def inject_config(config_injector):
     def inject(modules=None):
         config_injector(
-            {
-                "modules": modules,
-                "secret": "test",
-                "data_dir": "",
-                "data_url": "http://example.com/",
-                "privileges": {"posts:list": model.User.RANK_REGULAR},
-                "thumbnails": {"post_width": 300, "post_height": 300},
-            }
+            enabled_config(
+                {
+                    "modules": modules,
+                    "secret": "test",
+                    "data_dir": "",
+                    "data_url": "http://example.com/",
+                    "privileges": {"posts:list": model.User.RANK_REGULAR},
+                    "thumbnails": {"post_width": 300, "post_height": 300},
+                }
+            )
         )
 
     inject()

@@ -5,19 +5,21 @@ import pytest
 from lithica import db, errors, model
 from lithica.api import resources
 from lithica.func import users
-from lithica.tests.api.http import assert_error, assert_fits, ok
+from lithica.tests.api.http import assert_error, assert_fits, enabled_config, ok
 
 
 @pytest.fixture(autouse=True)
 def inject_config(config_injector):
     config_injector(
-        {
-            "privileges": {
-                "users:list": model.User.RANK_REGULAR,
-                "users:view": model.User.RANK_REGULAR,
-                "users:edit:any:email": model.User.RANK_MODERATOR,
-            },
-        }
+        enabled_config(
+            {
+                "privileges": {
+                    "users:list": model.User.RANK_REGULAR,
+                    "users:view": model.User.RANK_REGULAR,
+                    "users:edit:any:email": model.User.RANK_MODERATOR,
+                },
+            }
+        )
     )
 
 
@@ -80,14 +82,16 @@ def test_trying_to_retrieve_single_without_privileges(user_factory, client):
 
 def test_user_fits_its_response_model(user_factory, client, config_injector):
     config_injector(
-        {
-            "thumbnails": {"avatar_width": 30, "avatar_height": 30},
-            "privileges": {
-                "users:list": model.User.RANK_REGULAR,
-                "users:view": model.User.RANK_REGULAR,
-                "users:edit:any:email": model.User.RANK_MODERATOR,
-            },
-        }
+        enabled_config(
+            {
+                "thumbnails": {"avatar_width": 30, "avatar_height": 30},
+                "privileges": {
+                    "users:list": model.User.RANK_REGULAR,
+                    "users:view": model.User.RANK_REGULAR,
+                    "users:edit:any:email": model.User.RANK_MODERATOR,
+                },
+            }
+        )
     )
     user = user_factory(name="u1", rank=model.User.RANK_REGULAR, email="u1@example.com")
     other = user_factory(name="u2", rank=model.User.RANK_REGULAR, email=None)

@@ -223,6 +223,15 @@ def validate() -> None:
             "password_reset_mail_interval must be a number of seconds, 0 or more"
         )
 
+    features = config.get("features")
+    if not isinstance(features, dict) or any(
+        type(features.get(name)) is not bool
+        for name in ("pools", "favorites", "scores", "notes", "comments")
+    ):
+        raise errors.ConfigError(
+            "features must contain boolean switches for all five features"
+        )
+
     validate_mail_domain()
 
     if config["smtp"]["host"]:

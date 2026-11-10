@@ -2,6 +2,7 @@ import sqlalchemy as sa
 import sqlalchemy.orm as sa_orm
 
 from lithica import db, errors, model
+from lithica.func import site_settings
 from lithica.search import parser, tokens
 from lithica.search.configs.base_search_config import BaseSearchConfig
 from lithica.search.query import SearchQuery
@@ -38,6 +39,7 @@ class Executor:
         self, query_text: str, entity_id: int, user: model.User | None = None
     ) -> tuple[model.Base, model.Base]:
         search_query = self.parser.parse(query_text)
+        _check_features(search_query)
         self.config.on_search_query_parsed(search_query, user)
         filter_query = self.config.create_around_query().options(sa_orm.lazyload("*"))
         filter_query = self._prepare_db_query(filter_query, search_query, False)
@@ -70,6 +72,7 @@ class Executor:
         every request, so what is this search's comes in here, not kept.
         """
         search_query = self.parser.parse(query_text)
+        _check_features(search_query)
         self.config.on_search_query_parsed(search_query, user)
 
         if offset < 0:
@@ -155,3 +158,25 @@ class Executor:
 
         db_query = self.config.finalize_query(db_query)
         return db_query
+
+
+FEATURE_TOKENS = {
+    "scores": {"score", "liked", "disliked"},
+    "favorites": {"fav", "fav-count", "fav-date", "fav-time"},
+    "comments": {"comment", "comment-count", "comment-date", "comment-time"},
+    "notes": {"note-count", "note-text"},
+    "pools": {"pool"},
+}
+
+
+def _check_features(query: SearchQuery) -> None:
+    names = {token.name for token in [*query.named_tokens, *query.sort_tokens]}
+    names.update(token.value for token in query.special_tokens)
+    for feature, names_for_feature in FEATURE_TOKENS.items():
+        if (
+            names & names_for_feature
+            or (
+                "tumbleweed" in names and feature in ("scores", "favorites", "comments")
+            )
+        ) and not site_settings.enabled(feature):
+            raise errors.SearchError("Feature disabled: " + feature)

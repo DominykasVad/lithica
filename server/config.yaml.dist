@@ -181,6 +181,9 @@ privileges:
     'app_tokens:delete:any':        administrator
     'app_tokens:delete:self':       regular
 
+    'site_settings:view':           administrator
+    'site_settings:edit':           administrator
+
     'posts:create:anonymous':       regular
     'posts:create:identified':      regular
     'posts:list':                   anonymous
@@ -271,3 +274,10 @@ privileges:
 ## example: postgresql://lithica:dog@localhost:5432/lithica_test
 ## (the scheme is postgresql, not postgres)
 #database:
+
+features:
+    pools: true
+    favorites: true
+    scores: false
+    notes: true
+    comments: false

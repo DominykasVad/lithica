@@ -84,6 +84,7 @@ function DisplayMenu() {
 }
 
 function UserMenu() {
+  const can = usePrivileges();
   const auth = useAuth();
   const navigate = useNavigate();
   const [failed, setFailed] = useState<unknown>(null);
@@ -112,6 +113,14 @@ function UserMenu() {
                 Account
               </Link>
             </DropdownMenuItem>
+            {can?.("siteSettings:view") && (
+              <DropdownMenuItem asChild>
+                <Link to="/admin/settings">
+                  <Settings />
+                  Site settings
+                </Link>
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem onSelect={logOut}>
               <LogOut />
               Log out

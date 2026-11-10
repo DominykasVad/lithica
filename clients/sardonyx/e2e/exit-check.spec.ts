@@ -9,6 +9,7 @@ import { expect, type Page, test } from "@playwright/test";
 import { picture, zipBomb } from "./cards.ts";
 import {
   ADMIN,
+  api,
   cardPost,
   LARGE_ENTRIES,
   LARGE_LOREBOOK,
@@ -172,4 +173,12 @@ test("log out", async ({ page }) => {
   await expect(
     page.getByRole("banner").getByRole("link", { name: "Log in" }),
   ).toBeVisible();
+});
+
+test("no stored site settings remain after browser tests", async ({ request }) => {
+  const settings = await api(request, "GET", "/site-settings", { user: ADMIN });
+  expect(settings.status).toBe(200);
+  expect(
+    (settings.body.settings as { stored: boolean }[]).filter((item) => item.stored),
+  ).toEqual([]);
 });

@@ -2,18 +2,20 @@ import pytest
 
 from lithica import db, errors, model
 from lithica.func import users
-from lithica.tests.api.http import assert_error, ok
+from lithica.tests.api.http import assert_error, enabled_config, ok
 
 
 @pytest.fixture(autouse=True)
 def inject_config(config_injector):
     config_injector(
-        {
-            "privileges": {
-                "users:delete:self": model.User.RANK_REGULAR,
-                "users:delete:any": model.User.RANK_MODERATOR,
-            },
-        }
+        enabled_config(
+            {
+                "privileges": {
+                    "users:delete:self": model.User.RANK_REGULAR,
+                    "users:delete:any": model.User.RANK_MODERATOR,
+                },
+            }
+        )
     )
 
 

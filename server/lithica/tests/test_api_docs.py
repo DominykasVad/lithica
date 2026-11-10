@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 
 from lithica import app as lithica_app
 from lithica import openapi
+from lithica.tests.api.http import enabled_config
 
 
 @pytest.fixture
@@ -12,7 +13,7 @@ def client():
 
 @pytest.mark.parametrize("api_docs", [False, None, 0])
 def test_documentation_is_off_unless_switched_on(client, config_injector, api_docs):
-    config_injector({"api_docs": api_docs})
+    config_injector(enabled_config({"api_docs": api_docs}))
     for path in ["/docs", "/redoc", "/openapi.json"]:
         response = client.get(path)
         assert response.status_code == 404
@@ -25,7 +26,7 @@ def test_documentation_is_off_unless_switched_on(client, config_injector, api_do
 
 
 def test_documentation_is_served_when_switched_on(client, config_injector):
-    config_injector({"api_docs": True})
+    config_injector(enabled_config({"api_docs": True}))
     served = client.get("/openapi.json")
     assert served.status_code == 200
     # a site serves the description of what it has: the contract, less the

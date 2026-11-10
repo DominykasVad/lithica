@@ -4,11 +4,12 @@ from datetime import datetime, timedelta
 import pytest
 
 from lithica.func import auth
+from lithica.tests.api.http import enabled_config
 
 
 @pytest.fixture(autouse=True)
 def inject_config(config_injector):
-    config_injector({"secret": "testSecret"})
+    config_injector(enabled_config({"secret": "testSecret"}))
 
 
 def test_get_password_hash():

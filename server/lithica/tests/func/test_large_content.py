@@ -15,6 +15,7 @@ from lithica import db, model
 from lithica.func import content as content_module
 from lithica.func import file_uploads, posts
 from lithica.func.content import Content
+from lithica.tests.api.http import enabled_config
 
 MEGABYTE = 1024 * 1024
 
@@ -50,15 +51,17 @@ def _sha1_of_file(path: str) -> str:
 @pytest.fixture(autouse=True)
 def inject_config(config_injector, tmpdir):
     config_injector(
-        {
-            "data_dir": str(tmpdir.mkdir("data")),
-            "data_url": "example.com",
-            "delete_source_files": True,
-            "allow_broken_uploads": False,
-            "secret": "test",
-            "thumbnails": {"post_width": 300, "post_height": 300},
-            "convert": {"gif": {"to_mp4": False, "to_webm": False}},
-        }
+        enabled_config(
+            {
+                "data_dir": str(tmpdir.mkdir("data")),
+                "data_url": "example.com",
+                "delete_source_files": True,
+                "allow_broken_uploads": False,
+                "secret": "test",
+                "thumbnails": {"post_width": 300, "post_height": 300},
+                "convert": {"gif": {"to_mp4": False, "to_webm": False}},
+            }
+        )
     )
 
 

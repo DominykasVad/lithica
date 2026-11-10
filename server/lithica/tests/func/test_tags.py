@@ -5,6 +5,7 @@ import pytest
 
 from lithica import db, model
 from lithica.func import tag_categories, tags
+from lithica.tests.api.http import enabled_config
 
 
 def _assert_tag_siblings(result, expected_names_and_occurrences):
@@ -215,7 +216,7 @@ def test_get_or_create_tags_by_names(
     tag_category_factory,
     config_injector,
 ):
-    config_injector({"tag_name_regex": ".*"})
+    config_injector(enabled_config({"tag_name_regex": ".*"}))
     category = tag_category_factory()
     input_tags = [
         tag_factory(names=["name1", "ALIAS1"], category=category),
@@ -470,28 +471,28 @@ def test_update_tag_names_to_empty(tag_factory):
 
 
 def test_update_tag_names_with_invalid_name(config_injector, tag_factory):
-    config_injector({"tag_name_regex": "^[a-z]*$"})
+    config_injector(enabled_config({"tag_name_regex": "^[a-z]*$"}))
     tag = tag_factory()
     with pytest.raises(tags.InvalidTagNameError):
         tags.update_tag_names(tag, ["0"])
 
 
 def test_update_tag_names_with_too_long_string(config_injector, tag_factory):
-    config_injector({"tag_name_regex": "^[a-z]*$"})
+    config_injector(enabled_config({"tag_name_regex": "^[a-z]*$"}))
     tag = tag_factory()
     with pytest.raises(tags.InvalidTagNameError):
         tags.update_tag_names(tag, ["a" * 300])
 
 
 def test_update_tag_names_with_duplicate_names(config_injector, tag_factory):
-    config_injector({"tag_name_regex": "^[a-z]*$"})
+    config_injector(enabled_config({"tag_name_regex": "^[a-z]*$"}))
     tag = tag_factory()
     tags.update_tag_names(tag, ["a", "A"])
     assert [tag_name.name for tag_name in tag.names] == ["a"]
 
 
 def test_update_tag_names_trying_to_use_taken_name(config_injector, tag_factory):
-    config_injector({"tag_name_regex": "^[a-zA-Z]*$"})
+    config_injector(enabled_config({"tag_name_regex": "^[a-zA-Z]*$"}))
     existing_tag = tag_factory(names=["a"])
     db.session.add(existing_tag)
     tag = tag_factory()
@@ -505,7 +506,7 @@ def test_update_tag_names_trying_to_use_taken_name(config_injector, tag_factory)
 
 @pytest.mark.parametrize("name", list("aA"))
 def test_update_tag_names_reusing_own_name(config_injector, tag_factory, name):
-    config_injector({"tag_name_regex": "^[a-zA-Z]*$"})
+    config_injector(enabled_config({"tag_name_regex": "^[a-zA-Z]*$"}))
     tag = tag_factory(names=["a"])
     db.session.add(tag)
     db.session.flush()
@@ -514,7 +515,7 @@ def test_update_tag_names_reusing_own_name(config_injector, tag_factory, name):
 
 
 def test_update_tag_names_changing_primary_name(config_injector, tag_factory):
-    config_injector({"tag_name_regex": "^[a-zA-Z]*$"})
+    config_injector(enabled_config({"tag_name_regex": "^[a-zA-Z]*$"}))
     tag = tag_factory(names=["a", "b"])
     db.session.add(tag)
     db.session.flush()

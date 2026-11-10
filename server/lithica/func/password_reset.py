@@ -7,7 +7,7 @@ import sqlalchemy as sa
 import sqlalchemy.orm as sa_orm
 
 from lithica import config, db, errors, model
-from lithica.func import util
+from lithica.func import site_settings, util
 
 
 class InvalidPasswordResetTokenError(errors.ValidationError):
@@ -38,7 +38,7 @@ def mailed_recently(user: model.User) -> bool:
     assert user
     db.session.refresh(user, with_for_update=True)
     since = util.utcnow() - timedelta(
-        seconds=config.config["password_reset_mail_interval"]
+        seconds=site_settings.get("password_reset_mail_interval")
     )
     recent = _tokens_of(user).filter(model.PasswordResetToken.creation_time > since)
     return db.session.query(recent.exists()).scalar()

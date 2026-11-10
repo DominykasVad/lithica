@@ -96,3 +96,18 @@ def shipped_config(data_dir: str, **overrides: Any) -> dict[str, Any]:
         }
         | overrides
     )
+
+
+def enabled_config(overrides: dict[str, Any]) -> dict[str, Any]:
+    """A complete behavior-test site, with optional features enabled.
+
+    Any: YAML configuration contains heterogeneous values. Overrides replace
+    whole entries (including privileges), as config_injector always did.
+    """
+    from lithica.func import site_settings
+
+    values: dict[str, Any] = {
+        "features": dict.fromkeys(site_settings.FEATURES, True)
+    } | overrides
+    data_dir = values.pop("data_dir", "")
+    return shipped_config(data_dir, **values)

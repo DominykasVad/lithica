@@ -14,6 +14,7 @@ database, so the server needs none.
 
 import resource
 import sys
+from unittest.mock import patch
 
 from lithica import config
 
@@ -47,7 +48,11 @@ def main(port: int, data_dir: str) -> None:
     app.dependency_overrides[dependencies.get_user] = administrator
     app.router.routes.insert(0, Route("/_peak_rss", peak_rss))
     # no lifespan: no configuration check, no background work
-    uvicorn.run(app, host="127.0.0.1", port=port, log_level="warning", lifespan="off")
+    # Isolate the upload-memory measurement from database-backed settings.
+    with patch("lithica.func.site_settings.stored", return_value={}):
+        uvicorn.run(
+            app, host="127.0.0.1", port=port, log_level="warning", lifespan="off"
+        )
 
 
 if __name__ == "__main__":

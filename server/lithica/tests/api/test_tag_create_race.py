@@ -12,32 +12,35 @@ import sqlalchemy.exc as sa_exc
 from lithica import db, model
 from lithica.app import app as lithica_app
 from lithica.func import tags
+from lithica.tests.api.http import enabled_config
 
 
 @pytest.fixture
 def site(config_injector, tmpdir):
     config_injector(
-        {
-            "data_dir": str(tmpdir.mkdir("data")),
-            "data_url": "http://example.com/data/",
-            "secret": "test",
-            "allow_broken_uploads": False,
-            "delete_source_files": True,
-            "thumbnails": {
-                "post_width": 300,
-                "post_height": 300,
-                "avatar_width": 30,
-                "avatar_height": 30,
-            },
-            "convert": {"gif": {"to_mp4": False, "to_webm": False}},
-            "tag_name_regex": r"^\S+$",
-            "webhooks": [],
-            "privileges": {
-                "posts:create:anonymous": model.User.RANK_ANONYMOUS,
-                "tags:create": model.User.RANK_ANONYMOUS,
-                "uploads:use_downloader": model.User.RANK_ADMINISTRATOR,
-            },
-        }
+        enabled_config(
+            {
+                "data_dir": str(tmpdir.mkdir("data")),
+                "data_url": "http://example.com/data/",
+                "secret": "test",
+                "allow_broken_uploads": False,
+                "delete_source_files": True,
+                "thumbnails": {
+                    "post_width": 300,
+                    "post_height": 300,
+                    "avatar_width": 30,
+                    "avatar_height": 30,
+                },
+                "convert": {"gif": {"to_mp4": False, "to_webm": False}},
+                "tag_name_regex": r"^\S+$",
+                "webhooks": [],
+                "privileges": {
+                    "posts:create:anonymous": model.User.RANK_ANONYMOUS,
+                    "tags:create": model.User.RANK_ANONYMOUS,
+                    "uploads:use_downloader": model.User.RANK_ADMINISTRATOR,
+                },
+            }
+        )
     )
 
 

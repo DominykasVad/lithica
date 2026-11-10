@@ -6,19 +6,21 @@ import pytest
 from lithica import errors, model
 from lithica.api import resources
 from lithica.func import file_uploads, net
-from lithica.tests.api.http import assert_error, assert_fits, ok
+from lithica.tests.api.http import assert_error, assert_fits, enabled_config, ok
 
 
 @pytest.fixture(autouse=True)
 def inject_config(config_injector, tmpdir):
     config_injector(
-        {
-            "data_dir": str(tmpdir),
-            "privileges": {
-                "uploads:create": model.User.RANK_REGULAR,
-                "uploads:use_downloader": model.User.RANK_POWER,
-            },
-        }
+        enabled_config(
+            {
+                "data_dir": str(tmpdir),
+                "privileges": {
+                    "uploads:create": model.User.RANK_REGULAR,
+                    "uploads:use_downloader": model.User.RANK_POWER,
+                },
+            }
+        )
     )
 
 

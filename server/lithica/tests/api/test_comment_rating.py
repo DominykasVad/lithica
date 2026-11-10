@@ -4,12 +4,14 @@ import pytest
 
 from lithica import db, errors, model
 from lithica.func import comments
-from lithica.tests.api.http import assert_error, ok
+from lithica.tests.api.http import assert_error, enabled_config, ok
 
 
 @pytest.fixture(autouse=True)
 def inject_config(config_injector):
-    config_injector({"privileges": {"comments:score": model.User.RANK_REGULAR}})
+    config_injector(
+        enabled_config({"privileges": {"comments:score": model.User.RANK_REGULAR}})
+    )
 
 
 def test_simple_rating(user_factory, comment_factory, client, fake_datetime):

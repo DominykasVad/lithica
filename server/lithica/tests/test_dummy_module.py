@@ -20,7 +20,7 @@ from PIL import Image, PngImagePlugin
 from lithica import db, errors, model, registry
 from lithica.app import create_app
 from lithica.func import file_types, posts
-from lithica.tests.api.http import assert_error, ok
+from lithica.tests.api.http import assert_error, enabled_config, ok
 from lithica.tests.conftest import ApiClient
 from lithica.tests.fixtures.modules import dummy
 
@@ -89,6 +89,7 @@ def site(config_injector, tmpdir, monkeypatch, tag_category_factory, user_factor
             "users:edit:any:email": model.User.RANK_MODERATOR,
         },
     }
+    settings = enabled_config(settings)
     config_injector(settings)
     db.session.add_all(
         [

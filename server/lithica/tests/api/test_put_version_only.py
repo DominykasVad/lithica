@@ -28,7 +28,7 @@ from fastapi.testclient import TestClient
 
 from lithica import db, errors, model, registry
 from lithica.app import create_app
-from lithica.func import auth, user_tokens, util
+from lithica.func import auth, site_settings, user_tokens, util
 from lithica.tests.api.http import assert_error, shipped_config
 from lithica.tests.conftest import get_unique_name
 
@@ -227,7 +227,12 @@ class Entry:
 
 # every PUT route of the application (without the trailing slash, which each
 # also answers to, and without a path converter)
+def _make_site_settings() -> tuple[str, Any]:
+    return "/site-settings", db.session.get(model.SiteSettingsVersion, 1)
+
+
 RESOURCES: dict[str, Entry] = {
+    "/site-settings": Entry(_make_site_settings, {"values": {}}),
     "/post/{post_id}": Entry(_make_post),
     "/post/{post_id}/external-ids": Entry(_make_external_ids, {"externalIds": []}),
     "/typed-relation/{relation_id}": Entry(_make_typed_relation, {"label": None}),
@@ -284,7 +289,9 @@ def _state(cls: type, key: Any) -> dict[str, Any]:
 
 @pytest.fixture
 def site(config_injector, tmpdir, committing_session) -> dict[str, Any]:
-    config_injector(shipped_config(str(tmpdir.mkdir("data"))))
+    settings = shipped_config(str(tmpdir.mkdir("data")))
+    settings["features"] = dict.fromkeys(site_settings.FEATURES, True)
+    config_injector(settings)
     registry.use(registry.available())
     with db.session_scope():
         category = model.TagCategory("default")

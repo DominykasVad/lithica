@@ -12,7 +12,7 @@ from typing import Any
 import sqlalchemy as sa
 
 from lithica import config, db, errors, model
-from lithica.func import auth, posts, users, util, visibility
+from lithica.func import auth, posts, site_settings, users, util, visibility
 
 
 def derive_token(salt: bytes) -> str:
@@ -25,7 +25,7 @@ def derive_token(salt: bytes) -> str:
 def create(
     post: model.Post, user: model.User, note: str | None, expires_at: str | None
 ) -> model.ShareLink:
-    if visibility.is_nsfw(post) and not config.config.get("share_links_nsfw", False):
+    if visibility.is_nsfw(post) and not site_settings.get("share_links_nsfw"):
         raise errors.ValidationError("Share links for NSFW posts are disabled.")
     if note is not None and len(note) > 128:
         raise errors.ValidationError(
@@ -118,7 +118,7 @@ def delivery(token: str) -> tuple[str, str]:
         ).first()
         is not None
     )
-    if nsfw and not config.config.get("share_links_nsfw", False):
+    if nsfw and not site_settings.get("share_links_nsfw"):
         raise missing()
     # Transient object computes the canonical path without loading an entity.
     post = model.Post(post_id=row.post_id, mime_type=row.mime_type)

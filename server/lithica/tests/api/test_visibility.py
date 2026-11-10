@@ -23,7 +23,7 @@ import yaml
 from lithica import config, db, model, registry
 from lithica.api.post_api import _search_executor
 from lithica.app import create_app
-from lithica.func import auth, posts, snapshots, util, visibility
+from lithica.func import auth, posts, site_settings, snapshots, util, visibility
 from lithica.tests.conftest import ApiClient
 from lithica.tests.modules import cards
 
@@ -55,6 +55,7 @@ def start(config_injector, tmpdir, tag_category_factory, read_asset):
             defaults
             | {
                 "modules": ["cards"],
+                "features": dict.fromkeys(site_settings.FEATURES, True),
                 "visibility": visibility,
                 "nsfw_tag": "nsfw",
                 "data_dir": str(tmpdir.mkdir("data")),
@@ -282,6 +283,7 @@ def _gets(site: Site) -> dict[str, Sequence[tuple[str, Mapping[str, Any], bool |
         "GET /user/{user_name}/share-links": [
             ("/user/the_admin/share-links", {}, False)
         ],
+        "GET /site-settings": [("/site-settings", {}, False)],
         "GET /info": [("/info", {}, False)],
         "GET /external-id": [
             ("/external-id", {"host": "hidden-home", "id": "Hidden Mixed /: ID"}, True)
@@ -351,6 +353,7 @@ def _writes(site: Site, read_asset: Any) -> dict[str, list[dict[str, Any]]]:
     merge = {"removeVersion": 1, "mergeToVersion": 1, "replaceContent": False}
     hidden_posts = [("/post/%d" % post_id) for post_id in HIDDEN]
     return {
+        "PUT /site-settings": [{"body": {"version": 1, "values": {}}}],
         "POST /post/{post_id}/share-links": [
             {"path": f"/post/{h}/share-links", "body": {}, "hidden": True}
             for h in HIDDEN

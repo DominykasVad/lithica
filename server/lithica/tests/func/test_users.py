@@ -5,6 +5,7 @@ import pytest
 
 from lithica import db, errors, model
 from lithica.func import auth, files, users, util
+from lithica.tests.api.http import enabled_config
 
 EMPTY_PIXEL = (
     b"\x47\x49\x46\x38\x39\x61\x01\x00\x01\x00\x80\x01\x00\x00\x00\x00"
@@ -60,10 +61,12 @@ def test_get_avatar_url(
     user_name, user_email, avatar_style, expected_url, config_injector
 ):
     config_injector(
-        {
-            "data_url": "http://example.com/",
-            "thumbnails": {"avatar_width": 100},
-        }
+        enabled_config(
+            {
+                "data_url": "http://example.com/",
+                "thumbnails": {"avatar_width": 100},
+            }
+        )
     )
     user = model.User()
     user.name = user_name
@@ -246,7 +249,7 @@ def test_create_user_for_first_user(fake_datetime):
 
 
 def test_create_user_for_subsequent_users(user_factory, config_injector):
-    config_injector({"default_rank": "regular"})
+    config_injector(enabled_config({"default_rank": "regular"}))
     db.session.add(user_factory())
     db.session.flush()
     with (
@@ -271,14 +274,14 @@ def test_update_user_name_with_too_long_string(user_factory):
 
 
 def test_update_user_name_with_invalid_name(user_factory, config_injector):
-    config_injector({"user_name_regex": "^[a-z]+$"})
+    config_injector(enabled_config({"user_name_regex": "^[a-z]+$"}))
     user = user_factory()
     with pytest.raises(users.InvalidUserNameError):
         users.update_user_name(user, "0")
 
 
 def test_update_user_name_with_duplicate_name(user_factory, config_injector):
-    config_injector({"user_name_regex": "^[a-z]+$"})
+    config_injector(enabled_config({"user_name_regex": "^[a-z]+$"}))
     user = user_factory()
     existing_user = user_factory(name="dummy")
     db.session.add(existing_user)
@@ -288,7 +291,7 @@ def test_update_user_name_with_duplicate_name(user_factory, config_injector):
 
 
 def test_update_user_name_reusing_own_name(user_factory, config_injector):
-    config_injector({"user_name_regex": "^[a-z]+$"})
+    config_injector(enabled_config({"user_name_regex": "^[a-z]+$"}))
     user = user_factory(name="dummy")
     db.session.add(user)
     db.session.flush()
@@ -300,7 +303,7 @@ def test_update_user_name_reusing_own_name(user_factory, config_injector):
 
 
 def test_update_user_name_for_new_user(user_factory, config_injector):
-    config_injector({"user_name_regex": "^[a-z]+$"})
+    config_injector(enabled_config({"user_name_regex": "^[a-z]+$"}))
     user = user_factory()
     with patch("lithica.func.files.has"):
         files.has.return_value = False
@@ -309,7 +312,7 @@ def test_update_user_name_for_new_user(user_factory, config_injector):
 
 
 def test_update_user_name_moves_avatar(user_factory, config_injector):
-    config_injector({"user_name_regex": "^[a-z]+$"})
+    config_injector(enabled_config({"user_name_regex": "^[a-z]+$"}))
     user = user_factory(name="old")
     with patch("lithica.func.files.has"), patch("lithica.func.files.move"):
         files.has.return_value = True
@@ -324,14 +327,14 @@ def test_update_user_password_with_empty_string(user_factory):
 
 
 def test_update_user_password_with_invalid_string(user_factory, config_injector):
-    config_injector({"password_regex": "^[a-z]+$"})
+    config_injector(enabled_config({"password_regex": "^[a-z]+$"}))
     user = user_factory()
     with pytest.raises(users.InvalidPasswordError):
         users.update_user_password(user, "0")
 
 
 def test_update_user_password(user_factory, config_injector):
-    config_injector({"password_regex": "^[a-z]+$"})
+    config_injector(enabled_config({"password_regex": "^[a-z]+$"}))
     user = user_factory()
     with (
         patch("lithica.func.auth.create_password"),
@@ -444,7 +447,9 @@ def test_update_user_avatar_to_previous_manual(user_factory):
 
 
 def test_update_user_avatar_to_new_manual(user_factory, config_injector):
-    config_injector({"thumbnails": {"avatar_width": 500, "avatar_height": 500}})
+    config_injector(
+        enabled_config({"thumbnails": {"avatar_width": 500, "avatar_height": 500}})
+    )
     user = user_factory()
     with patch("lithica.func.files.save"):
         users.update_user_avatar(user, "manual", EMPTY_PIXEL)

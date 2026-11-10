@@ -4,26 +4,28 @@ import pytest
 
 from lithica import db, errors, model
 from lithica.func import users
-from lithica.tests.api.http import assert_error, ok
+from lithica.tests.api.http import assert_error, enabled_config, ok
 
 
 @pytest.fixture(autouse=True)
 def inject_config(config_injector):
     config_injector(
-        {
-            "privileges": {
-                "users:edit:self:name": model.User.RANK_REGULAR,
-                "users:edit:self:pass": model.User.RANK_REGULAR,
-                "users:edit:self:email": model.User.RANK_REGULAR,
-                "users:edit:self:rank": model.User.RANK_MODERATOR,
-                "users:edit:self:avatar": model.User.RANK_MODERATOR,
-                "users:edit:any:name": model.User.RANK_MODERATOR,
-                "users:edit:any:pass": model.User.RANK_MODERATOR,
-                "users:edit:any:email": model.User.RANK_MODERATOR,
-                "users:edit:any:rank": model.User.RANK_ADMINISTRATOR,
-                "users:edit:any:avatar": model.User.RANK_ADMINISTRATOR,
-            },
-        }
+        enabled_config(
+            {
+                "privileges": {
+                    "users:edit:self:name": model.User.RANK_REGULAR,
+                    "users:edit:self:pass": model.User.RANK_REGULAR,
+                    "users:edit:self:email": model.User.RANK_REGULAR,
+                    "users:edit:self:rank": model.User.RANK_MODERATOR,
+                    "users:edit:self:avatar": model.User.RANK_MODERATOR,
+                    "users:edit:any:name": model.User.RANK_MODERATOR,
+                    "users:edit:any:pass": model.User.RANK_MODERATOR,
+                    "users:edit:any:email": model.User.RANK_MODERATOR,
+                    "users:edit:any:rank": model.User.RANK_ADMINISTRATOR,
+                    "users:edit:any:avatar": model.User.RANK_ADMINISTRATOR,
+                },
+            }
+        )
     )
 
 

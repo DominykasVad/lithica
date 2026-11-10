@@ -5,12 +5,14 @@ import pytest
 from lithica import db
 from lithica.api import resources
 from lithica.func import user_tokens, users
-from lithica.tests.api.http import assert_fits, ok
+from lithica.tests.api.http import assert_fits, enabled_config, ok
 
 
 @pytest.fixture(autouse=True)
 def inject_config(config_injector):
-    config_injector({"privileges": {"user_tokens:list:self": "regular"}})
+    config_injector(
+        enabled_config({"privileges": {"user_tokens:list:self": "regular"}})
+    )
 
 
 def test_retrieving_user_tokens(user_token_factory, client, fake_datetime):
@@ -41,10 +43,12 @@ def test_user_token_fits_its_response_model(
     user_token_factory, client, config_injector
 ):
     config_injector(
-        {
-            "thumbnails": {"avatar_width": 30, "avatar_height": 30},
-            "privileges": {"user_tokens:list:self": "regular"},
-        }
+        enabled_config(
+            {
+                "thumbnails": {"avatar_width": 30, "avatar_height": 30},
+                "privileges": {"user_tokens:list:self": "regular"},
+            }
+        )
     )
     user_token = user_token_factory()
     db.session.add(user_token)

@@ -16,6 +16,7 @@ import pytest
 
 from lithica import errors, registry
 from lithica.func import net
+from lithica.tests.api.http import enabled_config
 
 PUBLIC_IP = "93.184.216.34"
 OTHER_PUBLIC_IP = "151.101.1.69"
@@ -119,11 +120,13 @@ def network(web):
 @pytest.fixture(autouse=True)
 def inject_config(config_injector):
     config_injector(
-        {
-            "user_agent": None,
-            "max_dl_filesize": 1.0e6,
-            "allow_private_downloads": False,
-        }
+        enabled_config(
+            {
+                "user_agent": None,
+                "max_dl_filesize": 1.0e6,
+                "allow_private_downloads": False,
+            }
+        )
     )
 
 
@@ -429,7 +432,13 @@ def test_http_error_of_a_public_host_is_reported(web, network):
 
 def test_download_too_large(web, network, config_injector):
     config_injector(
-        {"user_agent": None, "max_dl_filesize": 10, "allow_private_downloads": False}
+        enabled_config(
+            {
+                "user_agent": None,
+                "max_dl_filesize": 10,
+                "allow_private_downloads": False,
+            }
+        )
     )
     network.hosts["public.example"] = [PUBLIC_IP]
     web.routes["/big"] = (200, {}, b"x" * 100)
@@ -453,7 +462,13 @@ def test_environment_proxy_is_not_used(web, network, monkeypatch):
 @pytest.fixture
 def allow_private(config_injector):
     config_injector(
-        {"user_agent": None, "max_dl_filesize": 1.0e6, "allow_private_downloads": True}
+        enabled_config(
+            {
+                "user_agent": None,
+                "max_dl_filesize": 1.0e6,
+                "allow_private_downloads": True,
+            }
+        )
     )
 
 
@@ -475,7 +490,7 @@ def test_private_redirect_can_be_allowed(web, allow_private):
 
 
 def test_switch_is_off_by_default(web, config_injector):
-    config_injector({"user_agent": None, "max_dl_filesize": 1.0e6})
+    config_injector(enabled_config({"user_agent": None, "max_dl_filesize": 1.0e6}))
     web.routes["/file.png"] = (200, {}, b"content")
     with pytest.raises(net.DownloadError) as excinfo:
         net.download("http://127.0.0.1:%d/file.png" % web.port)

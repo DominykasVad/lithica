@@ -10,6 +10,7 @@ from lithica.api.dependencies import (
     fields_of,
     read_body,
     require,
+    require_feature,
 )
 from lithica.api.dependencies import search as run_search
 from lithica.api.routing import ApiRouter
@@ -27,6 +28,7 @@ from lithica.func import auth, comments, posts, scores, util, versions
 CheckedFields = Annotated[list[str], Depends(fields_of(comments.CommentSerializer))]
 
 router = ApiRouter(tags=["Comments"])
+router.dependencies.append(Depends(require_feature("comments")))
 
 _search_executor = search.Executor(search.configs.CommentSearchConfig())
 
@@ -204,6 +206,7 @@ def delete_comment(
 
 @router.put(
     "/comment/{comment_id}/score",
+    dependencies=[Depends(require_feature("scores"))],
     response_model=resources.Comment,
     summary="Rate a comment",
     openapi_extra=request_body(ScoreUpdate),
@@ -233,6 +236,7 @@ def set_comment_score(
 
 @router.delete(
     "/comment/{comment_id}/score",
+    dependencies=[Depends(require_feature("scores"))],
     response_model=resources.Comment,
     summary="Take back the rating of a comment",
 )

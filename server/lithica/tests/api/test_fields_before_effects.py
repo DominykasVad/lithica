@@ -22,38 +22,40 @@ from lithica.api import (
 )
 from lithica.func import posts
 from lithica.func.serialization import BaseSerializer
-from lithica.tests.api.http import assert_error, ok
+from lithica.tests.api.http import assert_error, enabled_config, ok
 
 
 @pytest.fixture
 def data_dir(config_injector, tmpdir, tag_category_factory):
     path = str(tmpdir.mkdir("data"))
     config_injector(
-        {
-            "data_dir": path,
-            "data_url": "http://example.com/data/",
-            "secret": "test",
-            "allow_broken_uploads": False,
-            "delete_source_files": True,
-            "thumbnails": {
-                "post_width": 300,
-                "post_height": 300,
-                "avatar_width": 30,
-                "avatar_height": 30,
-            },
-            "convert": {"gif": {"to_mp4": False, "to_webm": False}},
-            "tag_name_regex": r"^\S+$",
-            "webhooks": [],
-            "privileges": {
-                "posts:create:identified": model.User.RANK_REGULAR,
-                "posts:edit:tags": model.User.RANK_REGULAR,
-                "posts:edit:safety": model.User.RANK_REGULAR,
-                "posts:view": model.User.RANK_REGULAR,
-                "posts:merge": model.User.RANK_REGULAR,
-                "tags:create": model.User.RANK_REGULAR,
-                "uploads:use_downloader": model.User.RANK_ADMINISTRATOR,
-            },
-        }
+        enabled_config(
+            {
+                "data_dir": path,
+                "data_url": "http://example.com/data/",
+                "secret": "test",
+                "allow_broken_uploads": False,
+                "delete_source_files": True,
+                "thumbnails": {
+                    "post_width": 300,
+                    "post_height": 300,
+                    "avatar_width": 30,
+                    "avatar_height": 30,
+                },
+                "convert": {"gif": {"to_mp4": False, "to_webm": False}},
+                "tag_name_regex": r"^\S+$",
+                "webhooks": [],
+                "privileges": {
+                    "posts:create:identified": model.User.RANK_REGULAR,
+                    "posts:edit:tags": model.User.RANK_REGULAR,
+                    "posts:edit:safety": model.User.RANK_REGULAR,
+                    "posts:view": model.User.RANK_REGULAR,
+                    "posts:merge": model.User.RANK_REGULAR,
+                    "tags:create": model.User.RANK_REGULAR,
+                    "uploads:use_downloader": model.User.RANK_ADMINISTRATOR,
+                },
+            }
+        )
     )
     db.session.add(tag_category_factory(name="default", default=True))
     db.session.flush()

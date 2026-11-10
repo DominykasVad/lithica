@@ -6,6 +6,7 @@ import pytest
 
 from lithica.func import content as content_module
 from lithica.func.content import Content
+from lithica.tests.api.http import enabled_config
 
 
 def _temporary(data: bytes) -> Content:
@@ -180,7 +181,7 @@ def test_file_is_read_a_block_at_a_time(monkeypatch):
 @pytest.fixture
 def data_dir(config_injector, tmpdir):
     path = str(tmpdir.mkdir("data"))
-    config_injector({"data_dir": path})
+    config_injector(enabled_config({"data_dir": path}))
     return path
 
 
@@ -412,7 +413,7 @@ def test_cleanup_only_looks_at_its_own_folder(data_dir):
 def test_cleanup_never_sweeps_the_system_temporary_directory(config_injector, tmpdir):
     import tempfile
 
-    config_injector({})
+    config_injector(enabled_config({}))
     path = os.path.join(tempfile.gettempdir(), "lithica-test-not-ours")
     with open(path, "wb"):
         pass

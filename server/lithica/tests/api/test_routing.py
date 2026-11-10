@@ -21,6 +21,7 @@ from lithica.api.routing import ApiRouter
 from lithica.api.schemas import Int, RequestModel, ResponseModel, Str, request_body
 from lithica.func import content as content_module
 from lithica.func import file_uploads, net
+from lithica.tests.api.http import enabled_config
 
 BOUNDARY = "----lithicatestboundary"
 
@@ -446,7 +447,7 @@ def test_get_file_from_url_with_the_video_downloader():
 
 
 def test_get_file_from_token(tmpdir, config_injector):
-    config_injector({"data_dir": str(tmpdir)})
+    config_injector(enabled_config({"data_dir": str(tmpdir)}))
     token = file_uploads.save(b"uploaded earlier")
     data = dependencies.RequestData({"keyToken": token}, {})
     assert data.has_file("key")
@@ -458,7 +459,7 @@ def test_get_file_from_token(tmpdir, config_injector):
 
 
 def test_get_file_from_expired_token(tmpdir, config_injector):
-    config_injector({"data_dir": str(tmpdir)})
+    config_injector(enabled_config({"data_dir": str(tmpdir)}))
     data = dependencies.RequestData({"keyToken": "gone"}, {})
     with pytest.raises(errors.MissingRequiredFileError) as ex:
         data.get_file("key")
@@ -485,7 +486,7 @@ def _streamed(body: bytes, piece: int = 65536):
 @pytest.fixture
 def temporary_dir(config_injector, tmpdir):
     """A data directory for the test; gives its folder for temporary files."""
-    config_injector({"data_dir": str(tmpdir.mkdir("data"))})
+    config_injector(enabled_config({"data_dir": str(tmpdir.mkdir("data"))}))
     return content_module.temporary_dir()
 
 
@@ -600,7 +601,7 @@ def test_downloaded_file_is_removed_afterwards(client, temporary_dir):
 @pytest.fixture
 def upload_limit(config_injector):
     def set_limit(limit):
-        config_injector({"max_upload_size": limit})
+        config_injector(enabled_config({"max_upload_size": limit}))
 
     return set_limit
 
@@ -661,9 +662,9 @@ def test_json_body_over_the_limit_is_refused(client, upload_limit):
 
 
 def test_default_limit_applies_without_the_setting(client, config_injector):
-    config_injector({})
+    config_injector(enabled_config({}))
     assert dependencies.max_upload_size() == 1024 * 1024 * 1024
-    config_injector({"max_upload_size": None})
+    config_injector(enabled_config({"max_upload_size": None}))
     assert dependencies.max_upload_size() == 1024 * 1024 * 1024
     assert client.post("/things", json={"safety": "safe"}).status_code == 200
 

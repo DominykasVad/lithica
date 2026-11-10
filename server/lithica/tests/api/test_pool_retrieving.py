@@ -4,18 +4,20 @@ import pytest
 
 from lithica import db, errors, model
 from lithica.func import pools
-from lithica.tests.api.http import assert_error, ok
+from lithica.tests.api.http import assert_error, enabled_config, ok
 
 
 @pytest.fixture(autouse=True)
 def inject_config(config_injector):
     config_injector(
-        {
-            "privileges": {
-                "pools:list": model.User.RANK_REGULAR,
-                "pools:view": model.User.RANK_REGULAR,
-            },
-        }
+        enabled_config(
+            {
+                "privileges": {
+                    "pools:list": model.User.RANK_REGULAR,
+                    "pools:view": model.User.RANK_REGULAR,
+                },
+            }
+        )
     )
 
 
@@ -85,16 +87,18 @@ def test_pool_fits_its_response_model(
     from lithica.tests.api.http import assert_fits
 
     config_injector(
-        {
-            "secret": "test",
-            "data_url": "http://example.com/data/",
-            "privileges": {
-                "pools:list": model.User.RANK_REGULAR,
-                "pools:view": model.User.RANK_REGULAR,
-                "pool_categories:view": model.User.RANK_REGULAR,
-                "pool_categories:list": model.User.RANK_REGULAR,
-            },
-        }
+        enabled_config(
+            {
+                "secret": "test",
+                "data_url": "http://example.com/data/",
+                "privileges": {
+                    "pools:list": model.User.RANK_REGULAR,
+                    "pools:view": model.User.RANK_REGULAR,
+                    "pool_categories:view": model.User.RANK_REGULAR,
+                    "pool_categories:list": model.User.RANK_REGULAR,
+                },
+            }
+        )
     )
     post = post_factory()
     pool = pool_factory(id=1, names=["pool", "alias"], description="about")

@@ -6,6 +6,7 @@ import pytest
 from lithica import model, registry
 from lithica.func import content as content_module
 from lithica.func import post_content
+from lithica.tests.api.http import enabled_config
 
 PNG = "image/png"
 
@@ -390,7 +391,7 @@ def _post_with(*contents):
 
 @pytest.fixture
 def tag_rule(config_injector):
-    config_injector({"tag_name_regex": r"^\S+$"})
+    config_injector(enabled_config({"tag_name_regex": r"^\S+$"}))
 
 
 def test_auto_tags_of_no_module(tag_rule):
@@ -470,7 +471,7 @@ def test_auto_tags_keep_their_order_and_come_once(tag_rule):
 
 
 def test_auto_tag_names_the_site_refuses_are_left_out(config_injector):
-    config_injector({"tag_name_regex": "^[a-z_]+$"})
+    config_injector(enabled_config({"tag_name_regex": "^[a-z_]+$"}))
     names = ["fine", "has space", "", "UPPER", "also_fine", "x" * 1000, ".", "a\nb"]
     registry.use([_tagging_module(lambda contents: {"meta": names})])
     assert post_content.get_auto_tags(_post_with(_found())) == [

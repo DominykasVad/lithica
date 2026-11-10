@@ -27,7 +27,8 @@ import sqlalchemy as sa
 import sqlalchemy.event as sa_event
 import sqlalchemy.orm as sa_orm
 
-from lithica import config, db, model
+from lithica import db, model
+from lithica.func import site_settings
 
 OPEN = "open"
 NSFW_LOGIN = "nsfw-login"
@@ -41,21 +42,20 @@ ALL_POSTS = "lithica_all_posts"
 
 _REQUEST = "visibility.request"
 _SEES_ALL = "visibility.sees_all"
-_HIDING_TAGS = "visibility.hiding_tags"
 _WORKING = "visibility.working"
 
 
 def mode() -> str:
-    return config.config.get("visibility") or OPEN
+    return site_settings.get("visibility") or OPEN
 
 
 def nsfw_tag() -> str:
-    return config.config.get("nsfw_tag") or "nsfw"
+    return site_settings.get("nsfw_tag") or "nsfw"
 
 
 def nsfw_hides_names() -> bool:
     """Whether clients hide a NSFW card's name and creator as its picture."""
-    return config.config.get("nsfw_hide_names") is True
+    return site_settings.get("nsfw_hide_names") is True
 
 
 def begin_request() -> None:
@@ -74,10 +74,10 @@ def set_viewer(user: model.User) -> None:
 
 def hides_nsfw() -> bool:
     """Whether NSFW posts are left out of what this unit of work sees."""
-    if mode() != NSFW_LOGIN:
-        return False
     values = db.scope_values()
     if values is None or not values.get(_REQUEST):
+        return False
+    if mode() != NSFW_LOGIN:
         return False
     return not values.get(_SEES_ALL, False)
 
@@ -114,8 +114,8 @@ def hiding_tag_ids() -> frozenset[int]:
     implication changed is seen by the next one).
     """
     values = db.scope_values()
-    if values is not None and _HIDING_TAGS in values:
-        return values[_HIDING_TAGS]
+    if values is not None and site_settings.HIDING_TAGS_SCOPE_KEY in values:
+        return values[site_settings.HIDING_TAGS_SCOPE_KEY]
     if values is not None:
         values[_WORKING] = True
     try:
@@ -124,7 +124,7 @@ def hiding_tag_ids() -> frozenset[int]:
         if values is not None:
             values.pop(_WORKING, None)
     if values is not None:
-        values[_HIDING_TAGS] = ids
+        values[site_settings.HIDING_TAGS_SCOPE_KEY] = ids
     return ids
 
 

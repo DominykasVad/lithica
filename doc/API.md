@@ -1793,3 +1793,42 @@ access to `/_share/` and applies the upload security policy. Caches may keep
 the file but must ask the server again each time (`Cache-Control: private,
 no-cache`), so a revoked link stops at once. Share request tokens are omitted
 from access logs.
+
+
+## Site settings
+
+`GET /site-settings` needs `site_settings:view`; `PUT /site-settings` needs
+`site_settings:edit`. Both default to administrator and are unavailable to app
+tokens. The response contains `version`, `fileLinksSigned` (a boolean, never a
+secret), and `settings`: name, type, value, startingValue, stored, runtime,
+choices (for choices) and min (for bounded integers).
+
+config.yaml supplies starting values. Database overrides win, including after
+editing config.yaml or restarting. Runtime settings can change immediately;
+restart settings are listed read-only and must be set in config.yaml.
+
+PUT accepts `{version, values: {name: value}}`, changing only named settings in
+one transaction. A stale shared version answers 409; unknown, invalid or
+restart-only names answer 400. A no-op does not bump the version. Send null to
+delete an override and restore the starting value. `lithica-admin settings list`
+shows both values; `settings reset <name>...` or `settings reset --all` removes
+overrides from the shell.
+
+
+### Feature switches
+
+`GET /info` includes `features` with boolean `pools`, `favorites`, `scores`,
+`notes` and `comments`. Comments and scores default to off; the other three
+start on. A disabled feature's routes answer 404 `FeatureDisabledError`, naming
+it. Comment scores require both comments and scores. Updating a post with a
+notes key needs notes; creating a post with absent or empty notes still works.
+
+Fields belonging to an off feature are omitted even when explicitly requested
+with `fields=`. Clients should request only enabled fields. Its search filters,
+sorts and special tokens fail with `SearchError`, naming the feature, rather
+than ignoring the filter. `special:tumbleweed` needs comments, favorites and
+scores. Existing data stays; deletion and merges still clean up or move it.
+
+Pool snapshots in `GET /snapshots`, privileges in `/info` and counts in `/info`
+remain available regardless of switches. No tokens or sorts of user, tag or
+snapshot searches refer to these five features.

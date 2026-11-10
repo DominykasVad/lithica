@@ -5,7 +5,7 @@ import sqlalchemy as sa
 import sqlalchemy.orm as sa_orm
 
 from lithica import db, errors, model
-from lithica.func import scores, serialization, users, util
+from lithica.func import scores, serialization, site_settings, users, util
 
 
 class InvalidCommentIdError(errors.ValidationError):
@@ -26,6 +26,8 @@ class CommentSerializer(serialization.BaseSerializer):
     scores, and the requesting user's score), when given, are the scores of
     a page of comments loaded at once; without them each is asked for.
     """
+
+    feature_resource = "comment"
 
     def __init__(
         self,
@@ -141,7 +143,7 @@ def load_comment_scores(
     For these comments, at once: comment id -> the sum of its scores, and
     comment id -> the requesting user's score (absent: 0, for both).
     """
-    if not comment_ids:
+    if not comment_ids or not site_settings.enabled("scores"):
         return {}, {}
     score = model.CommentScore
     sums = db.session.execute(

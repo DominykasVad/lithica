@@ -16,7 +16,7 @@ import sqlalchemy.orm as sa_orm
 
 from lithica import db, model
 from lithica.app import create_app
-from lithica.func import user_tokens
+from lithica.func import site_settings, user_tokens
 from lithica.tests.api.http import ok
 from lithica.tests.conftest import ApiClient
 from lithica.tests.modules import cards
@@ -268,7 +268,12 @@ def every_field() -> list[str]:
 
 
 def config_overrides() -> dict[str, Any]:
-    return {"visibility": "nsfw-login", "nsfw_tag": NSFW, "modules": ["cards"]}
+    return {
+        "features": dict.fromkeys(site_settings.FEATURES, True),
+        "visibility": "nsfw-login",
+        "nsfw_tag": NSFW,
+        "modules": ["cards"],
+    }
 
 
 def header(name: str) -> dict[str, str]:

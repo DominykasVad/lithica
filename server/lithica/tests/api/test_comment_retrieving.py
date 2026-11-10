@@ -4,18 +4,20 @@ import pytest
 
 from lithica import db, errors, model
 from lithica.func import comments
-from lithica.tests.api.http import assert_error, ok
+from lithica.tests.api.http import assert_error, enabled_config, ok
 
 
 @pytest.fixture(autouse=True)
 def inject_config(config_injector):
     config_injector(
-        {
-            "privileges": {
-                "comments:list": model.User.RANK_REGULAR,
-                "comments:view": model.User.RANK_REGULAR,
-            },
-        }
+        enabled_config(
+            {
+                "privileges": {
+                    "comments:list": model.User.RANK_REGULAR,
+                    "comments:view": model.User.RANK_REGULAR,
+                },
+            }
+        )
     )
 
 
@@ -89,13 +91,15 @@ def test_comment_fits_its_response_model(
     from lithica.tests.api.http import assert_fits
 
     config_injector(
-        {
-            "thumbnails": {"avatar_width": 30, "avatar_height": 30},
-            "privileges": {
-                "comments:list": model.User.RANK_REGULAR,
-                "comments:view": model.User.RANK_REGULAR,
-            },
-        }
+        enabled_config(
+            {
+                "thumbnails": {"avatar_width": 30, "avatar_height": 30},
+                "privileges": {
+                    "comments:list": model.User.RANK_REGULAR,
+                    "comments:view": model.User.RANK_REGULAR,
+                },
+            }
+        )
     )
     author = user_factory(name="author", rank=model.User.RANK_REGULAR)
     comment = comment_factory(user=author, text="hello")

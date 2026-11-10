@@ -33,7 +33,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 from lithica import db, model, registry  # noqa: E402
 from lithica.api import dependencies, responses  # noqa: E402
 from lithica.app import app as lithica_app  # noqa: E402
-from lithica.func import auth, visibility  # noqa: E402
+from lithica.func import auth, site_settings, visibility  # noqa: E402
 
 
 @pytest.fixture(scope="session")
@@ -579,3 +579,13 @@ def read_asset():
             return handle.read()
 
     return get
+
+
+@pytest.fixture(autouse=True)
+def enabled_features_for_behavior_tests(monkeypatch):
+    """Existing behavior tests opt into optional features explicitly."""
+    monkeypatch.setitem(
+        config.config,
+        "features",
+        dict.fromkeys(site_settings.FEATURES, True),
+    )

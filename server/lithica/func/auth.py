@@ -7,7 +7,7 @@ from nacl import pwhash
 from nacl.exceptions import InvalidkeyError
 
 from lithica import config, db, errors, model
-from lithica.func import app_token_rights, util
+from lithica.func import app_token_rights, site_settings, util
 
 RANK_MAP: OrderedDict[str, str] = OrderedDict(
     [
@@ -117,7 +117,7 @@ def rank_grants(user: model.User, privilege_name: str) -> bool:
     assert privilege_name in config.config["privileges"]
     # a site that is for its users only: without logging in, nothing at all
     if (
-        config.config.get("visibility") == "login"
+        site_settings.get("visibility") == "login"
         and user.rank == model.User.RANK_ANONYMOUS
     ):
         return False

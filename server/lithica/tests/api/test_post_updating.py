@@ -5,27 +5,29 @@ import pytest
 
 from lithica import db, errors, model
 from lithica.func import net, posts, snapshots
-from lithica.tests.api.http import assert_error, ok
+from lithica.tests.api.http import assert_error, enabled_config, ok
 
 
 @pytest.fixture(autouse=True)
 def inject_config(config_injector):
     config_injector(
-        {
-            "privileges": {
-                "posts:edit:tags": model.User.RANK_REGULAR,
-                "posts:edit:content": model.User.RANK_REGULAR,
-                "posts:edit:safety": model.User.RANK_REGULAR,
-                "posts:edit:source": model.User.RANK_REGULAR,
-                "posts:edit:relations": model.User.RANK_REGULAR,
-                "posts:edit:notes": model.User.RANK_REGULAR,
-                "posts:edit:flags": model.User.RANK_REGULAR,
-                "posts:edit:thumbnail": model.User.RANK_REGULAR,
-                "tags:create": model.User.RANK_MODERATOR,
-                "uploads:use_downloader": model.User.RANK_REGULAR,
-            },
-            "allow_broken_uploads": False,
-        }
+        enabled_config(
+            {
+                "privileges": {
+                    "posts:edit:tags": model.User.RANK_REGULAR,
+                    "posts:edit:content": model.User.RANK_REGULAR,
+                    "posts:edit:safety": model.User.RANK_REGULAR,
+                    "posts:edit:source": model.User.RANK_REGULAR,
+                    "posts:edit:relations": model.User.RANK_REGULAR,
+                    "posts:edit:notes": model.User.RANK_REGULAR,
+                    "posts:edit:flags": model.User.RANK_REGULAR,
+                    "posts:edit:thumbnail": model.User.RANK_REGULAR,
+                    "tags:create": model.User.RANK_MODERATOR,
+                    "uploads:use_downloader": model.User.RANK_REGULAR,
+                },
+                "allow_broken_uploads": False,
+            }
+        )
     )
 
 

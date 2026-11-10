@@ -7,16 +7,19 @@ import pytest
 from lithica import errors
 from lithica.func import net
 from lithica.func.util import get_sha1
+from lithica.tests.api.http import enabled_config
 
 
 @pytest.fixture(autouse=True)
 def inject_config(tmpdir, config_injector):
     config_injector(
-        {
-            "user_agent": None,
-            "max_dl_filesize": 1.0e6,
-            "data_dir": str(tmpdir.mkdir("data")),
-        }
+        enabled_config(
+            {
+                "user_agent": None,
+                "max_dl_filesize": 1.0e6,
+                "data_dir": str(tmpdir.mkdir("data")),
+            }
+        )
     )
 
 
@@ -119,7 +122,7 @@ def test_bad_content_downlaod():
 
 
 def test_no_webhooks(config_injector):
-    config_injector({"webhooks": []})
+    config_injector(enabled_config({"webhooks": []}))
     res = net.post_to_webhooks(None)  # pyright: ignore[reportArgumentType] - the payload is not used
     assert len(res) == 0
 
@@ -144,12 +147,14 @@ def test_single_webhook(config_injector, webhook, status_code):
 )
 def test_multiple_webhooks(config_injector):
     config_injector(
-        {
-            "webhooks": [
-                "https://postman-echo.com/post",
-                "https://postman-echo.com/get",
-            ]
-        }
+        enabled_config(
+            {
+                "webhooks": [
+                    "https://postman-echo.com/post",
+                    "https://postman-echo.com/get",
+                ]
+            }
+        )
     )
     threads = net.post_to_webhooks({"test_arg": "test_value"})
     assert len(threads) == 2
@@ -185,7 +190,7 @@ def test_video_downloader_command():
 
 
 def test_video_downloader_passes_user_agent(config_injector):
-    config_injector({"user_agent": "agent with spaces; $(id)"})
+    config_injector(enabled_config({"user_agent": "agent with spaces; $(id)"}))
     with patch("subprocess.run") as run:
         run.return_value = _yt_dlp_result("http://example.com/video.mp4\n")
         net._get_yt_dlp_content_url("http://example.com/")

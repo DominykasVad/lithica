@@ -9,7 +9,7 @@ as required.
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import ConfigDict, Field
+from pydantic import ConfigDict, Field, JsonValue
 from pydantic.alias_generators import to_camel
 
 from lithica.api.schemas import ResponseModel, _nothing_is_required
@@ -347,7 +347,16 @@ class AcceptedType(Resource):
     )
 
 
+class Features(Resource):
+    pools: bool
+    favorites: bool
+    scores: bool
+    notes: bool
+    comments: bool
+
+
 class Info(Resource):
+    features: Features
     share_links_nsfw: bool
     typed_relation_types: list[TypedRelationType]
     post_kinds: list[str] = Field(
@@ -418,3 +427,20 @@ class ShareLink(Resource):
     expires_at: datetime | None
     expired: bool
     url: str
+
+
+class SiteSetting(Resource):
+    name: str
+    type: Literal["boolean", "integer", "string", "choice", "list"]
+    value: JsonValue
+    starting_value: JsonValue
+    stored: bool
+    runtime: bool
+    choices: list[str] | None = None
+    min: int | None = None
+
+
+class SiteSettings(Resource):
+    version: int
+    file_links_signed: bool
+    settings: list[SiteSetting]

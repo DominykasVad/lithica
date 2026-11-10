@@ -10,6 +10,7 @@ from lithica.api.dependencies import (
     fields_of,
     read_body,
     require,
+    require_feature,
 )
 from lithica.api.dependencies import search as run_search
 from lithica.api.routing import ApiRouter
@@ -30,6 +31,7 @@ from lithica.func import auth, pools, snapshots, util, versions
 CheckedFields = Annotated[list[str], Depends(fields_of(pools.PoolSerializer))]
 
 router = ApiRouter(tags=["Pools"])
+router.dependencies.append(Depends(require_feature("pools")))
 
 _search_executor = search.Executor(search.configs.PoolSearchConfig())
 
