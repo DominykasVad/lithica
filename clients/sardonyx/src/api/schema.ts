@@ -59,7 +59,10 @@ export interface paths {
          * List background jobs
          * @description List jobs newest first, without payloads, with status and type filters.
          *
-         *     Errors: 403 without jobs:list; 400 for an invalid status or paging value.
+         *     Errors:
+         *
+         *     - privileges are too low (403)
+         *     - status or paging values are invalid (400)
          */
         get: operations["get_jobs"];
         put?: never;
@@ -81,7 +84,10 @@ export interface paths {
          * View a background job
          * @description Read a job, including its payload.
          *
-         *     Errors: 403 without jobs:view; 404 when the job does not exist.
+         *     Errors:
+         *
+         *     - privileges are too low (403)
+         *     - the job does not exist (404)
          */
         get: operations["get_job"];
         put?: never;
@@ -2084,8 +2090,7 @@ export interface components {
             finishTime?: string | null;
             /** Lasterror */
             lastError?: string | null;
-            /** Userid */
-            userId?: number | null;
+            user?: components["schemas"]["MicroUser"] | null;
         };
         /** JobDetail */
         JobDetail: {
@@ -2122,8 +2127,7 @@ export interface components {
             finishTime?: string | null;
             /** Lasterror */
             lastError?: string | null;
-            /** Userid */
-            userId?: number | null;
+            user?: components["schemas"]["MicroUser"] | null;
             /** Payload */
             payload?: {
                 [key: string]: components["schemas"]["JsonValue"];

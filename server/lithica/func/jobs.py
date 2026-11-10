@@ -16,10 +16,10 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Query
 
 from lithica import config, db, errors, model, registry
-from lithica.func import util
+from lithica.func import users, util
 
 logger = logging.getLogger(__name__)
-ENGINE_JOB_TYPES: tuple[registry.JobType, ...] = ()
+CLAIM_BATCH_SIZE = 20
 STATUSES = ("queued", "running", "done", "failed")
 
 
@@ -27,7 +27,7 @@ def types() -> dict[str, registry.JobType]:
     return {
         item.name: item
         for item in [
-            *ENGINE_JOB_TYPES,
+            *registry.ENGINE_JOB_TYPES,
             *(item for module in registry.modules() for item in module.job_types),
         ]
     }
@@ -81,9 +81,14 @@ def _claim() -> tuple[int, str, int, datetime] | None:
             db.session.query(model.Job.id, model.Job.type)
             .filter(_eligible(now), model.Job.type.in_(known))
             .order_by(model.Job.run_after, model.Job.id)
+            .limit(CLAIM_BATCH_SIZE)
             .all()
         )
         for job_id, name in candidates:
+            # Some databases store timestamps only to whole-second precision.
+            lease_until = now.replace(microsecond=0) + timedelta(
+                seconds=known[name].lease_seconds
+            )
             # The predicate is repeated after any lock wait: only one worker wins.
             changed = (
                 db.session.query(model.Job)
@@ -92,8 +97,7 @@ def _claim() -> tuple[int, str, int, datetime] | None:
                     {
                         "status": "running",
                         "claimed_by": f"{socket.gethostname()}:{os.getpid()}",
-                        "lease_until": now
-                        + timedelta(seconds=known[name].lease_seconds),
+                        "lease_until": lease_until,
                         "attempts": model.Job.attempts + 1,
                         "start_time": now,
                     },
@@ -109,7 +113,7 @@ def _claim() -> tuple[int, str, int, datetime] | None:
                     job_id,
                     name,
                     attempt,
-                    now + timedelta(seconds=known[name].lease_seconds),
+                    lease_until,
                 )
             db.session.rollback()
     return None
@@ -284,7 +288,9 @@ def worker_loop(stop: threading.Event) -> None:
         stop.wait(config.config["jobs"]["poll_interval"])
 
 
-def serialize(job: model.Job, *, payload: bool = False) -> dict[str, object]:
+def serialize(
+    job: model.Job, viewer: model.User, *, payload: bool = False
+) -> dict[str, object]:
     result: dict[str, object] = {
         "id": job.id,
         "type": job.type,
@@ -298,7 +304,7 @@ def serialize(job: model.Job, *, payload: bool = False) -> dict[str, object]:
         "startTime": job.start_time,
         "finishTime": job.finish_time,
         "lastError": job.last_error,
-        "userId": job.user_id,
+        "user": users.serialize_micro_user(job.user, auth_user=viewer),
     }
     if payload:
         result["payload"] = job.payload

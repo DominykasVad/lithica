@@ -459,7 +459,7 @@ class Job(Resource):
     start_time: datetime | None
     finish_time: datetime | None
     last_error: str | None
-    user_id: int | None
+    user: MicroUser | None
 
 
 class JobDetail(Job):

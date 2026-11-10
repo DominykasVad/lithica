@@ -1,11 +1,15 @@
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 import sqlalchemy as sa
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from lithica.model.base import Base
 from lithica.model.types import json_type
 from lithica.registry import Payload
+
+if TYPE_CHECKING:
+    from lithica.model.user import User
 
 
 class Job(Base):
@@ -26,4 +30,5 @@ class Job(Base):
     user_id: Mapped[int | None] = mapped_column(
         sa.ForeignKey("user.id", ondelete="SET NULL")
     )
+    user: Mapped["User | None"] = relationship("User")
     __table_args__ = (sa.Index("ix_job_status_run_after", "status", "run_after"),)
