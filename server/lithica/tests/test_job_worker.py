@@ -43,3 +43,33 @@ def test_invalid_job_config(monkeypatch, values):
     monkeypatch.setitem(config.config, "jobs", values)
     with pytest.raises(errors.ConfigError, match="jobs requires"):
         config.validate()
+
+
+def test_shutdown_during_retention_does_not_claim(monkeypatch):
+    stop = threading.Event()
+    with (
+        patch.object(jobs, "retain", side_effect=lambda _: stop.set()),
+        patch.object(jobs, "work_once") as work,
+    ):
+        jobs.worker_loop(stop)
+    work.assert_not_called()
+
+
+def test_worker_recovers_and_waits_when_idle(monkeypatch):
+    from unittest.mock import Mock
+
+    stop = Mock()
+    stop.is_set.side_effect = [False, False, False, False, True]
+    monkeypatch.setitem(
+        config.config, "jobs", {"poll_interval": 5, "keep_done_days": 7}
+    )
+    with (
+        patch.object(jobs, "retain"),
+        patch.object(
+            jobs, "work_once", side_effect=[RuntimeError("database"), False]
+        ) as work,
+    ):
+        jobs.worker_loop(stop)
+    assert work.call_count == 2
+    assert stop.wait.call_count == 2
+    stop.wait.assert_called_with(5)

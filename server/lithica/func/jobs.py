@@ -71,7 +71,7 @@ def _eligible(now: datetime) -> sa.ColumnElement[bool]:
     )
 
 
-def _claim() -> tuple[int, str, int] | None:
+def _claim() -> tuple[int, str, int, datetime] | None:
     known = types()
     if not known:
         return None
@@ -105,7 +105,12 @@ def _claim() -> tuple[int, str, int] | None:
                     db.session.query(model.Job.attempts).filter_by(id=job_id).scalar()
                 )
                 db.session.commit()
-                return job_id, name, attempt
+                return (
+                    job_id,
+                    name,
+                    attempt,
+                    now + timedelta(seconds=known[name].lease_seconds),
+                )
             db.session.rollback()
     return None
 
@@ -114,9 +119,9 @@ class _LostLease(Exception):
     pass
 
 
-def _owned(job_id: int, attempt: int) -> Query[model.Job]:
+def _owned(job_id: int, attempt: int, lease: datetime) -> Query[model.Job]:
     return db.session.query(model.Job).filter_by(
-        id=job_id, status="running", attempts=attempt
+        id=job_id, status="running", attempts=attempt, lease_until=lease
     )
 
 
@@ -125,15 +130,22 @@ def work_once() -> bool:
     claim = _claim()
     if claim is None:
         return False
-    job_id, name, attempt = claim
+    job_id, name, attempt, lease = claim
     try:
         with db.session_scope():
             job = db.session.get(model.Job, job_id)
             if attempt > job.max_attempts:
-                _owned(job_id, attempt).update(
+                logger.warning(
+                    "Job %s (%s) attempt %s failed: lease expired",
+                    job_id,
+                    name,
+                    job.max_attempts,
+                )
+                _owned(job_id, attempt, lease).update(
                     {
                         "status": "failed",
                         "last_error": "lease expired",
+                        "attempts": attempt - 1,
                         "finish_time": util.utcnow(),
                         "lease_until": None,
                     }
@@ -144,7 +156,7 @@ def work_once() -> bool:
             types()[name].run(job.payload)
             db.session.flush()
             if (
-                _owned(job_id, attempt).update(
+                _owned(job_id, attempt, lease).update(
                     {
                         "status": "done",
                         "finish_time": util.utcnow(),
@@ -169,19 +181,23 @@ def work_once() -> bool:
             type(ex).__name__,
         )
         with db.session_scope():
-            job = _owned(job_id, attempt).one_or_none()
+            job = _owned(job_id, attempt, lease).one_or_none()
             if job is not None:
                 now = util.utcnow()
-                job.last_error = (type(ex).__name__ + ": " + str(ex))[:2000]
-                job.lease_until = None
-                if attempt >= job.max_attempts:
-                    job.status = "failed"
-                    job.finish_time = now
-                else:
-                    job.status = "queued"
-                    job.run_after = now + timedelta(
-                        seconds=min(3600, 30 * 2 ** min(attempt - 1, 7))
-                    )
+                failed = attempt >= job.max_attempts
+                _owned(job_id, attempt, lease).update(
+                    {
+                        "last_error": (type(ex).__name__ + ": " + str(ex))[:2000],
+                        "lease_until": None,
+                        "status": "failed" if failed else "queued",
+                        "finish_time": now if failed else None,
+                        "run_after": job.run_after
+                        if failed
+                        else now
+                        + timedelta(seconds=min(3600, 30 * 2 ** min(attempt - 1, 7))),
+                    },
+                    synchronize_session=False,
+                )
                 db.session.commit()
     return True
 
@@ -258,6 +274,8 @@ def worker_loop(stop: threading.Event) -> None:
             if time.monotonic() >= next_retention:
                 retain(config.config["jobs"]["keep_done_days"])
                 next_retention = time.monotonic() + 3600
+            if stop.is_set():
+                return
             if work_once():
                 continue
         except Exception as ex:
