@@ -390,6 +390,7 @@ concept, "post" the resource.
 - [x] `/share/<token>`: the server checks it and lets nginx deliver the file (an internal location in the client image); revoked or expired gives 404.
 - [x] Site setting: may NSFW posts get share links (default: no).
 - [x] Tests: valid, revoked, expired and wrong token; a share link works on a `login` site without login; the post's own file links are unchanged.
+- [x] Share-link operation IDs name their resource; every API operation ID is unique and contains an underscore.
 
 ### 6.5b Share links in Sardonyx
 - [ ] The post page lists the viewer's share links of the post (all of them for who may list any), with copy, revoke, and creating one with an optional note and expiry; shown only to ranks that may create or list share links.
