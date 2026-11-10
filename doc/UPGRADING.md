@@ -19,6 +19,8 @@ settings and background jobs. Sardonyx is now the only shipped web client.
    ([decision 0012](design/decisions/0012-legacy-client-removed.md)). Remove
    `COMPOSE_PROFILES=legacy`, `LEGACY_PORT` and `BASE_URL` from `.env`.
    Published v0.3.0 images stay on GHCR for sites staying on that version.
+   While still using the 0.3.0 compose file, stop and remove its container
+   if you ran it: `docker compose --profile legacy rm -sf client-legacy`.
    **A site under a path must move to its own host or subdomain first:**
    for example, move `https://example.com/lithica/` to
    `https://booru.example.com/`. Point that host's reverse proxy at
