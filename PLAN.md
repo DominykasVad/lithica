@@ -414,7 +414,7 @@ concept, "post" the resource.
 - [x] The existing runtime-safe settings move onto it (`visibility`, `nsfw_tag`, `nsfw_hide_names`, `password_reset_mail_interval`, and others found safe); `GET /info` reports the effective values.
 - [x] Feature switches: pools, favourites, scores, notes, comments. A feature that is off: its API answers as a missing feature, `GET /info` lists it as off, clients hide it. Comments and scores (the engine's up/down votes) default to off; star ratings come later (decision 0009).
 - [x] Sardonyx: an admin page for the settings and switches (administrator only).
-- [ ] Browser: change visibility and pools live on both servers; reset overrides on failure and check for leftovers.
+- [x] Browser: change visibility and pools live on both servers; reset overrides on failure and check for leftovers.
 
 ### 6.7 Background jobs
 - [ ] A small job queue in the database, worked by the server process (a thread per process, jobs claimed so several processes don't run the same one), with retries and a record of failures. For work that must not run inside a request: archiving, conversions, and later others.
