@@ -6,6 +6,13 @@ import type { components, operations } from "@/api/schema";
 import { usePrivileges } from "@/app/privileges";
 import { ApiErrorMessage } from "@/components/ApiErrorMessage";
 import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -58,6 +65,7 @@ function display(value: unknown): string {
 function Editor({ answer, editable }: { answer: Settings; editable: boolean }) {
   const client = useQueryClient();
   const [changes, setChanges] = useState<Values>({});
+  const [integerInputs, setIntegerInputs] = useState<Record<string, string>>({});
   const save = useMutation({
     mutationFn: () =>
       unwrap(
@@ -67,6 +75,7 @@ function Editor({ answer, editable }: { answer: Settings; editable: boolean }) {
       ),
     onSuccess: async (next) => {
       setChanges({});
+      setIntegerInputs({});
       client.setQueryData(settingsQuery.queryKey, next);
       await client.invalidateQueries();
     },
@@ -125,16 +134,27 @@ function Editor({ answer, editable }: { answer: Settings; editable: boolean }) {
             id={name}
             type={setting.type === "integer" ? "number" : "text"}
             min={setting.min ?? undefined}
-            value={display(value)}
-            disabled={disabled}
-            onChange={(event) =>
-              change(
-                setting,
-                setting.type === "integer"
-                  ? Number(event.target.value)
-                  : event.target.value,
-              )
+            value={
+              setting.type === "integer"
+                ? (integerInputs[name] ?? display(value))
+                : display(value)
             }
+            disabled={disabled}
+            onChange={(event) => {
+              const text = event.target.value;
+              if (setting.type !== "integer") {
+                change(setting, text);
+                return;
+              }
+              setIntegerInputs((old) => ({ ...old, [name]: text }));
+              if (text.trim() === "") {
+                setChanges((old) => {
+                  const next = { ...old };
+                  delete next[name];
+                  return next;
+                });
+              } else change(setting, Number(text));
+            }}
           />
         )}
         {name === "visibility" && value !== "open" && !answer.fileLinksSigned && (
@@ -151,7 +171,14 @@ function Editor({ answer, editable }: { answer: Settings; editable: boolean }) {
                 variant="outline"
                 size="sm"
                 disabled={save.isPending}
-                onClick={() => change(setting, null)}
+                onClick={() => {
+                  setIntegerInputs((old) => {
+                    const next = { ...old };
+                    delete next[name];
+                    return next;
+                  });
+                  change(setting, null);
+                }}
               >
                 Reset {label}
               </Button>
@@ -174,38 +201,47 @@ function Editor({ answer, editable }: { answer: Settings; editable: boolean }) {
     <>
       {!editable && <p>Read-only: you do not have permission to edit site settings.</p>}
       {groups.map(([group, names]) => (
-        <section key={group} className="space-y-2">
-          <h2 className="mt-6 text-lg font-semibold">{group}</h2>
-          {settings
-            .filter(
-              (item) =>
-                item.runtime && (names as readonly string[]).includes(item.name ?? ""),
-            )
-            .map(field)}
-        </section>
+        <Card key={group} className="mt-6">
+          <CardHeader>
+            <CardTitle>{group}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {settings
+              .filter(
+                (item) =>
+                  item.runtime &&
+                  (names as readonly string[]).includes(item.name ?? ""),
+              )
+              .map(field)}
+          </CardContent>
+        </Card>
       ))}
       {unknown.length > 0 && (
-        <section>
-          <h2 className="mt-6 text-lg font-semibold">Other settings</h2>
-          {unknown.map(field)}
-        </section>
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle>Other settings</CardTitle>
+          </CardHeader>
+          <CardContent>{unknown.map(field)}</CardContent>
+        </Card>
       )}
-      <section>
-        <h2 className="mt-6 text-lg font-semibold">Restart settings</h2>
-        <p className="text-sm text-muted-foreground">
-          Set in config.yaml; needs a restart
-        </p>
-        <dl>
-          {settings
-            .filter((item) => !item.runtime)
-            .map((item) => (
-              <div key={item.name} className="py-2">
-                <dt className="font-medium">{item.name}</dt>
-                <dd className="break-words text-sm">{display(item.value)}</dd>
-              </div>
-            ))}
-        </dl>
-      </section>
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle>Restart settings</CardTitle>
+          <CardDescription>Set in config.yaml; needs a restart</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <dl>
+            {settings
+              .filter((item) => !item.runtime)
+              .map((item) => (
+                <div key={item.name} className="py-2">
+                  <dt className="font-medium">{item.name}</dt>
+                  <dd className="break-words text-sm">{display(item.value)}</dd>
+                </div>
+              ))}
+          </dl>
+        </CardContent>
+      </Card>
       {save.error && <ApiErrorMessage error={save.error} />}
       {conflict && (
         <Button
@@ -213,6 +249,7 @@ function Editor({ answer, editable }: { answer: Settings; editable: boolean }) {
           onClick={async () => {
             await client.refetchQueries({ queryKey: settingsQuery.queryKey });
             setChanges({});
+            setIntegerInputs({});
             save.reset();
           }}
         >

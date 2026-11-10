@@ -10,6 +10,15 @@ const initial: Answer = {
   fileLinksSigned: false,
   settings: [
     {
+      name: "password_reset_mail_interval",
+      type: "integer",
+      value: 60,
+      startingValue: 120,
+      runtime: true,
+      stored: true,
+      min: 0,
+    },
+    {
       name: "visibility",
       type: "choice",
       choices: ["open", "login"],
@@ -164,5 +173,60 @@ it.each([true, false])("menu entry follows view privilege: %s", async (view) => 
     expect(Boolean(screen.queryByRole("menuitem", { name: "Site settings" }))).toBe(
       view,
     ),
+  );
+});
+
+it("keeps an emptied integer blank and excludes it from saves", async () => {
+  const sent = site();
+  renderApp("/admin/settings");
+  const interval = await screen.findByRole("spinbutton", {
+    name: "Password reset mail interval",
+  });
+  await userEvent.clear(interval);
+  expect(interval).toHaveValue(null);
+  expect(screen.getByRole("button", { name: "Save settings" })).toBeDisabled();
+  await userEvent.type(interval, "30");
+  expect(interval).toHaveValue(30);
+  await userEvent.clear(interval);
+  await userEvent.click(screen.getByRole("switch", { name: "future_switch" }));
+  await userEvent.click(screen.getByRole("button", { name: "Save settings" }));
+  await waitFor(() =>
+    expect(sent.find((one) => one.method === "PUT")?.body).toEqual({
+      version: 1,
+      values: { future_switch: false },
+    }),
+  );
+});
+
+it("sends an explicit zero and resets an integer draft to config.yaml", async () => {
+  const sent = site();
+  renderApp("/admin/settings");
+  const interval = await screen.findByRole("spinbutton", {
+    name: "Password reset mail interval",
+  });
+  await userEvent.clear(interval);
+  await userEvent.type(interval, "0");
+  await userEvent.click(screen.getByRole("button", { name: "Save settings" }));
+  await waitFor(() =>
+    expect(sent.find((one) => one.method === "PUT")?.body).toEqual({
+      version: 1,
+      values: { password_reset_mail_interval: 0 },
+    }),
+  );
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: "Save settings" })).toBeDisabled(),
+  );
+  const next = screen.getByRole("spinbutton", { name: "Password reset mail interval" });
+  await userEvent.clear(next);
+  await userEvent.click(
+    screen.getByRole("button", { name: "Reset Password reset mail interval" }),
+  );
+  expect(next).toHaveValue(120);
+  await userEvent.click(screen.getByRole("button", { name: "Save settings" }));
+  await waitFor(() =>
+    expect(sent.filter((one) => one.method === "PUT")[1]?.body).toEqual({
+      version: 2,
+      values: { password_reset_mail_interval: null },
+    }),
   );
 });
