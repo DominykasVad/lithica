@@ -2209,7 +2209,7 @@ export interface components {
             /** Id */
             id?: number;
             /** Thumbnailurl */
-            thumbnailUrl?: string;
+            thumbnailUrl?: string | null;
         };
         /** MicroTag */
         MicroTag: {
@@ -2512,11 +2512,11 @@ export interface components {
             /** Source */
             source?: string | null;
             /** Type */
-            type?: string;
+            type?: string | null;
             /** Mimetype */
-            mimeType?: string;
+            mimeType?: string | null;
             /** Checksum */
-            checksum?: string;
+            checksum?: string | null;
             /** Checksummd5 */
             checksumMD5?: string | null;
             /** Filesize */
@@ -2526,9 +2526,9 @@ export interface components {
             /** Canvasheight */
             canvasHeight?: number | null;
             /** Contenturl */
-            contentUrl?: string;
+            contentUrl?: string | null;
             /** Thumbnailurl */
-            thumbnailUrl?: string;
+            thumbnailUrl?: string | null;
             /** Flags */
             flags?: string[];
             /** Tags */
@@ -2764,17 +2764,17 @@ export interface components {
             /** Kind */
             kind?: string;
             /** Type */
-            type?: string;
+            type?: string | null;
             /** Mimetype */
-            mimeType?: string;
+            mimeType?: string | null;
             /** Safety */
             safety?: string;
             /** Nsfw */
             nsfw?: boolean;
             /** Contenturl */
-            contentUrl?: string;
+            contentUrl?: string | null;
             /** Thumbnailurl */
-            thumbnailUrl?: string;
+            thumbnailUrl?: string | null;
         };
         /** TypedRelationType */
         TypedRelationType: {

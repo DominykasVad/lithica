@@ -34,7 +34,10 @@ function clean(name: string): string | null {
 }
 
 /** `<post id>.<extension of its file>`: the name when the site gives none. */
-export function fallbackName(id: number, contentUrl: string | undefined): string {
+export function fallbackName(
+  id: number,
+  contentUrl: string | null | undefined,
+): string {
   const extension = contentUrl?.match(/\.([a-z0-9]+)(?:[?#]|$)/i)?.[1];
   return extension ? `${id}.${extension}` : String(id);
 }

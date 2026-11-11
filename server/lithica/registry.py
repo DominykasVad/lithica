@@ -177,6 +177,25 @@ class ContentKind:
     serialize: Callable[[Payload], Any] | None = None
 
 
+class DocumentRejected(Exception):
+    """A module's validation refusal, safe to show to the client."""
+
+
+@dataclass(frozen=True)
+class DocumentKind:
+    """JSON data for a post kind owned by this module, with engine versioning.
+
+    Validation returns the object to store or raises DocumentRejected.
+    after_write runs in the same transaction as the new version.
+    """
+
+    name: str
+    validate: Callable[[Payload], Payload] = field(kw_only=True)
+    schema_version: int = 1
+    max_size: int = DEFAULT_MAX_PAYLOAD_SIZE
+    after_write: Callable[[int, Payload], None] | None = None
+
+
 @dataclass(frozen=True)
 class PostKind:
     """
@@ -186,7 +205,9 @@ class PostKind:
     `card_v2`; a post kind describes the post as a whole. `media` is the
     engine's own post kind and modules may not register it.
 
-    `content_kinds` is a nonempty set of content kinds this module owns. A
+    `content_kinds` names content kinds this module owns. It may be empty
+    only with a DocumentKind: such a kind is never derived from a file and
+    only file-less creation assigns it. Otherwise it is nonempty. A
     post supports this post kind when at least one of its content rows has
     one of those kinds. Each content kind may support only one post kind.
     Engine file types also support `media`: a PNG card supports both, while
@@ -307,6 +328,7 @@ class Module:
     router: APIRouter | None = None
     content_kinds: Sequence[ContentKind] = ()
     post_kinds: Sequence[PostKind] = ()
+    document_kinds: Sequence[DocumentKind] = ()
     relation_types: Sequence[RelationType] = ()
     file_types: Sequence[FileType] = ()
     extractors: Sequence[Extractor] = ()
@@ -462,6 +484,15 @@ def _verify(modules: Sequence[Module]) -> None:
                     % (kind.max_payload_size, kind.name, PAYLOAD_SIZE_CAP),
                 )
             kinds.add(kind.name)
+        document_names: set[str] = set()
+        for document_kind in module.document_kinds:
+            if document_kind.name not in {kind.name for kind in module.post_kinds}:
+                raise _refuse(module, "document kind must name its own post kind.")
+            if document_kind.name in document_names:
+                raise _refuse(module, "registers a document kind twice.")
+            if not 0 < document_kind.max_size <= PAYLOAD_SIZE_CAP:
+                raise _refuse(module, "has an invalid document size limit.")
+            document_names.add(document_kind.name)
         for post_kind in module.post_kinds:
             if (
                 not KIND_PATTERN.fullmatch(post_kind.name)
@@ -474,7 +505,9 @@ def _verify(modules: Sequence[Module]) -> None:
                 raise _refuse(module, "registers post kind %r twice." % post_kind.name)
             post_kind_names.add(post_kind.name)
             owned = {kind.name for kind in module.content_kinds}
-            if not post_kind.content_kinds or not post_kind.content_kinds <= owned:
+            if (
+                not post_kind.content_kinds and post_kind.name not in document_names
+            ) or not post_kind.content_kinds <= owned:
                 raise _refuse(
                     module,
                     "post kind %r must name its module's content kinds (nonempty)."
@@ -776,3 +809,7 @@ def auto_taggers() -> list[tuple[Module, AutoTag]]:
 def post_kinds() -> list[PostKind]:
     """Loaded post kinds, in module configuration and declaration order."""
     return [kind for module in _modules for kind in module.post_kinds]
+
+
+def document_kinds() -> dict[str, DocumentKind]:
+    return {kind.name: kind for module in _modules for kind in module.document_kinds}

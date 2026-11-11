@@ -230,6 +230,7 @@ def nsfw_site(start, user_factory, read_asset) -> tuple[ApiClient, Site]:
         site.markers.append(
             re.compile(re.escape(posts.get_post_security_hash(post_id)))
         )
+    assert first.checksum is not None
     site.markers.append(re.compile(re.escape(first.checksum)))
     site.markers.append(re.compile(re.escape(CARD_NAME)))
     site.markers.append(re.compile(re.escape("Hidden Maker")))

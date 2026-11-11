@@ -167,6 +167,7 @@ def test_a_signed_link_of_the_server_is_served_and_nothing_else(
             ),
         ]:
             # the address as the server gives it out
+            assert url is not None
             assert _read(url) == text
             unsigned = "%s/data/%s" % (base, path)
             assert _status(unsigned) == 403
@@ -192,6 +193,9 @@ def test_without_a_secret_files_are_served_as_before(
     for base in IMAGES[image](data, tmp_path, ""):
         config_injector(enabled_config({"data_url": base + "/data/", "secret": "test"}))
         url = posts.get_post_content_url(_post())
+        assert url is not None
         assert "?" not in url
         assert _read(url) == "the file"
-        assert _read(posts.get_post_thumbnail_url(_post())) == "the thumbnail"
+        thumbnail = posts.get_post_thumbnail_url(_post())
+        assert thumbnail is not None
+        assert _read(thumbnail) == "the thumbnail"

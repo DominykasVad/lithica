@@ -269,6 +269,8 @@ def download_card(
     - privileges are too low
     """
     post = _post(post_id)
+    if post.mime_type is None:
+        raise CardNotFoundError("The file of post %d is missing." % post.post_id)
     # only the name: the card may be megabytes, and the file is what is sent
     name = _card_name(post)
     stored = files.get(posts.get_post_content_path(post))

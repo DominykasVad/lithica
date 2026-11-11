@@ -25,6 +25,7 @@ def derive_token(salt: bytes) -> str:
 def create(
     post: model.Post, user: model.User, note: str | None, expires_at: str | None
 ) -> model.ShareLink:
+    posts.require_file(post)
     if visibility.is_nsfw(post) and not site_settings.get("share_links_nsfw"):
         raise errors.ValidationError("Share links for NSFW posts are disabled.")
     if note is not None and len(note) > 128:
@@ -106,7 +107,7 @@ def delivery(token: str) -> tuple[str, str]:
         ),
         execution_options={visibility.ALL_POSTS: True},
     ).one_or_none()
-    if row is None:
+    if row is None or row.mime_type is None:
         raise missing()
     nsfw = (
         db.session.execute(
@@ -121,5 +122,5 @@ def delivery(token: str) -> tuple[str, str]:
     if nsfw and not site_settings.get("share_links_nsfw"):
         raise missing()
     # Transient object computes the canonical path without loading an entity.
-    post = model.Post(post_id=row.post_id, mime_type=row.mime_type)
+    post = model.Post(post_id=row.post_id, mime_type=row.mime_type, type="file")
     return posts.get_post_content_path(post).removeprefix("posts/"), row.mime_type

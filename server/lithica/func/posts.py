@@ -123,18 +123,47 @@ def get_post_security_hash(id: int) -> str:
     ).hexdigest()[0:16]
 
 
-def get_post_content_url(post: model.Post) -> str:
+def has_file(post: model.Post) -> bool:
+    return post.mime_type is not None
+
+
+def require_file(post: model.Post) -> None:
+    if not has_file(post):
+        raise errors.ValidationError("This post has no file.")
+
+
+def create_fileless_post(
+    kind: str,
+    user: model.User | None,
+    safety: str = model.Post.SAFETY_SAFE,
+    tags: list[str] | None = None,
+) -> model.Post:
+    if kind not in registry.document_kinds():
+        raise errors.ValidationError("This kind has no registered document kind.")
+    post = model.Post(kind=kind, user=user, creation_time=util.utcnow(), listed=True)
+    post.flags = []
+    update_post_safety(post, safety)
+    update_post_tags(post, tags or [])
+    db.session.add(post)
+    return post
+
+
+def get_post_content_url(post: model.Post) -> str | None:
     """The file's address, signed when the site signs its file links."""
     assert post
+    if not has_file(post):
+        return None
     path = get_post_content_path(post)
     return file_links.link(
         "%s/%s" % (config.config["data_url"].rstrip("/"), path), path
     )
 
 
-def get_post_thumbnail_url(post: model.Post) -> str:
+def get_post_thumbnail_url(post: model.Post) -> str | None:
     """The thumbnail's address, signed when the site signs its file links."""
     assert post
+    if not has_file(post):
+        return None
     path = get_post_thumbnail_path(post)
     return file_links.link(
         "%s/%s" % (config.config["data_url"].rstrip("/"), path), path
@@ -142,16 +171,18 @@ def get_post_thumbnail_url(post: model.Post) -> str:
 
 
 def get_post_content_path(post: model.Post) -> str:
+    require_file(post)
     assert post
     assert post.post_id
     return "posts/%d_%s.%s" % (
         post.post_id,
         get_post_security_hash(post.post_id),
-        file_types.get_extension(post.mime_type) or "dat",
+        file_types.get_extension(post.mime_type or "") or "dat",
     )
 
 
 def get_post_thumbnail_path(post: model.Post) -> str:
+    require_file(post)
     assert post
     return "generated-thumbnails/%d_%s.jpg" % (
         post.post_id,
@@ -160,6 +191,7 @@ def get_post_thumbnail_path(post: model.Post) -> str:
 
 
 def get_post_thumbnail_backup_path(post: model.Post) -> str:
+    require_file(post)
     assert post
     return "posts/custom-thumbnails/%d_%s.dat" % (
         post.post_id,
@@ -301,7 +333,11 @@ class PostSerializer(serialization.BaseSerializer):
 
     def serialize_type(self) -> Any:
         # a type of a module is its own name
-        return TYPE_MAP.get(self.post.type, self.post.type)
+        return (
+            TYPE_MAP.get(self.post.type, self.post.type)
+            if self.post.type is not None
+            else None
+        )
 
     def serialize_mime(self) -> Any:
         return self.post.mime_type
@@ -310,16 +346,16 @@ class PostSerializer(serialization.BaseSerializer):
         return self.post.checksum
 
     def serialize_checksum_md5(self) -> Any:
-        return self.post.checksum_md5
+        return self.post.checksum_md5 if has_file(self.post) else None
 
     def serialize_file_size(self) -> Any:
-        return self.post.file_size
+        return self.post.file_size if has_file(self.post) else None
 
     def serialize_canvas_width(self) -> Any:
-        return self.post.canvas_width
+        return self.post.canvas_width if has_file(self.post) else None
 
     def serialize_canvas_height(self) -> Any:
-        return self.post.canvas_height
+        return self.post.canvas_height if has_file(self.post) else None
 
     def serialize_content_url(self) -> Any:
         return get_post_content_url(self.post)
@@ -413,7 +449,9 @@ class PostSerializer(serialization.BaseSerializer):
         ]
 
     def serialize_has_custom_thumbnail(self) -> Any:
-        return files.has(get_post_thumbnail_backup_path(self.post))
+        return has_file(self.post) and files.has(
+            get_post_thumbnail_backup_path(self.post)
+        )
 
     def serialize_notes(self) -> Any:
         return sorted(
@@ -522,12 +560,12 @@ def _relationship_loaders(fields: set[str]) -> list[tuple[str, Any]]:
     if fields & {"tags", "nsfw"}:
         loaders.append(("tags", sa_orm.selectinload(post.tags).options(lazy)))
     if "relations" in fields:
-        # a micro post: its id is all that is read
+        # A micro post needs MIME too, to distinguish a file-less thumbnail.
         loaders.append(
             (
                 "relations",
                 sa_orm.selectinload(post.relations).options(
-                    lazy, sa_orm.load_only(post.post_id)
+                    lazy, sa_orm.load_only(post.post_id, post.mime_type)
                 ),
             )
         )
@@ -785,13 +823,15 @@ def _after_post_update(_mapper: Any, _connection: Any, post: model.Post) -> None
 
 @sa_event.listens_for(model.Post, "before_delete")
 def _before_post_delete(_mapper: Any, _connection: Any, post: model.Post) -> None:
-    if post.post_id:
+    if post.post_id and has_file(post):
         if config.config["delete_source_files"]:
             files.delete(get_post_content_path(post))
             files.delete(get_post_thumbnail_path(post))
 
 
 def _sync_post_content(post: model.Post) -> None:
+    if not has_file(post):
+        return
     regenerate_thumb = False
 
     if hasattr(post, "__content"):
@@ -878,6 +918,8 @@ def purge_post_signature(post: model.Post) -> None:
 
 
 def generate_post_signature(post: model.Post, content: ContentLike) -> None:
+    if not has_file(post):
+        return
     try:
         unpacked_signature = image_hash.generate_signature(content)
         packed_signature = image_hash.pack_signature(unpacked_signature)
@@ -934,7 +976,8 @@ def _query_posts_without_signature() -> sa_orm.Query:
 
 def _query_posts_without_md5_checksum() -> sa_orm.Query:
     return db.session.query(model.Post).filter(
-        model.Post.checksum_md5 == None  # noqa: E711
+        model.Post.type.is_not(None),
+        model.Post.checksum_md5 == None,  # noqa: E711
     )
 
 
@@ -1029,8 +1072,11 @@ def _query_posts_to_reextract(kinds: list[str] | None) -> sa_orm.Query:
         model.PostContent.kind.in_(target_kinds)
     )
     return db.session.query(model.Post).filter(
-        model.Post.mime_type.in_(post_content.get_extracted_mime_types(kinds))
-        | model.Post.post_id.in_(with_rows)
+        model.Post.type.is_not(None),
+        sa.or_(
+            model.Post.mime_type.in_(post_content.get_extracted_mime_types(kinds)),
+            model.Post.post_id.in_(with_rows),
+        ),
     )
 
 
@@ -1100,6 +1146,10 @@ def _update_post_contents(post: model.Post, content: ContentLike) -> None:
 
 
 def update_post_content(post: model.Post, content: ContentLike | None) -> None:
+    # A bare transient Post is still being initialized. An assigned kind
+    # distinguishes create_fileless_post from that upload construction path.
+    if post.kind is not None:
+        require_file(post)
     assert post
     if not content:
         raise InvalidPostContentError("Post content missing.")
@@ -1107,16 +1157,17 @@ def update_post_content(post: model.Post, content: ContentLike | None) -> None:
     update_signature = False
     # a type of a module, for a file the engine itself does not know
     file_type: registry.FileType | None = None
-    post.mime_type = mime.get_mime_type(content)
-    if mime.is_flash(post.mime_type):
+    mime_type = mime.get_mime_type(content)
+    post.mime_type = mime_type
+    if mime.is_flash(mime_type):
         post.type = model.Post.TYPE_FLASH
-    elif mime.is_image(post.mime_type):
+    elif mime.is_image(mime_type):
         update_signature = True
         if mime.is_animated_gif(content):
             post.type = model.Post.TYPE_ANIMATION
         else:
             post.type = model.Post.TYPE_IMAGE
-    elif mime.is_video(post.mime_type):
+    elif mime.is_video(mime_type):
         post.type = model.Post.TYPE_VIDEO
     else:
         if post.mime_type == "application/octet-stream":
@@ -1234,12 +1285,15 @@ def update_post_auto_tags(post: model.Post) -> list[model.Tag]:
 
 
 def update_post_thumbnail(post: model.Post, content: ContentLike | None = None) -> None:
+    require_file(post)
     assert post
     setattr(post, "__thumbnail", content)
 
 
 def generate_post_thumbnail(post: model.Post) -> None:
-    assert post
+    if not has_file(post):
+        return
+    assert post.mime_type is not None
     file_type = registry.file_type_for(post.mime_type)
     if files.has(get_post_thumbnail_backup_path(post)):
         content = files.get(get_post_thumbnail_backup_path(post))
@@ -1373,6 +1427,8 @@ def delete(post: model.Post) -> None:
 def merge_posts(
     source_post: model.Post, target_post: model.Post, replace_content: bool
 ) -> None:
+    require_file(source_post)
+    require_file(target_post)
     assert source_post
     assert target_post
     if source_post.post_id == target_post.post_id:
@@ -1571,14 +1627,16 @@ def search_by_image(
         ]
         # a post deleted since the candidates were read is left out
         return [
-            (distance, post) for distance, post in candidate_posts if post is not None
+            (distance, post)
+            for distance, post in candidate_posts
+            if post is not None and has_file(post)
         ]
     else:
         return []
 
 
 def count_posts_for_kind_backfill() -> int:
-    return db.session.query(model.Post).count()
+    return db.session.query(model.Post).filter(model.Post.type.is_not(None)).count()
 
 
 def update_all_post_kinds() -> tuple[int, int]:
@@ -1588,4 +1646,8 @@ def update_all_post_kinds() -> tuple[int, int]:
         post_kinds.derive_existing(post)
         return True
 
-    return _backfill(lambda: db.session.query(model.Post), fill, "post kind")
+    return _backfill(
+        lambda: db.session.query(model.Post).filter(model.Post.type.is_not(None)),
+        fill,
+        "post kind",
+    )

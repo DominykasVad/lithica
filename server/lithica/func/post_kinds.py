@@ -62,6 +62,9 @@ def set_kind(post: model.Post, kind: str) -> bool:
     the supported choices. Selecting the current kind is a no-op. Version
     bumps and snapshots are the caller's responsibility.
     """
+    from lithica.func import posts
+
+    posts.require_file(post)
     supported = supported_kinds(post)
     if kind not in supported:
         raise InvalidPostKindError(

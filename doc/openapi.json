@@ -8795,7 +8795,14 @@
             "title": "Id"
           },
           "thumbnailUrl": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Thumbnailurl"
           }
         },
@@ -9298,15 +9305,36 @@
             "title": "Source"
           },
           "type": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Type"
           },
           "mimeType": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Mimetype"
           },
           "checksum": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Checksum"
           },
           "checksumMD5": {
@@ -9354,11 +9382,25 @@
             "title": "Canvasheight"
           },
           "contentUrl": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Contenturl"
           },
           "thumbnailUrl": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Thumbnailurl"
           },
           "flags": {
@@ -9919,11 +9961,25 @@
             "title": "Kind"
           },
           "type": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Type"
           },
           "mimeType": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Mimetype"
           },
           "safety": {
@@ -9935,11 +9991,25 @@
             "title": "Nsfw"
           },
           "contentUrl": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Contenturl"
           },
           "thumbnailUrl": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Thumbnailurl"
           }
         },

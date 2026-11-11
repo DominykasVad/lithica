@@ -210,6 +210,8 @@ def update_post_contents(post: model.Post, content: ContentLike) -> None:
     Raises ContentRejectedError when an extractor refuses the file: the
     file must not become the post's content then.
     """
+    if post.mime_type is None:
+        return
     extraction = extract(post.mime_type, content)
     if extraction.rejections:
         raise ContentRejectedError(extraction.rejections[0])
@@ -289,6 +291,8 @@ def reextract_post_contents(
     kinds are kept as they are, since old content is better than none, and
     the file is the post's already. Returns whether every extractor worked.
     """
+    if post.mime_type is None:
+        return True
     before = set(get_content_kinds(post))
     targets = set(registry.content_kinds() if kinds is None else kinds)
     extraction = extract(post.mime_type, content, kinds)
