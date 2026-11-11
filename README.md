@@ -16,31 +16,31 @@ first module, `cards`: character cards for AI chat programs as posts, from
 PNG pictures and CHARX files. `v0.3.0` adds Sardonyx, a new web client and
 the default one, which is a card library when `cards` is on; the bulk
 import of a folder; and settings for what visitors see without logging in.
+`v0.4.0` adds scoped app tokens, post kinds and metadata, share links, runtime
+site settings with feature switches, and durable background jobs.
 Versions are `v0.x` until the project is called stable; [PLAN.md](PLAN.md)
 has the roadmap.
 
 ## Features
 
-- Post content: images (JPG, PNG, GIF, animated GIF), videos (MP4, WEBM), Flash animations
-- Ability to retrieve web video content using [yt-dlp](https://github.com/yt-dlp/yt-dlp)
-- Post comments
-- Post notes / annotations, including arbitrary polygons
-- Rich JSON REST API ([see documentation](doc/API.md)), with an OpenAPI contract ([doc/openapi.json](doc/openapi.json))
-- Optional modules that read content embedded in uploaded files, tag posts from it and extend the search and the API
-- Token based authentication for clients
-- Rich search system
-- Rich privilege system
-- Autocomplete in search and while editing tags
-- Tag categories
-- Tag suggestions
-- Tag implications (adding a tag automatically adds another)
-- Tag aliases
-- Pools and pool categories
-- Duplicate detection
-- Post rating and favoriting; comment rating
-- Polished UI
-- Browser configurable endless paging
-- Browser configurable backdrop grid for transparent images
+**Server and API** ([reference](doc/API.md)):
+
+- Images, animation, video and Flash posts; duplicate detection and bulk import.
+- Search, privileges, hashed login tokens and app tokens with scoped rights.
+- Tags, aliases, implications and suggestions; pools, notes and favorites.
+  Comments and up/down scores are off by default.
+- Optional content modules, including character cards from PNG and CHARX;
+  post kinds, typed relations, external IDs and unlisted posts.
+- Revocable share links, runtime site settings and a durable job queue;
+  JSON REST API with a generated [OpenAPI contract](doc/openapi.json).
+
+**Sardonyx**, the web client ([details and current limits](doc/INSTALL.md#the-web-client)):
+
+- Library browsing and search with tag completion and card filters;
+  card text, greetings and lorebooks, with Readable, Source and Styled views.
+- Upload, download, post editing and deletion; tag completion when editing.
+- Login, password reset and password changes; app-token and share-link management.
+- Administrator site settings and feature switches.
 
 ## Installation
 
@@ -57,8 +57,8 @@ szurubooru and may not match Lithica.
 ## Who sees what
 
 A site decides what visitors who are not logged in may see (`visibility`
-in `server/config.yaml`; [doc/API.md](doc/API.md#visibility) has the
-details):
+in the administrator settings page or `server/config.yaml`;
+[doc/API.md](doc/API.md#visibility) has the details):
 
 - `open`, the default: as the privileges of the anonymous rank say.
 - `nsfw-login`: posts tagged with the NSFW tag (`nsfw_tag`, default

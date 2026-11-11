@@ -13,6 +13,10 @@ from your existing data.
 - [Install](#install)
 - [Using published images](#using-published-images)
 - [Configuration](#configuration)
+- [Site settings](#site-settings)
+- [App tokens](#app-tokens)
+- [Share links](#share-links)
+- [Background jobs](#background-jobs)
 - [The web client](#the-web-client)
 - [Who sees what](#who-sees-what)
 - [Modules](#modules)
@@ -36,7 +40,7 @@ from your existing data.
    configuration template, also when you run published images:
 
     ```console
-    user@host:~$ git clone --branch v0.3.0 https://github.com/DominykasVad/lithica.git lithica
+    user@host:~$ git clone --branch v0.4.0 https://github.com/DominykasVad/lithica.git lithica
     user@host:~$ cd lithica
     ```
 
@@ -111,7 +115,7 @@ from your existing data.
     With no account on the site yet, the account is an administrator;
     `--rank` gives another rank, `--email` an email address.
 
-7. Start the clients, and with them the rest:
+7. Start the client:
 
     ```console
     user@host:lithica$ docker compose up -d
@@ -147,7 +151,9 @@ Use the same version for all images, and the `docker-compose.yml` and
 
 ## Configuration
 
-There are two places to configure things.
+Application settings start in `server/config.yaml`; runtime overrides live in
+the database. Docker Compose uses `.env`. See [Site settings](#site-settings)
+for precedence.
 
 **`server/config.yaml`** holds the settings of the application. It is laid
 over `server/config.yaml.dist`, which documents every setting and holds the
@@ -182,7 +188,7 @@ environment and anything you write for them in `config.yaml` is ignored.
 | `PORT` | Where the web client, Sardonyx, listens, e.g. `8080`, or `127.0.0.1:8080` behind a reverse proxy. |
 | `FILE_LINK_SECRET` | The secret of signed file links, for the server and the client image alike. Empty: links are not signed. See [Who sees what](#who-sees-what). |
 | `THREADS` | How many requests one server process works on at once. Default 4. |
-| `WORKERS` | How many server processes to start. Leave at 1: running several has not been verified yet. |
+| `WORKERS` | How many server processes to start. Leave at 1: several processes have not been verified as a whole. The job queue claims jobs safely across processes; each process runs one job worker when enabled. |
 | `BUILD_INFO` | The version label of the client image you build yourself. |
 
 Further variables can be set on the `server` service in `docker-compose.yml`:
@@ -190,7 +196,72 @@ Further variables can be set on the `server` service in `docker-compose.yml`:
 `DATA_URL`, `HOST`, `LOG_SQL=1` for SQL in the log, `API_DOCS=1` and
 `MODULES` (see [Modules](#modules)).
 
-After changing either file, restart: `docker compose up -d`.
+After changing `config.yaml`, restart the server: `docker compose restart server`.
+After changing `.env`, recreate affected containers: `docker compose up -d`.
+
+## Site settings
+
+Administrators use `/admin/settings` in Sardonyx or the
+[settings API](API.md#site-settings). **A saved database value wins over
+`config.yaml`**, even after restarting. `lithica-admin settings list` shows
+both; `settings reset <name>...` or `settings reset --all` removes overrides.
+
+Runtime settings are `visibility`, `nsfw_tag`, `nsfw_hide_names`,
+`share_links_nsfw`, `password_reset_mail_interval`, `name`, `contact_email`,
+`default_rank` and `features.pools`, `features.favorites`, `features.scores`,
+`features.notes`, `features.comments`. Changes apply without restarting.
+**Comments and scores default to off**, with data retained; turn them on
+in the settings page or under `features:` in config.yaml when no database
+override is present. Pools, favorites and notes default to on. Disabling a
+feature hides its API fields and refuses its routes and search tokens;
+see [Feature switches](API.md#feature-switches).
+
+Restart-only settings appear read-only: `jobs.worker`, `jobs.poll_interval`,
+`modules`, `max_upload_size`, `api_docs`, `domain`, `cors_origins`,
+`allow_private_downloads`. Other file-only settings, including privileges,
+secrets and `jobs.keep_done_days`, also require a server restart.
+
+## App tokens
+
+Make a named app token on the account page for another application, selecting
+`read`, `write` and/or `upload`. Rights are limited by the owner's privileges
+and never grant account, token or administrator access. Copy the value when
+created: it is stored hashed and cannot be listed again. Revoke by ID on the
+account page or through the [API](API.md#app-tokens). Login tokens are also
+hashed and shown only once.
+
+## Share links
+
+Create a file share on a post page, with an optional note and expiry; manage
+links there or on the account page. Anyone holding the URL can open the
+current file without logging in, even on a `login` site. Revoke to stop future
+access. `share_links_nsfw` defaults to false, refusing NSFW creation and delivery;
+enabling it permits anonymous NSFW delivery too. Changing the site's `secret`
+invalidates every share link.
+
+Delivery requires the client image's nginx at `/share/<token>`. The server
+only authorises an internal nginx file delivery: reaching it without that
+nginx serves no file. `/api/share/` is blocked (404). Forward `/share/` to
+the client alongside `/api/` and `/data/` in a reverse proxy. See
+[Share links in the API](API.md#share-links).
+
+## Background jobs
+
+A durable database queue runs work outside requests. With `jobs.worker: true`
+(default), every server process starts one worker thread. `WORKERS` sets the
+number of server processes. **Leave it at 1:** several server processes have
+not been verified as a whole. The job queue has been verified to claim each
+job once across processes; claims prevent workers from running the same live
+job concurrently. Expired leases allow work to be retried after a crash, so
+job handlers must tolerate retries.
+
+`jobs.poll_interval` defaults to 5 seconds; `jobs.keep_done_days` defaults to
+7 days for completed records. Failures are retained, with retry attempts and
+errors recorded. These settings require a restart. Inspect with
+`lithica-admin jobs list [--status failed]`, retry with `jobs retry <id>...`
+or `jobs retry --failed`. Administrators can also read jobs through the
+[API](API.md#jobs); it has no mutation routes. This release supplies the queue
+for future module work; it does not add image archiving or conversions to it.
 
 ## The web client
 
@@ -200,17 +271,16 @@ After changing either file, restart: `docker compose up -d`.
 edits and deletes posts, and with the `cards` module on it is a card
 library: a card's text, greetings and lorebook, filters for the `card-`
 search tokens, the download under the card's name. Logging in, a password
-reset by mail and changing one's password are in it too. It has no pages for
-pools, notes, favourites, comments, users, tag categories, implications and
-suggestions or the site's administration yet, and no sign-up page (see steps
-5 to 7 of [Install](#install): the first account is made before the client
+reset by mail and changing one's password are in it too. The account page
+manages app tokens and share links; administrators have a site settings page.
+It has no pages for pools, notes, favourites, comments, users, tag categories,
+implications and suggestions yet, and no sign-up page (see steps 5 to 7 of [Install](#install): the first account is made before the client
 starts). Until it has them, those are reached through the
 [API](API.md) only.
 
 Sardonyx is served at the root of its host: `https://booru.example.com/`,
 not `https://example.com/booru/`. Serving the site under a path is not
-supported yet; its image says so in its log at start when `BASE_URL` is set
-to a path.
+supported yet. `BASE_URL` does not enable it; remove that old variable.
 
 The client image takes `FILE_LINK_SECRET` and `BACKEND_HOST` (the server's
 container, `server`).
@@ -380,6 +450,9 @@ user@host:lithica$ docker compose run --rm server ./lithica-admin --help
 |---|---|
 | `create-user <name> [--rank <rank>] [--email <email>]` | Creates an account, whatever `visibility` says: the site's first administrator, or an account on a site without sign-up. The password is asked twice, or read from standard input with `--password-stdin` (`docker compose run --rm -T server ...` then); it is never an argument. The rank is administrator on a site with no account yet, else regular. |
 | `--change-password <user>` | Sets a new password for a user, e.g. when mail is not set up. |
+| `backfill kinds` | Derives post kinds from stored content rows without reading files; resets manually chosen kinds. Run once after upgrading to 0.4.0 with cards enabled. |
+| `settings list`, `settings reset <name>...`, `settings reset --all` | Inspect or remove database setting overrides. |
+| `jobs list`, `jobs retry <id>...`, `jobs retry --failed` | Inspect jobs and retry failures. |
 | `backfill signatures`, `backfill md5`, `backfill all` | Computes data that older posts lack: image signatures for the similar-image search, MD5 checksums. |
 | `import <folder> --user <user> --safety <safety>` | Makes a post of every file in a folder. See [Importing a folder](#importing-a-folder). |
 | `reextract [--kind <kind>]` | Has the modules that are switched on read the files of the existing posts again. For after switching a module on or updating it. |
@@ -388,8 +461,8 @@ user@host:lithica$ docker compose run --rm server ./lithica-admin --help
 | `--reset-filenames` | Renames the stored files after `secret` was changed. |
 
 `backfill`, `reextract` and `import` can be repeated and can run while the
-server is up. The server never rewrites existing posts on its own: when posts wait for
-a backfill, it says so in its log at startup and names the command.
+server is up. Startup warns about missing signatures and MD5 checksums, but
+cannot distinguish a hand-set `media` kind from one awaiting the kinds backfill.
 
 ### Importing a folder
 
@@ -480,6 +553,7 @@ privileges: the command is yours, whatever rank `--user` has.
    `MOUNT_DATA`, the database (`docker compose exec -T sql pg_dump -U
    "$POSTGRES_USER" -Fc "$POSTGRES_USER" > lithica.dump`), and
    `server/config.yaml`, whose `secret` the first two are useless without.
+   Keep `.env` with the backup too.
 
 ## Updating
 
