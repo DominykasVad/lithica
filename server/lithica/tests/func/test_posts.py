@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
-from lithica import db, model
+from lithica import db, errors, model
 from lithica.func import (
     comments,
     files,
@@ -602,8 +602,18 @@ def test_update_post_content_with_invalid_content(config_injector, input_content
         )
     )
     post = model.Post()
+    # as create_post starts an upload
+    post.type = post.checksum = post.mime_type = ""
     with pytest.raises(posts.InvalidPostContentError):
         posts.update_post_content(post, input_content)
+
+
+def test_update_post_content_refuses_a_post_without_a_file():
+    # whoever calls it, and whether or not the post has a kind yet
+    for kind in (None, "media"):
+        post = model.Post(kind=kind)
+        with pytest.raises(errors.ValidationError, match="has no file"):
+            posts.update_post_content(post, b"anything")
 
 
 @pytest.mark.parametrize("is_existing", (True, False))

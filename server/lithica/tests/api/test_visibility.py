@@ -705,6 +705,8 @@ def test_what_the_duplicate_check_loaded_stays_hidden_in_its_request(nsfw_site):
         assert visibility.hides_nsfw()
         post = model.Post()
         post.post_id = 9100099
+        # as create_post starts an upload
+        post.type = post.checksum = post.mime_type = ""
         # kept until the end: its traceback holds the check's frame, and with
         # it anything the check loaded, as any reference would (the session
         # itself holds what it loaded only weakly)

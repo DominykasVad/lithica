@@ -1146,10 +1146,8 @@ def _update_post_contents(post: model.Post, content: ContentLike) -> None:
 
 
 def update_post_content(post: model.Post, content: ContentLike | None) -> None:
-    # A bare transient Post is still being initialized. An assigned kind
-    # distinguishes create_fileless_post from that upload construction path.
-    if post.kind is not None:
-        require_file(post)
+    # create_post sets the file fields to "" first, so a new upload passes
+    require_file(post)
     assert post
     if not content:
         raise InvalidPostContentError("Post content missing.")

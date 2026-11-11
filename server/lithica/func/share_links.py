@@ -122,5 +122,5 @@ def delivery(token: str) -> tuple[str, str]:
     if nsfw and not site_settings.get("share_links_nsfw"):
         raise missing()
     # Transient object computes the canonical path without loading an entity.
-    post = model.Post(post_id=row.post_id, mime_type=row.mime_type, type="file")
+    post = model.Post(post_id=row.post_id, mime_type=row.mime_type)
     return posts.get_post_content_path(post).removeprefix("posts/"), row.mime_type
