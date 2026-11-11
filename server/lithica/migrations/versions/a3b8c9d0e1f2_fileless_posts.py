@@ -21,8 +21,9 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    post = sa.table("post", sa.column("type"))
-    if op.get_bind().execute(sa.select(post).where(post.c.type.is_(None)).limit(1)).first():
+    post = sa.table("post", sa.column("mime-type"))
+    without_file = post.c["mime-type"].is_(None)
+    if op.get_bind().execute(sa.select(post).where(without_file).limit(1)).first():
         raise RuntimeError("Cannot downgrade while posts without a file exist.")
     op.drop_constraint("ck_post_file_fields_together", "post", type_="check")
     for name in ("type", "mime-type", "checksum"):

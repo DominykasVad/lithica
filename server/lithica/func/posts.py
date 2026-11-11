@@ -124,7 +124,13 @@ def get_post_security_hash(id: int) -> str:
 
 
 def has_file(post: model.Post) -> bool:
+    """Whether the post has a file: its MIME type says so, here and in queries."""
     return post.mime_type is not None
+
+
+def with_file() -> sa.ColumnElement[bool]:
+    """has_file() as a filter for queries."""
+    return model.Post.mime_type.is_not(None)
 
 
 def require_file(post: model.Post) -> None:
@@ -976,7 +982,7 @@ def _query_posts_without_signature() -> sa_orm.Query:
 
 def _query_posts_without_md5_checksum() -> sa_orm.Query:
     return db.session.query(model.Post).filter(
-        model.Post.type.is_not(None),
+        with_file(),
         model.Post.checksum_md5 == None,  # noqa: E711
     )
 
@@ -1072,7 +1078,7 @@ def _query_posts_to_reextract(kinds: list[str] | None) -> sa_orm.Query:
         model.PostContent.kind.in_(target_kinds)
     )
     return db.session.query(model.Post).filter(
-        model.Post.type.is_not(None),
+        with_file(),
         sa.or_(
             model.Post.mime_type.in_(post_content.get_extracted_mime_types(kinds)),
             model.Post.post_id.in_(with_rows),
@@ -1643,7 +1649,7 @@ def search_by_image(
 
 
 def count_posts_for_kind_backfill() -> int:
-    return db.session.query(model.Post).filter(model.Post.type.is_not(None)).count()
+    return db.session.query(model.Post).filter(with_file()).count()
 
 
 def update_all_post_kinds() -> tuple[int, int]:
@@ -1654,7 +1660,7 @@ def update_all_post_kinds() -> tuple[int, int]:
         return True
 
     return _backfill(
-        lambda: db.session.query(model.Post).filter(model.Post.type.is_not(None)),
+        lambda: db.session.query(model.Post).filter(with_file()),
         fill,
         "post kind",
     )
