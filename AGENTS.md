@@ -156,6 +156,9 @@ them in `.github/workflows/ci-sardonyx.yml`.
   one branch (`phase-4.3`) = one PR**. Start the next sub-phase only after the
   previous one is merged into `main`. Never commit directly to `main`; the
   owner merges. Keep commits small inside the branch.
+- This repository is a GitHub fork of rr-/szurubooru only for its history. PRs always target
+  DominykasVad/lithica `main`; never open a PR, issue or push against rr-/szurubooru,
+  and never use GitHub's 'Sync fork'.
 - Commit as often as is useful, but push the branch once, when the sub-phase
   is ready for review, and open the PR then. Push again only for review
   fixes. CI runs on pull requests and on `main`, not on a branch that is
