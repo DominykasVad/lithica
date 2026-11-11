@@ -156,6 +156,10 @@ def test_walk(
         "/post/{post_id}/typed-relations",
         "/post/{post_id}/external-ids",
         "/post/{post_id}/share-links",
+        "/post/{post_id}/document",
+        "/post/{post_id}/document-versions",
+        "/post/{post_id}/document-version/{number}",
+        "/post/{post_id}/document-version/{number}/restore",
         "/modules/cards/post/{post_id}",
         "/modules/cards/post/{post_id}/download",
         "/posts",
@@ -183,7 +187,7 @@ def test_walk(
             }
             response = client.request(
                 method,
-                path.replace("{post_id}", str(post.post_id)),
+                path.replace("{post_id}", str(post.post_id)).replace("{number}", "0"),
                 user=user,
                 body=body if method != "GET" else None,
                 files={"content": read_asset("png.png")}

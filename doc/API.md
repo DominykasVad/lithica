@@ -42,6 +42,7 @@ with the client image in front, that is `/api/`.
    - [Micro tag](#micro-tag)
    - [Post](#post)
    - [Extracted content](#extracted-content)
+   - [Documents](#documents)
    - [Micro post](#micro-post)
    - [Note](#note)
    - [Pool category](#pool-category)
@@ -844,6 +845,29 @@ Content of a kind whose module is switched off is kept, but not returned.
 A module can mark fields of its content as private. Those are left out unless
 the requester has the `posts:view:content:private` privilege (moderators, by
 default).
+
+## Documents
+
+A post may carry one JSON document of a kind registered by an enabled module.
+`GET /post/{post_id}/document` reads its current data;
+`GET /post/{post_id}/document-versions` lists retained versions newest first,
+with `offset` and `limit` (at most 100); and
+`GET /post/{post_id}/document-version/{number}` reads one with its data.
+Missing documents, unloaded kinds and pruned versions answer 404.
+
+Versions start at 0 and each stores a full compressed copy. Writers supply the
+current document version they read; a stale version answers 409 and changes
+nothing. `POST /post/{post_id}/document-version/{number}/restore`, with body
+`{"version": <current document version>}`, validates the old data and makes a
+new version, with the note "Restored from version N.". It requires
+`posts:edit:document` (regular by default; included in app-token `write`).
+Identical data creates no new version. Document versions are separate from
+`post.version`, post snapshots and `lastEditTime`.
+
+The runtime setting `document_versions_kept` defaults to 0, keeping every
+version. N keeps version 0 and the last N versions; numbers are never reused,
+so pruning leaves gaps. Lowering the setting affects each document at its
+next write only, including an identical-data write.
 
 ## Micro post
 **Description**

@@ -32,6 +32,7 @@ from lithica.api import (
     comment_api,
     dependencies,
     docs_api,
+    document_api,
     error_handlers,
     info_api,
     job_api,
@@ -322,6 +323,7 @@ def create_app(modules: Sequence[registry.Module] | None = None) -> FastAPI:
         snapshot_api,
         upload_api,
         post_api,
+        document_api,
         post_metadata_api,
         share_link_api,
     ]:

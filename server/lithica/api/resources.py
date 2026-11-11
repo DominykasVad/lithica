@@ -464,3 +464,27 @@ class Job(Resource):
 
 class JobDetail(Job):
     payload: dict[str, JsonValue]
+
+
+class PostDocument(Resource):
+    kind: str
+    version: int
+    schema_version: int
+    hash: str
+    size: int
+    update_time: datetime
+    data: dict[str, JsonValue]
+
+
+class DocumentVersion(Resource):
+    number: int
+    schema_version: int
+    hash: str
+    size: int
+    creation_time: datetime
+    user: MicroUser | None
+    note: str | None
+
+
+class DocumentVersionData(DocumentVersion):
+    data: dict[str, JsonValue]

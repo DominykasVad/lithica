@@ -6718,6 +6718,336 @@
         }
       }
     },
+    "/post/{post_id}/document": {
+      "get": {
+        "tags": [
+          "Documents"
+        ],
+        "summary": "Get Post Document",
+        "description": "Read the current document. Missing or unloaded documents and hidden posts\nanswer 404 DocumentNotFoundError or PostNotFoundError; insufficient privileges\nanswer 403 AuthError.",
+        "operationId": "get_post_document",
+        "security": [
+          {
+            "basicAuth": []
+          },
+          {
+            "tokenAuth": []
+          },
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "post_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Post Id"
+            }
+          },
+          {
+            "name": "bump-login",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Record this request as a login of the authenticated user.",
+              "default": false,
+              "title": "Bump-Login"
+            },
+            "description": "Record this request as a login of the authenticated user."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostDocument"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "The request was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/post/{post_id}/document-versions": {
+      "get": {
+        "tags": [
+          "Documents"
+        ],
+        "summary": "Get Post Document Versions",
+        "description": "List versions newest first, without data, at most 100 per page.\nMissing/unloaded documents or hidden posts answer 404; insufficient privileges\nanswer 403; invalid paging answers 400 ValidationError.",
+        "operationId": "get_post_document_versions",
+        "security": [
+          {
+            "basicAuth": []
+          },
+          {
+            "tokenAuth": []
+          },
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "post_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Post Id"
+            }
+          },
+          {
+            "name": "bump-login",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Record this request as a login of the authenticated user.",
+              "default": false,
+              "title": "Bump-Login"
+            },
+            "description": "Record this request as a login of the authenticated user."
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Search query; see the search syntax.",
+              "default": "",
+              "title": "Query"
+            },
+            "description": "Search query; see the search syntax."
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "How many results to skip.",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "How many results to skip."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "How many results to return.",
+              "default": 100,
+              "title": "Limit"
+            },
+            "description": "How many results to return."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Paged_DocumentVersion_"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "The request was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/post/{post_id}/document-version/{number}": {
+      "get": {
+        "tags": [
+          "Documents"
+        ],
+        "summary": "Get Post Document Version",
+        "description": "Read a version and its data. Missing, pruned or unloaded documents answer\n404 DocumentNotFoundError; hidden posts answer 404 PostNotFoundError;\ninsufficient privileges answer 403 AuthError.",
+        "operationId": "get_post_document_version",
+        "security": [
+          {
+            "basicAuth": []
+          },
+          {
+            "tokenAuth": []
+          },
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "post_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Post Id"
+            }
+          },
+          {
+            "name": "number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Number"
+            }
+          },
+          {
+            "name": "bump-login",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Record this request as a login of the authenticated user.",
+              "default": false,
+              "title": "Bump-Login"
+            },
+            "description": "Record this request as a login of the authenticated user."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentVersionData"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "The request was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/post/{post_id}/document-version/{number}/restore": {
+      "post": {
+        "tags": [
+          "Documents"
+        ],
+        "summary": "Restore Post Document Version",
+        "description": "Restore a retained version as a new current version; identical data is a no-op.\nMissing/pruned/unloaded documents or hidden posts answer 404; stale version\nanswers 409 IntegrityError; rejected data answers 400 ValidationError;\ninsufficient privileges answer 403 AuthError.",
+        "operationId": "restore_post_document_version",
+        "security": [
+          {
+            "basicAuth": []
+          },
+          {
+            "tokenAuth": []
+          },
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "post_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Post Id"
+            }
+          },
+          {
+            "name": "number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Number"
+            }
+          },
+          {
+            "name": "bump-login",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Record this request as a login of the authenticated user.",
+              "default": false,
+              "title": "Bump-Login"
+            },
+            "description": "Record this request as a login of the authenticated user."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostDocument"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "The request was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "version": {
+                    "type": "integer"
+                  }
+                },
+                "type": "object",
+                "required": [
+                  "version"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
     "/post/{post_id}/typed-relations": {
       "get": {
         "tags": [
@@ -8017,6 +8347,111 @@
         "type": "object",
         "title": "Comment"
       },
+      "DocumentVersion": {
+        "properties": {
+          "number": {
+            "type": "integer",
+            "title": "Number"
+          },
+          "schemaVersion": {
+            "type": "integer",
+            "title": "Schemaversion"
+          },
+          "hash": {
+            "type": "string",
+            "title": "Hash"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          },
+          "creationTime": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Creationtime"
+          },
+          "user": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MicroUser"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "DocumentVersion"
+      },
+      "DocumentVersionData": {
+        "properties": {
+          "number": {
+            "type": "integer",
+            "title": "Number"
+          },
+          "schemaVersion": {
+            "type": "integer",
+            "title": "Schemaversion"
+          },
+          "hash": {
+            "type": "string",
+            "title": "Hash"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          },
+          "creationTime": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Creationtime"
+          },
+          "user": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MicroUser"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "data": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "type": "object",
+            "title": "Data"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "DocumentVersionData"
+      },
       "Empty": {
         "properties": {},
         "additionalProperties": false,
@@ -8903,6 +9338,40 @@
         "type": "object",
         "title": "Paged[Comment]"
       },
+      "Paged_DocumentVersion_": {
+        "properties": {
+          "query": {
+            "type": "string",
+            "title": "Query",
+            "description": "The search query, as it was sent."
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset",
+            "description": "How many results were skipped."
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit",
+            "description": "The page size."
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "description": "How many results the query has in all."
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/DocumentVersion"
+            },
+            "type": "array",
+            "title": "Results"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Paged[DocumentVersion]"
+      },
       "Paged_Job_": {
         "properties": {
           "query": {
@@ -9570,6 +10039,45 @@
         "type": "object",
         "title": "PostContent",
         "description": "One piece of content a module read out of a post's file."
+      },
+      "PostDocument": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "schemaVersion": {
+            "type": "integer",
+            "title": "Schemaversion"
+          },
+          "hash": {
+            "type": "string",
+            "title": "Hash"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          },
+          "updateTime": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updatetime"
+          },
+          "data": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "type": "object",
+            "title": "Data"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "PostDocument"
       },
       "PostsAround": {
         "properties": {
@@ -10488,7 +10996,11 @@
     },
     {
       "name": "Posts",
-      "description": "Uploaded files and everything about them."
+      "description": "Posts, their files and module documents."
+    },
+    {
+      "name": "Documents",
+      "description": "Current documents and version history."
     },
     {
       "name": "Share links",

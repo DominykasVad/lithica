@@ -75,8 +75,23 @@ def test_document_describes_the_whole_api(document):
     operations = list(_operations(document))
     # the engine's, and those of the modules there are
     engine = [o for o in operations if not o[1].startswith("/modules/")]
-    assert len(engine) == 81
-    assert len([path for path in document["paths"] if "/modules/" not in path]) == 51
+    assert len(engine) == 85
+    assert len([path for path in document["paths"] if "/modules/" not in path]) == 55
+    for path, method, operation_id in (
+        ("/post/{post_id}/document", "get", "get_post_document"),
+        ("/post/{post_id}/document-versions", "get", "get_post_document_versions"),
+        (
+            "/post/{post_id}/document-version/{number}",
+            "get",
+            "get_post_document_version",
+        ),
+        (
+            "/post/{post_id}/document-version/{number}/restore",
+            "post",
+            "restore_post_document_version",
+        ),
+    ):
+        assert document["paths"][path][method]["operationId"] == operation_id
     assert sorted(path for path in document["paths"] if "/modules/" in path) == [
         "/modules/cards/post/{post_id}",
         "/modules/cards/post/{post_id}/download",

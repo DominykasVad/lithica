@@ -334,6 +334,15 @@ def _gets(site: Site) -> dict[str, Sequence[tuple[str, Mapping[str, Any], bool |
         "GET /post/{post_id}": [("/post/%d" % site.visible, {}, False), *hidden_posts],
         "GET /post/{post_id}/content": [("/post/%d/content" % site.visible, {}, False)]
         + [("/post/%d/content" % post_id, {}, True) for post_id in HIDDEN],
+        "GET /post/{post_id}/document": [
+            (f"/post/{post_id}/document", {}, True) for post_id in HIDDEN
+        ],
+        "GET /post/{post_id}/document-versions": [
+            (f"/post/{post_id}/document-versions", {}, True) for post_id in HIDDEN
+        ],
+        "GET /post/{post_id}/document-version/{number}": [
+            (f"/post/{post_id}/document-version/0", {}, True) for post_id in HIDDEN
+        ],
         "GET /featured-post": [("/featured-post", {}, False)],
         "GET /post/{post_id}/around": [
             ("/post/%d/around" % site.visible, {"query": query}, False)
@@ -541,6 +550,14 @@ def _writes(site: Site, read_asset: Any) -> dict[str, list[dict[str, Any]]]:
             {
                 "path": path + "/kind",
                 "body": {"version": 1, "kind": "media"},
+                "hidden": True,
+            }
+            for path in hidden_posts
+        ],
+        "POST /post/{post_id}/document-version/{number}/restore": [
+            {
+                "path": path + "/document-version/0/restore",
+                "body": {"version": 0},
                 "hidden": True,
             }
             for path in hidden_posts
