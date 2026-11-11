@@ -37,6 +37,10 @@ from lithica.api import dependencies, responses  # noqa: E402
 from lithica.app import app as lithica_app  # noqa: E402
 from lithica.func import auth, site_settings, visibility  # noqa: E402
 
+# Test schemas include disabled modules too, plus the test-only dummy table.
+registry.import_models()
+from lithica.tests.fixtures.modules.dummy import model as dummy_model  # noqa: E402, F401
+
 
 @pytest.fixture(scope="session")
 def _pg_database_url(worker_id):

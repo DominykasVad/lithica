@@ -625,6 +625,21 @@ def available() -> list[Module]:
     return found
 
 
+def import_models() -> None:
+    """Register every available module's tables, irrespective of configuration.
+
+    A module without model.py has no tables. An import failure inside an
+    existing model is an error, not an absent model.
+    """
+    for module in available():
+        path = f"{MODULE_PACKAGE}.{module.name}.model"
+        try:
+            importlib.import_module(path)
+        except ModuleNotFoundError as error:
+            if error.name != path:
+                raise
+
+
 # MIME type -> extension for the file types of every module there is, and
 # the package they were read from. Filled on first use and kept: it is a
 # fact about the code, the same in every process, and does not change

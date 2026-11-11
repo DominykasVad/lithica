@@ -56,7 +56,7 @@ Confirmed by the owner on 2026-10-10.
 - Modules load when `lithica.app` is imported (their routes are part of the application). Module routes live under `/modules/<name>/` and are in `doc/openapi.json`, each tagged with its module's name and nothing else: a module router that sets tags of its own is a startup error. The contract is generated with every module in `lithica/modules/` enabled (`registry.available()`), whatever the settings; the document a site serves under `api_docs` has the modules of that site.
 - Post kinds (`registry.PostKind`) have unique names of at most 32 characters, excluding engine-owned `media`; each names nonempty content kinds owned by that module unless it is a document-only kind, which only file-less posts get. Each content kind supports at most one post kind.
 - Uploads and content replacement derive the first supported loaded post kind in config/declaration order, else `media`. Only engine file types support `media`. Reextract derives again only if loaded content-kind names change or the current kind is unsupported; extraction failures keep the kind and rows, and manual choices otherwise survive.
-- Migrations know no modules: existing posts start as `media`; `lithica-admin backfill kinds` derives from stored rows without files and undoes manual choices, meant once after upgrading to 0.4.0; `backfill all` leaves kinds out. Reextract and backfill keep stored kinds of switched-off modules.
+- The post-kind migration starts existing posts as `media`; `lithica-admin backfill kinds` derives from stored rows without files and undoes manual choices, meant once after upgrading to 0.4.0; `backfill all` leaves kinds out. Reextract and backfill keep stored kinds of switched-off modules.
 - `posts:edit:kind` is its own privilege (power), excluded from app-token rights.
 - A content kind is at most 64 characters and belongs to exactly one module (`registry.ContentKind`).
 - An extractor returns at most 64 results. A payload may be 1 MiB of JSON unless its kind asks for more (`ContentKind.max_payload_size`, hard cap 32 MiB; more is a startup error). Beyond a limit, or with one bad result, the extractor counts as failed and all its results for the file are dropped.
@@ -453,7 +453,7 @@ release `v0.5.0`. Design: decisions 0003, 0005, 0006, 0010, 0011 and 0013 in
 - [ ] Posts without a file: no type, MIME type or checksum; file fields null in the API; every place that needs a file refuses or skips them.
 - [ ] Documents (0013): a post may have one JSON document of a kind a module registers, with versions from 0, each a full compressed copy, a content hash, and a retention setting (all, or version 0 plus the last N).
 - [ ] API: a post's current document, its versions (list, read one), restore one (a new version); writes carry the version they were based on and are refused when it's stale.
-- [ ] Modules may own tables: models in the module, migrations in the engine's folder, created whether or not the module is on.
+- [x] Modules may own tables: models in the module, migrations in the engine's folder, created whether or not the module is on.
 
 ### 7.1b Card and lorebook data
 - [ ] Cards and lorebooks as document kinds of the cards module; for an uploaded card, version 0 is what was read from its file, without its book, and the file is kept untouched.

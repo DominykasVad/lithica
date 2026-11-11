@@ -21,7 +21,8 @@ from typing import Annotated, Any, BinaryIO
 import sqlalchemy as sa
 from fastapi import Depends
 
-from lithica import config, db, model, registry
+from lithica import config, db, registry
+from lithica import model as engine_model
 from lithica.api.dependencies import require
 from lithica.api.routing import ApiRouter
 from lithica.search.configs import util as search_util
@@ -125,15 +126,15 @@ def auto_tag(contents: Sequence[registry.ExtractedContent]) -> Mapping[str, list
     return {"meta": ["dummy_text", *names]}
 
 
-def _keywords(post: model.Post, _user: model.User) -> list[str]:
+def _keywords(post: engine_model.Post, _user: engine_model.User) -> list[str]:
     """The post field `dummyKeywords`: the keywords of the post's text chunks."""
     return sorted({row.payload["keyword"] for row in post.contents if row.kind == KIND})
 
 
 def _print_count(_arguments: Any) -> int:
     count = (
-        db.session.query(model.PostContent)
-        .filter(model.PostContent.kind == KIND)
+        db.session.query(engine_model.PostContent)
+        .filter(engine_model.PostContent.kind == KIND)
         .count()
     )
     # the admin CLI talks to a terminal
@@ -146,15 +147,15 @@ router = ApiRouter()
 
 @router.get("/stats", summary="Count the posts that have text chunks")
 def get_stats(
-    _auth_user: Annotated[model.User, Depends(require("posts:list"))],
+    _auth_user: Annotated[engine_model.User, Depends(require("posts:list"))],
 ) -> dict[str, int]:
     """Says how many posts have text chunks, and how many chunks there are."""
     posts, chunks = (
         db.session.query(
-            sa.func.count(sa.distinct(model.PostContent.post_id)),
-            sa.func.count(model.PostContent.post_content_id),
+            sa.func.count(sa.distinct(engine_model.PostContent.post_id)),
+            sa.func.count(engine_model.PostContent.post_content_id),
         )
-        .filter(model.PostContent.kind == KIND)
+        .filter(engine_model.PostContent.kind == KIND)
         .one()
     )
     return {"posts": posts, "chunks": chunks}
@@ -197,11 +198,11 @@ module = registry.Module(
     search_filters={
         # dummy-text:<pattern> finds posts by the text of their chunks
         "dummy-text": search_util.create_subquery_filter(
-            model.Post.post_id,
-            model.PostContent.post_id,
-            model.PostContent.payload["text"].as_string(),
+            engine_model.Post.post_id,
+            engine_model.PostContent.post_id,
+            engine_model.PostContent.payload["text"].as_string(),
             search_util.create_str_filter,
-            lambda subquery: subquery.filter(model.PostContent.kind == KIND),
+            lambda subquery: subquery.filter(engine_model.PostContent.kind == KIND),
         )
     },
     post_fields={"dummyKeywords": _keywords},

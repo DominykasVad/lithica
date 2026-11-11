@@ -241,6 +241,11 @@ them in `.github/workflows/ci-sardonyx.yml`.
   for byte. A MIME type is at most 32 characters (the column's size).
 - Module tables are created by normal Alembic migrations regardless of
   whether the module is enabled; the config switch only enables behaviour.
+- Module models live in `lithica/modules/<name>/model.py` on `model.Base`;
+  table names start with `<name>_`. Their migrations live in the engine's
+  migrations folder. They may reference engine tables with CASCADE or SET
+  NULL deletion; engine tables never reference them and engine code never
+  reads them.
 
 ### Security
 - Never commit `config.yaml`, `.env`, secrets, tokens or real user data.
