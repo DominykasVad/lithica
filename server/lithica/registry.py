@@ -511,7 +511,8 @@ def _verify(modules: Sequence[Module]) -> None:
             ) or not post_kind.content_kinds <= owned:
                 raise _refuse(
                     module,
-                    "post kind %r must name its module's content kinds (nonempty)."
+                    "post kind %r must name its module's content kinds (nonempty "
+                    "unless the module registers a document kind of that name)."
                     % post_kind.name,
                 )
             if claimed_content & post_kind.content_kinds:
