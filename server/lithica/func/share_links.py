@@ -25,6 +25,7 @@ def derive_token(salt: bytes) -> str:
 def create(
     post: model.Post, user: model.User, note: str | None, expires_at: str | None
 ) -> model.ShareLink:
+    posts.require_file(post)
     if visibility.is_nsfw(post) and not site_settings.get("share_links_nsfw"):
         raise errors.ValidationError("Share links for NSFW posts are disabled.")
     if note is not None and len(note) > 128:
@@ -106,7 +107,7 @@ def delivery(token: str) -> tuple[str, str]:
         ),
         execution_options={visibility.ALL_POSTS: True},
     ).one_or_none()
-    if row is None:
+    if row is None or row.mime_type is None:
         raise missing()
     nsfw = (
         db.session.execute(

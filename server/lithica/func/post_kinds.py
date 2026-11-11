@@ -1,6 +1,6 @@
 """Post kinds, distinct from the kinds of extracted content that support them."""
 
-from lithica import errors, model, registry
+from lithica import db, errors, model, registry
 
 
 class InvalidPostKindError(errors.ValidationError):
@@ -62,6 +62,14 @@ def set_kind(post: model.Post, kind: str) -> bool:
     the supported choices. Selecting the current kind is a no-op. Version
     bumps and snapshots are the caller's responsibility.
     """
+    from lithica.func import posts
+
+    posts.require_file(post)
+    if (
+        post.post_id is not None
+        and db.session.get(model.PostDocument, post.post_id) is not None
+    ):
+        raise InvalidPostKindError("A post with a document cannot change kind.")
     supported = supported_kinds(post)
     if kind not in supported:
         raise InvalidPostKindError(

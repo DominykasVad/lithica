@@ -393,11 +393,11 @@ class Post(Base):
     )
 
     # content description
-    type: sa_orm.Mapped[str] = sa_orm.mapped_column(
-        "type", sa.Unicode(32), nullable=False
+    type: sa_orm.Mapped[str | None] = sa_orm.mapped_column(
+        "type", sa.Unicode(32), nullable=True
     )
-    checksum: sa_orm.Mapped[str] = sa_orm.mapped_column(
-        "checksum", sa.Unicode(64), nullable=False
+    checksum: sa_orm.Mapped[str | None] = sa_orm.mapped_column(
+        "checksum", sa.Unicode(64), nullable=True
     )
     checksum_md5: sa_orm.Mapped[str | None] = sa_orm.mapped_column(
         "checksum_md5", sa.Unicode(32)
@@ -411,8 +411,20 @@ class Post(Base):
     canvas_height: sa_orm.Mapped[int | None] = sa_orm.mapped_column(
         "image_height", sa.Integer
     )
-    mime_type: sa_orm.Mapped[str] = sa_orm.mapped_column(
-        "mime-type", sa.Unicode(32), nullable=False
+    mime_type: sa_orm.Mapped[str | None] = sa_orm.mapped_column(
+        "mime-type", sa.Unicode(32), nullable=True
+    )
+
+    __table_args__ = (
+        sa.CheckConstraint(
+            sa.or_(
+                sa.and_(type.is_(None), mime_type.is_(None), checksum.is_(None)),
+                sa.and_(
+                    type.is_not(None), mime_type.is_not(None), checksum.is_not(None)
+                ),
+            ),
+            name="ck_post_file_fields_together",
+        ),
     )
 
     typed_relations_out = sa_orm.relationship(

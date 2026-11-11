@@ -230,6 +230,7 @@ def nsfw_site(start, user_factory, read_asset) -> tuple[ApiClient, Site]:
         site.markers.append(
             re.compile(re.escape(posts.get_post_security_hash(post_id)))
         )
+    assert first.checksum is not None
     site.markers.append(re.compile(re.escape(first.checksum)))
     site.markers.append(re.compile(re.escape(CARD_NAME)))
     site.markers.append(re.compile(re.escape("Hidden Maker")))
@@ -333,6 +334,15 @@ def _gets(site: Site) -> dict[str, Sequence[tuple[str, Mapping[str, Any], bool |
         "GET /post/{post_id}": [("/post/%d" % site.visible, {}, False), *hidden_posts],
         "GET /post/{post_id}/content": [("/post/%d/content" % site.visible, {}, False)]
         + [("/post/%d/content" % post_id, {}, True) for post_id in HIDDEN],
+        "GET /post/{post_id}/document": [
+            (f"/post/{post_id}/document", {}, True) for post_id in HIDDEN
+        ],
+        "GET /post/{post_id}/document-versions": [
+            (f"/post/{post_id}/document-versions", {}, True) for post_id in HIDDEN
+        ],
+        "GET /post/{post_id}/document-version/{number}": [
+            (f"/post/{post_id}/document-version/0", {}, True) for post_id in HIDDEN
+        ],
         "GET /featured-post": [("/featured-post", {}, False)],
         "GET /post/{post_id}/around": [
             ("/post/%d/around" % site.visible, {"query": query}, False)
@@ -544,6 +554,14 @@ def _writes(site: Site, read_asset: Any) -> dict[str, list[dict[str, Any]]]:
             }
             for path in hidden_posts
         ],
+        "POST /post/{post_id}/document-version/{number}/restore": [
+            {
+                "path": path + "/document-version/0/restore",
+                "body": {"version": 0},
+                "hidden": True,
+            }
+            for path in hidden_posts
+        ],
         "DELETE /post/{post_id}": [
             {"path": path, "body": {"version": 1}, "hidden": True}
             for path in hidden_posts
@@ -687,6 +705,8 @@ def test_what_the_duplicate_check_loaded_stays_hidden_in_its_request(nsfw_site):
         assert visibility.hides_nsfw()
         post = model.Post()
         post.post_id = 9100099
+        # as create_post starts an upload
+        post.type = post.checksum = post.mime_type = ""
         # kept until the end: its traceback holds the check's frame, and with
         # it anything the check loaded, as any reference would (the session
         # itself holds what it loaded only weakly)

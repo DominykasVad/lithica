@@ -15,9 +15,10 @@ import sqlalchemy.orm as sa_orm
 from alembic import command
 from alembic.config import Config
 
-from lithica import config, db
+from lithica import config, db, model
 from lithica.api import dependencies
 from lithica.func import auth
+from lithica.tests.fixtures.modules.dummy.model import DummyText
 
 BEFORE = "e2b8d4f6a1c3"
 REVISION = "f3a9c1d27b64"
@@ -45,8 +46,15 @@ _old_tokens = sa.table(
 
 
 @pytest.fixture
-def migration_db(worker_id, _pg_database_url, tmp_path):
+def migration_db(worker_id, _pg_database_url, tmp_path, monkeypatch):
     """An empty database of its own, and alembic pointed at it."""
+    # The dummy table belongs to fixture-created schemas only. Alembic's
+    # metadata must describe shipped tables, just as in a production process.
+    metadata = sa.MetaData()
+    for table in model.Base.metadata.sorted_tables:
+        if table is not DummyText.__table__:
+            table.to_metadata(metadata)
+    monkeypatch.setattr(model.Base, "metadata", metadata)
     name = "test_migration_%s" % worker_id
     admin = sa.create_engine(_pg_database_url, isolation_level="AUTOCOMMIT")
     with admin.connect() as conn:

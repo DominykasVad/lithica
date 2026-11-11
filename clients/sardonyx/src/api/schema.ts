@@ -1532,6 +1532,95 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/post/{post_id}/document": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Post Document
+         * @description Read the current document. Missing or unloaded documents and hidden posts
+         *     answer 404 DocumentNotFoundError or PostNotFoundError; insufficient privileges
+         *     answer 403 AuthError.
+         */
+        get: operations["get_post_document"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/post/{post_id}/document-versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Post Document Versions
+         * @description List versions newest first, without data, at most 100 per page.
+         *     Missing/unloaded documents or hidden posts answer 404; insufficient privileges
+         *     answer 403; invalid paging answers 400 ValidationError.
+         */
+        get: operations["get_post_document_versions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/post/{post_id}/document-version/{number}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Post Document Version
+         * @description Read a version and its data. Missing, pruned or unloaded documents answer
+         *     404 DocumentNotFoundError; hidden posts answer 404 PostNotFoundError;
+         *     insufficient privileges answer 403 AuthError.
+         */
+        get: operations["get_post_document_version"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/post/{post_id}/document-version/{number}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore Post Document Version
+         * @description Restore a retained version as a new current version; identical data is a no-op.
+         *     Missing/pruned/unloaded documents or hidden posts answer 404; stale version
+         *     answers 409 IntegrityError; rejected data answers 400 ValidationError;
+         *     insufficient privileges answer 403 AuthError.
+         */
+        post: operations["restore_post_document_version"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/post/{post_id}/typed-relations": {
         parameters: {
             query?: never;
@@ -1907,6 +1996,48 @@ export interface components {
             /** Ownscore */
             ownScore?: number;
         };
+        /** DocumentVersion */
+        DocumentVersion: {
+            /** Number */
+            number?: number;
+            /** Schemaversion */
+            schemaVersion?: number;
+            /** Hash */
+            hash?: string;
+            /** Size */
+            size?: number;
+            /**
+             * Creationtime
+             * Format: date-time
+             */
+            creationTime?: string;
+            user?: components["schemas"]["MicroUser"] | null;
+            /** Note */
+            note?: string | null;
+        };
+        /** DocumentVersionData */
+        DocumentVersionData: {
+            /** Number */
+            number?: number;
+            /** Schemaversion */
+            schemaVersion?: number;
+            /** Hash */
+            hash?: string;
+            /** Size */
+            size?: number;
+            /**
+             * Creationtime
+             * Format: date-time
+             */
+            creationTime?: string;
+            user?: components["schemas"]["MicroUser"] | null;
+            /** Note */
+            note?: string | null;
+            /** Data */
+            data?: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+        };
         /**
          * Empty
          * @description An empty object: the request succeeded and there is nothing to return.
@@ -2209,7 +2340,7 @@ export interface components {
             /** Id */
             id?: number;
             /** Thumbnailurl */
-            thumbnailUrl?: string;
+            thumbnailUrl?: string | null;
         };
         /** MicroTag */
         MicroTag: {
@@ -2261,6 +2392,31 @@ export interface components {
             total?: number;
             /** Results */
             results?: components["schemas"]["Comment"][];
+        };
+        /** Paged[DocumentVersion] */
+        Paged_DocumentVersion_: {
+            /**
+             * Query
+             * @description The search query, as it was sent.
+             */
+            query?: string;
+            /**
+             * Offset
+             * @description How many results were skipped.
+             */
+            offset?: number;
+            /**
+             * Limit
+             * @description The page size.
+             */
+            limit?: number;
+            /**
+             * Total
+             * @description How many results the query has in all.
+             */
+            total?: number;
+            /** Results */
+            results?: components["schemas"]["DocumentVersion"][];
         };
         /** Paged[Job] */
         Paged_Job_: {
@@ -2512,11 +2668,11 @@ export interface components {
             /** Source */
             source?: string | null;
             /** Type */
-            type?: string;
+            type?: string | null;
             /** Mimetype */
-            mimeType?: string;
+            mimeType?: string | null;
             /** Checksum */
-            checksum?: string;
+            checksum?: string | null;
             /** Checksummd5 */
             checksumMD5?: string | null;
             /** Filesize */
@@ -2526,9 +2682,9 @@ export interface components {
             /** Canvasheight */
             canvasHeight?: number | null;
             /** Contenturl */
-            contentUrl?: string;
+            contentUrl?: string | null;
             /** Thumbnailurl */
-            thumbnailUrl?: string;
+            thumbnailUrl?: string | null;
             /** Flags */
             flags?: string[];
             /** Tags */
@@ -2607,6 +2763,28 @@ export interface components {
              * @description The content, in the shape the module that owns the kind gives it.
              */
             content?: unknown;
+        };
+        /** PostDocument */
+        PostDocument: {
+            /** Kind */
+            kind?: string;
+            /** Version */
+            version?: number;
+            /** Schemaversion */
+            schemaVersion?: number;
+            /** Hash */
+            hash?: string;
+            /** Size */
+            size?: number;
+            /**
+             * Updatetime
+             * Format: date-time
+             */
+            updateTime?: string;
+            /** Data */
+            data?: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
         };
         /** PostsAround */
         PostsAround: {
@@ -2764,17 +2942,17 @@ export interface components {
             /** Kind */
             kind?: string;
             /** Type */
-            type?: string;
+            type?: string | null;
             /** Mimetype */
-            mimeType?: string;
+            mimeType?: string | null;
             /** Safety */
             safety?: string;
             /** Nsfw */
             nsfw?: boolean;
             /** Contenturl */
-            contentUrl?: string;
+            contentUrl?: string | null;
             /** Thumbnailurl */
-            thumbnailUrl?: string;
+            thumbnailUrl?: string | null;
         };
         /** TypedRelationType */
         TypedRelationType: {
@@ -5801,6 +5979,156 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Post"];
+                };
+            };
+            /** @description The request was refused. */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_post_document: {
+        parameters: {
+            query?: {
+                /** @description Record this request as a login of the authenticated user. */
+                "bump-login"?: boolean;
+            };
+            header?: never;
+            path: {
+                post_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PostDocument"];
+                };
+            };
+            /** @description The request was refused. */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_post_document_versions: {
+        parameters: {
+            query?: {
+                /** @description Record this request as a login of the authenticated user. */
+                "bump-login"?: boolean;
+                /** @description Search query; see the search syntax. */
+                query?: string;
+                /** @description How many results to skip. */
+                offset?: number;
+                /** @description How many results to return. */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                post_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Paged_DocumentVersion_"];
+                };
+            };
+            /** @description The request was refused. */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_post_document_version: {
+        parameters: {
+            query?: {
+                /** @description Record this request as a login of the authenticated user. */
+                "bump-login"?: boolean;
+            };
+            header?: never;
+            path: {
+                post_id: number;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentVersionData"];
+                };
+            };
+            /** @description The request was refused. */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    restore_post_document_version: {
+        parameters: {
+            query?: {
+                /** @description Record this request as a login of the authenticated user. */
+                "bump-login"?: boolean;
+            };
+            header?: never;
+            path: {
+                post_id: number;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    version: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PostDocument"];
                 };
             };
             /** @description The request was refused. */

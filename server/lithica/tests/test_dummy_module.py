@@ -675,7 +675,8 @@ def test_mime_type_no_module_knows_is_stored_as_dat(site, post_factory):
     db.session.add(post)
     db.session.flush()
     assert posts.get_post_content_path(post).endswith(".dat")
-    assert posts.get_post_content_url(post).endswith(".dat")
+    url = posts.get_post_content_url(post)
+    assert url is not None and url.endswith(".dat")
     # and the engine's own types are the engine's to name
     assert file_types.get_extension("image/png") == "png"
 

@@ -27,8 +27,8 @@ Never relicense, never strip headers or credits.
 
 ## Current phase
 
-Phases 0–5 of PLAN.md are finished (phase 5 ends in `v0.3.0`). Phase 6
-(server foundations) is current; its sub-phases are done in order, one
+Phases 0–6 of PLAN.md are finished (phase 6 ends in `v0.4.0`). Phase 7
+(cards as data) is current; its sub-phases are done in order, one
 branch and PR each. Work only on the phase PLAN.md marks as current.
 Anything not in PLAN.md is **out of scope**.
 
@@ -241,6 +241,11 @@ them in `.github/workflows/ci-sardonyx.yml`.
   for byte. A MIME type is at most 32 characters (the column's size).
 - Module tables are created by normal Alembic migrations regardless of
   whether the module is enabled; the config switch only enables behaviour.
+- Module models live in `lithica/modules/<name>/model.py` on `model.Base`;
+  table names start with `<name>_`. Their migrations live in the engine's
+  migrations folder. They may reference engine tables with CASCADE or SET
+  NULL deletion; engine tables never reference them and engine code never
+  reads them.
 
 ### Security
 - Never commit `config.yaml`, `.env`, secrets, tokens or real user data.

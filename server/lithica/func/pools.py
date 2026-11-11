@@ -201,14 +201,15 @@ def preload_pools(pools: Sequence[model.Pool], options: list[str]) -> None:
             *loaders,
         ).all()
     if "posts" in fields:
-        # each row of a pool gets its post (a micro post reads its id); the
+        # Each row gets its post's id and whether it has a file; the
         # rows hold them, as the session itself does not
         db.session.query(model.PoolPost).filter(
             model.PoolPost.pool_id.in_(ids)
         ).options(
             sa_orm.lazyload("*"),
             sa_orm.selectinload(model.PoolPost.post).options(
-                sa_orm.lazyload("*"), sa_orm.load_only(model.Post.post_id)
+                sa_orm.lazyload("*"),
+                sa_orm.load_only(model.Post.post_id, model.Post.mime_type),
             ),
         ).all()
 

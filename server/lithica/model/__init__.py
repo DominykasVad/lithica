@@ -1,5 +1,6 @@
 from lithica.model.base import Base
 from lithica.model.comment import Comment, CommentScore
+from lithica.model.document import PostDocument, PostDocumentVersion
 from lithica.model.job import Job
 from lithica.model.pool import Pool, PoolName, PoolPost
 from lithica.model.pool_category import PoolCategory

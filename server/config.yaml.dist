@@ -195,6 +195,7 @@ privileges:
     # fields of extracted content that a module marks as private
     'posts:view:content:private':   moderator
     'posts:edit:kind':              power
+    'posts:edit:document':          regular
     'posts:edit:content':           power
     'posts:edit:flags':             regular
     'posts:edit:notes':             regular
@@ -289,3 +290,7 @@ jobs:
     worker: true
     poll_interval: 5
     keep_done_days: 7
+
+# 0 keeps every version; N keeps version 0 and the last N.
+# Lowering this setting prunes each document at its next write only.
+document_versions_kept: 0

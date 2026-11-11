@@ -20,6 +20,7 @@ sys.path.append(os.path.join(dir_to_self, *[os.pardir] * 2))
 
 import lithica.config  # noqa: E402
 import lithica.model.base  # noqa: E402
+import lithica.registry  # noqa: E402
 
 # fmt: on
 
@@ -31,6 +32,7 @@ logging.config.fileConfig(alembic_config.config_file_name)
 lithica_config = lithica.config.config
 alembic_config.set_main_option("sqlalchemy.url", lithica_config["database"])
 
+lithica.registry.import_models()
 target_metadata = lithica.model.Base.metadata
 
 

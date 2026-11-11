@@ -143,7 +143,7 @@ class TagSibling(Resource):
 
 class MicroPost(Resource):
     id: int
-    thumbnail_url: str
+    thumbnail_url: str | None
 
 
 class Note(Resource):
@@ -207,12 +207,12 @@ class TypedRelationType(Resource):
 class TypedRelationPost(Resource):
     id: int
     kind: str
-    type: str
-    mime_type: str
+    type: str | None
+    mime_type: str | None
     safety: str
     nsfw: bool
-    content_url: str
-    thumbnail_url: str
+    content_url: str | None
+    thumbnail_url: str | None
 
 
 class TypedRelation(Resource):
@@ -245,15 +245,15 @@ class Post(Resource):
     last_edit_time: datetime | None
     safety: str
     source: str | None
-    type: str
-    mime_type: str
-    checksum: str
+    type: str | None
+    mime_type: str | None
+    checksum: str | None
     checksum_md5: str | None = Field(alias="checksumMD5")
     file_size: int | None
     canvas_width: int | None
     canvas_height: int | None
-    content_url: str
-    thumbnail_url: str
+    content_url: str | None
+    thumbnail_url: str | None
     flags: list[str]
     tags: list[MicroTag]
     nsfw: bool = Field(
@@ -464,3 +464,27 @@ class Job(Resource):
 
 class JobDetail(Job):
     payload: dict[str, JsonValue]
+
+
+class PostDocument(Resource):
+    kind: str
+    version: int
+    schema_version: int
+    hash: str
+    size: int
+    update_time: datetime
+    data: dict[str, JsonValue]
+
+
+class DocumentVersion(Resource):
+    number: int
+    schema_version: int
+    hash: str
+    size: int
+    creation_time: datetime
+    user: MicroUser | None
+    note: str | None
+
+
+class DocumentVersionData(DocumentVersion):
+    data: dict[str, JsonValue]

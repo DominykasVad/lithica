@@ -59,6 +59,7 @@ def test_with_a_secret_the_addresses_are_signed(config_injector, post, fake_date
         expires,
         file_links.signature("/posts/5_%s.png" % hash_, expires, SECRET),
     )
+    assert thumbnail is not None
     query = parse_qs(urlsplit(thumbnail).query)
     assert query["e"] == [str(expires)]
     assert query["s"] == [

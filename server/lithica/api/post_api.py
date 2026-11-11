@@ -357,6 +357,7 @@ def update_post(
     versions.bump_version(post)
     content_changed = data.has_file("content")
     if content_changed:
+        posts.require_file(post)
         auth.verify_privilege(auth_user, "posts:edit:content")
         posts.update_post_content(
             post,
@@ -396,6 +397,7 @@ def update_post(
         auth.verify_privilege(auth_user, "posts:edit:flags")
         posts.update_post_flags(post, body.flags)
     if data.has_file("thumbnail"):
+        posts.require_file(post)
         auth.verify_privilege(auth_user, "posts:edit:thumbnail")
         posts.update_post_thumbnail(post, data.get_file("thumbnail"))
     # a body with nothing to change asks no privilege (see there)
