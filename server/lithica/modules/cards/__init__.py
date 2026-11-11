@@ -82,7 +82,7 @@ from typing import BinaryIO, cast
 
 from lithica import registry
 from lithica.func import tag_categories
-from lithica.modules.cards import api, charx, png, search
+from lithica.modules.cards import api, charx, documents, png, search
 from lithica.modules.cards import card as card_format
 
 NAME = "cards"
@@ -309,7 +309,24 @@ module = registry.Module(
     requested_post_fields={"card": api.card_field},
     post_field_batches={"card": api.card_fields},
     post_field_schemas={"card": api.CardSummary},
-    post_kinds=[registry.PostKind("card", frozenset(card_format.KINDS))],
+    post_kinds=[
+        registry.PostKind("card", frozenset(card_format.KINDS)),
+        registry.PostKind("lorebook", frozenset()),
+    ],
+    document_kinds=[
+        registry.DocumentKind(
+            "card",
+            validate=documents.validate_card,
+            max_size=card_format.MAX_CARD_SIZE,
+            after_write=documents.after_card,
+        ),
+        registry.DocumentKind(
+            "lorebook",
+            validate=documents.validate_lorebook,
+            max_size=card_format.MAX_CARD_SIZE,
+            after_write=documents.after_lorebook,
+        ),
+    ],
     relation_types=[
         registry.RelationType(name, frozenset({"media"}), frozenset({"card"}))
         for name in (

@@ -31,7 +31,7 @@ def _info(client, user):
 def test_upload(site, user, content, kind):
     client = site(["cards"])
     assert _upload(client, user, content)["kind"] == kind
-    assert _info(client, user)["postKinds"] == ["media", "card"]
+    assert _info(client, user)["postKinds"] == ["media", "card", "lorebook"]
 
 
 def test_cards_off(site, user):
