@@ -350,6 +350,10 @@ def test_post_field(site, user):
             "lorebookEntryCount": 2,
         },
         plain["id"]: None,
+        **{
+            row.post_id: None
+            for row in db.session.query(model.Post).filter_by(kind="lorebook")
+        },
     }
     one = ok(client.get("/post/%d" % card["id"], user=user, query={"fields": "card"}))
     assert list(one) == ["card"] and one["card"]["spec"] == "v2"

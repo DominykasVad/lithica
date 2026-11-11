@@ -12,6 +12,17 @@ from lithica.tests.modules.test_cards_api import _search, _upload
 from lithica.tests.test_admin import admin as kind_admin  # noqa: F401
 
 
+@pytest.fixture(autouse=True)
+def file_kinds_without_documents(monkeypatch):
+    # These tests exercise engine file-kind edits. Document ownership and
+    # its refusal of edits are covered by test_card_upload_documents.
+    from lithica.modules import cards as cards_module
+
+    monkeypatch.setattr(
+        cards_module, "module", replace(cards_module.module, after_file_or_kind=None)
+    )
+
+
 def _info(client, user):
     defaults = shipped_config(config.config["data_dir"])
     config.config["privileges"] = defaults["privileges"] | config.config["privileges"]

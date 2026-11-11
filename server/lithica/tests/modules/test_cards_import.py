@@ -68,8 +68,15 @@ def test_import_of_cards(admin, library, user, tmp_path, capsys):
     assert "  refused  6-archive.zip: Unhandled file type" in output
 
     v2, v3, charx, plain = (
-        db.session.query(model.Post).order_by(model.Post.post_id).all()
+        db.session.query(model.Post)
+        .filter(model.Post.mime_type.is_not(None))
+        .order_by(model.Post.post_id)
+        .all()
     )
+    books = db.session.query(model.Post).filter_by(kind="lorebook").all()
+    assert len(books) == 2
+    assert all(book.listed and not book.tags for book in books)
+    assert db.session.query(model.PostDocument).count() == 5
     # every card with its content and the tags an upload would have given it
     assert [row.kind for row in v2.contents] == ["card_v2"]
     assert [row.kind for row in v3.contents] == ["card_v3"]
@@ -104,7 +111,7 @@ def test_import_of_cards(admin, library, user, tmp_path, capsys):
     # a second run creates nothing
     assert _import(admin, folder, user) == 0
     assert "0 created, 4 skipped, 2 refused, 0 failed" in capsys.readouterr().out
-    assert db.session.query(model.Post).count() == 4
+    assert db.session.query(model.Post).count() == 6
 
 
 def test_import_of_the_sample_cards(admin, library, user, capsys):
@@ -123,7 +130,9 @@ def test_import_of_the_sample_cards(admin, library, user, capsys):
     output = capsys.readouterr().out
     assert "%d created, 0 skipped" % len(samples) in output
     assert "0 failed" in output
-    imported = db.session.query(model.Post).all()
+    imported = (
+        db.session.query(model.Post).filter(model.Post.mime_type.is_not(None)).all()
+    )
     # one post per card, each with its card and at least its creator as a tag
     assert len(imported) == len(samples)
     for post in imported:

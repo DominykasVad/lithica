@@ -457,9 +457,9 @@ release `v0.5.0`. Design: decisions 0003, 0005, 0006, 0010, 0011 and 0013 in
 - [x] Modules may own tables: models in the module, migrations in the engine's folder, created whether or not the module is on.
 
 ### 7.1b Card and lorebook data
-- [ ] Cards and lorebooks as document kinds of the cards module; for an uploaded card, version 0 is what was read from its file without its book, and the file is kept untouched.
+- [x] Cards and lorebooks as document kinds of the cards module; for an uploaded card, version 0 is what was read from its file without its book, and the file is kept untouched.
 - [x] `lorebook` as a kind (0010): each card version links its books by id, in order (no pinned book versions); a book may stand alone; the module's tables mirror the current links and what search needs.
-- [ ] Uploads split off their embedded book: an identical book (same content, same side of the NSFW line) is linked instead of copied; a new book gets the card's NSFW tag and safety, no other tags.
+- [x] Uploads split off their embedded book: an identical book (same content, same side of the NSFW line) is linked instead of copied; a new book gets the card's NSFW tag and safety, no other tags.
 - [ ] The card answer, the `card` field and the search tokens read the current version; a lorebook endpoint.
 - [ ] Existing cards converted once (a background job started by `lithica-admin cards convert`), the same way uploads are.
 

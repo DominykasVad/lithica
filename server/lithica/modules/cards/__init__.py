@@ -82,7 +82,7 @@ from typing import BinaryIO, cast
 
 from lithica import registry
 from lithica.func import tag_categories
-from lithica.modules.cards import api, charx, documents, png, search
+from lithica.modules.cards import api, charx, documents, png, search, uploads
 from lithica.modules.cards import card as card_format
 
 NAME = "cards"
@@ -303,6 +303,7 @@ def charx_thumbnail(handle: BinaryIO) -> bytes | None:
 
 module = registry.Module(
     name=NAME,
+    after_file_or_kind=uploads.convert,
     router=api.router,
     auto_tag=auto_tag,
     search_filters=search.FILTERS,
