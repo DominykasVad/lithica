@@ -20,7 +20,8 @@ into the current card model would mean converting everything twice.
    - Background jobs.
 2. **Phase 7, cards as data** (`v0.5.0`) ([0005](decisions/0005-cards-as-data-and-versions.md),
    [0006](decisions/0006-archiving-card-images.md), [0010](decisions/0010-lorebooks-as-their-own-kind.md),
-   [0011](decisions/0011-cards-created-from-data.md))
+   [0011](decisions/0011-cards-created-from-data.md),
+   [0013](decisions/0013-versioned-documents-and-module-tables.md))
    - Card and lorebook data with versions; lorebooks as their own kind,
      linked to cards; existing cards converted.
    - Cards created from data, JSON uploads, duplicates by content; what the

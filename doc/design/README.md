@@ -34,3 +34,4 @@ Consequences. Keep it short; link instead of repeating.
 | [0009](decisions/0009-single-user-one-client.md) | Single user, one client with sections | Accepted |
 | [0010](decisions/0010-lorebooks-as-their-own-kind.md) | Lorebooks as their own kind | Accepted |
 | [0011](decisions/0011-cards-created-from-data.md) | Cards created from data, with no file | Accepted |
+| [0013](decisions/0013-versioned-documents-and-module-tables.md) | Versioned documents in the engine; tables of modules | Accepted |

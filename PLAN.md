@@ -54,7 +54,7 @@ Confirmed by the owner on 2026-10-10.
 - The largest request is `max_upload_size` (default 1 GiB, the limit of the client image's nginx; change both together).
 - The database session is scoped per request by a ContextVar; work outside a request opens `db.session_scope()`.
 - Modules load when `lithica.app` is imported (their routes are part of the application). Module routes live under `/modules/<name>/` and are in `doc/openapi.json`, each tagged with its module's name and nothing else: a module router that sets tags of its own is a startup error. The contract is generated with every module in `lithica/modules/` enabled (`registry.available()`), whatever the settings; the document a site serves under `api_docs` has the modules of that site.
-- Post kinds (`registry.PostKind`) have unique names of at most 32 characters, excluding engine-owned `media`; each names nonempty content kinds owned by that module, each content kind supporting at most one post kind.
+- Post kinds (`registry.PostKind`) have unique names of at most 32 characters, excluding engine-owned `media`; each names nonempty content kinds owned by that module unless it is a document-only kind, which only file-less posts get. Each content kind supports at most one post kind.
 - Uploads and content replacement derive the first supported loaded post kind in config/declaration order, else `media`. Only engine file types support `media`. Reextract derives again only if loaded content-kind names change or the current kind is unsupported; extraction failures keep the kind and rows, and manual choices otherwise survive.
 - Migrations know no modules: existing posts start as `media`; `lithica-admin backfill kinds` derives from stored rows without files and undoes manual choices, meant once after upgrading to 0.4.0; `backfill all` leaves kinds out. Reextract and backfill keep stored kinds of switched-off modules.
 - `posts:edit:kind` is its own privilege (power), excluded from app-token rights.
@@ -123,6 +123,38 @@ Settled in phase 5, for `clients/sardonyx`.
 - **NSFW.** Blurred by the post field `nsfw` only; a tile keeps its card's name and creator unless `nsfwHidesNames`. Show NSFW: localStorage per browser, off by default; a reveal lasts the tab's session. In `login` mode the shell draws only the login form (and password reset) until logged in; no page before `/info` answers.
 - **Password reset and account.** The mail's link: the token is taken off the address at once (history entry replaced) and kept in memory; the image's nginx keeps that page out of the access log, with no referrer. Every answer of the request but `MailNotConfiguredError` reads as "sent". `/account` checks the current password by reading the account with it (Basic), then PUTs with the version.
 - **Browser tests.** Playwright against the dev stack + `docker-compose.e2e.yml` (project `lithica-e2e`, secrets made by `e2e/stack.sh`): Mailpit v1.31.5 in the test stack only, read through its API; `nsfw-login` as a second server and Sardonyx on the same database and data. Cards synthetic (`e2e/cards.ts`), small ones committed, none third-party. CI runs Chromium and Firefox with no retries; WebKit was flaky on Linux CI and runs locally only.
+
+### Server foundations
+
+Settled in phase 6.
+
+| Topic | Decision |
+|---|---|
+| 6.1 | An app-token request is never its owner acting on the account: no own-account read, email, vote counts (rights only). |
+| 6.1 | An edit with an app token that names nothing to change is refused (it would bump a version with no privilege). |
+| fix-post-lists | `favoritedBy` is ordered by favourite time, then user id (the database gave no order). |
+| fix-post-lists | Lists load what fields need per page; a module field may add a batch (`post_field_batches`). |
+| 6.3 | Call directed records typed relations (relations already names the untyped feature). |
+| 6.3 | External-ID hosts name installations, not programs (plugins configure their own installation names). |
+| 6.3 | Neither typed relations nor external IDs bump post versions or snapshot (bulk bookkeeping). |
+| 6.3 | Both metadata edit privileges belong to app-token write (imports need both). |
+| 6.3 | Replace external IDs as a whole list (IDs may contain slashes, so none appear in paths). |
+| 6.3 | Merges move typed relations and external IDs, dropping duplicate/self typed relations. |
+| 6.3 | Search external-host: only; exact IDs use lookup (parser folds case and splits whitespace). |
+| 6.4 | Index listed (every post search filters on it). |
+| 6.4 | Unlisted is not private (direct, pool and typed-relation access stay available). |
+| 6.4 | Listed defaults affect post searches only, including count and around (other reads/counts stay whole). |
+| 6.4 | PUT alone exposes listed; creation stays listed until phase 7 sets related images server-side. |
+| 6.4 | Add listed editing to app-token write (imports curate it). |
+| 6.4 | Merges retain the target's listed flag, as with safety. |
+| 6.5 | Share link tokens derived from `secret` and a salt (links shown again, reused by export) |
+| 6.6 | Omit disabled features' fields; reject their search tokens to avoid silently incorrect results. |
+| 6.6 | Use /site-settings; reserve /settings for per-account settings in 8.3. |
+| 6.6 | One locked singleton version covers all site settings for atomic edits. |
+| 6.6 | Read stored settings once per unit of work with Core selects to avoid loader recursion. |
+| 6.6 | API default_rank choices are restricted, regular and power to prevent signup escalation. |
+| 6.7 | Match attempt and lease on completion/failure so expired workers cannot overwrite a new claim. |
+| 6.7 | Use whole-second claim leases so ownership checks survive database timestamp precision loss. |
 
 ### Later
 
@@ -210,6 +242,14 @@ Additions only; nothing existing changes shape.
 
 8. `GET /jobs` and `GET /job/{id}` expose background jobs to administrators only.
 
+### Intentional API changes (phase 7)
+
+1. Posts may have no file: `type`, `mimeType`, `checksum`, `checksumMD5`,
+   `fileSize`, canvas sizes, `contentUrl` and `thumbnailUrl` are null for them.
+2. Document routes expose the current document, paged versions, one version,
+   and restoring a version as a new one. `posts:edit:document` permits restore;
+   the runtime site setting `document_versions_kept` controls retention.
+
 ### Allowed dialect exceptions
 
 - `sa.ARRAY` in migrations `8f3a1c2d4e5b` and `b7d2e9a4c1f3` only: they read and (on downgrade) restore the old
@@ -224,32 +264,7 @@ respect). One line each, max ~120 characters: `date — task — decision (reaso
 No status notes, no "left untouched", no results — those go in commit messages.
 When a whole phase is finished (its last sub-phase merged), its entries are folded into the tables above or deleted.
 
-- 2026-11-08 — 6.1 — An app-token request is never its owner acting on the account: no own-account read, email, vote counts (rights only).
-- 2026-11-08 — 6.1 — An edit with an app token that names nothing to change is refused (it would bump a version with no privilege).
-- 2026-11-09 — fix-post-lists — `favoritedBy` is ordered by favourite time, then user id (the database gave no order).
-- 2026-11-09 — fix-post-lists — Lists load what fields need per page; a module field may add a batch (`post_field_batches`).
-- 2026-11-09 — fix-hidden-counts — Siblings and relationCount follow visibility; other counts don't (tag usages, user counts).
-- 2026-11-09 — 6.3 — Call directed records typed relations (relations already names the untyped feature).
-- 2026-11-09 — 6.3 — External-ID hosts name installations, not programs (plugins configure their own installation names).
-- 2026-11-09 — 6.3 — Neither typed relations nor external IDs bump post versions or snapshot (bulk bookkeeping).
-- 2026-11-09 — 6.3 — Both metadata edit privileges belong to app-token write (imports need both).
-- 2026-11-09 — 6.3 — Replace external IDs as a whole list (IDs may contain slashes, so none appear in paths).
-- 2026-11-09 — 6.3 — Merges move typed relations and external IDs, dropping duplicate/self typed relations.
-- 2026-11-09 — 6.3 — Search external-host: only; exact IDs use lookup (parser folds case and splits whitespace).
-- 2026-11-09 — 6.4 — Index listed (every post search filters on it).
-- 2026-11-09 — 6.4 — Unlisted is not private (direct, pool and typed-relation access stay available).
-- 2026-11-09 — 6.4 — Listed defaults affect post searches only, including count and around (other reads/counts stay whole).
-- 2026-11-09 — 6.4 — PUT alone exposes listed; creation stays listed until phase 7 sets related images server-side.
-- 2026-11-09 — 6.4 — Add listed editing to app-token write (imports curate it).
-- 2026-11-09 — 6.4 — Merges retain the target's listed flag, as with safety.
-- 2026-11-09 — 6.5 — Share link tokens derived from `secret` and a salt (links shown again, reused by export)
-- 2026-11-10 — 6.6 — Omit disabled features' fields; reject their search tokens to avoid silently incorrect results.
-- 2026-11-10 — 6.6 — Use /site-settings; reserve /settings for per-account settings in 8.3.
-- 2026-11-10 — 6.6 — One locked singleton version covers all site settings for atomic edits.
-- 2026-11-10 — 6.6 — Read stored settings once per unit of work with Core selects to avoid loader recursion.
-- 2026-11-10 — 6.6 — API default_rank choices are restricted, regular and power to prevent signup escalation.
-- 2026-11-10 — 6.7 — Match attempt and lease on completion/failure so expired workers cannot overwrite a new claim.
-- 2026-11-10 — 6.7 — Use whole-second claim leases so ownership checks survive database timestamp precision loss.
+- 2026-11-11 — 7.1a — Post kinds may name no content kinds when they have a document kind (document-only kinds; never derived).
 
 ---
 
@@ -363,9 +378,7 @@ are not in Sardonyx.
 - The decisions of the phase are in the sections above: the cards module,
   Further defaults, Visibility and signed file links, Sardonyx.
 
-## Phase 6 — Server foundations
-
-**Current phase.**
+## Phase 6 — done (PRs #48, #50, #51, #53–#61, #63; fix #62; release `v0.4.0`)
 
 Goal: tokens fit for other apps, the asset model, share links, site
 settings and background jobs that the later phases and the plugins build
@@ -428,16 +441,27 @@ concept, "post" the resource.
 
 ## Phase 7 — Cards as data
 
+**Current phase.**
+
 Goal: cards and lorebooks are data with versions and related assets; cards
 can be created from data, so the Lumiverse plugin can import a whole
 library; card images are archived; cards export in several forms. Ends in
-release `v0.5.0`. Design: decisions 0003, 0005, 0006, 0010 and 0011 in
+release `v0.5.0`. Design: decisions 0003, 0005, 0006, 0010, 0011 and 0013 in
 [doc/design/decisions](doc/design/decisions/).
 
-### 7.1 Card and lorebook data, with versions
-- [ ] A card's data and a lorebook's data in versions, each a full compressed JSON copy, with a retention setting (all, or the last N plus version 0). For an uploaded card, version 0 is what was read from its file, which is kept untouched.
-- [ ] `lorebook` as a kind (0010): a card links its books, many to many, in order; a book may stand alone.
-- [ ] API: list versions, read one, restore one (a restore is a new version); writes carry the version they were based on and are refused when it's stale.
+### 7.1a Documents with versions, posts without a file (engine)
+- [ ] Posts without a file: no type, MIME type or checksum; file fields null in the API; every place that needs a file refuses or skips them.
+- [ ] Documents (0013): a post may have one JSON document of a kind a module registers, with versions from 0, each a full compressed copy, a content hash, and a retention setting (all, or version 0 plus the last N).
+- [ ] API: a post's current document, its versions (list, read one), restore one (a new version); writes carry the version they were based on and are refused when it's stale.
+- [ ] Modules may own tables: models in the module, migrations in the engine's folder, created whether or not the module is on.
+
+### 7.1b Card and lorebook data
+- [ ] Cards and lorebooks as document kinds of the cards module; for an uploaded card, version 0 is what was read from its file, without its book, and the file is kept untouched.
+- [ ] `lorebook` as a kind (0010): each card version links its books, many to many, in order; a book may stand alone; the module's own table mirrors the current links.
+- [ ] A new upload's embedded book becomes a lorebook. Replacing a card's file makes a new version ("file replaced"); the old file is deleted or kept as a related avatar and/or gallery image.
+- [ ] The card answer, search tokens and the `card` field read the current version.
+
+### 7.1c Conversion and references
 - [ ] Existing cards converted once (a background job): their embedded books become lorebooks, and books with the same content embedded in several cards become one book linked to all of them.
 - [ ] Card text refers to assets by a Lithica reference the clients resolve, not by a file URL (signed URLs expire).
 
