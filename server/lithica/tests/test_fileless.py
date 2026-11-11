@@ -162,6 +162,7 @@ def test_walk(
         "/post/{post_id}/document-versions",
         "/post/{post_id}/document-version/{number}",
         "/post/{post_id}/document-version/{number}/restore",
+        "/modules/cards/lorebook/{post_id}",
         "/modules/cards/post/{post_id}",
         "/modules/cards/post/{post_id}/download",
         "/posts",

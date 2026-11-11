@@ -23,7 +23,15 @@ import yaml
 from lithica import config, db, model, registry
 from lithica.api.post_api import _search_executor
 from lithica.app import create_app
-from lithica.func import auth, posts, site_settings, snapshots, util, visibility
+from lithica.func import (
+    auth,
+    post_content,
+    posts,
+    site_settings,
+    snapshots,
+    util,
+    visibility,
+)
 from lithica.tests.conftest import ApiClient
 from lithica.tests.modules import cards
 
@@ -96,6 +104,7 @@ class Site:
 
     def __init__(self) -> None:
         self.visible = 0
+        self.lorebook = 0
         self.typed_relation = 0
         self.pool = 0
         self.visible_comment = 0
@@ -146,7 +155,8 @@ def nsfw_site(start, user_factory, read_asset) -> tuple[ApiClient, Site]:
         return response.json()
 
     card = cards.png_card(
-        cards.v2_card(name=CARD_NAME, creator="Hidden Maker", tags=["velvet"]), shade=7
+        cards.v2_card(name=CARD_NAME, creator="Hidden Maker", tags=["velvet"]),
+        shade=7,
     )
     site.hidden_content = card
     first = _make_hidden_post(HIDDEN[0], card, ["nsfw"], admin)
@@ -225,6 +235,12 @@ def nsfw_site(start, user_factory, read_asset) -> tuple[ApiClient, Site]:
         },
     )
 
+    # This fixture includes a historical merge. Convert its legacy card
+    # afterwards, since posts with documents correctly refuse merges.
+    post_content.after_file_or_kind(first, admin)
+    site.lorebook = db.session.get(model.PostDocument, first.post_id).data["lorebooks"][
+        0
+    ]
     for post_id in HIDDEN:
         site.markers.append(re.compile(r"(?<![0-9])%d(?![0-9])" % post_id))
         site.markers.append(
@@ -349,6 +365,10 @@ def _gets(site: Site) -> dict[str, Sequence[tuple[str, Mapping[str, Any], bool |
             for query in ("", "nsfw")
         ]
         + [("/post/%d/around" % post_id, {}, True) for post_id in HIDDEN],
+        "GET /modules/cards/lorebook/{post_id}": [
+            (f"/modules/cards/lorebook/{site.lorebook}", {}, True),
+            *[(f"/modules/cards/lorebook/{post_id}", {}, True) for post_id in HIDDEN],
+        ],
         "GET /modules/cards/post/{post_id}": [
             ("/modules/cards/post/%d" % post_id, {}, True) for post_id in HIDDEN
         ],

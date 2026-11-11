@@ -71,6 +71,11 @@ Search. `card-creator:<pattern>`, `card-spec:v1|v2|v3`,
 `card-format:png|charx`, `card-lorebook:yes|no` and
 `card-greetings:<number or range>` find posts by their card.
 
+Documents. Uploads create card version 0 without the embedded book and
+link a separate lorebook document. The file and post_content remain what
+was uploaded. Module tables project the current document for search and
+summaries; books are merged in link order when read, with visibility applied.
+
 API. The post field `card` (only when asked for in `fields`) is the
 summary of a post's card. `GET modules/cards/post/<id>` is the card read
 for a viewer, and `GET modules/cards/post/<id>/download` the file.

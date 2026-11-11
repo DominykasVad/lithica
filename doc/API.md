@@ -434,14 +434,25 @@ adds:
   `creator`, `spec`, `format`, `greetingCount` and `lorebookEntryCount`, or
   `null` for a post without a card.
 - **`GET modules/cards/post/<id>`**: the card read for a viewer, the same
-  shape for every version of the format and both kinds of file.
+  shape for every version of the format and both kinds of file, from its
+  current document. `lorebooks` lists visible linked books in link order as
+  `{id, name, entryCount}`. `lorebook` merges those books in that order:
+  entries are concatenated, with settings and name from the first visible
+  book. An unconverted card answers 404 `CardNotFoundError`.
+- **`GET modules/cards/lorebook/<post_id>`** (`get_lorebook`): `{id, spec,
+  name, entryCount, lorebook, cardIds}`, with the book normalised as in the
+  card answer and visible linking card IDs in ascending order. Requires
+  `posts:view`; hidden posts and other kinds answer 404 `LorebookNotFoundError`.
 - **`GET modules/cards/post/<id>/download`**: the stored file, unchanged, as
   an attachment named after the character. This route answers with the file
   and does not require `Accept: application/json`.
 
 The card as its file had it is the post's
 [extracted content](#extracted-content), of the kind `card_v1`, `card_v2` or
-`card_v3`. `doc/openapi.json` has the reference of the two routes.
+`card_v3`; it remains unchanged by document edits. Cards and lorebooks have
+[document versions](#documents): the engine's document routes list and read
+versions, write against a base version, and restore an old version as a new
+one. `doc/openapi.json` describes the module's routes.
 
 ## Webhooks
 

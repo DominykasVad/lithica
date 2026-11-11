@@ -7962,7 +7962,7 @@
           "cards"
         ],
         "summary": "Get the character card of a post",
-        "description": "Returns the character card of a post, read for a viewer: the same fields\nfor every version of the card format (V1, V2, V3) and for both files a\ncard comes in (PNG, CHARX). Every field is present; a text the card does\nnot have is empty, and a lorebook it does not have is `null`.\n\nThe card as its file had it is the post's extracted content,\n`GET /post/<id>/content`.\n\nErrors:\n\n- the post does not exist\n- the post has no character card\n- privileges are too low",
+        "description": "Returns the current document of a character card, read for a viewer: the same fields\nfor every version of the card format (V1, V2, V3) and for both files a\ncard comes in (PNG, CHARX). Every field is present; a text the card does\nnot have is empty, and a lorebook it does not have is `null`.\n\nThe card as its file had it is the post's extracted content,\n`GET /post/<id>/content`.\n\nErrors:\n\n- the post does not exist\n- the post has no character card\n- privileges are too low",
         "operationId": "get_card",
         "security": [
           {
@@ -8003,6 +8003,70 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Card"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "The request was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/modules/cards/lorebook/{post_id}": {
+      "get": {
+        "tags": [
+          "cards"
+        ],
+        "summary": "Get a lorebook",
+        "description": "Return the current lorebook document, normalised as in a card answer.\n\nIncludes its id, name, entryCount, format spec (`v2` or `v3`) and\nvisible linking cardIds in ascending order. Unlisted linking cards\nremain accessible; the site's NSFW visibility rules still apply.\n\nErrors:\n\n- the post is hidden, missing, or not a lorebook (404 LorebookNotFoundError)\n- the post has no lorebook document (404 LorebookNotFoundError)\n- privileges are too low (403)",
+        "operationId": "get_lorebook",
+        "security": [
+          {
+            "basicAuth": []
+          },
+          {
+            "tokenAuth": []
+          },
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "post_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Post Id"
+            }
+          },
+          {
+            "name": "bump-login",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Record this request as a login of the authenticated user.",
+              "default": false,
+              "title": "Bump-Login"
+            },
+            "description": "Record this request as a login of the authenticated user."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LorebookAnswer"
                 }
               }
             }
@@ -8272,6 +8336,13 @@
           "characterVersion": {
             "type": "string",
             "title": "Characterversion"
+          },
+          "lorebooks": {
+            "items": {
+              "$ref": "#/components/schemas/LorebookLink"
+            },
+            "type": "array",
+            "title": "Lorebooks"
           },
           "lorebook": {
             "anyOf": [
@@ -9045,6 +9116,39 @@
         "type": "object",
         "title": "Lorebook"
       },
+      "LorebookAnswer": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "entryCount": {
+            "type": "integer",
+            "title": "Entrycount"
+          },
+          "spec": {
+            "type": "string",
+            "title": "Spec"
+          },
+          "lorebook": {
+            "$ref": "#/components/schemas/Lorebook"
+          },
+          "cardIds": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Cardids"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "LorebookAnswer"
+      },
       "LorebookEntry": {
         "properties": {
           "keys": {
@@ -9185,6 +9289,25 @@
         "additionalProperties": false,
         "type": "object",
         "title": "LorebookEntry"
+      },
+      "LorebookLink": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "entryCount": {
+            "type": "integer",
+            "title": "Entrycount"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "LorebookLink"
       },
       "MicroPool": {
         "properties": {

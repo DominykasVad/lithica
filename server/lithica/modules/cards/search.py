@@ -1,14 +1,16 @@
-"""
-The search tokens of the cards module. All of them look at the summary
-that is stored beside a card (see lithica.modules.cards.card.summary) or at
-its kind, never into the card itself, and all of them are written with what
-every database has.
+"""Search current card projections without reading document JSON.
+
+Creator, spec, greetings and linked entry totals come from module tables;
+file format remains a fact of the extracted content.
 """
 
 from typing import Any
 
+import sqlalchemy as sa
+
 from lithica import errors, model
 from lithica.modules.cards import card as card_format
+from lithica.modules.cards.model import Card, CardLorebook, Lorebook
 from lithica.search import criteria
 from lithica.search.configs import util as search_util
 from lithica.search.configs.base_search_config import Filter
@@ -67,25 +69,33 @@ def _filter(column: Any, factory: Any) -> Filter:
     )
 
 
-def _summary(name: str) -> Any:
-    return model.PostContent.payload[("summary", name)]
+def _current(column: Any, factory: Any) -> Filter:
+    return search_util.create_subquery_filter(
+        model.Post.post_id, Card.post_id, column, factory
+    )
+
+
+_entries = (
+    sa.select(sa.func.coalesce(sa.func.sum(Lorebook.entries), 0))
+    .select_from(CardLorebook)
+    .join(Lorebook, Lorebook.post_id == CardLorebook.lorebook_post_id)
+    .where(CardLorebook.card_post_id == Card.post_id)
+    .correlate(Card)
+    .scalar_subquery()
+)
 
 
 FILTERS: dict[str, Filter] = {
     # card-creator:<pattern>, as the card has it, wildcards allowed
-    "card-creator": _filter(
-        _summary("creator").as_string(), search_util.create_str_filter
-    ),
+    "card-creator": _current(Card.creator, search_util.create_str_filter),
     # card-spec:v1|v2|v3
-    "card-spec": _filter(model.PostContent.kind, _one_of(_SPECS)),
+    "card-spec": _current(Card.spec, _one_of(_SPECS)),
     # card-format:png|charx
     "card-format": _filter(
         model.PostContent.payload["format"].as_string(), _one_of(_FORMATS)
     ),
     # card-lorebook:yes|no
-    "card-lorebook": _filter(_summary("lorebookEntries").as_integer(), _has_any),
+    "card-lorebook": _current(_entries, _has_any),
     # card-greetings:<number or range>
-    "card-greetings": _filter(
-        _summary("greetings").as_integer(), search_util.create_num_filter
-    ),
+    "card-greetings": _current(Card.greetings, search_util.create_num_filter),
 }
