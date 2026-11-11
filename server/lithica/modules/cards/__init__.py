@@ -87,7 +87,7 @@ from typing import BinaryIO, cast
 
 from lithica import registry
 from lithica.func import tag_categories
-from lithica.modules.cards import api, charx, documents, png, search, uploads
+from lithica.modules.cards import api, charx, documents, jobs, png, search, uploads
 from lithica.modules.cards import card as card_format
 
 NAME = "cards"
@@ -309,6 +309,15 @@ def charx_thumbnail(handle: BinaryIO) -> bytes | None:
 module = registry.Module(
     name=NAME,
     after_file_or_kind=uploads.convert,
+    job_types=[registry.JobType("cards-convert", jobs.run)],
+    admin_commands=[
+        registry.AdminCommand(
+            "cards",
+            "convert legacy cards to documents",
+            jobs.command,
+            configure=jobs.configure,
+        )
+    ],
     router=api.router,
     auto_tag=auto_tag,
     search_filters=search.FILTERS,

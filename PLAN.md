@@ -461,7 +461,7 @@ release `v0.5.0`. Design: decisions 0003, 0005, 0006, 0010, 0011 and 0013 in
 - [x] `lorebook` as a kind (0010): each card version links its books by id, in order (no pinned book versions); a book may stand alone; the module's tables mirror the current links and what search needs.
 - [x] Uploads split off their embedded book: an identical book (same content, same side of the NSFW line) is linked instead of copied; a new book gets the card's NSFW tag and safety, no other tags.
 - [x] The card answer, the `card` field and the search tokens read the current version; a lorebook endpoint.
-- [ ] Existing cards converted once (a background job started by `lithica-admin cards convert`), the same way uploads are.
+- [x] Existing cards converted once (a background job started by `lithica-admin cards convert`), the same way uploads are.
 
 ### 7.1c Replacing a card's file
 - [ ] Replacing a card's file makes a new version ("file replaced") from the new file; the old file is deleted, or kept as a related avatar and/or gallery image.
