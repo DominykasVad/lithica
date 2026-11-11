@@ -299,6 +299,7 @@ class Module:
                     the module's name in the API document; they set no tags
                     of their own
     post_kinds      post kinds and the content kinds that support them
+    document_kinds  validated JSON documents and transactional write hooks
     relation_types  typed relation types and their allowed endpoint kinds
     content_kinds   the kinds of extracted content the module owns
     file_types      types of files the engine does not know

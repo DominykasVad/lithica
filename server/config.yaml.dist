@@ -289,3 +289,7 @@ jobs:
     worker: true
     poll_interval: 5
     keep_done_days: 7
+
+# 0 keeps every version; N keeps version 0 and the last N.
+# Lowering this setting prunes each document at its next write only.
+document_versions_kept: 0

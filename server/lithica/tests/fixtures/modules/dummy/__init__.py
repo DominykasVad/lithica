@@ -27,6 +27,8 @@ from lithica.api.dependencies import require
 from lithica.api.routing import ApiRouter
 from lithica.search.configs import util as search_util
 
+from .model import DummyText
+
 KIND = "dummy_v1"
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
@@ -175,8 +177,26 @@ def record_job(payload: registry.Payload) -> None:
         raise ValueError("Dummy job failure")
 
 
+def validate_document(data: registry.Payload) -> registry.Payload:
+    if data.get("text") == "reject":
+        raise registry.DocumentRejected("The dummy text is rejected.")
+    return data
+
+
+def after_document_write(post_id: int, data: registry.Payload) -> None:
+    db.session.merge(DummyText(post_id=post_id, text=str(data.get("text", ""))))
+
+
 module = registry.Module(
     name="dummy",
+    post_kinds=[registry.PostKind("dummy_document", frozenset())],
+    document_kinds=[
+        registry.DocumentKind(
+            "dummy_document",
+            validate=validate_document,
+            after_write=after_document_write,
+        )
+    ],
     job_types=[registry.JobType("dummy-record", record_job)],
     router=router,
     content_kinds=[registry.ContentKind(KIND)],

@@ -451,7 +451,7 @@ release `v0.5.0`. Design: decisions 0003, 0005, 0006, 0010, 0011 and 0013 in
 
 ### 7.1a Documents with versions, posts without a file (engine)
 - [x] Posts without a file: no type, MIME type or checksum; file fields null in the API; every place that needs a file refuses or skips them.
-- [ ] Documents (0013): a post may have one JSON document of a kind a module registers, with versions from 0, each a full compressed copy, a content hash, and a retention setting (all, or version 0 plus the last N).
+- [x] Documents (0013): a post may have one JSON document of a kind a module registers, with versions from 0, each a full compressed copy, a content hash, and a retention setting (all, or version 0 plus the last N).
 - [ ] API: a post's current document, its versions (list, read one), restore one (a new version); writes carry the version they were based on and are refused when it's stale.
 - [x] Modules may own tables: models in the module, migrations in the engine's folder, created whether or not the module is on.
 

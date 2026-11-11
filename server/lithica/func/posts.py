@@ -1429,6 +1429,15 @@ def merge_posts(
 ) -> None:
     require_file(source_post)
     require_file(target_post)
+    if (
+        db.session.query(model.PostDocument)
+        .filter(
+            model.PostDocument.post_id.in_([source_post.post_id, target_post.post_id])
+        )
+        .first()
+        is not None
+    ):
+        raise errors.ValidationError("Posts with documents cannot be merged.")
     assert source_post
     assert target_post
     if source_post.post_id == target_post.post_id:

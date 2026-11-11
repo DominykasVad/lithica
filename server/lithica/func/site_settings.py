@@ -47,6 +47,7 @@ class Setting:
 SETTINGS = {
     item.name: item
     for item in (
+        Setting("document_versions_kept", "integer", min=0),
         Setting("visibility", "choice", choices=config.VISIBILITIES),
         Setting("nsfw_tag", "string", max_length=128, blank=False),
         Setting("nsfw_hide_names", "boolean"),
