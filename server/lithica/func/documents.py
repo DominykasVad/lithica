@@ -3,13 +3,14 @@
 import hashlib
 import json
 import zlib
+from collections.abc import Sequence
 from typing import Any
 
 import sqlalchemy as sa
 from sqlalchemy.orm import joinedload
 
 from lithica import db, errors, model, registry
-from lithica.func import site_settings, users, util, versions
+from lithica.func import site_settings, users, util, versions, visibility
 
 
 class DocumentNotFoundError(errors.NotFoundError):
@@ -129,6 +130,33 @@ def _prune(document: model.PostDocument) -> None:
         )
 
 
+def have_documents(posts: Sequence[model.Post], *, lock: bool = False) -> bool:
+    """Check ownership under the same post-row lock used by document creation.
+
+    Lock several posts in ID order for merges. Select columns only across
+    visibility: callers have already resolved the posts they may operate on.
+    """
+    ids = sorted({post.post_id for post in posts if post.post_id is not None})
+    if not ids:
+        return False
+    if lock:
+        db.session.execute(
+            sa.select(model.Post.post_id)
+            .where(model.Post.post_id.in_(ids))
+            .order_by(model.Post.post_id)
+            .with_for_update()
+            .execution_options(**{visibility.ALL_POSTS: True})
+        ).all()
+    return (
+        db.session.scalar(
+            sa.select(model.PostDocument.post_id)
+            .where(model.PostDocument.post_id.in_(ids))
+            .limit(1)
+        )
+        is not None
+    )
+
+
 def create(
     post: model.Post,
     kind: str,
@@ -142,11 +170,14 @@ def create(
     encoded = _validated(data, registered)
     db.session.flush()
     # Serialize creation for the same post; the primary key is the final guard.
-    db.session.execute(
-        sa.select(model.Post.post_id)
+    stored_kind = db.session.scalar(
+        sa.select(model.Post.kind)
         .where(model.Post.post_id == post.post_id)
         .with_for_update()
+        .execution_options(**{visibility.ALL_POSTS: True})
     )
+    if stored_kind != kind:
+        raise errors.ValidationError("The document kind must match the post kind.")
     if db.session.get(model.PostDocument, post.post_id) is not None:
         raise errors.ValidationError("This post already has a document.")
     document = model.PostDocument(post_id=post.post_id, kind=kind, version=0)

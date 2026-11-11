@@ -18,7 +18,7 @@ from alembic.config import Config
 from lithica import config, db, model
 from lithica.api import dependencies
 from lithica.func import auth
-from lithica.tests.fixtures.modules.dummy.model import DummyText
+from lithica.tests.fixtures.modules.dummy.model import DummyHook, DummyText
 
 BEFORE = "e2b8d4f6a1c3"
 REVISION = "f3a9c1d27b64"
@@ -52,7 +52,7 @@ def migration_db(worker_id, _pg_database_url, tmp_path, monkeypatch):
     # metadata must describe shipped tables, just as in a production process.
     metadata = sa.MetaData()
     for table in model.Base.metadata.sorted_tables:
-        if table is not DummyText.__table__:
+        if table not in (DummyText.__table__, DummyHook.__table__):
             table.to_metadata(metadata)
     monkeypatch.setattr(model.Base, "metadata", metadata)
     name = "test_migration_%s" % worker_id

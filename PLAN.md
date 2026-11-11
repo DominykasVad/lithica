@@ -265,6 +265,7 @@ No status notes, no "left untouched", no results — those go in commit messages
 When a whole phase is finished (its last sub-phase merged), its entries are folded into the tables above or deleted.
 
 - 2026-11-11 — 7.1a — Post kinds may name no content kinds when they have a document kind (document-only kinds; never derived).
+- 2026-11-12 — 7.1b — Document creation and file/kind/merge guards lock post rows to serialize conversion with edits.
 
 ---
 

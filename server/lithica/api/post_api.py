@@ -32,6 +32,7 @@ from lithica.api.schemas import (
 from lithica.func import (
     auth,
     favorites,
+    post_content,
     post_kinds,
     posts,
     scores,
@@ -221,6 +222,7 @@ def create_post(
     new_tags = new_tags + posts.update_post_auto_tags(post)
     db.session.add(post)
     db.session.flush()
+    post_content.after_file_or_kind(post, None if body.anonymous else auth_user)
     create_snapshots_for_post(post, new_tags, None if body.anonymous else auth_user)
     alternate_format_posts = posts.generate_alternate_formats(post, content)
     for alternate_post, alternate_post_new_tags in alternate_format_posts:
@@ -407,6 +409,8 @@ def update_post(
     auto_tags = posts.update_post_auto_tags(post) if content_changed else []
     post.last_edit_time = util.utcnow()
     db.session.flush()
+    if content_changed:
+        post_content.after_file_or_kind(post, auth_user)
     for tag in auto_tags:
         snapshots.create(tag, auth_user)
     snapshots.modify(post, auth_user)
@@ -696,6 +700,7 @@ def set_post_kind(
         versions.bump_version(post)
         post.last_edit_time = util.utcnow()
         db.session.flush()
+        post_content.after_file_or_kind(post, auth_user)
         snapshots.modify(post, auth_user)
         db.session.commit()
     return _serialize_post(post, auth_user, fields)

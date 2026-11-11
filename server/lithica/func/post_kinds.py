@@ -1,6 +1,6 @@
 """Post kinds, distinct from the kinds of extracted content that support them."""
 
-from lithica import db, errors, model, registry
+from lithica import errors, model, registry
 
 
 class InvalidPostKindError(errors.ValidationError):
@@ -49,10 +49,19 @@ def derive_existing(post: model.Post) -> None:
     after successful extraction changes the loaded content-kind set or
     leaves the stored kind unsupported, preserving other manual choices.
     """
+    from lithica.func import documents
+
+    if documents.have_documents([post], lock=True):
+        return
+    before = post.kind
     if post.kind == model.Post.KIND_MEDIA or post.kind in {
         kind.name for kind in registry.post_kinds()
     }:
         post.kind = derived_kind(post)
+    if post.kind != before:
+        from lithica.func import post_content
+
+        post_content.after_file_or_kind(post, None)
 
 
 def set_kind(post: model.Post, kind: str) -> bool:
@@ -65,10 +74,9 @@ def set_kind(post: model.Post, kind: str) -> bool:
     from lithica.func import posts
 
     posts.require_file(post)
-    if (
-        post.post_id is not None
-        and db.session.get(model.PostDocument, post.post_id) is not None
-    ):
+    from lithica.func import documents
+
+    if documents.have_documents([post], lock=True):
         raise InvalidPostKindError("A post with a document cannot change kind.")
     supported = supported_kinds(post)
     if kind not in supported:

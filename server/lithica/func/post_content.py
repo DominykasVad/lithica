@@ -22,7 +22,7 @@ from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, BinaryIO, cast
 
-from lithica import errors, model, registry
+from lithica import db, errors, model, registry
 from lithica.func import content as content_module
 from lithica.func import post_kinds, tags, util
 from lithica.func.content import ContentLike
@@ -383,3 +383,23 @@ def serialize_post_contents(
             }
         )
     return serialized
+
+
+def after_file_or_kind(post: model.Post, user: model.User | None) -> None:
+    """Run module hooks with no pending caller writes outside their savepoints."""
+    db.session.flush()
+    for module in registry.modules():
+        if module.after_file_or_kind is None:
+            continue
+        assert not db.session.new and not db.session.dirty and not db.session.deleted
+        try:
+            with db.session.begin_nested():
+                module.after_file_or_kind(post, user)
+                db.session.flush()
+        except Exception as error:
+            logger.warning(
+                "Post %d module %s after_file_or_kind failed: %s",
+                post.post_id,
+                module.name,
+                type(error).__name__,
+            )
