@@ -335,6 +335,19 @@ class PostExternalId(Base):
     )
 
 
+class PostRetiredChecksum(Base):
+    __tablename__ = "post_retired_checksum"
+
+    checksum: sa_orm.Mapped[str] = sa_orm.mapped_column(
+        sa.Unicode(64), primary_key=True
+    )
+    post_id: sa_orm.Mapped[int] = sa_orm.mapped_column(
+        sa.ForeignKey("post.id", ondelete="CASCADE"), index=True
+    )
+    reason: sa_orm.Mapped[str] = sa_orm.mapped_column(sa.Unicode(32))
+    creation_time: sa_orm.Mapped[datetime] = sa_orm.mapped_column(sa.DateTime)
+
+
 class Post(Base):
     __tablename__ = "post"
 

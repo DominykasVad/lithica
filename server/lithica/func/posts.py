@@ -1192,14 +1192,15 @@ def update_post_content(post: model.Post, content: ContentLike | None) -> None:
         post.mime_type = file_type.mime_type
         post.type = file_type.post_type
 
-    post.checksum = util.get_sha1(content)
+    checksum = util.get_sha1(content)
+    post.checksum = checksum
     post.checksum_md5 = util.get_md5(content)
     # every post, also one this user may not see: a file is on the site once.
     # Only its id: a post loaded here would stay in the session, where a
     # lookup by id later in the request finds it without a query
     same_ids = (
         db.session.query(model.Post.post_id)
-        .filter(model.Post.checksum == post.checksum)
+        .filter(_checksum_matches(checksum))
         .filter(model.Post.post_id != post.post_id)
         .execution_options(**{visibility.ALL_POSTS: True})
         .all()
@@ -1212,6 +1213,10 @@ def update_post_content(post: model.Post, content: ContentLike | None) -> None:
         # one this user may see is loaded as any other lookup
         other_post = try_get_post_by_id(other_post_id)
         raise PostAlreadyUploadedError(other_post)
+
+    own_retired = db.session.get(model.PostRetiredChecksum, post.checksum)
+    if own_retired is not None and own_retired.post_id == post.post_id:
+        db.session.delete(own_retired)
 
     # Before anything of the post goes to the session: a module may refuse
     # the file here, and a refused file must leave nothing behind.
@@ -1567,12 +1572,40 @@ def merge_posts(
         update_post_content(target_post, content)
 
 
+def retire_checksum(post: model.Post, checksum: str, reason: str) -> None:
+    """Reserve a former file until its post is deleted."""
+    if not reason or len(reason) > 32:
+        raise errors.ValidationError("Invalid checksum retirement reason.")
+    existing = db.session.get(model.PostRetiredChecksum, checksum)
+    if existing is not None:
+        if existing.post_id != post.post_id:
+            raise PostAlreadyUploadedError(try_get_post_by_id(existing.post_id))
+        return
+    db.session.add(
+        model.PostRetiredChecksum(
+            checksum=checksum,
+            post_id=post.post_id,
+            reason=reason,
+            creation_time=util.utcnow(),
+        )
+    )
+
+
+def _checksum_matches(checksum: str) -> sa.ColumnElement[bool]:
+    return sa.or_(
+        model.Post.checksum == checksum,
+        model.Post.post_id.in_(
+            sa.select(model.PostRetiredChecksum.post_id).where(
+                model.PostRetiredChecksum.checksum == checksum
+            )
+        ),
+    )
+
+
 def search_by_image_exact(image_content: ContentLike) -> model.Post | None:
     checksum = util.get_sha1(image_content)
     return (
-        db.session.query(model.Post)
-        .filter(model.Post.checksum == checksum)
-        .one_or_none()
+        db.session.query(model.Post).filter(_checksum_matches(checksum)).one_or_none()
     )
 
 
