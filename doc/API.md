@@ -451,8 +451,8 @@ The card as its file had it is the post's
 [extracted content](#extracted-content), of the kind `card_v1`, `card_v2` or
 `card_v3`; it remains unchanged by document edits. Cards and lorebooks have
 [document versions](#documents): the engine's document routes list and read
-versions, write against a base version, and restore an old version as a new
-one. `doc/openapi.json` describes the module's routes.
+versions, and restore an old version as a new one, against the current
+version. `doc/openapi.json` describes the module's routes.
 
 ## Webhooks
 

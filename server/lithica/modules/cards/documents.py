@@ -10,6 +10,7 @@ from typing import cast
 import sqlalchemy as sa
 
 from lithica import db, model, registry
+from lithica.func import visibility
 from lithica.modules.cards import card as card_format
 from lithica.modules.cards.model import Card, CardLorebook, Lorebook
 
@@ -43,7 +44,7 @@ def validate_card(data: registry.Payload) -> registry.Payload:
         db.session.execute(
             sa.select(model.Post.post_id)
             .where(model.Post.post_id.in_(ids), model.Post.kind == "lorebook")
-            .execution_options(**{"lithica_all_posts": True})
+            .execution_options(**{visibility.ALL_POSTS: True})
         ).scalars()
     )
     return {"spec": spec, "card": card, "lorebooks": [i for i in ids if i in existing]}

@@ -1,7 +1,6 @@
 """Convert extracted card content once, preserving the uploaded bytes."""
 
 import hashlib
-import json
 
 import sqlalchemy as sa
 from sqlalchemy.orm import undefer
@@ -9,7 +8,7 @@ from sqlalchemy.orm import undefer
 from lithica import db, model
 from lithica.func import documents, posts, visibility
 from lithica.modules.cards import card as card_format
-from lithica.modules.cards.documents import split_card
+from lithica.modules.cards.documents import split_card, validate_lorebook
 
 
 def convert(post: model.Post, user: model.User | None) -> None:
@@ -42,15 +41,8 @@ def convert(post: model.Post, user: model.User | None) -> None:
         return
     data, book = split_card(row.kind, row.payload["card"])
     if book is not None:
-        digest = hashlib.sha256(
-            json.dumps(
-                book,
-                sort_keys=True,
-                separators=(",", ":"),
-                ensure_ascii=False,
-                allow_nan=False,
-            ).encode("utf-8")
-        ).hexdigest()
+        book = validate_lorebook(book)
+        digest = hashlib.sha256(documents.encode_content(book)).hexdigest()
         # Tags may have been created in this upload after request visibility
         # was first computed. Use the canonical tag walk on the flushed state.
         hiding = visibility.hiding_tag_ids(refresh=True)

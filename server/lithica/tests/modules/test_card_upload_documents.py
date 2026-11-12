@@ -10,6 +10,7 @@ from lithica import db, model
 from lithica.func import documents, posts
 from lithica.modules.cards.model import Card, CardLorebook, Lorebook
 from lithica.tests.api.http import ok
+from lithica.tests.conftest import ApiClient
 from lithica.tests.modules import cards
 
 
@@ -59,6 +60,25 @@ def test_books_share_by_nsfw_and_raise_safety(site, user):
     assert posts.get_post_by_id(linked[0]).safety == "unsafe"
     assert db.session.query(Lorebook).count() == 2
     assert [t.names[0].name for t in posts.get_post_by_id(linked[3]).tags] == ["nsfw"]
+
+
+def test_book_lookup_uses_document_encoding(
+    site: Callable[[list[str]], ApiClient],
+    user: model.User,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = site(["cards"])
+    encode = documents.encode_content
+
+    def changed_encoding(data: object) -> bytes:
+        # Simulate an engine encoding change without changing document data.
+        return encode(data) + b"\n"
+
+    monkeypatch.setattr(documents, "encode_content", changed_encoding)
+    ids = [upload(client, user, cards.v2_card(name=str(i)), shade=i) for i in range(2)]
+    linked = [documents.get(posts.get_post_by_id(i)).data["lorebooks"] for i in ids]
+    assert linked[0] == linked[1] and len(linked[0]) == 1
+    assert db.session.query(Lorebook).count() == 1
 
 
 def test_empty_book(site, user):

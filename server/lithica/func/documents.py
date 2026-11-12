@@ -37,7 +37,12 @@ def get(post: model.Post, *, lock: bool = False) -> model.PostDocument:
     return document
 
 
-def _json(data: object, kind: registry.DocumentKind) -> bytes:
+def encode_content(data: object) -> bytes:
+    """Use one canonical JSON encoding for stored documents and content lookups.
+
+    Callers computing a lookup hash must pass the data the kind validates to,
+    since validation may change a document before it is stored.
+    """
     if not isinstance(data, dict):
         raise errors.ValidationError("A document must be a JSON object.")
     try:
@@ -50,6 +55,11 @@ def _json(data: object, kind: registry.DocumentKind) -> bytes:
         ).encode("utf-8")
     except (TypeError, ValueError, UnicodeError, RecursionError) as error:
         raise errors.ValidationError("Invalid JSON document.") from error
+    return encoded
+
+
+def _json(data: object, kind: registry.DocumentKind) -> bytes:
+    encoded = encode_content(data)
     if len(encoded) > kind.max_size:
         raise errors.ValidationError("Document exceeds its size limit.")
 
