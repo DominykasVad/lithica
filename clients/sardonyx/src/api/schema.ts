@@ -1821,7 +1821,7 @@ export interface paths {
         };
         /**
          * Get the character card of a post
-         * @description Returns the character card of a post, read for a viewer: the same fields
+         * @description Returns the current document of a character card, read for a viewer: the same fields
          *     for every version of the card format (V1, V2, V3) and for both files a
          *     card comes in (PNG, CHARX). Every field is present; a text the card does
          *     not have is empty, and a lorebook it does not have is `null`.
@@ -1836,6 +1836,36 @@ export interface paths {
          *     - privileges are too low
          */
         get: operations["get_card"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/modules/cards/lorebook/{post_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a lorebook
+         * @description Return the current lorebook document, normalised as in a card answer.
+         *
+         *     Includes its id, name, entryCount, format spec (`v2` or `v3`) and
+         *     visible linking cardIds in ascending order. Unlisted linking cards
+         *     remain accessible; the site's NSFW visibility rules still apply.
+         *
+         *     Errors:
+         *
+         *     - the post is hidden, missing, or not a lorebook (404 LorebookNotFoundError)
+         *     - the post has no lorebook document (404 LorebookNotFoundError)
+         *     - privileges are too low (403)
+         */
+        get: operations["get_lorebook"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1970,6 +2000,8 @@ export interface components {
             creator?: string;
             /** Characterversion */
             characterVersion?: string;
+            /** Lorebooks */
+            lorebooks?: components["schemas"]["LorebookLink"][];
             /** @description `null` for a card without one. */
             lorebook?: components["schemas"]["Lorebook"] | null;
         };
@@ -2284,6 +2316,20 @@ export interface components {
             /** Entries */
             entries?: components["schemas"]["LorebookEntry"][];
         };
+        /** LorebookAnswer */
+        LorebookAnswer: {
+            /** Id */
+            id?: number;
+            /** Name */
+            name?: string;
+            /** Entrycount */
+            entryCount?: number;
+            /** Spec */
+            spec?: string;
+            lorebook?: components["schemas"]["Lorebook"];
+            /** Cardids */
+            cardIds?: number[];
+        };
         /** LorebookEntry */
         LorebookEntry: {
             /** Keys */
@@ -2321,6 +2367,15 @@ export interface components {
             extensions?: {
                 [key: string]: unknown;
             };
+        };
+        /** LorebookLink */
+        LorebookLink: {
+            /** Id */
+            id?: number;
+            /** Name */
+            name?: string;
+            /** Entrycount */
+            entryCount?: number;
         };
         /** MicroPool */
         MicroPool: {
@@ -6576,6 +6631,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Card"];
+                };
+            };
+            /** @description The request was refused. */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_lorebook: {
+        parameters: {
+            query?: {
+                /** @description Record this request as a login of the authenticated user. */
+                "bump-login"?: boolean;
+            };
+            header?: never;
+            path: {
+                post_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LorebookAnswer"];
                 };
             };
             /** @description The request was refused. */

@@ -92,7 +92,12 @@ def test_document_describes_the_whole_api(document):
         ),
     ):
         assert document["paths"][path][method]["operationId"] == operation_id
+    assert (
+        document["paths"]["/modules/cards/lorebook/{post_id}"]["get"]["operationId"]
+        == "get_lorebook"
+    )
     assert sorted(path for path in document["paths"] if "/modules/" in path) == [
+        "/modules/cards/lorebook/{post_id}",
         "/modules/cards/post/{post_id}",
         "/modules/cards/post/{post_id}/download",
     ]

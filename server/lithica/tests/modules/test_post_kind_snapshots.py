@@ -1,11 +1,24 @@
 """Kind edits and snapshots, with actual transaction isolation."""
 
+from dataclasses import replace
+
 import pytest
 
 from lithica import config, db, model
 from lithica.tests.api.http import ok
 from lithica.tests.modules import cards
 from lithica.tests.modules.test_cards_api import _upload
+
+
+@pytest.fixture(autouse=True)
+def file_kinds_without_documents(monkeypatch):
+    # These tests exercise engine file-kind edits. Document ownership and
+    # its refusal of edits are covered by test_card_upload_documents.
+    from lithica.modules import cards as cards_module
+
+    monkeypatch.setattr(
+        cards_module, "module", replace(cards_module.module, after_file_or_kind=None)
+    )
 
 
 @pytest.fixture(autouse=True)

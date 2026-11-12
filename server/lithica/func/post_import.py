@@ -100,6 +100,7 @@ def _create_post(
     new_tags = new_tags + posts.update_post_auto_tags(post)
     db.session.add(post)
     db.session.flush()
+    post_content.after_file_or_kind(post, user)
     snapshots.create(post, user)
     for tag in new_tags:
         snapshots.create(tag, user)

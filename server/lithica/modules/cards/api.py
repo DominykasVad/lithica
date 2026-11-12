@@ -1,9 +1,9 @@
 """The routes of the cards module, and what they return."""
 
 from collections.abc import Sequence
-from typing import Annotated, Any, cast
+from typing import Annotated, Any
 
-import sqlalchemy.orm as sa_orm
+import sqlalchemy as sa
 from fastapi import APIRouter, Depends
 from pydantic import Field
 from starlette.responses import FileResponse
@@ -12,9 +12,18 @@ from lithica import db, errors, model
 from lithica.api import resources
 from lithica.api.dependencies import get_user, require
 from lithica.api.routing import ERROR_RESPONSES, ApiRouter
-from lithica.func import file_types, files, posts
+from lithica.func import documents, file_types, files, posts
 from lithica.modules.cards import card as card_format
-from lithica.modules.cards import filename, view
+from lithica.modules.cards import filename, reading, view
+from lithica.modules.cards.model import (
+    Card as CardRow,
+)
+from lithica.modules.cards.model import (
+    CardLorebook,
+)
+from lithica.modules.cards.model import (
+    Lorebook as LorebookRow,
+)
 
 
 class CardNotFoundError(errors.NotFoundError):
@@ -64,6 +73,22 @@ class Lorebook(resources.Resource):
     entries: list[LorebookEntry]
 
 
+class LorebookLink(resources.Resource):
+    id: int
+    name: str
+    entry_count: int
+
+
+class LorebookAnswer(LorebookLink):
+    spec: str
+    lorebook: Lorebook
+    card_ids: list[int]
+
+
+class LorebookNotFoundError(errors.NotFoundError):
+    pass
+
+
 class Card(resources.Resource):
     post_id: int
     spec: str = Field(description="The version of the card format: v1, v2 or v3.")
@@ -81,6 +106,7 @@ class Card(resources.Resource):
     tags: list[str]
     creator: str
     character_version: str
+    lorebooks: list[LorebookLink] = Field(default_factory=list[LorebookLink])
     lorebook: Lorebook | None = Field(description="`null` for a card without one.")
 
 
@@ -92,108 +118,73 @@ def _post(post_id: str) -> model.Post:
     return posts.get_post_by_id(number)
 
 
-def _card_row(post: model.Post) -> model.PostContent:
-    """The card of a post: the first row of a card kind, with its payload."""
-    row = (
-        db.session.query(model.PostContent)
-        .filter(model.PostContent.post_id == post.post_id)
-        .filter(model.PostContent.kind.in_(card_format.KINDS))
-        .order_by(model.PostContent.post_content_id)
-        .options(sa_orm.undefer(model.PostContent.payload))
-        .first()
-    )
-    if row is None:
-        raise CardNotFoundError("Post %d has no character card." % post.post_id)
-    return row
-
-
-def _summary(kind: str, file_format: Any, stored: Any) -> dict[str, Any]:
-    # absent for a card stored before there were summaries
-    summary = cast(dict[str, Any], stored) if isinstance(stored, dict) else {}
-    return {
-        "name": summary.get("name"),
-        "creator": summary.get("creator"),
-        "spec": card_format.SPEC_NAMES[kind],
-        "format": file_format,
-        "greetingCount": summary.get("greetings"),
-        "lorebookEntryCount": summary.get("lorebookEntries"),
-    }
-
-
-def card_field(post: model.Post, _user: model.User) -> dict[str, Any] | None:
-    """
-    The post field `card`: the summary of the post's card, or null. It reads
-    the summary alone, not the card, which may be megabytes.
-    """
-    row = (
-        db.session.query(
-            model.PostContent.kind,
-            model.PostContent.payload["format"].as_string(),
-            model.PostContent.payload["summary"],
-        )
-        .filter(model.PostContent.post_id == post.post_id)
-        .filter(model.PostContent.kind.in_(card_format.KINDS))
-        .order_by(model.PostContent.post_content_id)
-        .first()
-    )
-    if row is None:
-        return None
-    kind, file_format, stored = row
-    return _summary(kind, file_format, stored)
+def card_field(post: model.Post, user: model.User) -> dict[str, Any] | None:
+    return card_fields([post], user)[post.post_id]
 
 
 def card_fields(
     posts: Sequence[model.Post], _user: model.User
 ) -> dict[int, dict[str, Any] | None]:
-    """`card_field` for a page of posts, in one query: by post id."""
-    ids = sorted({post.post_id for post in posts})
+    """Current summaries, file format and linked entry totals in one query."""
+    ids = [post.post_id for post in posts]
     found: dict[int, dict[str, Any] | None] = dict.fromkeys(ids)
     if not ids:
         return found
-    rows = (
-        db.session.query(
-            model.PostContent.post_id,
-            model.PostContent.kind,
-            model.PostContent.payload["format"].as_string(),
-            model.PostContent.payload["summary"],
-        )
-        .filter(model.PostContent.post_id.in_(ids))
-        .filter(model.PostContent.kind.in_(card_format.KINDS))
-        .order_by(model.PostContent.post_content_id)
+    entries = (
+        sa.select(sa.func.coalesce(sa.func.sum(LorebookRow.entries), 0))
+        .select_from(CardLorebook)
+        .join(LorebookRow, LorebookRow.post_id == CardLorebook.lorebook_post_id)
+        .where(CardLorebook.card_post_id == CardRow.post_id)
+        .correlate(CardRow)
+        .scalar_subquery()
     )
-    seen: set[int] = set()
-    for post_id, kind, file_format, stored in rows:
-        # the first card row of each post, as card_field takes it
-        if post_id not in seen:
-            seen.add(post_id)
-            found[post_id] = _summary(kind, file_format, stored)
+    file_format = (
+        sa.select(model.PostContent.payload["format"].as_string())
+        .where(
+            model.PostContent.post_id == CardRow.post_id,
+            model.PostContent.kind.in_(card_format.KINDS),
+        )
+        .order_by(model.PostContent.post_content_id)
+        .limit(1)
+        .correlate(CardRow)
+        .scalar_subquery()
+    )
+    for row, format_, count in db.session.execute(
+        sa.select(CardRow, file_format, entries).where(CardRow.post_id.in_(ids))
+    ):
+        found[row.post_id] = {
+            "name": row.name,
+            "creator": row.creator,
+            "spec": card_format.SPEC_NAMES[row.spec],
+            "format": format_,
+            "greetingCount": row.greetings,
+            "lorebookEntryCount": count,
+        }
     return found
 
 
 def _card_name(post: model.Post) -> str:
-    """
-    The name of the character of a post's card, without reading the card:
-    out of the summary, or for a card stored before there were summaries,
-    out of the place in the card where its version keeps the name. The
-    database picks the one value out of the payload.
-
-    Raises CardNotFoundError for a post without a card.
-    """
+    row = db.session.get(CardRow, post.post_id)
+    if row is not None:
+        return row.name
+    # An unconverted card still has its original download. Read only its
+    # name from the file data, without the obsolete extracted summary.
     payload = model.PostContent.payload
-    row = (
-        db.session.query(
-            payload[("summary", "name")].as_string(),
+    names = db.session.execute(
+        sa.select(
             payload[("card", "data", "name")].as_string(),
             payload[("card", "name")].as_string(),
         )
-        .filter(model.PostContent.post_id == post.post_id)
-        .filter(model.PostContent.kind.in_(card_format.KINDS))
+        .where(
+            model.PostContent.post_id == post.post_id,
+            model.PostContent.kind.in_(card_format.KINDS),
+        )
         .order_by(model.PostContent.post_content_id)
-        .first()
-    )
-    if row is None:
+        .limit(1)
+    ).first()
+    if names is None:
         raise CardNotFoundError("Post %d has no character card." % post.post_id)
-    return next((name for name in row if isinstance(name, str)), "")
+    return next((name for name in names if isinstance(name, str)), "")
 
 
 cards = ApiRouter()
@@ -209,7 +200,7 @@ def get_card(
     _auth_user: Annotated[model.User, Depends(require("posts:view"))],
 ) -> dict[str, Any]:
     """
-    Returns the character card of a post, read for a viewer: the same fields
+    Returns the current document of a character card, read for a viewer: the same fields
     for every version of the card format (V1, V2, V3) and for both files a
     card comes in (PNG, CHARX). Every field is present; a text the card does
     not have is empty, and a lorebook it does not have is `null`.
@@ -224,8 +215,88 @@ def get_card(
     - privileges are too low
     """
     post = _post(post_id)
-    row = _card_row(post)
-    return view.normalised(post.post_id, row.kind, row.payload)
+    if post.kind != "card":
+        raise CardNotFoundError("Post %d has no character card." % post.post_id)
+    try:
+        document = documents.get(post)
+    except documents.DocumentNotFoundError:
+        raise CardNotFoundError("The card hasn't been converted.") from None
+    data = document.data
+    books = reading.visible_books(post.post_id)
+    merged = reading.merge_books([book["book"] for _, book in books])
+    # The normaliser retains the file-format meaning of the existing answer.
+    file_format = db.session.scalar(
+        sa.select(model.PostContent.payload["format"].as_string())
+        .where(
+            model.PostContent.post_id == post.post_id,
+            model.PostContent.kind.in_(card_format.KINDS),
+        )
+        .order_by(model.PostContent.post_content_id)
+        .limit(1)
+    )
+    result = view.normalised(
+        post.post_id, data["spec"], {"card": data["card"], "format": file_format}
+    )
+    result["lorebook"] = (
+        view.normalised_lorebook(merged) if merged is not None else None
+    )
+    result["lorebooks"] = [
+        {
+            "id": id_,
+            "name": card_format.as_text(book["book"].get("name")),
+            "entryCount": len(
+                card_format.lorebook_entries({"character_book": book["book"]})
+            ),
+        }
+        for id_, book in books
+    ]
+    return result
+
+
+@cards.get(
+    "/lorebook/{post_id}", response_model=LorebookAnswer, summary="Get a lorebook"
+)
+def get_lorebook(
+    post_id: str, _auth_user: Annotated[model.User, Depends(require("posts:view"))]
+) -> dict[str, Any]:
+    """Return the current lorebook document, normalised as in a card answer.
+
+    Includes its id, name, entryCount, format spec (`v2` or `v3`) and
+    visible linking cardIds in ascending order. Unlisted linking cards
+    remain accessible; the site's NSFW visibility rules still apply.
+
+    Errors:
+
+    - the post is hidden, missing, or not a lorebook (404 LorebookNotFoundError)
+    - the post has no lorebook document (404 LorebookNotFoundError)
+    - privileges are too low (403)
+    """
+    try:
+        post = _post(post_id)
+        if post.kind != "lorebook":
+            raise LorebookNotFoundError("Lorebook not found.")
+        document = documents.get(post)
+    except (posts.PostNotFoundError, documents.DocumentNotFoundError):
+        raise LorebookNotFoundError("Lorebook not found.") from None
+    book = view.normalised_lorebook(document.data["book"])
+    card_ids = list(
+        db.session.scalars(
+            sa.select(model.Post.post_id)
+            .join(CardLorebook, CardLorebook.card_post_id == model.Post.post_id)
+            .where(
+                CardLorebook.lorebook_post_id == post.post_id, model.Post.kind == "card"
+            )
+            .order_by(model.Post.post_id)
+        )
+    )
+    return {
+        "id": post.post_id,
+        "spec": card_format.SPEC_NAMES[document.data["spec"]],
+        "name": book["name"],
+        "entryCount": len(book["entries"]),
+        "lorebook": book,
+        "cardIds": card_ids,
+    }
 
 
 # The download answers with the file, not with JSON, so it does not ask the

@@ -136,9 +136,11 @@ def test_kind_and_share(
         post_kinds.set_kind(post_factory(), "document")
     with pytest.raises(errors.ValidationError):
         share_links.create(post, site[1], None, None)
-    for kind in ("media", "card", "unknown"):
+    for kind in ("media", "unknown"):
         with pytest.raises(errors.ValidationError):
             posts.create_fileless_post(kind, site[1])
+    for kind in ("card", "lorebook"):
+        assert posts.create_fileless_post(kind, site[1]).kind == kind
     assert post_kinds.derived_kind(post_factory()) == "media"
 
 
@@ -160,6 +162,7 @@ def test_walk(
         "/post/{post_id}/document-versions",
         "/post/{post_id}/document-version/{number}",
         "/post/{post_id}/document-version/{number}/restore",
+        "/modules/cards/lorebook/{post_id}",
         "/modules/cards/post/{post_id}",
         "/modules/cards/post/{post_id}/download",
         "/posts",

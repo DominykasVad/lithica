@@ -27,7 +27,7 @@ from lithica.api.dependencies import require
 from lithica.api.routing import ApiRouter
 from lithica.search.configs import util as search_util
 
-from .model import DummyText
+from .model import DummyHook, DummyText
 
 KIND = "dummy_v1"
 
@@ -187,7 +187,16 @@ def after_document_write(post_id: int, data: registry.Payload) -> None:
     db.session.merge(DummyText(post_id=post_id, text=str(data.get("text", ""))))
 
 
+def after_file_or_kind(post: engine_model.Post, user: engine_model.User | None) -> None:
+    db.session.merge(
+        DummyHook(
+            post_id=post.post_id, user_id=user.user_id if user else None, kind=post.kind
+        )
+    )
+
+
 module = registry.Module(
+    after_file_or_kind=after_file_or_kind,
     name="dummy",
     post_kinds=[registry.PostKind("dummy_document", frozenset())],
     document_kinds=[

@@ -89,3 +89,10 @@ def normalised(post_id: int, kind: str, payload: dict[str, Any]) -> dict[str, An
         "characterVersion": card_format.as_text(fields.get("character_version")),
         "lorebook": _lorebook(fields),
     }
+
+
+def normalised_lorebook(book: dict[str, Any]) -> dict[str, Any]:
+    """Normalise one standalone or merged raw book as in the card answer."""
+    result = _lorebook({"character_book": book})
+    assert result is not None
+    return result

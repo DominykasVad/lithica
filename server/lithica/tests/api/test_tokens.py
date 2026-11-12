@@ -331,7 +331,9 @@ def test_read_token_reads_cards_and_posts(client, owner, card_post):
         "/modules/cards/post/%d/download" % card_post, headers=headers
     )
     assert download.status_code == 200
-    assert ok(client.get("/posts", headers=headers))["total"] == 1
+    listed = ok(client.get("/posts", headers=headers))
+    assert listed["total"] == 2
+    assert {post["kind"] for post in listed["results"]} == {"card", "lorebook"}
     assert ok(client.get("/post/%d" % card_post, headers=headers))["id"] == card_post
 
 
@@ -419,7 +421,7 @@ def test_read_token_may_change_nothing(client, owner, card_post, read_asset):
     assert (
         ok(client.get("/post/%d" % card_post, user=owner))["version"] == post["version"]
     )
-    assert ok(client.get("/posts", user=owner))["total"] == 1
+    assert ok(client.get("/posts", user=owner))["total"] == 2
 
 
 def test_an_edit_that_names_nothing_still_works_with_a_login_token(

@@ -3,13 +3,14 @@
 import hashlib
 import json
 import zlib
+from collections.abc import Sequence
 from typing import Any
 
 import sqlalchemy as sa
 from sqlalchemy.orm import joinedload
 
 from lithica import db, errors, model, registry
-from lithica.func import site_settings, users, util, versions
+from lithica.func import site_settings, users, util, versions, visibility
 
 
 class DocumentNotFoundError(errors.NotFoundError):
@@ -36,7 +37,12 @@ def get(post: model.Post, *, lock: bool = False) -> model.PostDocument:
     return document
 
 
-def _json(data: object, kind: registry.DocumentKind) -> bytes:
+def encode_content(data: object) -> bytes:
+    """Use one canonical JSON encoding for stored documents and content lookups.
+
+    Callers computing a lookup hash must pass the data the kind validates to,
+    since validation may change a document before it is stored.
+    """
     if not isinstance(data, dict):
         raise errors.ValidationError("A document must be a JSON object.")
     try:
@@ -49,6 +55,11 @@ def _json(data: object, kind: registry.DocumentKind) -> bytes:
         ).encode("utf-8")
     except (TypeError, ValueError, UnicodeError, RecursionError) as error:
         raise errors.ValidationError("Invalid JSON document.") from error
+    return encoded
+
+
+def _json(data: object, kind: registry.DocumentKind) -> bytes:
+    encoded = encode_content(data)
     if len(encoded) > kind.max_size:
         raise errors.ValidationError("Document exceeds its size limit.")
 
@@ -129,6 +140,33 @@ def _prune(document: model.PostDocument) -> None:
         )
 
 
+def have_documents(posts: Sequence[model.Post], *, lock: bool = False) -> bool:
+    """Check ownership under the same post-row lock used by document creation.
+
+    Lock several posts in ID order for merges. Select columns only across
+    visibility: callers have already resolved the posts they may operate on.
+    """
+    ids = sorted({post.post_id for post in posts if post.post_id is not None})
+    if not ids:
+        return False
+    if lock:
+        db.session.execute(
+            sa.select(model.Post.post_id)
+            .where(model.Post.post_id.in_(ids))
+            .order_by(model.Post.post_id)
+            .with_for_update()
+            .execution_options(**{visibility.ALL_POSTS: True})
+        ).all()
+    return (
+        db.session.scalar(
+            sa.select(model.PostDocument.post_id)
+            .where(model.PostDocument.post_id.in_(ids))
+            .limit(1)
+        )
+        is not None
+    )
+
+
 def create(
     post: model.Post,
     kind: str,
@@ -142,11 +180,14 @@ def create(
     encoded = _validated(data, registered)
     db.session.flush()
     # Serialize creation for the same post; the primary key is the final guard.
-    db.session.execute(
-        sa.select(model.Post.post_id)
+    stored_kind = db.session.scalar(
+        sa.select(model.Post.kind)
         .where(model.Post.post_id == post.post_id)
         .with_for_update()
+        .execution_options(**{visibility.ALL_POSTS: True})
     )
+    if stored_kind != kind:
+        raise errors.ValidationError("The document kind must match the post kind.")
     if db.session.get(model.PostDocument, post.post_id) is not None:
         raise errors.ValidationError("This post already has a document.")
     document = model.PostDocument(post_id=post.post_id, kind=kind, version=0)

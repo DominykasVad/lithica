@@ -71,6 +71,11 @@ Search. `card-creator:<pattern>`, `card-spec:v1|v2|v3`,
 `card-format:png|charx`, `card-lorebook:yes|no` and
 `card-greetings:<number or range>` find posts by their card.
 
+Documents. Uploads create card version 0 without the embedded book and
+link a separate lorebook document. The file and post_content remain what
+was uploaded. Module tables project the current document for search and
+summaries; books are merged in link order when read, with visibility applied.
+
 API. The post field `card` (only when asked for in `fields`) is the
 summary of a post's card. `GET modules/cards/post/<id>` is the card read
 for a viewer, and `GET modules/cards/post/<id>/download` the file.
@@ -82,7 +87,7 @@ from typing import BinaryIO, cast
 
 from lithica import registry
 from lithica.func import tag_categories
-from lithica.modules.cards import api, charx, png, search
+from lithica.modules.cards import api, charx, documents, jobs, png, search, uploads
 from lithica.modules.cards import card as card_format
 
 NAME = "cards"
@@ -303,13 +308,40 @@ def charx_thumbnail(handle: BinaryIO) -> bytes | None:
 
 module = registry.Module(
     name=NAME,
+    after_file_or_kind=uploads.convert,
+    job_types=[registry.JobType("cards-convert", jobs.run)],
+    admin_commands=[
+        registry.AdminCommand(
+            "cards",
+            "convert legacy cards to documents",
+            jobs.command,
+            configure=jobs.configure,
+        )
+    ],
     router=api.router,
     auto_tag=auto_tag,
     search_filters=search.FILTERS,
     requested_post_fields={"card": api.card_field},
     post_field_batches={"card": api.card_fields},
     post_field_schemas={"card": api.CardSummary},
-    post_kinds=[registry.PostKind("card", frozenset(card_format.KINDS))],
+    post_kinds=[
+        registry.PostKind("card", frozenset(card_format.KINDS)),
+        registry.PostKind("lorebook", frozenset()),
+    ],
+    document_kinds=[
+        registry.DocumentKind(
+            "card",
+            validate=documents.validate_card,
+            max_size=card_format.MAX_CARD_SIZE,
+            after_write=documents.after_card,
+        ),
+        registry.DocumentKind(
+            "lorebook",
+            validate=documents.validate_lorebook,
+            max_size=card_format.MAX_CARD_SIZE,
+            after_write=documents.after_lorebook,
+        ),
+    ],
     relation_types=[
         registry.RelationType(name, frozenset({"media"}), frozenset({"card"}))
         for name in (

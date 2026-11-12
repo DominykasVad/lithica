@@ -265,6 +265,7 @@ No status notes, no "left untouched", no results — those go in commit messages
 When a whole phase is finished (its last sub-phase merged), its entries are folded into the tables above or deleted.
 
 - 2026-11-11 — 7.1a — Post kinds may name no content kinds when they have a document kind (document-only kinds; never derived).
+- 2026-11-12 — 7.1b — Document creation and file/kind/merge guards lock post rows to serialize conversion with edits.
 
 ---
 
@@ -456,14 +457,15 @@ release `v0.5.0`. Design: decisions 0003, 0005, 0006, 0010, 0011 and 0013 in
 - [x] Modules may own tables: models in the module, migrations in the engine's folder, created whether or not the module is on.
 
 ### 7.1b Card and lorebook data
-- [ ] Cards and lorebooks as document kinds of the cards module; for an uploaded card, version 0 is what was read from its file, without its book, and the file is kept untouched.
-- [ ] `lorebook` as a kind (0010): each card version links its books, many to many, in order; a book may stand alone; the module's own table mirrors the current links.
-- [ ] A new upload's embedded book becomes a lorebook. Replacing a card's file makes a new version ("file replaced"); the old file is deleted or kept as a related avatar and/or gallery image.
-- [ ] The card answer, search tokens and the `card` field read the current version.
+- [x] Cards and lorebooks as document kinds of the cards module; for an uploaded card, version 0 is what was read from its file without its book, and the file is kept untouched.
+- [x] `lorebook` as a kind (0010): each card version links its books by id, in order (no pinned book versions); a book may stand alone; the module's tables mirror the current links and what search needs.
+- [x] Uploads split off their embedded book: an identical book (same content, same side of the NSFW line) is linked instead of copied; a new book gets the card's NSFW tag and safety, no other tags.
+- [x] The card answer, the `card` field and the search tokens read the current version; a lorebook endpoint.
+- [x] Existing cards converted once (a background job started by `lithica-admin cards convert`), the same way uploads are.
 
-### 7.1c Conversion and references
-- [ ] Existing cards converted once (a background job): their embedded books become lorebooks, and books with the same content embedded in several cards become one book linked to all of them.
-- [ ] Card text refers to assets by a Lithica reference the clients resolve, not by a file URL (signed URLs expire).
+### 7.1c Replacing a card's file
+- [ ] Replacing a card's file makes a new version ("file replaced") from the new file; the old file is deleted, or kept as a related avatar and/or gallery image.
+- [ ] A deleted original's checksum is kept, so uploading that file again is caught as a duplicate (reused by 7.5).
 
 ### 7.2 Cards created from data
 - [ ] Uploads with a JSON body (base64) as a second way into the temporary upload, for clients that can't send multipart; the size limit allows for base64's third more.
@@ -477,6 +479,7 @@ release `v0.5.0`. Design: decisions 0003, 0005, 0006, 0010, 0011 and 0013 in
 - [ ] A PNG card's picture and a CHARX's embedded images (icon, backgrounds, sprites) become unlisted posts related to the card (`avatar-of`, `embedded-in`), inheriting its safety and NSFW tag; listed with their file URLs (served with their image type).
 
 ### 7.4 Archiving card images
+- [ ] Card text refers to assets by a Lithica reference the clients resolve, not by a file URL (signed URLs expire).
 - [ ] Finding image links in a card's text (Markdown and HTML images, `srcset`, CSS `url()`).
 - [ ] A background job (6.7) fetches them through the SSRF-safe downloader with size and type limits, makes each an unlisted post related `archived-from` the card, with the card's safety and NSFW tag, and makes a new card version pointing to them. Links that fail are recorded, and can be retried.
 - [ ] Setting: manual or automatic, with rules (automatic only for given creators or tags). An "Archive images" action per card under a privilege.

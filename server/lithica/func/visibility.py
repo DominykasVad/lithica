@@ -107,14 +107,19 @@ def _compute_hiding_tag_ids() -> frozenset[int]:
     return frozenset(found)
 
 
-def hiding_tag_ids() -> frozenset[int]:
+def hiding_tag_ids(*, refresh: bool = False) -> frozenset[int]:
     """
     The tags that make a post NSFW: the NSFW tag and every tag that implies
     it, directly or through others. Worked out once per request (an
-    implication changed is seen by the next one).
+    implication changed is seen by the next one). Refresh after creating tags
+    in the current transaction, before classifying newly uploaded content.
     """
     values = db.scope_values()
-    if values is not None and site_settings.HIDING_TAGS_SCOPE_KEY in values:
+    if (
+        not refresh
+        and values is not None
+        and site_settings.HIDING_TAGS_SCOPE_KEY in values
+    ):
         return values[site_settings.HIDING_TAGS_SCOPE_KEY]
     if values is not None:
         values[_WORKING] = True

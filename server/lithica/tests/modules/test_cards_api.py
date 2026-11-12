@@ -350,6 +350,10 @@ def test_post_field(site, user):
             "lorebookEntryCount": 2,
         },
         plain["id"]: None,
+        **{
+            row.post_id: None
+            for row in db.session.query(model.Post).filter_by(kind="lorebook")
+        },
     }
     one = ok(client.get("/post/%d" % card["id"], user=user, query={"fields": "card"}))
     assert list(one) == ["card"] and one["card"]["spec"] == "v2"
@@ -424,12 +428,12 @@ def test_post_field_of_a_card_stored_before_there_were_summaries(site, user):
         client.get("/post/%d" % created["id"], user=user, query={"fields": "card"})
     )["card"]
     assert field == {
-        "name": None,
-        "creator": None,
+        "name": "Ada",
+        "creator": "somebody",
         "spec": "v2",
         "format": "png",
-        "greetingCount": None,
-        "lorebookEntryCount": None,
+        "greetingCount": 3,
+        "lorebookEntryCount": 2,
     }
 
 
@@ -456,6 +460,15 @@ def test_card_of_a_v2_picture(site, user):
     assert_fits(api.Card, card)
     assert card == {
         "postId": created["id"],
+        "lorebooks": [
+            {
+                "id": db.session.get(model.PostDocument, created["id"]).data[
+                    "lorebooks"
+                ][0],
+                "name": "The coast",
+                "entryCount": 2,
+            }
+        ],
         "spec": "v2",
         "format": "png",
         "name": "Ada",
@@ -779,8 +792,8 @@ def test_download_does_not_read_the_card(site, user, monkeypatch):
     def forbidden(*_args, **_kwargs):
         raise AssertionError("the card was read for a download")
 
-    # neither the card's row nor the view of the card is made for it
-    monkeypatch.setattr(api, "_card_row", forbidden)
+    # Neither the current document nor the view is loaded for a download.
+    monkeypatch.setattr(api.documents, "get", forbidden)
     monkeypatch.setattr(api.view, "normalised", forbidden)
     statements = []
 
@@ -794,15 +807,15 @@ def test_download_does_not_read_the_card(site, user, monkeypatch):
         sa_event.remove(sa.engine.Engine, "before_cursor_execute", record)
     assert response.content == uploaded
     assert response.headers["content-disposition"] == 'attachment; filename="Ada.png"'
-    # The database was asked for values inside the payload, and never for
-    # the payload itself.
-    asked = [statement for statement in statements if "post_content" in statement]
-    assert asked
-    for statement in asked:
+    # The current projection supplies the name. Neither full JSON source
+    # (the original content or current document) is selected.
+    assert any("cards_card" in statement for statement in statements)
+    for statement in statements:
+        if " FROM " not in statement:
+            continue
         selected = statement[: statement.index(" FROM ")]
-        # every mention of the column goes on into the payload (`#>>` is how
-        # PostgreSQL writes "the value at this path")
         assert not re.search(r"post_content\.payload(?! #>| ->)", selected), selected
+        assert "post_document.data" not in selected, selected
 
 
 def test_download_of_a_card_stored_before_there_were_summaries(site, user):

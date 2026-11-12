@@ -896,6 +896,8 @@ def generate_alternate_formats(
         if len(new_relations) > 0:
             update_post_relations(post, new_relations)
 
+    for alternate_post, _new_tags in new_posts:
+        post_content.after_file_or_kind(alternate_post, post.user)
     return new_posts
 
 
@@ -1152,6 +1154,12 @@ def _update_post_contents(post: model.Post, content: ContentLike) -> None:
 
 
 def update_post_content(post: model.Post, content: ContentLike | None) -> None:
+    from lithica.func import documents
+
+    if documents.have_documents([post], lock=True):
+        raise InvalidPostContentError(
+            "Replacing the file of a post with a document comes later."
+        )
     # create_post sets the file fields to "" first, so a new upload passes
     require_file(post)
     assert post
@@ -1433,14 +1441,9 @@ def merge_posts(
 ) -> None:
     require_file(source_post)
     require_file(target_post)
-    if (
-        db.session.query(model.PostDocument)
-        .filter(
-            model.PostDocument.post_id.in_([source_post.post_id, target_post.post_id])
-        )
-        .first()
-        is not None
-    ):
+    from lithica.func import documents
+
+    if documents.have_documents([source_post, target_post], lock=True):
         raise errors.ValidationError("Posts with documents cannot be merged.")
     assert source_post
     assert target_post
