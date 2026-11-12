@@ -15,7 +15,10 @@ COMMITTED = os.path.join(
 )
 
 # routes that answer with a file
-FILE_DOWNLOADS = {"download_card"}
+FILE_DOWNLOADS = {
+    "download_card": "application/octet-stream",
+    "get_card_file_picture": "image/*",
+}
 
 # requests that take no body
 NO_BODY = {
@@ -97,10 +100,19 @@ def test_document_describes_the_whole_api(document):
         == "get_lorebook"
     )
     assert sorted(path for path in document["paths"] if "/modules/" in path) == [
+        "/modules/cards/file-picture",
         "/modules/cards/lorebook/{post_id}",
         "/modules/cards/post/{post_id}",
         "/modules/cards/post/{post_id}/download",
+        "/modules/cards/post/{post_id}/file",
+        "/modules/cards/post/{post_id}/file/compare",
     ]
+    for path, method, operation_id in (
+        ("/modules/cards/post/{post_id}/file", "put", "replace_card_file"),
+        ("/modules/cards/post/{post_id}/file/compare", "post", "compare_card_file"),
+        ("/modules/cards/file-picture", "post", "get_card_file_picture"),
+    ):
+        assert document["paths"][path][method]["operationId"] == operation_id
     # the documentation routes themselves are not part of the API
     assert "/docs" not in document["paths"]
     assert "/openapi.json" not in document["paths"]
@@ -133,7 +145,7 @@ def test_every_operation_is_documented(document):
         if operation["operationId"] in FILE_DOWNLOADS:
             # the one kind of route that does not answer with JSON
             assert content == {
-                "application/octet-stream": {
+                FILE_DOWNLOADS[operation["operationId"]]: {
                     "schema": {"type": "string", "format": "binary"}
                 }
             }, where
@@ -169,6 +181,8 @@ def test_uploads_are_described_as_multipart(document):
         ("/user/{user_name}", "put", {"avatar"}),
         ("/uploads", "post", {"content"}),
         ("/posts/reverse-search", "post", {"content"}),
+        ("/modules/cards/post/{post_id}/file", "put", {"content"}),
+        ("/modules/cards/post/{post_id}/file/compare", "post", {"content"}),
     ]:
         content = document["paths"][path][method]["requestBody"]["content"]
         parts = content["multipart/form-data"]["schema"]["properties"]
@@ -195,6 +209,9 @@ def test_request_bodies_list_their_required_fields(document):
         "replaceContent",
     }
     assert required("/posts", "post") == {"safety"}
+    assert required("/modules/cards/post/{post_id}/file", "put") == {"version"}
+    assert required("/modules/cards/post/{post_id}/file/compare", "post") == set()
+    assert required("/modules/cards/file-picture", "post") == {"contentToken"}
     assert required("/user-token/{user_name}", "post") == set()
 
 

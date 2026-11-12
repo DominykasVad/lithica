@@ -1,20 +1,36 @@
 """The routes of the cards module, and what they return."""
 
+import re
 from collections.abc import Sequence
 from typing import Annotated, Any
 
 import sqlalchemy as sa
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from pydantic import Field
-from starlette.responses import FileResponse
+from starlette.responses import FileResponse, Response
 
 from lithica import db, errors, model
 from lithica.api import resources
-from lithica.api.dependencies import get_user, require
+from lithica.api.dependencies import (
+    RequestDataParam,
+    fields_of,
+    get_user,
+    read_body,
+    require,
+)
 from lithica.api.routing import ERROR_RESPONSES, ApiRouter
-from lithica.func import documents, file_types, files, posts
+from lithica.api.schemas import (
+    Bool,
+    Int,
+    RequestModel,
+    Str,
+    optional,
+    request_body,
+    required,
+)
+from lithica.func import documents, file_types, file_uploads, files, mime, posts
 from lithica.modules.cards import card as card_format
-from lithica.modules.cards import filename, reading, view
+from lithica.modules.cards import filename, pictures, reading, replacement, view
 from lithica.modules.cards.model import (
     Card as CardRow,
 )
@@ -25,9 +41,7 @@ from lithica.modules.cards.model import (
     Lorebook as LorebookRow,
 )
 
-
-class CardNotFoundError(errors.NotFoundError):
-    pass
+CardNotFoundError = replacement.CardNotFoundError
 
 
 class CardSummary(resources.Resource):
@@ -299,6 +313,91 @@ def get_lorebook(
     }
 
 
+class CardFileInput(RequestModel):
+    content_token: Str = optional()
+    content_url: Str = optional()
+
+
+class CardFileReplace(CardFileInput):
+    version: Int = required()
+    keep_old_picture: Bool = True
+
+
+class CardFileReplaced(resources.Resource):
+    post: resources.Post
+    kept_post_id: int | None
+    same_picture: bool
+
+
+@cards.put(
+    "/post/{post_id}/file",
+    operation_id="replace_card_file",
+    response_model=CardFileReplaced,
+    openapi_extra=request_body(CardFileReplace, "content"),
+    summary="Replace a character card's file",
+)
+def replace_card_file(
+    post_id: str,
+    auth_user: Annotated[model.User, Depends(require("posts:edit:content"))],
+    fields: Annotated[list[str], Depends(fields_of(posts.PostSerializer))],
+    data: RequestDataParam,
+    body: Annotated[CardFileReplace, Depends(read_body(CardFileReplace))],
+) -> dict[str, Any]:
+    """Replace a converted card's file against its post version.
+
+    keepOldPicture defaults to true. Differing old pictures become related
+    media when permitted; identical pixels are never kept. Creates a document
+    version noted `File replaced.` only when data changes. Refused files leave
+    database state and stored files unchanged; stale post versions give 409.
+    """
+    post = _post(post_id)
+    kept_id, same = replacement.replace(
+        post,
+        data.get_file("content", use_video_downloader=False),
+        body.require("version"),
+        body.keep_old_picture,
+        auth_user,
+    )
+    db.session.commit()
+    return {
+        "post": posts.serialize_post(post, auth_user, fields),
+        "keptPostId": kept_id,
+        "samePicture": same,
+    }
+
+
+class CardFileComparison(resources.Resource):
+    same_pixels: bool
+    similarity: float | None
+    old_picture: bool
+    new_picture: bool
+
+
+@cards.post(
+    "/post/{post_id}/file/compare",
+    operation_id="compare_card_file",
+    response_model=CardFileComparison,
+    openapi_extra=request_body(CardFileInput, "content"),
+    summary="Compare a new card file's picture with the current one",
+)
+def compare_card_file(
+    post_id: str,
+    _auth_user: Annotated[model.User, Depends(require("posts:edit:content"))],
+    data: RequestDataParam,
+) -> pictures.Comparison:
+    """Compare RGBA pixels and advisory greyscale signatures without writes.
+
+    Uses the same file inputs as replacement. Similarity is rounded to two
+    decimals, or null when no signature is available; it never decides keeping.
+    """
+    post = _post(post_id)
+    replacement.card_document(post)
+    return pictures.compare(
+        replacement.old_picture(post),
+        pictures.picture(data.get_file("content", use_video_downloader=False)),
+    )
+
+
 # The download answers with the file, not with JSON, so it does not ask the
 # request to accept JSON and does not go through the JSON router.
 downloads = APIRouter(dependencies=[Depends(get_user)], responses=ERROR_RESPONSES)
@@ -357,6 +456,58 @@ def download_card(
             ),
             # the file is somebody's upload: a browser must not guess at it
             "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
+class CardPictureInput(RequestModel):
+    content_token: Str = required()
+
+
+@downloads.post(
+    "/file-picture",
+    operation_id="get_card_file_picture",
+    response_class=Response,
+    openapi_extra=request_body(CardPictureInput),
+    summary="Get a temporary card file's picture",
+    responses={
+        200: {
+            "description": "The card's picture, with its detected image type.",
+            "content": {"image/*": {"schema": {"type": "string", "format": "binary"}}},
+        }
+    },
+)
+def get_card_file_picture(
+    request: Request,
+    _auth_user: Annotated[model.User, Depends(require("uploads:create"))],
+    body: Annotated[CardPictureInput, Depends(read_body(CardPictureInput))],
+) -> Response:
+    """Return a temporary PNG card's picture or a CHARX's engine-image icon.
+
+    Accepts only a contentToken in the body. Returns 404 when no picture
+    exists, with nosniff, sandbox CSP and no-store headers on image responses.
+    """
+    if request.query_params:
+        raise errors.ValidationError(
+            "This route accepts contentToken only in the request body."
+        )
+    token = body.require("content_token")
+    # Tokens are SHA-1 names, never a caller-controlled storage path.
+    if re.fullmatch(r"[0-9a-f]{40}", token) is None:
+        raise errors.MissingRequiredFileError("Required file 'content' is missing.")
+    stored = file_uploads.get(token)
+    if stored is None:
+        raise errors.MissingRequiredFileError("Required file 'content' is missing.")
+    picture = pictures.picture(stored)
+    if picture is None:
+        raise CardNotFoundError("The file has no picture.")
+    return Response(
+        picture,
+        media_type=mime.get_mime_type(picture),
+        headers={
+            "X-Content-Type-Options": "nosniff",
+            "Content-Security-Policy": "default-src 'none'; sandbox",
+            "Cache-Control": "no-store",
         },
     )
 

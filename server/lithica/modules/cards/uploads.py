@@ -5,7 +5,7 @@ import hashlib
 import sqlalchemy as sa
 from sqlalchemy.orm import undefer
 
-from lithica import db, model
+from lithica import db, errors, model, registry
 from lithica.func import documents, posts, visibility
 from lithica.modules.cards import card as card_format
 from lithica.modules.cards.documents import split_card, validate_lorebook
@@ -27,6 +27,29 @@ def convert(post: model.Post, user: model.User | None) -> None:
         return
     if db.session.get(model.PostDocument, post.post_id) is not None:
         return
+    if (
+        db.session.scalar(
+            sa.select(model.PostContent.post_content_id)
+            .where(
+                model.PostContent.post_id == post.post_id,
+                model.PostContent.kind.in_(card_format.KINDS),
+            )
+            .limit(1)
+        )
+        is None
+    ):
+        return
+    data = build_version_data(post, user)
+    documents.create(post, "card", data, user, "Read from the file.")
+
+
+def build_version_data(post: model.Post, user: model.User | None) -> registry.Payload:
+    """Build the file's card data and find or create its linked lorebook.
+
+    The caller holds the post lock and owns the surrounding transaction.
+    Missing extracted card content refuses replacement instead of preserving
+    the previous document with unrelated file data.
+    """
     row = db.session.scalar(
         sa.select(model.PostContent)
         .where(
@@ -38,7 +61,7 @@ def convert(post: model.Post, user: model.User | None) -> None:
         .limit(1)
     )
     if row is None:
-        return
+        raise errors.ValidationError("The file has no character card.")
     data, book = split_card(row.kind, row.payload["card"])
     if book is not None:
         book = validate_lorebook(book)
@@ -93,4 +116,4 @@ def convert(post: model.Post, user: model.User | None) -> None:
                     .values(safety=post.safety)
                 )
         data["lorebooks"] = [book_id]
-    documents.create(post, "card", data, user, "Read from the file.")
+    return data

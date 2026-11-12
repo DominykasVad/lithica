@@ -8084,6 +8084,258 @@
         }
       }
     },
+    "/modules/cards/post/{post_id}/file": {
+      "put": {
+        "tags": [
+          "cards"
+        ],
+        "summary": "Replace a character card's file",
+        "description": "Replace a converted card's file against its post version.\n\nkeepOldPicture defaults to true. Differing old pictures become related\nmedia when permitted; identical pixels are never kept. Creates a document\nversion noted `File replaced.` only when data changes. Refused files leave\ndatabase state and stored files unchanged; stale post versions give 409.",
+        "operationId": "replace_card_file",
+        "security": [
+          {
+            "basicAuth": []
+          },
+          {
+            "tokenAuth": []
+          },
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "post_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Post Id"
+            }
+          },
+          {
+            "name": "bump-login",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Record this request as a login of the authenticated user.",
+              "default": false,
+              "title": "Bump-Login"
+            },
+            "description": "Record this request as a login of the authenticated user."
+          },
+          {
+            "name": "fields",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated names of the fields to return. All fields are returned when it is absent.",
+              "title": "Fields"
+            },
+            "description": "Comma-separated names of the fields to return. All fields are returned when it is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CardFileReplaced"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "The request was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "contentToken": {
+                    "type": "string"
+                  },
+                  "contentUrl": {
+                    "type": "string"
+                  },
+                  "version": {
+                    "type": "integer"
+                  },
+                  "keepOldPicture": {
+                    "type": "boolean"
+                  }
+                },
+                "type": "object",
+                "required": [
+                  "version"
+                ]
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "metadata": {
+                    "properties": {
+                      "contentToken": {
+                        "type": "string"
+                      },
+                      "contentUrl": {
+                        "type": "string"
+                      },
+                      "version": {
+                        "type": "integer"
+                      },
+                      "keepOldPicture": {
+                        "type": "boolean"
+                      }
+                    },
+                    "type": "object",
+                    "required": [
+                      "version"
+                    ]
+                  },
+                  "content": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              },
+              "encoding": {
+                "metadata": {
+                  "contentType": "application/json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/modules/cards/post/{post_id}/file/compare": {
+      "post": {
+        "tags": [
+          "cards"
+        ],
+        "summary": "Compare a new card file's picture with the current one",
+        "description": "Compare RGBA pixels and advisory greyscale signatures without writes.\n\nUses the same file inputs as replacement. Similarity is rounded to two\ndecimals, or null when no signature is available; it never decides keeping.",
+        "operationId": "compare_card_file",
+        "security": [
+          {
+            "basicAuth": []
+          },
+          {
+            "tokenAuth": []
+          },
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "post_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Post Id"
+            }
+          },
+          {
+            "name": "bump-login",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Record this request as a login of the authenticated user.",
+              "default": false,
+              "title": "Bump-Login"
+            },
+            "description": "Record this request as a login of the authenticated user."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CardFileComparison"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "The request was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "contentToken": {
+                    "type": "string"
+                  },
+                  "contentUrl": {
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "metadata": {
+                    "properties": {
+                      "contentToken": {
+                        "type": "string"
+                      },
+                      "contentUrl": {
+                        "type": "string"
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "content": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              },
+              "encoding": {
+                "metadata": {
+                  "contentType": "application/json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/modules/cards/post/{post_id}/download": {
       "get": {
         "tags": [
@@ -8143,6 +8395,79 @@
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/modules/cards/file-picture": {
+      "post": {
+        "tags": [
+          "cards"
+        ],
+        "summary": "Get a temporary card file's picture",
+        "description": "Return a temporary PNG card's picture or a CHARX's engine-image icon.\n\nAccepts only a contentToken in the body. Returns 404 when no picture\nexists, with nosniff, sandbox CSP and no-store headers on image responses.",
+        "operationId": "get_card_file_picture",
+        "security": [
+          {
+            "basicAuth": []
+          },
+          {
+            "tokenAuth": []
+          },
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "bump-login",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Record this request as a login of the authenticated user.",
+              "default": false,
+              "title": "Bump-Login"
+            },
+            "description": "Record this request as a login of the authenticated user."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The card's picture, with its detected image type.",
+            "content": {
+              "image/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "The request was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "contentToken": {
+                    "type": "string"
+                  }
+                },
+                "type": "object",
+                "required": [
+                  "contentToken"
+                ]
               }
             }
           }
@@ -8359,6 +8684,61 @@
         "additionalProperties": false,
         "type": "object",
         "title": "Card"
+      },
+      "CardFileComparison": {
+        "properties": {
+          "samePixels": {
+            "type": "boolean",
+            "title": "Samepixels"
+          },
+          "similarity": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Similarity"
+          },
+          "oldPicture": {
+            "type": "boolean",
+            "title": "Oldpicture"
+          },
+          "newPicture": {
+            "type": "boolean",
+            "title": "Newpicture"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "CardFileComparison"
+      },
+      "CardFileReplaced": {
+        "properties": {
+          "post": {
+            "$ref": "#/components/schemas/Post"
+          },
+          "keptPostId": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Keptpostid"
+          },
+          "samePicture": {
+            "type": "boolean",
+            "title": "Samepicture"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "CardFileReplaced"
       },
       "Comment": {
         "properties": {

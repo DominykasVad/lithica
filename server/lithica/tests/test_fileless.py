@@ -165,6 +165,8 @@ def test_walk(
         "/modules/cards/lorebook/{post_id}",
         "/modules/cards/post/{post_id}",
         "/modules/cards/post/{post_id}/download",
+        "/modules/cards/post/{post_id}/file",
+        "/modules/cards/post/{post_id}/file/compare",
         "/posts",
         "/featured-post",
         "/posts/reverse-search",
@@ -194,7 +196,14 @@ def test_walk(
                 user=user,
                 body=body if method != "GET" else None,
                 files={"content": read_asset("png.png")}
-                if method == "POST" and path in {"/posts", "/posts/reverse-search"}
+                if method in {"POST", "PUT"}
+                and path.rstrip("/")
+                in {
+                    "/posts",
+                    "/posts/reverse-search",
+                    "/modules/cards/post/{post_id}/file",
+                    "/modules/cards/post/{post_id}/file/compare",
+                }
                 else None,
             )
             assert response.status_code < 500, (method, path, response.text)

@@ -268,6 +268,7 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 - 2026-11-12 — 7.1b — Document creation and file/kind/merge guards lock post rows to serialize conversion with edits.
 - 2026-11-12 — 7.1c — Replacing a card's file keeps the old picture unless pixels are identical or the client says no (similarity is advice only).
 - 2026-11-12 — 7.1c — Retired checksums: a file a post gave up stays a duplicate until that post is deleted.
+- 2026-11-12 — 7.1c — Skip keeping an icon that matches a hidden post; return no kept post ID.
 
 ---
 
@@ -466,8 +467,8 @@ release `v0.5.0`. Design: decisions 0003, 0005, 0006, 0010, 0011 and 0013 in
 - [x] Existing cards converted once (a background job started by `lithica-admin cards convert`), the same way uploads are.
 
 ### 7.1c Replacing a card's file
-- [ ] Replacing a card's file (a cards route) makes a new version ("File replaced.") from the new file, its book found or made as on upload; the old file leaves the disk.
-- [ ] The old picture (a PNG card's file, a CHARX's main icon) is kept as an unlisted media post related `avatar-of` and `gallery-of` to the card, unless its pixels equal the new picture's or the client says no; a compare route (identical pixels, similarity) and a picture route (a new file's picture) serve Sardonyx's choice in 7.6.
+- [x] Replacing a card's file (a cards route) makes a new version ("File replaced.") from the new file, its book found or made as on upload; the old file leaves the disk.
+- [x] The old picture (a PNG card's file, a CHARX's main icon) is kept as an unlisted media post related `avatar-of` and `gallery-of` to the card, unless its pixels equal the new picture's or the client says no; a compare route (identical pixels, similarity) and a picture route (a new file's picture) serve Sardonyx's choice in 7.6.
 - [x] A file a post gave up has its checksum retired: uploading it again is refused as a duplicate, at every door (reused by 7.5).
 
 ### 7.2 Cards created from data

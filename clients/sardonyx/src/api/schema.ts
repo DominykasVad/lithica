@@ -1874,6 +1874,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/modules/cards/post/{post_id}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Replace a character card's file
+         * @description Replace a converted card's file against its post version.
+         *
+         *     keepOldPicture defaults to true. Differing old pictures become related
+         *     media when permitted; identical pixels are never kept. Creates a document
+         *     version noted `File replaced.` only when data changes. Refused files leave
+         *     database state and stored files unchanged; stale post versions give 409.
+         */
+        put: operations["replace_card_file"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/modules/cards/post/{post_id}/file/compare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Compare a new card file's picture with the current one
+         * @description Compare RGBA pixels and advisory greyscale signatures without writes.
+         *
+         *     Uses the same file inputs as replacement. Similarity is rounded to two
+         *     decimals, or null when no signature is available; it never decides keeping.
+         */
+        post: operations["compare_card_file"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/modules/cards/post/{post_id}/download": {
         parameters: {
             query?: never;
@@ -1901,6 +1949,29 @@ export interface paths {
         get: operations["download_card"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/modules/cards/file-picture": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Get a temporary card file's picture
+         * @description Return a temporary PNG card's picture or a CHARX's engine-image icon.
+         *
+         *     Accepts only a contentToken in the body. Returns 404 when no picture
+         *     exists, with nosniff, sandbox CSP and no-store headers on image responses.
+         */
+        post: operations["get_card_file_picture"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2004,6 +2075,25 @@ export interface components {
             lorebooks?: components["schemas"]["LorebookLink"][];
             /** @description `null` for a card without one. */
             lorebook?: components["schemas"]["Lorebook"] | null;
+        };
+        /** CardFileComparison */
+        CardFileComparison: {
+            /** Samepixels */
+            samePixels?: boolean;
+            /** Similarity */
+            similarity?: number | null;
+            /** Oldpicture */
+            oldPicture?: boolean;
+            /** Newpicture */
+            newPicture?: boolean;
+        };
+        /** CardFileReplaced */
+        CardFileReplaced: {
+            post?: components["schemas"]["Post"];
+            /** Keptpostid */
+            keptPostId?: number | null;
+            /** Samepicture */
+            samePicture?: boolean;
         };
         /** Comment */
         Comment: {
@@ -6678,6 +6768,110 @@ export interface operations {
             };
         };
     };
+    replace_card_file: {
+        parameters: {
+            query?: {
+                /** @description Record this request as a login of the authenticated user. */
+                "bump-login"?: boolean;
+                /** @description Comma-separated names of the fields to return. All fields are returned when it is absent. */
+                fields?: string | null;
+            };
+            header?: never;
+            path: {
+                post_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    contentToken?: string;
+                    contentUrl?: string;
+                    version: number;
+                    keepOldPicture?: boolean;
+                };
+                "multipart/form-data": {
+                    metadata?: {
+                        contentToken?: string;
+                        contentUrl?: string;
+                        version: number;
+                        keepOldPicture?: boolean;
+                    };
+                    /** Format: binary */
+                    content?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardFileReplaced"];
+                };
+            };
+            /** @description The request was refused. */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    compare_card_file: {
+        parameters: {
+            query?: {
+                /** @description Record this request as a login of the authenticated user. */
+                "bump-login"?: boolean;
+            };
+            header?: never;
+            path: {
+                post_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    contentToken?: string;
+                    contentUrl?: string;
+                };
+                "multipart/form-data": {
+                    metadata?: {
+                        contentToken?: string;
+                        contentUrl?: string;
+                    };
+                    /** Format: binary */
+                    content?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardFileComparison"];
+                };
+            };
+            /** @description The request was refused. */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     download_card: {
         parameters: {
             query?: {
@@ -6699,6 +6893,44 @@ export interface operations {
                 };
                 content: {
                     "application/octet-stream": string;
+                };
+            };
+            /** @description The request was refused. */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_card_file_picture: {
+        parameters: {
+            query?: {
+                /** @description Record this request as a login of the authenticated user. */
+                "bump-login"?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    contentToken: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The card's picture, with its detected image type. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/*": string;
                 };
             };
             /** @description The request was refused. */

@@ -28,9 +28,18 @@ from fastapi.testclient import TestClient
 
 from lithica import db, errors, model, registry
 from lithica.app import create_app
-from lithica.func import auth, site_settings, user_tokens, util
+from lithica.func import (
+    auth,
+    file_uploads,
+    post_content,
+    posts,
+    site_settings,
+    user_tokens,
+    util,
+)
 from lithica.tests.api.http import assert_error, shipped_config
 from lithica.tests.conftest import get_unique_name
+from lithica.tests.modules import cards
 
 WALKER = "walker"
 
@@ -67,6 +76,19 @@ def _make_post() -> tuple[str, Any]:
 def _make_post_kind() -> tuple[str, Any]:
     path, post = _make_post()
     return path + "/kind", post
+
+
+CARD_FILE_REPLACEMENT = cards.png_card(cards.v2_card(name="New walker"))
+
+
+def _make_card_file() -> tuple[str, Any]:
+    post, _ = posts.create_post(
+        cards.png_card(cards.v2_card(name="Walker")), [], _walker()
+    )
+    db.session.flush()
+    post_content.after_file_or_kind(post, _walker())
+    file_uploads.save(CARD_FILE_REPLACEMENT)
+    return "/modules/cards/post/%d/file" % post.post_id, post
 
 
 def _make_external_ids() -> tuple[str, Any]:
@@ -217,12 +239,14 @@ class Entry:
     version-only body of a login token as incomplete, as it always has, and
     is sent the complete body as well. `refused_with` is how it refuses the
     read-only app token's version-only body: AuthError, but for a route that
-    asks for the missing field before the privilege.
+    asks for the missing field before the privilege. `incomplete_with` names
+    the login token's missing-input error when a route requires a file.
     """
 
     make: Callable[[], tuple[str, Any]]
     needs: dict[str, Any] | None = None
     refused_with: type[Exception] = errors.AuthError
+    incomplete_with: type[Exception] = errors.MissingRequiredParameterError
 
 
 # every PUT route of the application (without the trailing slash, which each
@@ -233,6 +257,11 @@ def _make_site_settings() -> tuple[str, Any]:
 
 RESOURCES: dict[str, Entry] = {
     "/site-settings": Entry(_make_site_settings, {"values": {}}),
+    "/modules/cards/post/{post_id}/file": Entry(
+        _make_card_file,
+        {"contentToken": util.get_sha1(CARD_FILE_REPLACEMENT), "keepOldPicture": False},
+        incomplete_with=errors.MissingRequiredFileError,
+    ),
     "/post/{post_id}": Entry(_make_post),
     "/post/{post_id}/external-ids": Entry(_make_external_ids, {"externalIds": []}),
     "/typed-relation/{relation_id}": Entry(_make_typed_relation, {"label": None}),
@@ -370,7 +399,7 @@ def test_a_version_only_put(site, template):
     if entry.needs is None:
         assert answer.status_code == 200, answer.text
     else:
-        assert_error(answer, errors.MissingRequiredParameterError)
+        assert_error(answer, entry.incomplete_with)
         assert _state(cls, key) == before
         answer = client.put(
             path, headers=_header(site["login"]), json=version_only | entry.needs

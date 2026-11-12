@@ -25,6 +25,7 @@ from lithica.api.post_api import _search_executor
 from lithica.app import create_app
 from lithica.func import (
     auth,
+    file_uploads,
     post_content,
     posts,
     site_settings,
@@ -385,6 +386,28 @@ def _writes(site: Site, read_asset: Any) -> dict[str, list[dict[str, Any]]]:
     merge = {"removeVersion": 1, "mergeToVersion": 1, "replaceContent": False}
     hidden_posts = [("/post/%d" % post_id) for post_id in HIDDEN]
     return {
+        "PUT /modules/cards/post/{post_id}/file": [
+            {
+                "path": "/modules/cards/post/%d/file" % post_id,
+                "body": {"version": 1},
+                "files": {"content": cards.png_card(cards.v2_card(name="Replacement"))},
+                "hidden": True,
+                "status": 404,
+            }
+            for post_id in HIDDEN
+        ],
+        "POST /modules/cards/post/{post_id}/file/compare": [
+            {
+                "path": "/modules/cards/post/%d/file/compare" % post_id,
+                "files": {"content": cards.png_card(cards.v2_card(name="Comparison"))},
+                "hidden": True,
+                "status": 404,
+            }
+            for post_id in HIDDEN
+        ],
+        "POST /modules/cards/file-picture": [
+            {"body": {"contentToken": file_uploads.save(cards.picture(5))}}
+        ],
         "PUT /site-settings": [{"body": {"version": 1, "values": {}}}],
         "POST /post/{post_id}/share-links": [
             {"path": f"/post/{h}/share-links", "body": {}, "hidden": True}
@@ -655,6 +678,12 @@ def test_no_answer_to_an_anonymous_user_holds_a_hidden_post(nsfw_site, read_asse
             label = "%s %s" % (route, request.get("path", ""))
             if response.status_code >= 500:
                 problems.append("%s: %d" % (label, response.status_code))
+            if request.get("status") is not None:
+                if response.status_code != request["status"]:
+                    problems.append(
+                        "%s: %d, not %d"
+                        % (label, response.status_code, request["status"])
+                    )
             if request.get("hidden"):
                 if response.status_code < 400:
                     problems.append(
@@ -666,6 +695,15 @@ def test_no_answer_to_an_anonymous_user_holds_a_hidden_post(nsfw_site, read_asse
             if leaks:
                 problems.append("%s: %s" % (label, leaks))
     assert problems == []
+
+
+def test_card_file_picture_requires_upload_privilege(nsfw_site):
+    client, _site = nsfw_site
+    token = file_uploads.save(cards.picture(5))
+    config.config["privileges"]["uploads:create"] = model.User.RANK_REGULAR
+    response = client.post("/modules/cards/file-picture", body={"contentToken": token})
+    assert response.status_code == 403, response.text
+    assert response.json()["name"] == "AuthError"
 
 
 def test_a_search_naming_a_hidden_post_finds_nothing(nsfw_site):
