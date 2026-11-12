@@ -356,3 +356,44 @@ def test_retired_file_replacement_is_refused(site: Site, user: model.User) -> No
     assert response.json()["otherPostId"] == other_id
     assert _disk() == before
     assert documents.get(posts.get_post_by_id(post_id)).version == 0
+
+
+@pytest.mark.parametrize("hidden", [False, True])
+def test_retired_icon_is_skipped_without_exposing_its_owner(
+    site: Site,
+    user: model.User,
+    user_factory: Callable[..., model.User],
+    hidden: bool,
+) -> None:
+    client = site(["cards"])
+    icon = cards.picture(30)
+    owner_id = _media(client, user, cards.picture(60), ["nsfw"] if hidden else [])
+    post_id = _charx(client, user, icon)
+    original_checksum = posts.get_post_by_id(post_id).checksum
+    posts.retire_checksum(
+        posts.get_post_by_id(owner_id), util.get_sha1(icon), "replaced"
+    )
+    db.session.commit()
+    count = db.session.query(model.Post).count()
+    actor = user
+    if hidden:
+        config.config["privileges"]["posts:edit:typed_relations"] = "administrator"
+        config.config["visibility"] = "nsfw-login"
+        config.config["privileges"]["posts:edit:content"] = "anonymous"
+        actor = user_factory(rank=model.User.RANK_ANONYMOUS)
+    content = cards.png_card(cards.v3_card(name="Replacement"), shade=80)
+    answer = ok(replace(client, actor, post_id, content))
+    assert set(answer) == {"post", "keptPostId", "samePicture"}
+    assert answer["post"]["id"] == post_id
+    assert answer["keptPostId"] is None
+    assert answer["samePicture"] is False
+    assert db.session.query(model.Post).count() == count
+    assert db.session.query(model.PostTypedRelation).count() == 0
+    post = posts.get_post_by_id(post_id)
+    assert post.version == 2 and documents.get(post).version == 1
+    assert (
+        db.session.get(model.PostRetiredChecksum, util.get_sha1(icon)).post_id
+        == owner_id
+    )
+    retired_original = db.session.get(model.PostRetiredChecksum, original_checksum)
+    assert retired_original.post_id == post_id and retired_original.reason == "replaced"

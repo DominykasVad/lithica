@@ -41,6 +41,16 @@ def old_picture(post: model.Post) -> bytes | None:
 
 def _existing_picture(content: bytes) -> tuple[int | None, bool]:
     checksum = util.get_sha1(content)
+    # A retired file cannot become a kept post, regardless of its owner.
+    if (
+        db.session.scalar(
+            sa.select(model.PostRetiredChecksum.post_id)
+            .where(model.PostRetiredChecksum.checksum == checksum)
+            .execution_options(**{visibility.ALL_POSTS: True})
+        )
+        is not None
+    ):
+        return None, False
     # Read IDs only across visibility; never cache a hidden entity.
     row = db.session.execute(
         sa.select(model.Post.post_id, model.Post.kind)

@@ -486,7 +486,8 @@ PNG retains its extracted content but gets no card document. Keeping a
 picture additionally requires `posts:edit:typed_relations`; the app-token
 `write` right already includes both privileges. An existing media post with
 that file is linked without changing its fields or duplicating relations.
-An existing non-media post, or one hidden from the viewer, is skipped;
+An existing non-media post, one hidden from the viewer, or one whose file is
+retired is skipped;
 `keptPostId` is `null` when nothing is kept. Identical pictures are never
 kept, regardless of the client's choice; the server compares the pixels.
 
