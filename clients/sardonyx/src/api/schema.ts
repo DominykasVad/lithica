@@ -6983,6 +6983,19 @@ export interface operations {
                         [key: string]: unknown;
                     };
                     lorebooks?: number[];
+                    images?: {
+                        /**
+                         * Role
+                         * @enum {string}
+                         */
+                        role: "avatar" | "alternate-avatar" | "gallery" | "expression";
+                        /** Token */
+                        token?: string | null;
+                        /** Postid */
+                        postId?: number | null;
+                        /** Label */
+                        label?: string | null;
+                    }[];
                 };
             };
         };

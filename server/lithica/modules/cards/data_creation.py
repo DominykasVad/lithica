@@ -1,5 +1,6 @@
 """Create and update fileless cards and books within the caller's transaction."""
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Literal
 
@@ -17,7 +18,7 @@ from lithica.func import (
 )
 from lithica.modules.cards import card as card_format
 from lithica.modules.cards import documents as card_documents
-from lithica.modules.cards import uploads
+from lithica.modules.cards import related_images, uploads
 
 
 @dataclass(frozen=True)
@@ -140,8 +141,12 @@ def _check_options(options: Options, user: model.User) -> None:
 
 
 def create_card(
-    raw: registry.Payload, user: model.User, options: Options, lorebooks: list[int]
-) -> tuple[model.Post, Outcome]:
+    raw: registry.Payload,
+    user: model.User,
+    options: Options,
+    lorebooks: list[int],
+    images: Sequence[related_images.Prepared] = (),
+) -> tuple[model.Post, Outcome, list[int], list[model.Post]]:
     _check_options(options, user)
     spec = card_format.kind_of(raw)
     stored = card_format.stored(raw)
@@ -175,6 +180,9 @@ def create_card(
     data["lorebooks"] = list(dict.fromkeys(data["lorebooks"] + ids))
     if len(data["lorebooks"]) > 100:
         raise errors.ValidationError("A card may link at most 100 lorebooks.")
+    avatar, skipped, created_images = related_images.attach(target, images, user)
+    if avatar is not None:
+        data["avatar"] = avatar
     if current is None:
         documents.create(
             target,
@@ -198,7 +206,7 @@ def create_card(
     _add_ids(target, options, user)
     for tag in new_tags:
         snapshots.create(tag, user)
-    return target, outcome
+    return target, outcome, skipped, created_images
 
 
 def create_lorebook(

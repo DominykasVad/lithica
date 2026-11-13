@@ -8452,6 +8452,62 @@
                       "type": "integer"
                     },
                     "type": "array"
+                  },
+                  "images": {
+                    "items": {
+                      "properties": {
+                        "role": {
+                          "enum": [
+                            "avatar",
+                            "alternate-avatar",
+                            "gallery",
+                            "expression"
+                          ],
+                          "title": "Role",
+                          "type": "string"
+                        },
+                        "token": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "title": "Token"
+                        },
+                        "postId": {
+                          "anyOf": [
+                            {
+                              "type": "integer"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "title": "Postid"
+                        },
+                        "label": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "title": "Label"
+                        }
+                      },
+                      "required": [
+                        "role"
+                      ],
+                      "title": "RelatedImageInput",
+                      "type": "object"
+                    },
+                    "maxItems": 200,
+                    "type": "array"
                   }
                 },
                 "type": "object",

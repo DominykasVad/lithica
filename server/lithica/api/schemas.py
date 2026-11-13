@@ -192,6 +192,33 @@ class VersionOnly(RequestModel):
     version: Int = required()
 
 
+def _inline_request_refs(
+    value: Any, definitions: dict[str, Any], seen: tuple[str, ...] = ()
+) -> Any:
+    # Any: JSON Schema nodes contain heterogeneous dictionaries and lists.
+    # Operation-local schemas cannot refer to Pydantic's root #/$defs.
+    if isinstance(value, dict):
+        if "$ref" in value:
+            reference = value["$ref"]
+            assert reference.startswith("#/$defs/"), (
+                "unexpected request schema reference"
+            )
+            assert reference not in seen, "recursive request models are unsupported"
+            name = reference.removeprefix("#/$defs/")
+            return _inline_request_refs(
+                definitions[name] | {k: v for k, v in value.items() if k != "$ref"},
+                definitions,
+                seen + (reference,),
+            )
+        return {
+            key: _inline_request_refs(item, definitions, seen)
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [_inline_request_refs(item, definitions, seen) for item in value]
+    return value
+
+
 def request_body(model: type[RequestModel], *files: str) -> dict[str, Any]:
     """
     Describe an endpoint's request body for the OpenAPI document; pass the
@@ -201,7 +228,7 @@ def request_body(model: type[RequestModel], *files: str) -> dict[str, Any]:
     whose other parts (`files`) are uploads.
     """
     schema = model.model_json_schema()
-    assert "$defs" not in schema, "request models are flat"
+    schema = _inline_request_refs(schema, schema.pop("$defs", {}))
     schema.pop("title", None)
     needed = list(schema.pop("required", []))
     for name, field in schema.get("properties", {}).items():

@@ -43,8 +43,10 @@ from lithica.modules.cards import card as card_format
 from lithica.modules.cards import (
     data_creation,
     filename,
+    media,
     pictures,
     reading,
+    related_images,
     replacement,
     view,
 )
@@ -568,9 +570,19 @@ class DataOptions(RequestModel):
     version: Int = optional()
 
 
+class RelatedImageInput(RequestModel):
+    role: related_images.Role
+    token: str | None = None
+    post_id: int | None = None
+    label: str | None = None
+
+
 class CardDataInput(DataOptions):
     card: registry.Payload = required()
     lorebooks: IntList = Field(default_factory=list[int])
+    images: list[RelatedImageInput] = Field(
+        default_factory=list[RelatedImageInput], max_length=200
+    )
 
 
 class LorebookDataInput(DataOptions):
@@ -617,17 +629,36 @@ def create_card_from_data(
     document version must be current; unchanged data adds no version. External
     IDs are added, never removed. The entire request is atomic.
     """
-    with db.session.begin_nested():
-        post, outcome = data_creation.create_card(
-            body.require("card"), user, _data_options(body), body.lorebooks
-        )
-        # Any: heterogeneous API response, described by the response resource.
-        result: dict[str, Any] = {
-            "post": posts.serialize_post(post, user, fields),
-            "outcome": outcome,
-            "skippedImages": [],
-        }
-    db.session.commit()
+    images = related_images.prepare(
+        [
+            related_images.Image(i.role, i.token, i.post_id, i.label)
+            for i in body.images
+        ],
+        user,
+    )
+    created_images: list[model.Post] = []
+    pending_files: list[str] = []
+    try:
+        with db.session.begin_nested():
+            post, outcome, skipped, created_images = data_creation.create_card(
+                body.require("card"), user, _data_options(body), body.lorebooks, images
+            )
+            # Any: heterogeneous API response, described by CardDataCreated.
+            result: dict[str, Any] = {
+                "post": posts.serialize_post(post, user, fields),
+                "outcome": outcome,
+                "skippedImages": skipped,
+            }
+            pending_files = media.release(created_images)
+        db.session.commit()
+    except Exception:
+        # Only this request's new media can have reached disk, and only after
+        # all validation, documents, IDs, relations and snapshots succeeded.
+        try:
+            media.discard(pending_files)
+        finally:
+            db.session.rollback()
+        raise
     return result
 
 

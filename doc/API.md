@@ -1971,7 +1971,7 @@ avatars. The card answer and `card` post field return a visible avatar as
 ### Cards and lorebooks from data
 
 `POST /modules/cards/cards` (`create_card_from_data`) accepts a required `card`
-JSON object (V1, V2 or V3), `safety` (required for creation), optional `tags`,
+JSON object (V1, V2 or V3), `safety` (required for creation), optional `tags`, `images` (below),
 `lorebooks` (ordered lorebook post IDs, deduplicated after the embedded book,
 at most 100 total), `externalIds` (`[{host, id}]`), `note` (at most 256
 characters), and `version` (the current document version).
@@ -2001,3 +2001,24 @@ Notes default to "Created from data." or "Updated from data.". Uploaded and
 data-only cards share the same embedded-book splitting and lookup.
 All changes in a request are transactional. App-token `write` includes these
 privileges; `upload` is needed for temporary uploads and `read` for reading.
+
+
+The card route accepts `images`, at most 200 objects. Each has `role`
+(`avatar`, `alternate-avatar`, `gallery`, or `expression`), exactly one of
+`token` (a temporary upload) or `postId` (visible media), and an optional
+`label` (required and nonempty for expressions, trimmed, at most 128
+characters). Only one image may be the main `avatar`. Avatar roles create
+`avatar-of`, gallery creates `gallery-of`, and expressions create
+`expression-of`. Repeating an image with the same relation type is invalid.
+
+Tokens must contain an engine image, animation or video; JSON and CHARX are
+refused with the image's zero-based index before posts are written. Existing
+visible media is linked unchanged. A hidden, non-media or retired token match
+is skipped: only its index appears in `skippedImages`, never its post ID.
+A `postId` that is hidden, missing or not media is an indexed validation error.
+New media is unlisted, with the card's safety and NSFW tag and the importing
+user as uploader. A card PNG used here remains media. Existing relations are
+no-ops; updates add images and remove none. A valid `avatar` image sets the
+main avatar in the document; omitting it preserves the current avatar.
+Images require `posts:edit:typed_relations`. Files are deferred until the rest
+of the request succeeds, and partial new files are removed on rollback.

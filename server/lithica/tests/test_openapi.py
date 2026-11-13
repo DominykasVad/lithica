@@ -346,3 +346,21 @@ def test_module_post_field_cannot_replace_a_schema():
                 )
             ],
         )
+
+
+def test_card_data_images_describe_nested_input(document):
+    schema = document["paths"]["/modules/cards/cards"]["post"]["requestBody"][
+        "content"
+    ]["application/json"]["schema"]
+    images = schema["properties"]["images"]
+    assert images["maxItems"] == 200
+    item = images["items"]
+    assert item["required"] == ["role"]
+    assert item["properties"]["role"]["enum"] == [
+        "avatar",
+        "alternate-avatar",
+        "gallery",
+        "expression",
+    ]
+    assert "postId" in item["properties"] and "token" in item["properties"]
+    assert "#/$defs/" not in json.dumps(schema)
