@@ -1934,3 +1934,18 @@ and are forbidden to app tokens. There are no job mutation routes.
 Use `lithica-admin jobs list [--status S] [--type T] [--limit N]` to inspect jobs,
 and `lithica-admin jobs retry <id>...` or `jobs retry --failed` to retry failures.
 Retries reset attempts and scheduling, retaining the last error until success.
+
+
+### JSON temporary uploads
+
+`POST /uploads` also accepts `{"contentBase64": "..."}` in JSON. Supply
+exactly one of the multipart `content` file, `contentUrl`, or `contentBase64`.
+Base64 uses the standard alphabet, required padding and no whitespace or
+`data:` prefix. The answer is the same temporary upload token. Other routes
+ignore `contentBase64`; use the token there.
+
+`GET /info` reports `maxBase64UploadSize`, the smaller of the restart settings
+`max_base64_upload_size` (64 MiB by default) and `max_upload_size`. Decoded
+content exceeding it receives 413 `RequestTooLargeError`. All non-multipart
+bodies are limited to `ceil(maxBase64UploadSize / 3) * 4 + 1 MiB`, including
+metadata. Multipart bodies retain `max_upload_size`.

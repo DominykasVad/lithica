@@ -651,12 +651,13 @@ def test_request_over_the_limit_is_refused_while_it_arrives(
 
 def test_json_body_over_the_limit_is_refused(client, upload_limit):
     upload_limit(100000)
-    response = client.post("/things", json={"source": "x" * 100000})
+    limit = ((100000 + 2) // 3) * 4 + 1024 * 1024
+    response = client.post("/things", json={"source": "x" * limit})
     assert response.status_code == 413
-    assert response.json() == TOO_LARGE
+    assert response.json()["name"] == "RequestTooLargeError"
     response = client.post(
         "/things",
-        content=_streamed(json.dumps({"source": "x" * 100000}).encode()),
+        content=_streamed(json.dumps({"source": "x" * limit}).encode()),
     )
     assert response.status_code == 413
 

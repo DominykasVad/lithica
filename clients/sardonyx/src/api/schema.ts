@@ -2257,6 +2257,11 @@ export interface components {
              */
             maxUploadSize?: number | null;
             /**
+             * Maxbase64Uploadsize
+             * @description Effective decoded base64 upload limit in bytes; JSON bodies allow 4/3 expansion plus 1 MiB.
+             */
+            maxBase64UploadSize?: number;
+            /**
              * Acceptedtypes
              * @description The types of file a post can be made from on this site: the engine's, then those of the modules switched on. A hint for clients, to point out at once a file that would be refused: the server decides by the file's content, not by its name or the type a browser gives it.
              */
@@ -5416,10 +5421,12 @@ export interface operations {
             content: {
                 "application/json": {
                     contentUrl?: string;
+                    contentBase64?: string;
                 };
                 "multipart/form-data": {
                     metadata?: {
                         contentUrl?: string;
+                        contentBase64?: string;
                     };
                     /** Format: binary */
                     content?: string;

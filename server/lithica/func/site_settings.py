@@ -61,6 +61,7 @@ SETTINGS = {
         Setting("jobs.poll_interval", "integer", runtime=False, min=1),
         Setting("modules", "list", runtime=False),
         Setting("max_upload_size", "integer", runtime=False, min=1),
+        Setting("max_base64_upload_size", "integer", runtime=False, min=1),
         Setting("api_docs", "boolean", runtime=False),
         Setting("domain", "string", runtime=False),
         Setting("cors_origins", "list", runtime=False),

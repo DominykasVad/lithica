@@ -210,6 +210,15 @@ def validate() -> None:
         or max_upload_size <= 0
     ):
         raise errors.ConfigError("max_upload_size must be a positive number of bytes")
+    max_base64_upload_size = config["max_base64_upload_size"]
+    if (
+        isinstance(max_base64_upload_size, bool)
+        or not isinstance(max_base64_upload_size, int)
+        or max_base64_upload_size <= 0
+    ):
+        raise errors.ConfigError(
+            "max_base64_upload_size must be a positive number of bytes"
+        )
 
     lifetime = config["password_reset_token_lifetime"]
     if isinstance(lifetime, bool) or not isinstance(lifetime, int) or lifetime <= 0:

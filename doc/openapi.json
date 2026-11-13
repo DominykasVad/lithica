@@ -5004,6 +5004,9 @@
                 "properties": {
                   "contentUrl": {
                     "type": "string"
+                  },
+                  "contentBase64": {
+                    "type": "string"
                   }
                 },
                 "type": "object"
@@ -5016,6 +5019,9 @@
                   "metadata": {
                     "properties": {
                       "contentUrl": {
+                        "type": "string"
+                      },
+                      "contentBase64": {
                         "type": "string"
                       }
                     },
@@ -9082,6 +9088,11 @@
             ],
             "title": "Maxuploadsize",
             "description": "The largest request the server takes, in bytes, as it checks it (`max_upload_size`); `null` if there is no limit. A larger one is refused with 413 `RequestTooLargeError`."
+          },
+          "maxBase64UploadSize": {
+            "type": "integer",
+            "title": "Maxbase64Uploadsize",
+            "description": "Effective decoded base64 upload limit in bytes; JSON bodies allow 4/3 expansion plus 1 MiB."
           },
           "acceptedTypes": {
             "items": {

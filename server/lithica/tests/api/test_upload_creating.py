@@ -1,3 +1,4 @@
+import base64
 import os
 from unittest.mock import patch
 
@@ -152,3 +153,75 @@ def test_failed_large_upload_leaves_nothing_behind(client, user_factory, tmpdir)
     )
     # refused before the body was read: not even the folder was made
     assert not os.path.exists(os.path.join(str(tmpdir), "temporary-uploads"))
+
+
+def test_base64_upload(client, user_factory):
+    from lithica import config
+
+    config.config["max_upload_size"] = 2 * 1024 * 1024
+    config.config["max_base64_upload_size"] = 2 * 1024 * 1024
+    content = b"x" * (2 * 1024 * 1024)
+    result = ok(
+        client.post(
+            "/uploads",
+            user=user_factory(rank="regular"),
+            body={"contentBase64": base64.b64encode(content).decode()},
+        )
+    )
+    assert file_uploads.get(result["token"]) == content
+
+
+@pytest.mark.parametrize(
+    "encoded", ["a", "YWJj\n", "YQ", "YQ=", "data:;base64,YQ==", "____", 123]
+)
+def test_bad_base64(client, user_factory, encoded):
+    assert_error(
+        client.post(
+            "/uploads",
+            user=user_factory(rank="regular"),
+            body={"contentBase64": encoded},
+        ),
+        errors.ValidationError,
+    )
+
+
+@pytest.mark.parametrize("source", ["file", "url"])
+def test_base64_excludes_other_sources(client, user_factory, source):
+    body = {"contentBase64": "YQ=="}
+    files = {"content": b"a"} if source == "file" else None
+    if source == "url":
+        body["contentUrl"] = "https://example.com/a"
+    assert_error(
+        client.post(
+            "/uploads", user=user_factory(rank="regular"), body=body, files=files
+        ),
+        errors.ValidationError,
+    )
+
+
+def test_base64_decoded_limit_and_empty(client, user_factory):
+    from lithica import config
+
+    config.config["max_base64_upload_size"] = 1
+    user = user_factory(rank="regular")
+    response = client.post("/uploads", user=user, body={"contentBase64": "YWI="})
+    assert response.status_code == 413
+    assert response.json()["name"] == "RequestTooLargeError"
+    assert_error(
+        client.post("/uploads", user=user, body={"contentBase64": ""}),
+        errors.MissingRequiredFileError,
+    )
+
+
+def test_posts_ignore_base64(client, user_factory):
+    from lithica import config
+
+    config.config["privileges"]["posts:create:identified"] = "regular"
+    assert_error(
+        client.post(
+            "/posts",
+            user=user_factory(rank="regular"),
+            body={"contentBase64": "YQ==", "safety": "safe"},
+        ),
+        errors.MissingRequiredFileError,
+    )

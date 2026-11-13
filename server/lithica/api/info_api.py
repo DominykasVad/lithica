@@ -5,7 +5,11 @@ from typing import Any
 
 from lithica import config, model, registry
 from lithica.api import resources
-from lithica.api.dependencies import CurrentUser, max_upload_size
+from lithica.api.dependencies import (
+    CurrentUser,
+    max_base64_upload_size,
+    max_upload_size,
+)
 from lithica.api.routing import ApiRouter
 from lithica.func import (
     app_token_rights,
@@ -135,6 +139,7 @@ def get_info(user: CurrentUser) -> dict[str, Any]:
             *(kind.name for kind in registry.post_kinds()),
         ],
         "maxUploadSize": max_upload_size(),
+        "maxBase64UploadSize": max_base64_upload_size(),
         "visibility": visibility.mode(),
         "features": {
             name: site_settings.enabled(name) for name in site_settings.FEATURES

@@ -74,6 +74,8 @@ modules: [] # example: [some_module]
 # an upload is written to <data_dir>/temporary-uploads/.tmp while it arrives,
 # so the data volume needs room for the uploads in flight
 max_upload_size: 1073741824
+# decoded base64 uploads; JSON bodies allow 4/3 expansion plus 1 MiB metadata
+max_base64_upload_size: 67108864
 
 # settings used to download files from the web on behalf of the api users
 user_agent:
