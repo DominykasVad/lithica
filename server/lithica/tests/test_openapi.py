@@ -348,7 +348,7 @@ def test_module_post_field_cannot_replace_a_schema():
         )
 
 
-def test_card_data_images_describe_nested_input(document):
+def test_card_data_images_describe_nested_input(document: dict[str, Any]) -> None:
     schema = document["paths"]["/modules/cards/cards"]["post"]["requestBody"][
         "content"
     ]["application/json"]["schema"]

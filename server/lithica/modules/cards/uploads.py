@@ -8,7 +8,13 @@ from sqlalchemy.orm import undefer
 from lithica import db, errors, model, registry
 from lithica.func import documents, posts, visibility
 from lithica.modules.cards import card as card_format
-from lithica.modules.cards.documents import after_card, split_card, validate_lorebook
+from lithica.modules.cards.documents import (
+    after_card,
+    card_key,
+    split_card,
+    validate_card,
+    validate_lorebook,
+)
 from lithica.modules.cards.model import Card
 
 
@@ -29,8 +35,11 @@ def convert(post: model.Post, user: model.User | None) -> None:
     document = db.session.get(model.PostDocument, post.post_id)
     if document is not None:
         row = db.session.get(Card, post.post_id)
-        if row is None or row.data_hash is None:
-            after_card(post.post_id, document.data)
+        if row is None:
+            after_card(post.post_id, validate_card(document.data))
+        elif row.data_hash is None:
+            # Do not rebuild links from JSON that may retain deleted book IDs.
+            row.data_hash = card_key(document.data["spec"], document.data["card"])
         return
     if (
         db.session.scalar(

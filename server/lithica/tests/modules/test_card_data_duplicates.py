@@ -1,15 +1,18 @@
 """Every file door uses the same current, book-free card identity."""
 
+from collections.abc import Callable
 from copy import deepcopy
+from pathlib import Path
 
 import pytest
 
-from lithica import config, db, model
+from lithica import config, db, model, registry
 from lithica.func import documents, post_import, posts
 from lithica.modules.cards import documents as card_documents
 from lithica.modules.cards import jobs
 from lithica.modules.cards.model import Card
 from lithica.tests.api.http import assert_error, ok
+from lithica.tests.conftest import ApiClient
 from lithica.tests.modules import cards
 from lithica.tests.modules.test_card_file_replace import replace
 from lithica.tests.modules.test_card_upload_documents import upload
@@ -18,7 +21,11 @@ from lithica.tests.modules.test_card_upload_documents import upload
 @pytest.mark.parametrize(
     "source", [cards.V1_CARD, cards.v2_card(), cards.v3_card(), None]
 )
-def test_extracted_and_document_keys_agree(site, user, source):
+def test_extracted_and_document_keys_agree(
+    site: Callable[[list[str]], ApiClient],
+    user: model.User,
+    source: registry.Payload | None,
+) -> None:
     client = site(["cards"])
     content = cards.charx() if source is None else cards.png_card(source)
     post_id = ok(
@@ -45,7 +52,9 @@ def test_extracted_and_document_keys_agree(site, user, source):
     assert str(post_id) in error["description"]
 
 
-def test_import_checks_current_data_in_dry_and_real_runs(site, user, tmp_path):
+def test_import_checks_current_data_in_dry_and_real_runs(
+    site: Callable[[list[str]], ApiClient], user: model.User, tmp_path: Path
+) -> None:
     client = site(["cards"])
     post_id = upload(client, user, cards.charx_card(None))
     folder = tmp_path / "import"
@@ -59,7 +68,9 @@ def test_import_checks_current_data_in_dry_and_real_runs(site, user, tmp_path):
         assert str(post_id) in result.outcomes[0].detail
 
 
-def test_replace_refuses_other_card_but_allows_own_data(site, user):
+def test_replace_refuses_other_card_but_allows_own_data(
+    site: Callable[[list[str]], ApiClient], user: model.User
+) -> None:
     client = site(["cards"])
     config.config["privileges"]["posts:edit:typed_relations"] = "regular"
     first = upload(client, user, cards.v2_card(name="First"))
@@ -83,7 +94,9 @@ def test_replace_refuses_other_card_but_allows_own_data(site, user):
     )
 
 
-def test_document_edits_are_not_deduplicated_and_conversion_backfills(site, user):
+def test_document_edits_are_not_deduplicated_and_conversion_backfills(
+    site: Callable[[list[str]], ApiClient], user: model.User
+) -> None:
     client = site(["cards"])
     first = upload(client, user, cards.v2_card(name="First"))
     second = upload(client, user, cards.v2_card(name="Second"), shade=40)
@@ -100,7 +113,11 @@ def test_document_edits_are_not_deduplicated_and_conversion_backfills(site, user
     assert documents.get(posts.get_post_by_id(first)).version == 0
 
 
-def test_hidden_data_duplicate_has_bare_error(site, user, user_factory):
+def test_hidden_data_duplicate_has_bare_error(
+    site: Callable[[list[str]], ApiClient],
+    user: model.User,
+    user_factory: Callable[..., model.User],
+) -> None:
     client = site(["cards"])
     upload(client, user, cards.v2_card(), tags=["nsfw"])
     config.config["visibility"] = "nsfw-login"

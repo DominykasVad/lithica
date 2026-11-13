@@ -1,16 +1,19 @@
 """Related media imports validate first and keep file writes transactional."""
 
 import base64
+from collections.abc import Callable
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
-from lithica import config, db, errors, model
+from lithica import config, db, errors, model, registry
 from lithica.func import documents, posts, util
+from lithica.func.content import ContentLike
 from lithica.modules.cards import media
 from lithica.tests.api.http import assert_error, ok
 from lithica.tests.api.test_tokens import _app_token, _as
+from lithica.tests.conftest import ApiClient
 from lithica.tests.modules import cards
 from lithica.tests.modules.test_card_data_creation import (
     create,
@@ -19,7 +22,7 @@ from lithica.tests.modules.test_card_data_creation import (
 )
 
 
-def disk():
+def disk() -> dict[str, bytes]:
     root = Path(config.config["data_dir"])
     return {
         str(p.relative_to(root)): p.read_bytes()
@@ -29,11 +32,13 @@ def disk():
     }
 
 
-def token(client, user, content):
+def token(client: ApiClient, user: model.User, content: bytes) -> str:
     return ok(client.post("/uploads", user=user, files={"content": content}))["token"]
 
 
-def test_images_roles_main_avatar_and_rerun(site, user):
+def test_images_roles_main_avatar_and_rerun(
+    site: Callable[[list[str]], ApiClient], user: model.User
+) -> None:
     client = site(["cards"])
     images = [
         {
@@ -98,7 +103,9 @@ def test_images_roles_main_avatar_and_rerun(site, user):
     assert documents.get(post).data["avatar"] == avatar
 
 
-def test_existing_media_is_unchanged_and_card_png_stays_media(site, user):
+def test_existing_media_is_unchanged_and_card_png_stays_media(
+    site: Callable[[list[str]], ApiClient], user: model.User
+) -> None:
     client = site(["cards"])
     content = cards.png_card(cards.v3_card(name="Image's embedded card"), shade=30)
     uploaded = token(client, user, content)
@@ -154,7 +161,9 @@ def test_existing_media_is_unchanged_and_card_png_stays_media(site, user):
         {"role": "expression", "token": "valid", "label": "\x00"},
     ],
 )
-def test_invalid_image_is_named_and_leaves_nothing(site, user, bad):
+def test_invalid_image_is_named_and_leaves_nothing(
+    site: Callable[[list[str]], ApiClient], user: model.User, bad: registry.Payload
+) -> None:
     client = site(["cards"])
     uploaded = token(client, user, cards.picture(30))
     bad = dict(bad)
@@ -171,7 +180,9 @@ def test_invalid_image_is_named_and_leaves_nothing(site, user, bad):
 
 
 @pytest.mark.parametrize("content", [b'{"name": "JSON"}', cards.charx()])
-def test_non_media_tokens_are_rejected_before_writes(site, user, content):
+def test_non_media_tokens_are_rejected_before_writes(
+    site: Callable[[list[str]], ApiClient], user: model.User, content: bytes
+) -> None:
     client = site(["cards"])
     images = [
         {"role": "avatar", "token": token(client, user, cards.picture(40))},
@@ -183,7 +194,9 @@ def test_non_media_tokens_are_rejected_before_writes(site, user, content):
 
 
 @pytest.mark.parametrize("mode", ["main", "same", "too-many"])
-def test_image_list_limits(site, user, mode):
+def test_image_list_limits(
+    site: Callable[[list[str]], ApiClient], user: model.User, mode: str
+) -> None:
     client = site(["cards"])
     uploaded = token(client, user, cards.picture(30))
     images = [{"role": "avatar", "token": uploaded}]
@@ -197,7 +210,9 @@ def test_image_list_limits(site, user, mode):
     assert db.session.query(model.Post).count() == 0
 
 
-def test_nonmedia_and_retired_tokens_are_skipped(site, user):
+def test_nonmedia_and_retired_tokens_are_skipped(
+    site: Callable[[list[str]], ApiClient], user: model.User
+) -> None:
     client = site(["cards"])
     embedded = cards.png_card(cards.v3_card(name="Existing file card"), shade=30)
     owner = ok(
@@ -222,7 +237,9 @@ def test_nonmedia_and_retired_tokens_are_skipped(site, user):
     assert db.session.query(model.PostTypedRelation).count() == 0
 
 
-def test_related_privilege_and_late_failure_leave_no_files(site, user):
+def test_related_privilege_and_late_failure_leave_no_files(
+    site: Callable[[list[str]], ApiClient], user: model.User
+) -> None:
     client = site(["cards"])
     images = [{"role": "avatar", "token": token(client, user, cards.picture(40))}]
     config.config["privileges"]["posts:edit:typed_relations"] = "administrator"
@@ -238,12 +255,16 @@ def test_related_privilege_and_late_failure_leave_no_files(site, user):
     assert disk() == {} and db.session.query(model.Post).count() == 0
 
 
-def test_partial_file_failure_is_cleaned_up(site, user, monkeypatch):
+def test_partial_file_failure_is_cleaned_up(
+    site: Callable[[list[str]], ApiClient],
+    user: model.User,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     client = site(["cards"])
     images = [{"role": "avatar", "token": token(client, user, cards.picture(40))}]
     original = media.files.save
 
-    def fail_after_save(path, content):
+    def fail_after_save(path: str, content: ContentLike) -> None:
         original(path, content)
         if path.startswith("posts/"):
             raise errors.ValidationError("Disk failure")
@@ -253,7 +274,9 @@ def test_partial_file_failure_is_cleaned_up(site, user, monkeypatch):
     assert disk() == {} and db.session.query(model.Post).count() == 0
 
 
-def test_app_token_import_and_read_only_refusal(site, user):
+def test_app_token_import_and_read_only_refusal(
+    site: Callable[[list[str]], ApiClient], user: model.User
+) -> None:
     client = site(["cards"])
     config.config["privileges"]["app_tokens:create:self"] = "regular"
     headers = _as(_app_token(client, user, ["read", "write", "upload"]), user)
@@ -289,8 +312,10 @@ def test_app_token_import_and_read_only_refusal(site, user):
 
 
 def test_hidden_token_is_skipped_and_hidden_post_id_is_invalid(
-    site, user, user_factory
-):
+    site: Callable[[list[str]], ApiClient],
+    user: model.User,
+    user_factory: Callable[..., model.User],
+) -> None:
     client = site(["cards"])
     parent = ok(create(client, user, externalIds=external(1)))["post"]["id"]
     content = cards.picture(80)
@@ -341,7 +366,13 @@ def test_hidden_token_is_skipped_and_hidden_post_id_is_invalid(
 @pytest.mark.parametrize(
     "asset,type_", [("gif-animated.gif", "animation"), ("mp4.mp4", "video")]
 )
-def test_animation_and_video_tokens_are_media(site, user, read_asset, asset, type_):
+def test_animation_and_video_tokens_are_media(
+    site: Callable[[list[str]], ApiClient],
+    user: model.User,
+    read_asset: Callable[[str], bytes],
+    asset: str,
+    type_: str,
+) -> None:
     client = site(["cards"])
     uploaded = token(client, user, read_asset(asset))
     answer = ok(create(client, user, images=[{"role": "avatar", "token": uploaded}]))

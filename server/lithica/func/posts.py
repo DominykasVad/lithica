@@ -1267,7 +1267,8 @@ def update_post_content(
             "Replacing the file of a post with a document comes later."
         )
     # create_post sets the file fields to "" first, so a new upload passes
-    require_file(post)
+    if not allow_document:
+        require_file(post)
     assert post
     if not content:
         raise InvalidPostContentError("Post content missing.")
@@ -1303,6 +1304,10 @@ def update_post_content(
     checksum = util.get_sha1(content)
     post.checksum = checksum
     post.checksum_md5 = util.get_md5(content)
+    with db.session.no_autoflush:
+        # Card data takes precedence when the same carrier is also a media avatar.
+        # Both constraints are checked before pending file metadata can flush.
+        _update_post_contents(post, content, as_media=as_media)
     # every post, also one this user may not see: a file is on the site once.
     # Only its id: a post loaded here would stay in the session, where a
     # lookup by id later in the request finds it without a query
@@ -1314,7 +1319,7 @@ def update_post_content(
         .execution_options(**{visibility.ALL_POSTS: True})
         .all()
     )
-    # a new post gets its id only as the query flushes it: not itself
+    # Exclude the current post even when it already has an ID.
     other_post_id = next(
         (row.post_id for row in same_ids if row.post_id != post.post_id), None
     )
@@ -1325,8 +1330,6 @@ def update_post_content(
         raise PostAlreadyUploadedError(other_post)
 
     with db.session.no_autoflush:
-        # Extract and check module duplicates before pending file metadata flushes.
-        _update_post_contents(post, content, as_media=as_media)
         own_retired = db.session.get(model.PostRetiredChecksum, post.checksum)
         if own_retired is not None and own_retired.post_id == post.post_id:
             db.session.delete(own_retired)

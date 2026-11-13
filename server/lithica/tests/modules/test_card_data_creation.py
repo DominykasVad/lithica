@@ -1,20 +1,23 @@
 """Data imports resolve identities, preserve ownership and write atomically."""
 
 import json
+from collections.abc import Callable
 from copy import deepcopy
 
+import httpx2
 import pytest
 
-from lithica import config, db, errors, model
+from lithica import config, db, errors, model, registry
 from lithica.func import documents, post_metadata, posts
 from lithica.modules.cards.model import CardLorebook, Lorebook
 from lithica.tests.api.http import assert_error, ok
+from lithica.tests.conftest import ApiClient
 from lithica.tests.modules import cards
 from lithica.tests.modules.test_card_upload_documents import upload
 
 
 @pytest.fixture(autouse=True)
-def privileges(site):
+def privileges(site: Callable[[list[str]], ApiClient]) -> None:
     config.config["privileges"].update(
         {
             "posts:edit:document": "regular",
@@ -25,20 +28,31 @@ def privileges(site):
     )
 
 
-def create(client, user, card=None, **options):
+def create(
+    client: ApiClient,
+    user: model.User,
+    card: registry.Payload | None = None,
+    **options: object,
+) -> httpx2.Response:
     return client.post(
         "/modules/cards/cards",
         user=user,
-        body={"card": card or cards.v3_card(), "safety": "safe", **options},
+        body={
+            "card": card if card is not None else cards.v3_card(),
+            "safety": "safe",
+            **options,
+        },
     )
 
 
-def external(id_):
+def external(id_: object) -> list[dict[str, str]]:
     return [{"host": "test", "id": str(id_)}]
 
 
 @pytest.mark.parametrize("card", [cards.V1_CARD, cards.v2_card(), cards.v3_card()])
-def test_create_and_update_outcomes(site, user, card):
+def test_create_and_update_outcomes(
+    site: Callable[[list[str]], ApiClient], user: model.User, card: registry.Payload
+) -> None:
     client = site(["cards"])
     first = ok(create(client, user, card, externalIds=external(1), note="Import"))
     assert first["outcome"] == "created" and first["skippedImages"] == []
@@ -75,7 +89,9 @@ def test_create_and_update_outcomes(site, user, card):
     assert documents.get(post).version == 1
 
 
-def test_hash_resolution_adds_ids_but_no_id_refuses_duplicate(site, user):
+def test_hash_resolution_adds_ids_but_no_id_refuses_duplicate(
+    site: Callable[[list[str]], ApiClient], user: model.User
+) -> None:
     client = site(["cards"])
     post_id = upload(client, user, cards.v3_card())
     assert_error(create(client, user), posts.PostAlreadyUploadedError)
@@ -88,7 +104,9 @@ def test_hash_resolution_adds_ids_but_no_id_refuses_duplicate(site, user):
     } == {("test", "1"), ("test", "2")}
 
 
-def test_external_resolution_conflicts_and_wrong_kind(site, user):
+def test_external_resolution_conflicts_and_wrong_kind(
+    site: Callable[[list[str]], ApiClient], user: model.User
+) -> None:
     client = site(["cards"])
     first = ok(
         create(client, user, cards.v3_card(name="First"), externalIds=external(1))
@@ -121,7 +139,9 @@ def test_external_resolution_conflicts_and_wrong_kind(site, user):
     assert first["post"]["id"] != second["post"]["id"]
 
 
-def test_ten_cards_share_one_embedded_book_and_nsfw_is_separate(site, user):
+def test_ten_cards_share_one_embedded_book_and_nsfw_is_separate(
+    site: Callable[[list[str]], ApiClient], user: model.User
+) -> None:
     client = site(["cards"])
     ids = [
         ok(create(client, user, cards.v3_card(name=str(i))))["post"]["id"]
@@ -141,7 +161,9 @@ def test_ten_cards_share_one_embedded_book_and_nsfw_is_separate(site, user):
     assert [t.first_name for t in other_book.tags] == ["nsfw"]
 
 
-def test_explicit_lorebooks_and_replacement_of_links(site, user):
+def test_explicit_lorebooks_and_replacement_of_links(
+    site: Callable[[list[str]], ApiClient], user: model.User
+) -> None:
     client = site(["cards"])
     book = ok(
         client.post(
@@ -158,7 +180,9 @@ def test_explicit_lorebooks_and_replacement_of_links(site, user):
     assert documents.get(post).data["lorebooks"] == []
 
 
-def test_lorebook_resolution_versions_and_nsfw(site, user):
+def test_lorebook_resolution_versions_and_nsfw(
+    site: Callable[[list[str]], ApiClient], user: model.User
+) -> None:
     client = site(["cards"])
     body = {
         "book": cards.LOREBOOK,
@@ -216,7 +240,12 @@ def test_lorebook_resolution_versions_and_nsfw(site, user):
         ("posts:edit:external_ids", {"externalIds": external(1)}),
     ],
 )
-def test_create_privileges_leave_no_rows(site, user, privilege, options):
+def test_create_privileges_leave_no_rows(
+    site: Callable[[list[str]], ApiClient],
+    user: model.User,
+    privilege: str,
+    options: registry.Payload,
+) -> None:
     client = site(["cards"])
     config.config["privileges"][privilege] = "administrator"
     assert_error(create(client, user, **options), errors.AuthError)
@@ -224,7 +253,9 @@ def test_create_privileges_leave_no_rows(site, user, privilege, options):
     assert db.session.query(model.PostDocument).count() == 0
 
 
-def test_document_privilege_and_validation_rollback(site, user):
+def test_document_privilege_and_validation_rollback(
+    site: Callable[[list[str]], ApiClient], user: model.User
+) -> None:
     client = site(["cards"])
     first = ok(create(client, user, externalIds=external(1)))
     config.config["privileges"]["posts:edit:document"] = "administrator"
@@ -239,7 +270,11 @@ def test_document_privilege_and_validation_rollback(site, user):
     assert documents.get(posts.get_post_by_id(first["post"]["id"])).version == 0
 
 
-def test_hidden_identity_resolution_is_private(site, user, user_factory):
+def test_hidden_identity_resolution_is_private(
+    site: Callable[[list[str]], ApiClient],
+    user: model.User,
+    user_factory: Callable[..., model.User],
+) -> None:
     client = site(["cards"])
     post_id = upload(client, user, cards.v3_card(), tags=["nsfw"])
     post_metadata.replace_external_ids(
@@ -275,7 +310,9 @@ def test_hidden_identity_resolution_is_private(site, user, user_factory):
         {"externalIds": [{"host": "Bad Host", "id": "1"}]},
     ],
 )
-def test_bad_options_leave_nothing(site, user, options):
+def test_bad_options_leave_nothing(
+    site: Callable[[list[str]], ApiClient], user: model.User, options: registry.Payload
+) -> None:
     client = site(["cards"])
     # JSON escaping keeps the lone surrogate on the wire; httpx's json= encoder
     # would reject it in the client before the server sees the request.
@@ -291,3 +328,19 @@ def test_bad_options_leave_nothing(site, user, options):
     assert_error(response, errors.ValidationError)
     assert db.session.query(model.Post).count() == 0
     assert db.session.query(model.PostDocumentVersion).count() == 0
+
+
+@pytest.mark.parametrize(
+    "raw", [{}, {"name": 4}, {"spec": "unknown", "data": {"name": "X"}}, [], None]
+)
+def test_invalid_card_data_leaves_no_posts(
+    site: Callable[[list[str]], ApiClient], user: model.User, raw: object
+) -> None:
+    client = site(["cards"])
+    assert_error(
+        client.post(
+            "/modules/cards/cards", user=user, body={"card": raw, "safety": "safe"}
+        ),
+        errors.ValidationError,
+    )
+    assert db.session.query(model.Post).count() == 0

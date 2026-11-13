@@ -214,7 +214,7 @@ def card_fields(
 
 
 def avatar_resource(post: model.Post | None) -> dict[str, object] | None:
-    if post is None:
+    if post is None or post.kind != "media":
         return None
     return {
         "id": post.post_id,

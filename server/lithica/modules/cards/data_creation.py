@@ -99,6 +99,19 @@ def _add_ids(post: model.Post, options: Options, user: model.User) -> None:
         post_metadata.replace_external_ids(post, current + options.external_ids, user)
 
 
+def _current_document(post: model.Post) -> model.PostDocument:
+    try:
+        document = documents.get(post, lock=True)
+    except documents.DocumentNotFoundError:
+        raise post_metadata.ExternalIdTakenError(
+            "External ID is already taken."
+        ) from None
+    # The post lock protects inheritance from concurrent metadata edits.
+    db.session.refresh(post, ["kind", "safety", "tags"])
+    visibility.hiding_tag_ids(refresh=True)
+    return document
+
+
 def _new_post(
     kind: str,
     user: model.User,
@@ -162,7 +175,7 @@ def create_card(
         current = None
     else:
         auth.verify_privilege(user, "posts:edit:document")
-        current = documents.get(target, lock=True)
+        current = _current_document(target)
         data["avatar"] = current.data.get("avatar")
     # Explicit links must name visible lorebooks; validation on document restore
     # is separately viewer-independent and drops deleted links.
@@ -229,7 +242,7 @@ def create_lorebook(
         snapshots.create(target, user)
     else:
         auth.verify_privilege(user, "posts:edit:document")
-        current = documents.get(target, lock=True)
+        current = _current_document(target)
         before = current.version
         documents.write(
             target,

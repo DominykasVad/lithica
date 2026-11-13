@@ -1,18 +1,22 @@
 """Main avatars survive compatible restores and obey post visibility."""
 
 import zlib
+from collections.abc import Callable
 from copy import deepcopy
 
 from lithica import config, db, model
 from lithica.func import documents, posts
 from lithica.modules.cards.model import Card
 from lithica.tests.api.http import ok
+from lithica.tests.conftest import ApiClient
 from lithica.tests.modules import cards
 from lithica.tests.modules.test_card_file_replace import replace
 from lithica.tests.modules.test_card_upload_documents import upload
 
 
-def test_avatar_schema_restore_delete_and_replace(site, user):
+def test_avatar_schema_restore_delete_and_replace(
+    site: Callable[[list[str]], ApiClient], user: model.User
+) -> None:
     client = site(["cards"])
     config.config["privileges"]["posts:edit:typed_relations"] = "regular"
     post_id = upload(client, user, cards.v2_card())
@@ -58,7 +62,11 @@ def test_avatar_schema_restore_delete_and_replace(site, user):
     assert restored.schema_version == 2 and restored.data["avatar"] is None
 
 
-def test_avatar_hidden_from_card_and_batched_field(site, user, user_factory):
+def test_avatar_hidden_from_card_and_batched_field(
+    site: Callable[[list[str]], ApiClient],
+    user: model.User,
+    user_factory: Callable[..., model.User],
+) -> None:
     client = site(["cards"])
     config.config["privileges"]["posts:view"] = "anonymous"
     post_id = upload(client, user, cards.v2_card())
@@ -90,7 +98,9 @@ def test_avatar_hidden_from_card_and_batched_field(site, user, user_factory):
     )
 
 
-def test_fileless_card_has_null_format(site, user):
+def test_fileless_card_has_null_format(
+    site: Callable[[list[str]], ApiClient], user: model.User
+) -> None:
     client = site(["cards"])
     post = posts.create_fileless_post("card", user)
     db.session.flush()

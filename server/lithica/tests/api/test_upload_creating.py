@@ -1,5 +1,6 @@
 import base64
 import os
+from collections.abc import Callable
 from unittest.mock import patch
 
 import pytest
@@ -8,6 +9,7 @@ from lithica import errors, model
 from lithica.api import resources
 from lithica.func import file_uploads, net
 from lithica.tests.api.http import assert_error, assert_fits, enabled_config, ok
+from lithica.tests.conftest import ApiClient
 
 
 @pytest.fixture(autouse=True)
@@ -155,7 +157,9 @@ def test_failed_large_upload_leaves_nothing_behind(client, user_factory, tmpdir)
     assert not os.path.exists(os.path.join(str(tmpdir), "temporary-uploads"))
 
 
-def test_base64_upload(client, user_factory):
+def test_base64_upload(
+    client: ApiClient, user_factory: Callable[..., model.User]
+) -> None:
     from lithica import config
 
     config.config["max_upload_size"] = 2 * 1024 * 1024
@@ -174,7 +178,9 @@ def test_base64_upload(client, user_factory):
 @pytest.mark.parametrize(
     "encoded", ["a", "YWJj\n", "YQ", "YQ=", "data:;base64,YQ==", "____", 123]
 )
-def test_bad_base64(client, user_factory, encoded):
+def test_bad_base64(
+    client: ApiClient, user_factory: Callable[..., model.User], encoded: object
+) -> None:
     assert_error(
         client.post(
             "/uploads",
@@ -186,7 +192,9 @@ def test_bad_base64(client, user_factory, encoded):
 
 
 @pytest.mark.parametrize("source", ["file", "url"])
-def test_base64_excludes_other_sources(client, user_factory, source):
+def test_base64_excludes_other_sources(
+    client: ApiClient, user_factory: Callable[..., model.User], source: str
+) -> None:
     body = {"contentBase64": "YQ=="}
     files = {"content": b"a"} if source == "file" else None
     if source == "url":
@@ -199,7 +207,9 @@ def test_base64_excludes_other_sources(client, user_factory, source):
     )
 
 
-def test_base64_decoded_limit_and_empty(client, user_factory):
+def test_base64_decoded_limit_and_empty(
+    client: ApiClient, user_factory: Callable[..., model.User]
+) -> None:
     from lithica import config
 
     config.config["max_base64_upload_size"] = 1
@@ -213,7 +223,9 @@ def test_base64_decoded_limit_and_empty(client, user_factory):
     )
 
 
-def test_posts_ignore_base64(client, user_factory):
+def test_posts_ignore_base64(
+    client: ApiClient, user_factory: Callable[..., model.User]
+) -> None:
     from lithica import config
 
     config.config["privileges"]["posts:create:identified"] = "regular"
