@@ -201,7 +201,9 @@ def _rows(contents: Sequence[registry.ExtractedContent]) -> list[model.PostConte
     ]
 
 
-def update_post_contents(post: model.Post, content: ContentLike) -> None:
+def update_post_contents(
+    post: model.Post, content: ContentLike, *, as_media: bool = False
+) -> None:
     """
     Make the post's extracted content that of this file: its new content.
     Every row the post had goes, also those of modules that are switched
@@ -216,7 +218,25 @@ def update_post_contents(post: model.Post, content: ContentLike) -> None:
     if extraction.rejections:
         raise ContentRejectedError(extraction.rejections[0])
     post.contents = _rows(extraction.contents)
-    post.kind = post_kinds.derived_kind(post)
+    post.kind = model.Post.KIND_MEDIA if as_media else post_kinds.derived_kind(post)
+    check_duplicates(post, extraction.contents)
+
+
+def check_duplicates(
+    post: model.Post, contents: Sequence[registry.ExtractedContent]
+) -> None:
+    """Check module duplicates before storing extracted content."""
+    from lithica.func import posts
+
+    with db.session.no_autoflush:
+        for module in registry.modules():
+            if module.duplicate_of is None:
+                continue
+            duplicate_id = module.duplicate_of(post, contents)
+            if duplicate_id is not None and duplicate_id != post.post_id:
+                raise posts.PostAlreadyUploadedError(
+                    posts.try_get_post_by_id(duplicate_id)
+                )
 
 
 def _verified_auto_tags(result: object) -> dict[str, list[str]]:

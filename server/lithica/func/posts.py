@@ -782,6 +782,7 @@ def create_post(
     user: model.User | None,
     *,
     defer_file: bool = False,
+    as_media: bool = False,
 ) -> tuple[model.Post, list[model.Tag]]:
     post = model.Post()
     post.safety = model.Post.SAFETY_SAFE
@@ -794,9 +795,9 @@ def create_post(
     post.mime_type = ""
 
     if defer_file:
-        update_post_content(post, content, defer_file=True)
+        update_post_content(post, content, defer_file=True, as_media=as_media)
     else:
-        update_post_content(post, content)
+        update_post_content(post, content, as_media=as_media)
     new_tags = update_post_tags(post, tag_names)
 
     db.session.add(post)
@@ -1233,9 +1234,11 @@ def warn_about_pending_backfills() -> None:
             )
 
 
-def _update_post_contents(post: model.Post, content: ContentLike) -> None:
+def _update_post_contents(
+    post: model.Post, content: ContentLike, *, as_media: bool = False
+) -> None:
     try:
-        post_content.update_post_contents(post, content)
+        post_content.update_post_contents(post, content, as_media=as_media)
     except post_content.ContentRejectedError as ex:
         # a module refused the file, in its words
         raise InvalidPostContentError(str(ex)) from ex
@@ -1247,6 +1250,7 @@ def update_post_content(
     *,
     allow_document: bool = False,
     defer_file: bool = False,
+    as_media: bool = False,
 ) -> None:
     """Replace file metadata; modules may explicitly retain document ownership.
 
@@ -1304,6 +1308,7 @@ def update_post_content(
     # lookup by id later in the request finds it without a query
     same_ids = (
         db.session.query(model.Post.post_id)
+        .autoflush(False)
         .filter(_checksum_matches(checksum))
         .filter(model.Post.post_id != post.post_id)
         .execution_options(**{visibility.ALL_POSTS: True})
@@ -1315,16 +1320,16 @@ def update_post_content(
     )
     if other_post_id:
         # one this user may see is loaded as any other lookup
-        other_post = try_get_post_by_id(other_post_id)
+        with db.session.no_autoflush:
+            other_post = try_get_post_by_id(other_post_id)
         raise PostAlreadyUploadedError(other_post)
 
-    own_retired = db.session.get(model.PostRetiredChecksum, post.checksum)
-    if own_retired is not None and own_retired.post_id == post.post_id:
-        db.session.delete(own_retired)
-
-    # Before anything of the post goes to the session: a module may refuse
-    # the file here, and a refused file must leave nothing behind.
-    _update_post_contents(post, content)
+    with db.session.no_autoflush:
+        # Extract and check module duplicates before pending file metadata flushes.
+        _update_post_contents(post, content, as_media=as_media)
+        own_retired = db.session.get(model.PostRetiredChecksum, post.checksum)
+        if own_retired is not None and own_retired.post_id == post.post_id:
+            db.session.delete(own_retired)
 
     if update_signature:
         purge_post_signature(post)

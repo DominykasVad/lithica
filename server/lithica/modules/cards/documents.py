@@ -4,13 +4,15 @@ A later data shape must bump schema_version and validation must convert every
 older shape: restoring history feeds old versions through validation too.
 """
 
+import hashlib
+from collections.abc import Sequence
 from copy import deepcopy
 from typing import cast
 
 import sqlalchemy as sa
 
 from lithica import db, model, registry
-from lithica.func import visibility
+from lithica.func import documents, visibility
 from lithica.modules.cards import card as card_format
 from lithica.modules.cards.model import Card, CardLorebook, Lorebook
 
@@ -69,6 +71,7 @@ def after_card(post_id: int, data: registry.Payload) -> None:
             name=summary["name"],
             creator=summary["creator"],
             greetings=summary["greetings"],
+            data_hash=card_key(data["spec"], data["card"]),
         )
     )
     db.session.execute(
@@ -105,3 +108,38 @@ def split_card(
         if spec != card_format.KIND_V1 and isinstance(book, dict) and book
         else None,
     )
+
+
+def card_key(spec: str, card: registry.Payload) -> str:
+    """Identity of validated, book-free card data, independent of its carrier."""
+    return hashlib.sha256(
+        documents.encode_content({"spec": spec, "card": card})
+    ).hexdigest()
+
+
+def find_card(key: str, exclude: int | None = None) -> int | None:
+    query = sa.select(Card.post_id).where(Card.data_hash == key)
+    if exclude is not None:
+        query = query.where(Card.post_id != exclude)
+    return db.session.scalar(
+        query.order_by(Card.post_id)
+        .limit(1)
+        .execution_options(**{visibility.ALL_POSTS: True})
+    )
+
+
+def duplicate_of(
+    post: model.Post, contents: Sequence[registry.ExtractedContent]
+) -> int | None:
+    if post.kind == "media":
+        return None
+    for content in contents:
+        if content.kind not in card_format.KINDS:
+            continue
+        stored = card_format.stored(content.payload["card"])
+        if stored is None:
+            continue
+        data, _book = split_card(content.kind, stored)
+        data = validate_card(data)
+        return find_card(card_key(data["spec"], data["card"]), post.post_id)
+    return None

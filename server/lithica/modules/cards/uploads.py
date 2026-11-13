@@ -8,7 +8,8 @@ from sqlalchemy.orm import undefer
 from lithica import db, errors, model, registry
 from lithica.func import documents, posts, visibility
 from lithica.modules.cards import card as card_format
-from lithica.modules.cards.documents import split_card, validate_lorebook
+from lithica.modules.cards.documents import after_card, split_card, validate_lorebook
+from lithica.modules.cards.model import Card
 
 
 def convert(post: model.Post, user: model.User | None) -> None:
@@ -25,7 +26,11 @@ def convert(post: model.Post, user: model.User | None) -> None:
     db.session.refresh(post, ["kind", "safety", "user_id", "user", "tags"])
     if post.kind != "card":
         return
-    if db.session.get(model.PostDocument, post.post_id) is not None:
+    document = db.session.get(model.PostDocument, post.post_id)
+    if document is not None:
+        row = db.session.get(Card, post.post_id)
+        if row is None or row.data_hash is None:
+            after_card(post.post_id, document.data)
         return
     if (
         db.session.scalar(

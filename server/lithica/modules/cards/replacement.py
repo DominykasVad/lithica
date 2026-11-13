@@ -96,7 +96,9 @@ def replace(
             auth.verify_privilege(user, "posts:edit:typed_relations")
             if kept_id is None:
                 names = [visibility.nsfw_tag()] if visibility.is_nsfw(post) else []
-                kept, _ = posts.create_post(old, names, user, defer_file=True)
+                kept, _ = posts.create_post(
+                    old, names, user, defer_file=True, as_media=True
+                )
                 kept.kind = "media"
                 kept.listed = False
                 kept.safety = post.safety

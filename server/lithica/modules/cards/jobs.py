@@ -9,6 +9,7 @@ from sqlalchemy.orm import Query
 
 from lithica import db, model, registry
 from lithica.func import jobs
+from lithica.modules.cards.model import Card
 from lithica.modules.cards.uploads import convert
 
 logger = logging.getLogger(__name__)
@@ -18,7 +19,12 @@ def pending(after: int = 0) -> Query[model.Post]:
     return db.session.query(model.Post).filter(
         model.Post.kind == "card",
         model.Post.post_id > after,
-        ~sa.exists().where(model.PostDocument.post_id == model.Post.post_id),
+        sa.or_(
+            ~sa.exists().where(model.PostDocument.post_id == model.Post.post_id),
+            sa.exists().where(
+                Card.post_id == model.Post.post_id, Card.data_hash.is_(None)
+            ),
+        ),
     )
 
 
@@ -47,7 +53,9 @@ def configure(parser: argparse.ArgumentParser) -> None:
         "convert", help="convert existing cards to documents"
     )
     convert_parser.add_argument(
-        "--count", action="store_true", help="only count cards without documents"
+        "--count",
+        action="store_true",
+        help="only count cards needing conversion or a data hash",
     )
 
 
@@ -84,5 +92,5 @@ def command(arguments: argparse.Namespace) -> int:
     if not arguments.count and count:
         jobs.enqueue("cards-convert", {"after": 0})
         db.session.commit()
-    print(f"cards convert: {count} cards without a document")  # noqa: T201
+    print(f"cards convert: {count} cards needing conversion or a data hash")  # noqa: T201
     return 0

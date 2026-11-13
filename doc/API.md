@@ -1949,3 +1949,12 @@ ignore `contentBase64`; use the token there.
 content exceeding it receives 413 `RequestTooLargeError`. All non-multipart
 bodies are limited to `ceil(maxBase64UploadSize / 3) * 4 + 1 MiB`, including
 metadata. Multipart bodies retain `max_upload_size`.
+
+
+Cards are duplicates by SHA-256 of the canonical `{spec, card}` document data,
+with the embedded book removed and binary fields stripped as on upload.
+The current card document decides; avatar and book links do not affect identity.
+The file checksum (including retired files) is checked too. Upload, import
+(including dry run), and card-file replacement use these checks; document
+edits and restores do not. A hidden duplicate receives the bare
+`PostAlreadyUploadedError`, without its ID or URLs.

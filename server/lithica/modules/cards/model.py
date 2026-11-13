@@ -16,6 +16,7 @@ class Card(Base):
     name: Mapped[str] = mapped_column(sa.Unicode(200))
     creator: Mapped[str] = mapped_column(sa.Unicode(200))
     greetings: Mapped[int] = mapped_column(sa.Integer)
+    data_hash: Mapped[str | None] = mapped_column(sa.String(64), index=True)
 
 
 class Lorebook(Base):
