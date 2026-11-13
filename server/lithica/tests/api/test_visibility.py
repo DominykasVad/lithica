@@ -385,7 +385,32 @@ def _writes(site: Site, read_asset: Any) -> dict[str, list[dict[str, Any]]]:
     h = HIDDEN[0]
     merge = {"removeVersion": 1, "mergeToVersion": 1, "replaceContent": False}
     hidden_posts = [("/post/%d" % post_id) for post_id in HIDDEN]
+    hidden_external_id = [{"host": "hidden-home", "id": "Hidden Mixed /: ID"}]
     return {
+        "POST /modules/cards/cards": [
+            {"body": {}},
+            {
+                "body": {
+                    "card": cards.v3_card(name="Probe"),
+                    "safety": "safe",
+                    "externalIds": hidden_external_id,
+                },
+                "hidden": True,
+                "status": 409,
+            },
+        ],
+        "POST /modules/cards/lorebooks": [
+            {"body": {}},
+            {
+                "body": {
+                    "book": {"name": "Probe"},
+                    "safety": "safe",
+                    "externalIds": hidden_external_id,
+                },
+                "hidden": True,
+                "status": 409,
+            },
+        ],
         "PUT /modules/cards/post/{post_id}/file": [
             {
                 "path": "/modules/cards/post/%d/file" % post_id,

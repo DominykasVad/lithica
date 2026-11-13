@@ -272,6 +272,7 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 - 2026-11-13 — 7.2 — Non-multipart request bodies are limited by max_base64_upload_size (encoded), not max_upload_size.
 - 2026-11-13 — 7.2 — Card duplicates by data: SHA-256 of {spec, card} without books, at every door that creates a card or gives one a file; document edits are not checked.
 - 2026-11-13 — 7.2 — A card's main avatar is named in its document (`avatar`); its other `avatar-of` images are alternates.
+- 2026-11-13 — 7.2 — A data duplicate sent with an unknown external ID gains the ID instead of being refused.
 
 ---
 
@@ -477,8 +478,8 @@ release `v0.5.0`. Design: decisions 0003, 0005, 0006, 0010, 0011 and 0013 in
 ### 7.2 Cards created from data
 - [x] Uploads with a JSON body (base64) as a second way into the temporary upload, for clients that can't send multipart; the size limit allows for base64's third more.
 - [ ] Creating a card from card data (CCv3 JSON) plus references to uploaded assets and to lorebooks, under a privilege an app token can carry; its first version is version 0, with a source note (0011).
-- [ ] Creating and updating lorebooks through the API the same way.
-- [ ] Duplicates by a hash of the normalised card data, for cards with and without a file; with an external ID (6.3) given, an existing card is updated (a new version) instead of a duplicate made.
+- [x] Creating and updating lorebooks through the API the same way.
+- [x] Duplicates by a hash of the normalised card data, for cards with and without a file; with an external ID (6.3) given, an existing card is updated (a new version) instead of a duplicate made.
 - [ ] Related images with roles (6.3): the main avatar (named in the card document), alternate avatars, gallery, expressions with their labels; unlisted, with the card's safety and NSFW tag.
 - [ ] Tests that a bulk import works within the limits: hundreds of cards created one after another through the API, a re-run updating instead of duplicating.
 

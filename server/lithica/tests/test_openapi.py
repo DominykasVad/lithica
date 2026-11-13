@@ -100,8 +100,10 @@ def test_document_describes_the_whole_api(document):
         == "get_lorebook"
     )
     assert sorted(path for path in document["paths"] if "/modules/" in path) == [
+        "/modules/cards/cards",
         "/modules/cards/file-picture",
         "/modules/cards/lorebook/{post_id}",
+        "/modules/cards/lorebooks",
         "/modules/cards/post/{post_id}",
         "/modules/cards/post/{post_id}/download",
         "/modules/cards/post/{post_id}/file",
@@ -111,6 +113,8 @@ def test_document_describes_the_whole_api(document):
         ("/modules/cards/post/{post_id}/file", "put", "replace_card_file"),
         ("/modules/cards/post/{post_id}/file/compare", "post", "compare_card_file"),
         ("/modules/cards/file-picture", "post", "get_card_file_picture"),
+        ("/modules/cards/cards", "post", "create_card_from_data"),
+        ("/modules/cards/lorebooks", "post", "create_lorebook_from_data"),
     ):
         assert document["paths"][path][method]["operationId"] == operation_id
     # the documentation routes themselves are not part of the API

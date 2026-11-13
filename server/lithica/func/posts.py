@@ -1369,7 +1369,9 @@ def update_post_content(
     setattr(post, "__content", content)
 
 
-def update_post_auto_tags(post: model.Post) -> list[model.Tag]:
+def update_post_auto_tags(
+    post: model.Post, *, wanted: list[tuple[str, str]] | None = None
+) -> list[model.Tag]:
     """
     Add the tags the loaded modules derive from what was extracted from the
     post's file (see lithica.registry.Module.auto_tag). Tags the post has
@@ -1381,7 +1383,8 @@ def update_post_auto_tags(post: model.Post) -> list[model.Tag]:
     It never fails the request: a module's wish for a tag is not worth an
     upload.
     """
-    wanted = post_content.get_auto_tags(post)
+    if wanted is None:
+        wanted = post_content.get_auto_tags(post)
     if not wanted:
         return []
     present = {name.name.lower() for tag in post.tags for name in tag.names}

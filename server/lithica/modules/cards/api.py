@@ -1,7 +1,7 @@
 """The routes of the cards module, and what they return."""
 
 from collections.abc import Sequence
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 import sqlalchemy as sa
 import sqlalchemy.orm as sa_orm
@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, Request
 from pydantic import Field
 from starlette.responses import FileResponse, Response
 
-from lithica import db, errors, model
+from lithica import db, errors, model, registry
 from lithica.api import resources
 from lithica.api.dependencies import (
     RequestDataParam,
@@ -22,15 +22,32 @@ from lithica.api.routing import ERROR_RESPONSES, ApiRouter
 from lithica.api.schemas import (
     Bool,
     Int,
+    IntList,
     RequestModel,
     Str,
+    StrList,
     optional,
     request_body,
     required,
 )
-from lithica.func import documents, file_types, file_uploads, files, mime, posts
+from lithica.func import (
+    documents,
+    file_types,
+    file_uploads,
+    files,
+    mime,
+    post_metadata,
+    posts,
+)
 from lithica.modules.cards import card as card_format
-from lithica.modules.cards import filename, pictures, reading, replacement, view
+from lithica.modules.cards import (
+    data_creation,
+    filename,
+    pictures,
+    reading,
+    replacement,
+    view,
+)
 from lithica.modules.cards.model import (
     Card as CardRow,
 )
@@ -541,6 +558,103 @@ def get_card_file_picture(
             "Cache-Control": "no-store",
         },
     )
+
+
+class DataOptions(RequestModel):
+    safety: Str = optional()
+    tags: StrList = Field(default_factory=list[str])
+    external_ids: list[dict[str, str]] = optional()
+    note: Annotated[str, Field(max_length=256)] = optional()
+    version: Int = optional()
+
+
+class CardDataInput(DataOptions):
+    card: registry.Payload = required()
+    lorebooks: IntList = Field(default_factory=list[int])
+
+
+class LorebookDataInput(DataOptions):
+    book: registry.Payload = required()
+    spec: Literal["v2", "v3"] = "v3"
+
+
+class DataCreated(resources.Resource):
+    post: resources.Post
+    outcome: Literal["created", "updated", "unchanged"]
+
+
+class CardDataCreated(DataCreated):
+    skipped_images: list[int]
+
+
+def _data_options(body: DataOptions) -> data_creation.Options:
+    return data_creation.Options(
+        safety=body.safety if body.has("safety") else None,
+        tags=body.tags,
+        external_ids=post_metadata.external_pairs(body.external_ids)
+        if body.has("external_ids")
+        else None,
+        note=body.note if body.has("note") else None,
+        version=body.version if body.has("version") else None,
+    )
+
+
+@cards.post(
+    "/cards",
+    operation_id="create_card_from_data",
+    response_model=CardDataCreated,
+    openapi_extra=request_body(CardDataInput),
+    summary="Create or update a card from data",
+)
+def create_card_from_data(
+    user: Annotated[model.User, Depends(require("posts:create:identified"))],
+    fields: Annotated[list[str], Depends(fields_of(posts.PostSerializer))],
+    body: Annotated[CardDataInput, Depends(read_body(CardDataInput))],
+) -> dict[str, Any]:
+    """Resolve external IDs, then current card data; create version 0 or update.
+
+    Safety is required on creation. Updates retain safety and tags. A supplied
+    document version must be current; unchanged data adds no version. External
+    IDs are added, never removed. The entire request is atomic.
+    """
+    with db.session.begin_nested():
+        post, outcome = data_creation.create_card(
+            body.require("card"), user, _data_options(body), body.lorebooks
+        )
+        # Any: heterogeneous API response, described by the response resource.
+        result: dict[str, Any] = {
+            "post": posts.serialize_post(post, user, fields),
+            "outcome": outcome,
+            "skippedImages": [],
+        }
+    db.session.commit()
+    return result
+
+
+@cards.post(
+    "/lorebooks",
+    operation_id="create_lorebook_from_data",
+    response_model=DataCreated,
+    openapi_extra=request_body(LorebookDataInput),
+    summary="Create or update a lorebook from data",
+)
+def create_lorebook_from_data(
+    user: Annotated[model.User, Depends(require("posts:create:identified"))],
+    fields: Annotated[list[str], Depends(fields_of(posts.PostSerializer))],
+    body: Annotated[LorebookDataInput, Depends(read_body(LorebookDataInput))],
+) -> dict[str, Any]:
+    """Resolve external IDs, then identical book data on the same NSFW side.
+
+    New books require safety. Updates require document-edit privilege and keep
+    safety and tags; a stale document version receives 409. IDs are additive.
+    """
+    with db.session.begin_nested():
+        post, outcome = data_creation.create_lorebook(
+            body.require("book"), body.spec, user, _data_options(body)
+        )
+        result = {"post": posts.serialize_post(post, user, fields), "outcome": outcome}
+    db.session.commit()
+    return result
 
 
 # both, under the module's path; a plain router, so that the download is not

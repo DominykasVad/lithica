@@ -1966,3 +1966,38 @@ drops deleted or non-media avatars. Other `avatar-of` relations are alternate
 avatars. The card answer and `card` post field return a visible avatar as
 `{id, thumbnailUrl, contentUrl}`, otherwise `null`. Fileless cards have a
 `null` format. Replacing a file retains the main avatar.
+
+
+### Cards and lorebooks from data
+
+`POST /modules/cards/cards` (`create_card_from_data`) accepts a required `card`
+JSON object (V1, V2 or V3), `safety` (required for creation), optional `tags`,
+`lorebooks` (ordered lorebook post IDs, deduplicated after the embedded book,
+at most 100 total), `externalIds` (`[{host, id}]`), `note` (at most 256
+characters), and `version` (the current document version).
+
+`POST /modules/cards/lorebooks` (`create_lorebook_from_data`) accepts required
+`book` JSON, `spec` (`v2` or `v3`, default `v3`), and the same safety, tags,
+external IDs, note and version options. It returns `{post, outcome}`; the card
+route additionally returns `skippedImages`. `fields=` selects fields of `post`.
+The outcome is `created`, `updated`, or `unchanged`.
+
+Resolution is ordered:
+
+1. Known external IDs must all name one visible post of the requested kind
+   with a document. Conflicts, hidden targets and wrong kinds receive 409
+   `ExternalIdTakenError` without post identifiers.
+2. Otherwise a current card data hash (or identical book document on the same
+   NSFW side) resolves the target. With external IDs, unknown IDs are added to
+   it. Without IDs, it receives `PostAlreadyUploadedError` (bare if hidden).
+3. Otherwise create a fileless post and document version 0.
+
+Creation requires `posts:create:identified`; new tags require `tags:create`.
+External IDs require `posts:edit:external_ids`. Updates also require
+`posts:edit:document`, retain tags and safety, replace book links, and add IDs
+without removing any. An omitted version uses the current version; a stale
+version receives 409 as in the document API. Identical data creates no version.
+Notes default to "Created from data." or "Updated from data.". Uploaded and
+data-only cards share the same embedded-book splitting and lookup.
+All changes in a request are transactional. App-token `write` includes these
+privileges; `upload` is needed for temporary uploads and `read` for reading.

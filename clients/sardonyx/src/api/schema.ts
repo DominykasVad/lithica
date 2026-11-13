@@ -1922,6 +1922,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/modules/cards/cards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create or update a card from data
+         * @description Resolve external IDs, then current card data; create version 0 or update.
+         *
+         *     Safety is required on creation. Updates retain safety and tags. A supplied
+         *     document version must be current; unchanged data adds no version. External
+         *     IDs are added, never removed. The entire request is atomic.
+         */
+        post: operations["create_card_from_data"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/modules/cards/lorebooks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create or update a lorebook from data
+         * @description Resolve external IDs, then identical book data on the same NSFW side.
+         *
+         *     New books require safety. Updates require document-edit privilege and keep
+         *     safety and tags; a stale document version receives 409. IDs are additive.
+         */
+        post: operations["create_lorebook_from_data"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/modules/cards/post/{post_id}/download": {
         parameters: {
             query?: never;
@@ -2086,6 +2133,17 @@ export interface components {
             /** Contenturl */
             contentUrl?: string | null;
         };
+        /** CardDataCreated */
+        CardDataCreated: {
+            post?: components["schemas"]["Post"];
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome?: "created" | "updated" | "unchanged";
+            /** Skippedimages */
+            skippedImages?: number[];
+        };
         /** CardFileComparison */
         CardFileComparison: {
             /** Samepixels */
@@ -2127,6 +2185,15 @@ export interface components {
             score?: number;
             /** Ownscore */
             ownScore?: number;
+        };
+        /** DataCreated */
+        DataCreated: {
+            post?: components["schemas"]["Post"];
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome?: "created" | "updated" | "unchanged";
         };
         /** DocumentVersion */
         DocumentVersion: {
@@ -6877,6 +6944,107 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CardFileComparison"];
+                };
+            };
+            /** @description The request was refused. */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_card_from_data: {
+        parameters: {
+            query?: {
+                /** @description Record this request as a login of the authenticated user. */
+                "bump-login"?: boolean;
+                /** @description Comma-separated names of the fields to return. All fields are returned when it is absent. */
+                fields?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    safety?: string;
+                    tags?: string[];
+                    externalIds?: {
+                        [key: string]: string;
+                    }[];
+                    note?: string;
+                    version?: number;
+                    card: {
+                        [key: string]: unknown;
+                    };
+                    lorebooks?: number[];
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardDataCreated"];
+                };
+            };
+            /** @description The request was refused. */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_lorebook_from_data: {
+        parameters: {
+            query?: {
+                /** @description Record this request as a login of the authenticated user. */
+                "bump-login"?: boolean;
+                /** @description Comma-separated names of the fields to return. All fields are returned when it is absent. */
+                fields?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    safety?: string;
+                    tags?: string[];
+                    externalIds?: {
+                        [key: string]: string;
+                    }[];
+                    note?: string;
+                    version?: number;
+                    book: {
+                        [key: string]: unknown;
+                    };
+                    /** @enum {string} */
+                    spec?: "v2" | "v3";
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataCreated"];
                 };
             };
             /** @description The request was refused. */

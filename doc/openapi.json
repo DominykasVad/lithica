@@ -8342,6 +8342,251 @@
         }
       }
     },
+    "/modules/cards/cards": {
+      "post": {
+        "tags": [
+          "cards"
+        ],
+        "summary": "Create or update a card from data",
+        "description": "Resolve external IDs, then current card data; create version 0 or update.\n\nSafety is required on creation. Updates retain safety and tags. A supplied\ndocument version must be current; unchanged data adds no version. External\nIDs are added, never removed. The entire request is atomic.",
+        "operationId": "create_card_from_data",
+        "security": [
+          {
+            "basicAuth": []
+          },
+          {
+            "tokenAuth": []
+          },
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "bump-login",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Record this request as a login of the authenticated user.",
+              "default": false,
+              "title": "Bump-Login"
+            },
+            "description": "Record this request as a login of the authenticated user."
+          },
+          {
+            "name": "fields",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated names of the fields to return. All fields are returned when it is absent.",
+              "title": "Fields"
+            },
+            "description": "Comma-separated names of the fields to return. All fields are returned when it is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CardDataCreated"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "The request was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "safety": {
+                    "type": "string"
+                  },
+                  "tags": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "externalIds": {
+                    "items": {
+                      "additionalProperties": {
+                        "type": "string"
+                      },
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "note": {
+                    "maxLength": 256,
+                    "type": "string"
+                  },
+                  "version": {
+                    "type": "integer"
+                  },
+                  "card": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "lorebooks": {
+                    "items": {
+                      "type": "integer"
+                    },
+                    "type": "array"
+                  }
+                },
+                "type": "object",
+                "required": [
+                  "card"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/modules/cards/lorebooks": {
+      "post": {
+        "tags": [
+          "cards"
+        ],
+        "summary": "Create or update a lorebook from data",
+        "description": "Resolve external IDs, then identical book data on the same NSFW side.\n\nNew books require safety. Updates require document-edit privilege and keep\nsafety and tags; a stale document version receives 409. IDs are additive.",
+        "operationId": "create_lorebook_from_data",
+        "security": [
+          {
+            "basicAuth": []
+          },
+          {
+            "tokenAuth": []
+          },
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "bump-login",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Record this request as a login of the authenticated user.",
+              "default": false,
+              "title": "Bump-Login"
+            },
+            "description": "Record this request as a login of the authenticated user."
+          },
+          {
+            "name": "fields",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated names of the fields to return. All fields are returned when it is absent.",
+              "title": "Fields"
+            },
+            "description": "Comma-separated names of the fields to return. All fields are returned when it is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataCreated"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "The request was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "safety": {
+                    "type": "string"
+                  },
+                  "tags": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "externalIds": {
+                    "items": {
+                      "additionalProperties": {
+                        "type": "string"
+                      },
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "note": {
+                    "maxLength": 256,
+                    "type": "string"
+                  },
+                  "version": {
+                    "type": "integer"
+                  },
+                  "book": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "spec": {
+                    "enum": [
+                      "v2",
+                      "v3"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "type": "object",
+                "required": [
+                  "book"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
     "/modules/cards/post/{post_id}/download": {
       "get": {
         "tags": [
@@ -8741,6 +8986,32 @@
         "type": "object",
         "title": "CardAvatar"
       },
+      "CardDataCreated": {
+        "properties": {
+          "post": {
+            "$ref": "#/components/schemas/Post"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "created",
+              "updated",
+              "unchanged"
+            ],
+            "title": "Outcome"
+          },
+          "skippedImages": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Skippedimages"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "CardDataCreated"
+      },
       "CardFileComparison": {
         "properties": {
           "samePixels": {
@@ -8853,6 +9124,25 @@
         "additionalProperties": false,
         "type": "object",
         "title": "Comment"
+      },
+      "DataCreated": {
+        "properties": {
+          "post": {
+            "$ref": "#/components/schemas/Post"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "created",
+              "updated",
+              "unchanged"
+            ],
+            "title": "Outcome"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "DataCreated"
       },
       "DocumentVersion": {
         "properties": {
