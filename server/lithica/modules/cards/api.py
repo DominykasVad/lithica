@@ -1,6 +1,5 @@
 """The routes of the cards module, and what they return."""
 
-import re
 from collections.abc import Sequence
 from typing import Annotated, Any
 
@@ -492,9 +491,6 @@ def get_card_file_picture(
             "This route accepts contentToken only in the request body."
         )
     token = body.require("content_token")
-    # Tokens are SHA-1 names, never a caller-controlled storage path.
-    if re.fullmatch(r"[0-9a-f]{40}", token) is None:
-        raise errors.MissingRequiredFileError("Required file 'content' is missing.")
     stored = file_uploads.get(token)
     if stored is None:
         raise errors.MissingRequiredFileError("Required file 'content' is missing.")

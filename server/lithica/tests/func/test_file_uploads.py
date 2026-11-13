@@ -35,6 +35,28 @@ def test_get_unknown_token():
     assert file_uploads.get("0" * 40) is None
 
 
+@pytest.mark.parametrize(
+    "token",
+    [
+        "../secret",
+        "../../secret",
+        "/tmp/secret",
+        "A" * 40,
+        "a" * 39,
+        "a" * 41,
+        "g" * 40,
+        "a" * 40 + "\n",
+        "",
+        None,
+        123,
+    ],
+)
+def test_get_invalid_token_never_accesses_storage(token: object) -> None:
+    with patch("lithica.func.file_uploads.files.get") as get_file:
+        assert file_uploads.get(token) is None
+    get_file.assert_not_called()
+
+
 def test_purge_without_uploads():
     file_uploads.purge_old_uploads()
 
