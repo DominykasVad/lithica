@@ -266,6 +266,9 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 
 - 2026-11-11 — 7.1a — Post kinds may name no content kinds when they have a document kind (document-only kinds; never derived).
 - 2026-11-12 — 7.1b — Document creation and file/kind/merge guards lock post rows to serialize conversion with edits.
+- 2026-11-12 — 7.1c — Replacing a card's file keeps the old picture unless pixels are identical or the client says no (similarity is advice only).
+- 2026-11-12 — 7.1c — Retired checksums: a file a post gave up stays a duplicate until that post is deleted.
+- 2026-11-12 — 7.1c — Skip keeping an icon that matches a hidden post; return no kept post ID.
 
 ---
 
@@ -464,8 +467,9 @@ release `v0.5.0`. Design: decisions 0003, 0005, 0006, 0010, 0011 and 0013 in
 - [x] Existing cards converted once (a background job started by `lithica-admin cards convert`), the same way uploads are.
 
 ### 7.1c Replacing a card's file
-- [ ] Replacing a card's file makes a new version ("file replaced") from the new file; the old file is deleted, or kept as a related avatar and/or gallery image.
-- [ ] A deleted original's checksum is kept, so uploading that file again is caught as a duplicate (reused by 7.5).
+- [x] Replacing a card's file (a cards route) makes a new version ("File replaced.") from the new file, its book found or made as on upload; the old file leaves the disk.
+- [x] The old picture (a PNG card's file, a CHARX's main icon) is kept as an unlisted media post related `avatar-of` and `gallery-of` to the card, unless its pixels equal the new picture's or the client says no; a compare route (identical pixels, similarity) and a picture route (a new file's picture) serve Sardonyx's choice in 7.6.
+- [x] A file a post gave up has its checksum retired: uploading it again is refused as a duplicate, at every door (reused by 7.5).
 
 ### 7.2 Cards created from data
 - [ ] Uploads with a JSON body (base64) as a second way into the temporary upload, for clients that can't send multipart; the size limit allows for base64's third more.
@@ -490,6 +494,7 @@ release `v0.5.0`. Design: decisions 0003, 0005, 0006, 0010, 0011 and 0013 in
 
 ### 7.6 Sardonyx
 - [ ] Card page: versions (view, compare, restore), the source note, the card's related images by role, its linked lorebooks, the archiving state of each image link and the "Archive images" action, the download choices, deleting the original.
+- [ ] Replacing a card's file: the old and new picture side by side with the similarity; no prompt for identical pixels; "keep the old picture" checked by default.
 - [ ] Lorebooks as pages of their own (the existing lorebook view), with their versions and the cards that link them; standalone books findable.
 - [ ] The styled-text frame shows archived images from this site (its image policy gains this site's file paths; outside hosts stay behind "Load images").
 

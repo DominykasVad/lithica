@@ -777,7 +777,11 @@ def try_get_featured_post() -> model.Post | None:
 
 
 def create_post(
-    content: ContentLike, tag_names: list[str], user: model.User | None
+    content: ContentLike,
+    tag_names: list[str],
+    user: model.User | None,
+    *,
+    defer_file: bool = False,
 ) -> tuple[model.Post, list[model.Tag]]:
     post = model.Post()
     post.safety = model.Post.SAFETY_SAFE
@@ -789,7 +793,10 @@ def create_post(
     post.checksum = ""
     post.mime_type = ""
 
-    update_post_content(post, content)
+    if defer_file:
+        update_post_content(post, content, defer_file=True)
+    else:
+        update_post_content(post, content)
     new_tags = update_post_tags(post, tag_names)
 
     db.session.add(post)
@@ -836,7 +843,7 @@ def _before_post_delete(_mapper: Any, _connection: Any, post: model.Post) -> Non
 
 
 def _sync_post_content(post: model.Post) -> None:
-    if not has_file(post):
+    if getattr(post, "__defer_file", False) or not has_file(post):
         return
     regenerate_thumb = False
 
@@ -845,6 +852,19 @@ def _sync_post_content(post: model.Post) -> None:
         files.save(get_post_content_path(post), content)
         delattr(post, "__content")
         regenerate_thumb = True
+        if hasattr(post, "__old_content_path"):
+            old_path = getattr(post, "__old_content_path")
+            delattr(post, "__old_content_path")
+            if old_path != get_post_content_path(post):
+                # Scope removals to the savepoint that replaced this file.
+                session = sa_orm.object_session(post)
+                assert session is not None
+                transaction = (
+                    session.get_nested_transaction() or session.get_transaction()
+                )
+                assert transaction is not None
+                pending = _obsolete_post_files(session).setdefault(transaction, {})
+                pending.setdefault(post.post_id, set()).add(old_path)
 
     if hasattr(post, "__thumbnail"):
         if getattr(post, "__thumbnail"):
@@ -859,6 +879,74 @@ def _sync_post_content(post: model.Post) -> None:
 
     if regenerate_thumb:
         generate_post_thumbnail(post)
+
+
+type _ObsoletePostFiles = dict[sa_orm.SessionTransaction, dict[int, set[str]]]
+
+
+def _obsolete_post_files(session: sa_orm.Session) -> _ObsoletePostFiles:
+    return cast(_ObsoletePostFiles, session.info.setdefault("obsolete_post_files", {}))
+
+
+@sa_event.listens_for(sa_orm.Session, "before_commit")
+def _remove_obsolete_post_files(session: sa_orm.Session) -> None:
+    if session.in_nested_transaction():
+        return
+    # Flush final writes first, while the post-row locks still belong to us.
+    # Every request validation has finished before the caller commits.
+    session.flush()
+    transaction = session.get_transaction()
+    assert transaction is not None
+    pending = _obsolete_post_files(session).pop(transaction, {})
+    if not pending:
+        return
+    active: dict[int, str] = {}
+    for post_id, mime_type in session.execute(
+        sa.select(model.Post.post_id, model.Post.mime_type)
+        .where(model.Post.post_id.in_(pending))
+        .with_for_update()
+        .execution_options(**{visibility.ALL_POSTS: True})
+    ):
+        if mime_type is not None:
+            # Columns only: do not cache an entity across visibility boundaries.
+            active[post_id] = get_post_content_path(
+                model.Post(post_id=post_id, mime_type=mime_type)
+            )
+    for post_id, paths in pending.items():
+        for path in paths:
+            if path != active.get(post_id):
+                files.delete(path)
+
+
+@sa_event.listens_for(sa_orm.Session, "after_commit")
+def _promote_obsolete_post_files(session: sa_orm.Session) -> None:
+    transaction = session.get_nested_transaction()
+    if transaction is None:
+        session.info.pop("obsolete_post_files", None)
+        return
+    pending = _obsolete_post_files(session).pop(transaction, {})
+    if pending:
+        assert transaction.parent is not None
+        parent = _obsolete_post_files(session).setdefault(transaction.parent, {})
+        for post_id, paths in pending.items():
+            parent.setdefault(post_id, set()).update(paths)
+
+
+@sa_event.listens_for(sa_orm.Session, "after_soft_rollback")
+def _forget_obsolete_post_files(
+    session: sa_orm.Session, transaction: sa_orm.SessionTransaction
+) -> None:
+    if transaction.parent is None:
+        session.info.pop("obsolete_post_files", None)
+    else:
+        _obsolete_post_files(session).pop(transaction, None)
+
+
+def release_post_content(post: model.Post) -> None:
+    """Allow a module's validated pending file to be saved on the next flush."""
+    if hasattr(post, "__defer_file"):
+        delattr(post, "__defer_file")
+    sa_orm.attributes.flag_dirty(post)
 
 
 def generate_alternate_formats(
@@ -1153,10 +1241,24 @@ def _update_post_contents(post: model.Post, content: ContentLike) -> None:
         raise InvalidPostContentError(str(ex)) from ex
 
 
-def update_post_content(post: model.Post, content: ContentLike | None) -> None:
+def update_post_content(
+    post: model.Post,
+    content: ContentLike | None,
+    *,
+    allow_document: bool = False,
+    defer_file: bool = False,
+) -> None:
+    """Replace file metadata; modules may explicitly retain document ownership.
+
+    A module opting in must update its document before flushing pending file
+    content. With defer_file, release_post_content enables file storage after
+    the module finishes its validations. Ordinary API edits retain the guard.
+    """
+    if defer_file:
+        setattr(post, "__defer_file", True)
     from lithica.func import documents
 
-    if documents.have_documents([post], lock=True):
+    if documents.have_documents([post], lock=True) and not allow_document:
         raise InvalidPostContentError(
             "Replacing the file of a post with a document comes later."
         )
@@ -1166,6 +1268,8 @@ def update_post_content(post: model.Post, content: ContentLike | None) -> None:
     if not content:
         raise InvalidPostContentError("Post content missing.")
 
+    if post.post_id and has_file(post) and not hasattr(post, "__old_content_path"):
+        setattr(post, "__old_content_path", get_post_content_path(post))
     update_signature = False
     # a type of a module, for a file the engine itself does not know
     file_type: registry.FileType | None = None
@@ -1192,14 +1296,15 @@ def update_post_content(post: model.Post, content: ContentLike | None) -> None:
         post.mime_type = file_type.mime_type
         post.type = file_type.post_type
 
-    post.checksum = util.get_sha1(content)
+    checksum = util.get_sha1(content)
+    post.checksum = checksum
     post.checksum_md5 = util.get_md5(content)
     # every post, also one this user may not see: a file is on the site once.
     # Only its id: a post loaded here would stay in the session, where a
     # lookup by id later in the request finds it without a query
     same_ids = (
         db.session.query(model.Post.post_id)
-        .filter(model.Post.checksum == post.checksum)
+        .filter(_checksum_matches(checksum))
         .filter(model.Post.post_id != post.post_id)
         .execution_options(**{visibility.ALL_POSTS: True})
         .all()
@@ -1212,6 +1317,10 @@ def update_post_content(post: model.Post, content: ContentLike | None) -> None:
         # one this user may see is loaded as any other lookup
         other_post = try_get_post_by_id(other_post_id)
         raise PostAlreadyUploadedError(other_post)
+
+    own_retired = db.session.get(model.PostRetiredChecksum, post.checksum)
+    if own_retired is not None and own_retired.post_id == post.post_id:
+        db.session.delete(own_retired)
 
     # Before anything of the post goes to the session: a module may refuse
     # the file here, and a refused file must leave nothing behind.
@@ -1567,12 +1676,40 @@ def merge_posts(
         update_post_content(target_post, content)
 
 
+def retire_checksum(post: model.Post, checksum: str, reason: str) -> None:
+    """Reserve a former file until its post is deleted."""
+    if not reason or len(reason) > 32:
+        raise errors.ValidationError("Invalid checksum retirement reason.")
+    existing = db.session.get(model.PostRetiredChecksum, checksum)
+    if existing is not None:
+        if existing.post_id != post.post_id:
+            raise PostAlreadyUploadedError(try_get_post_by_id(existing.post_id))
+        return
+    db.session.add(
+        model.PostRetiredChecksum(
+            checksum=checksum,
+            post_id=post.post_id,
+            reason=reason,
+            creation_time=util.utcnow(),
+        )
+    )
+
+
+def _checksum_matches(checksum: str) -> sa.ColumnElement[bool]:
+    return sa.or_(
+        model.Post.checksum == checksum,
+        model.Post.post_id.in_(
+            sa.select(model.PostRetiredChecksum.post_id).where(
+                model.PostRetiredChecksum.checksum == checksum
+            )
+        ),
+    )
+
+
 def search_by_image_exact(image_content: ContentLike) -> model.Post | None:
     checksum = util.get_sha1(image_content)
     return (
-        db.session.query(model.Post)
-        .filter(model.Post.checksum == checksum)
-        .one_or_none()
+        db.session.query(model.Post).filter(_checksum_matches(checksum)).one_or_none()
     )
 
 

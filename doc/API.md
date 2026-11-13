@@ -447,6 +447,61 @@ adds:
   an attachment named after the character. This route answers with the file
   and does not require `Accept: application/json`.
 
+- **`PUT modules/cards/post/<post_id>/file`** (`replace_card_file`): replace
+  a converted card's file, with `posts:edit:content`. Send the post's required
+  `version` (stale gives 409), optional `keepOldPicture` (default `true`), and
+  `content`, `contentToken` or `contentUrl` as on `PUT /post`. URL downloads
+  never use the video downloader. The answer is `{post, keptPostId,
+  samePicture}`; `fields=` selects the returned post's fields.
+  The new file must contain a character card and must differ from the current
+  file. An unconverted card gives 404; a missing card, refused file, or
+  duplicate gives 400 without changing the post or its stored files.
+  The post's version, edit time, snapshot, automatic tags, extracted content,
+  signature and thumbnail are updated. Its document gets a version noted
+  `File replaced.` unless its data is identical. Version 0 stays. Only the
+  new file's books are linked, found or created as on upload; historical
+  versions keep their previous links. The previous file leaves storage.
+- **`POST modules/cards/post/<post_id>/file/compare`** (`compare_card_file`):
+  the same file inputs, with `posts:edit:content`; no version is needed and
+  nothing is written. Returns `{samePixels, similarity, oldPicture,
+  newPicture}`. Pixel identity requires both pictures, equal header sizes
+  and equal decoded RGBA pixels. An undecodable picture is never identical.
+  `similarity` is one minus the pictures' greyscale-signature distance,
+  rounded to two decimals in 0–1, or `null` when a picture is absent or
+  cannot be signed. Similarity is advice only; it never decides preservation.
+- **`POST modules/cards/file-picture`** (`get_card_file_picture`): send only
+  `{"contentToken": "..."}` in the body, with `uploads:create`. The token
+  never belongs in a URL. Returns a PNG card's bytes or a CHARX's main icon,
+  with the detected engine image type; no engine image gives 404. This is a
+  non-JSON response, with `X-Content-Type-Options: nosniff`,
+  `Content-Security-Policy: default-src 'none'; sandbox` and
+  `Cache-Control: no-store`.
+
+When replacing a file, the old picture is its PNG file or its CHARX main
+icon (engine image types only). Unless `keepOldPicture` is false, a picture
+with different pixels becomes an unlisted `media` post, uploaded by the
+replacing user, with the card's safety and NSFW tag, no other or automatic
+tags, and both `avatar-of` and `gallery-of` relations to the card. A kept
+PNG retains its extracted content but gets no card document. Keeping a
+picture additionally requires `posts:edit:typed_relations`; the app-token
+`write` right already includes both privileges. An existing media post with
+that file is linked without changing its fields or duplicating relations.
+An existing non-media post, one hidden from the viewer, or one whose file is
+retired is skipped;
+`keptPostId` is `null` when nothing is kept. Identical pictures are never
+kept, regardless of the client's choice; the server compares the pixels.
+
+A former file's SHA-1 is retired on its card, except when a kept PNG holds
+that file itself. CHARX originals are retired even when their icons are
+kept. Retired files remain duplicates at uploads, content edits, alternate
+formats, imports (including dry runs), and merges with content. The error
+names the post that retired the file; a hidden post gives only the bare
+duplicate message. Reverse search's exact match returns the retiring post,
+subject to normal visibility. Deleting that post frees the checksum. A post
+may take back its own retired file, clearing the retirement. `sha1:` and
+`content-checksum:` searches only match current files. Ordinary `PUT /post`
+content edits still refuse posts with documents; use the cards route.
+
 The card as its file had it is the post's
 [extracted content](#extracted-content), of the kind `card_v1`, `card_v2` or
 `card_v3`; it remains unchanged by document edits. Cards and lorebooks have

@@ -12,6 +12,7 @@ from lithica.model.post import (
     PostFeature,
     PostNote,
     PostRelation,
+    PostRetiredChecksum,
     PostScore,
     PostSignature,
     PostSignatureWord,
