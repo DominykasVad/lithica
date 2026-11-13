@@ -1,4 +1,5 @@
 import logging
+import re
 from datetime import UTC, datetime, timedelta
 
 from lithica import db
@@ -48,8 +49,11 @@ def purge_old_uploads_once() -> None:
             logger.exception(ex)
 
 
-def get(checksum: str) -> Content | None:
-    return files.get("temporary-uploads/%s.dat" % checksum)
+def get(checksum: object) -> Content | None:
+    # Only the SHA-1 tokens produced by save() may name temporary uploads.
+    if not isinstance(checksum, str) or re.fullmatch(r"[0-9a-f]{40}", checksum) is None:
+        return None
+    return files.get(_get_path(checksum))
 
 
 def save(content: ContentLike) -> str:
