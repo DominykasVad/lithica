@@ -1958,3 +1958,11 @@ The file checksum (including retired files) is checked too. Upload, import
 (including dry run), and card-file replacement use these checks; document
 edits and restores do not. A hidden duplicate receives the bare
 `PostAlreadyUploadedError`, without its ID or URLs.
+
+
+A card document (schema version 2) names its main image as `avatar`, a media
+post ID or `null`. Older versions without the field read as `null`; validation
+drops deleted or non-media avatars. Other `avatar-of` relations are alternate
+avatars. The card answer and `card` post field return a visible avatar as
+`{id, thumbnailUrl, contentUrl}`, otherwise `null`. Fileless cards have a
+`null` format. Replacing a file retains the main avatar.

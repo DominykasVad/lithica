@@ -49,7 +49,20 @@ def validate_card(data: registry.Payload) -> registry.Payload:
             .execution_options(**{visibility.ALL_POSTS: True})
         ).scalars()
     )
-    return {"spec": spec, "card": card, "lorebooks": [i for i in ids if i in existing]}
+    avatar = data.get("avatar")
+    avatar_id = None
+    if type(avatar) is int:
+        avatar_id = db.session.scalar(
+            sa.select(model.Post.post_id)
+            .where(model.Post.post_id == avatar, model.Post.kind == "media")
+            .execution_options(**{visibility.ALL_POSTS: True})
+        )
+    return {
+        "spec": spec,
+        "card": card,
+        "lorebooks": [i for i in ids if i in existing],
+        "avatar": avatar_id,
+    }
 
 
 def validate_lorebook(data: registry.Payload) -> registry.Payload:
@@ -72,6 +85,7 @@ def after_card(post_id: int, data: registry.Payload) -> None:
             creator=summary["creator"],
             greetings=summary["greetings"],
             data_hash=card_key(data["spec"], data["card"]),
+            avatar_post_id=data.get("avatar"),
         )
     )
     db.session.execute(
@@ -103,7 +117,7 @@ def split_card(
     fields = card_format.fields_of(spec, card)
     book = fields.pop("character_book", None)
     return (
-        {"spec": spec, "card": card, "lorebooks": []},
+        {"spec": spec, "card": card, "lorebooks": [], "avatar": None},
         {"spec": spec, "book": book}
         if spec != card_format.KIND_V1 and isinstance(book, dict) and book
         else None,

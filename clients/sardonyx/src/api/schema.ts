@@ -2042,9 +2042,10 @@ export interface components {
             spec?: string;
             /**
              * Format
-             * @description The file the card came in: png or charx.
+             * @description The file the card came in: png or charx; null without a file.
              */
-            format?: string;
+            format?: string | null;
+            avatar?: components["schemas"]["CardAvatar"] | null;
             /** Name */
             name?: string;
             /** Description */
@@ -2075,6 +2076,15 @@ export interface components {
             lorebooks?: components["schemas"]["LorebookLink"][];
             /** @description `null` for a card without one. */
             lorebook?: components["schemas"]["Lorebook"] | null;
+        };
+        /** CardAvatar */
+        CardAvatar: {
+            /** Id */
+            id?: number;
+            /** Thumbnailurl */
+            thumbnailUrl?: string | null;
+            /** Contenturl */
+            contentUrl?: string | null;
         };
         /** CardFileComparison */
         CardFileComparison: {
@@ -3255,6 +3265,7 @@ export interface components {
              * @description The file: `png` or `charx`.
              */
             format?: string | null;
+            avatar?: components["schemas"]["CardAvatar"] | null;
             /**
              * Greetingcount
              * @description The first message and the alternate greetings.

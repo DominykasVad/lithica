@@ -17,6 +17,9 @@ class Card(Base):
     creator: Mapped[str] = mapped_column(sa.Unicode(200))
     greetings: Mapped[int] = mapped_column(sa.Integer)
     data_hash: Mapped[str | None] = mapped_column(sa.String(64), index=True)
+    avatar_post_id: Mapped[int | None] = mapped_column(
+        sa.ForeignKey("post.id", ondelete="SET NULL")
+    )
 
 
 class Lorebook(Base):

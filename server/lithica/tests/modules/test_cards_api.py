@@ -338,6 +338,7 @@ def test_post_field(site, user):
             "creator": "somebody",
             "spec": "v2",
             "format": "png",
+            "avatar": None,
             "greetingCount": 3,
             "lorebookEntryCount": 2,
         },
@@ -346,6 +347,7 @@ def test_post_field(site, user):
             "creator": "somebody",
             "spec": "v3",
             "format": "charx",
+            "avatar": None,
             "greetingCount": 3,
             "lorebookEntryCount": 2,
         },
@@ -432,6 +434,7 @@ def test_post_field_of_a_card_stored_before_there_were_summaries(site, user):
         "creator": "somebody",
         "spec": "v2",
         "format": "png",
+        "avatar": None,
         "greetingCount": 3,
         "lorebookEntryCount": 2,
     }
@@ -460,6 +463,7 @@ def test_card_of_a_v2_picture(site, user):
     assert_fits(api.Card, card)
     assert card == {
         "postId": created["id"],
+        "avatar": None,
         "lorebooks": [
             {
                 "id": db.session.get(model.PostDocument, created["id"]).data[

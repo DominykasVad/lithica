@@ -71,7 +71,8 @@ def normalised(post_id: int, kind: str, payload: dict[str, Any]) -> dict[str, An
     return {
         "postId": post_id,
         "spec": card_format.SPEC_NAMES[kind],
-        "format": card_format.as_text(payload.get("format")),
+        "format": card_format.as_text(payload.get("format")) or None,
+        "avatar": None,
         "name": card_format.as_text(fields.get("name")),
         "description": card_format.as_text(fields.get("description")),
         "personality": card_format.as_text(fields.get("personality")),

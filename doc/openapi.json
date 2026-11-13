@@ -8606,9 +8606,26 @@
             "description": "The version of the card format: v1, v2 or v3."
           },
           "format": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Format",
-            "description": "The file the card came in: png or charx."
+            "description": "The file the card came in: png or charx; null without a file."
+          },
+          "avatar": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CardAvatar"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "name": {
             "type": "string",
@@ -8690,6 +8707,39 @@
         "additionalProperties": false,
         "type": "object",
         "title": "Card"
+      },
+      "CardAvatar": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "thumbnailUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thumbnailurl"
+          },
+          "contentUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contenturl"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "CardAvatar"
       },
       "CardFileComparison": {
         "properties": {
@@ -11427,6 +11477,16 @@
             ],
             "description": "The file: `png` or `charx`.",
             "title": "Format"
+          },
+          "avatar": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CardAvatar"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "greetingCount": {
             "anyOf": [

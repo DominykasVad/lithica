@@ -277,6 +277,7 @@ def test_module_post_fields_are_part_of_the_post(document):
         "creator",
         "spec",
         "format",
+        "avatar",
         "greetingCount",
         "lorebookEntryCount",
     ]

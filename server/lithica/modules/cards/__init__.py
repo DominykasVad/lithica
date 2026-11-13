@@ -332,6 +332,7 @@ module = registry.Module(
     document_kinds=[
         registry.DocumentKind(
             "card",
+            schema_version=2,
             validate=documents.validate_card,
             max_size=card_format.MAX_CARD_SIZE,
             after_write=documents.after_card,

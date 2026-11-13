@@ -4,6 +4,7 @@ from collections.abc import Sequence
 from typing import Annotated, Any
 
 import sqlalchemy as sa
+import sqlalchemy.orm as sa_orm
 from fastapi import APIRouter, Depends, Request
 from pydantic import Field
 from starlette.responses import FileResponse, Response
@@ -43,6 +44,12 @@ from lithica.modules.cards.model import (
 CardNotFoundError = replacement.CardNotFoundError
 
 
+class CardAvatar(resources.Resource):
+    id: int
+    thumbnail_url: str | None
+    content_url: str | None
+
+
 class CardSummary(resources.Resource):
     """The summary of a post's card, for lists of posts: the post field `card`."""
 
@@ -50,6 +57,7 @@ class CardSummary(resources.Resource):
     creator: str | None = Field(description="The card's creator, shortened.")
     spec: str = Field(description="`v1`, `v2` or `v3`.")
     format: str | None = Field(description="The file: `png` or `charx`.")
+    avatar: CardAvatar | None
     greeting_count: int | None = Field(
         description="The first message and the alternate greetings."
     )
@@ -105,7 +113,10 @@ class LorebookNotFoundError(errors.NotFoundError):
 class Card(resources.Resource):
     post_id: int
     spec: str = Field(description="The version of the card format: v1, v2 or v3.")
-    format: str = Field(description="The file the card came in: png or charx.")
+    format: str | None = Field(
+        description="The file the card came in: png or charx; null without a file."
+    )
+    avatar: CardAvatar | None
     name: str
     description: str
     personality: str
@@ -140,6 +151,7 @@ def card_fields(
 ) -> dict[int, dict[str, Any] | None]:
     """Current summaries, file format and linked entry totals in one query."""
     ids = [post.post_id for post in posts]
+    file_ids = {post.post_id for post in posts if post.mime_type is not None}
     found: dict[int, dict[str, Any] | None] = dict.fromkeys(ids)
     if not ids:
         return found
@@ -162,18 +174,34 @@ def card_fields(
         .correlate(CardRow)
         .scalar_subquery()
     )
-    for row, format_, count in db.session.execute(
-        sa.select(CardRow, file_format, entries).where(CardRow.post_id.in_(ids))
+    avatars = sa.select(model.Post).where(model.Post.kind == "media").subquery()
+    avatar = sa_orm.aliased(model.Post, avatars)
+    for row, format_, count, picture in db.session.execute(
+        sa.select(CardRow, file_format, entries, avatar)
+        .outerjoin(avatar, avatar.post_id == CardRow.avatar_post_id)
+        .where(CardRow.post_id.in_(ids))
+        .options(sa_orm.lazyload("*"))
     ):
         found[row.post_id] = {
             "name": row.name,
             "creator": row.creator,
             "spec": card_format.SPEC_NAMES[row.spec],
-            "format": format_,
+            "format": format_ if row.post_id in file_ids else None,
+            "avatar": avatar_resource(picture),
             "greetingCount": row.greetings,
             "lorebookEntryCount": count,
         }
     return found
+
+
+def avatar_resource(post: model.Post | None) -> dict[str, object] | None:
+    if post is None:
+        return None
+    return {
+        "id": post.post_id,
+        "thumbnailUrl": posts.get_post_thumbnail_url(post),
+        "contentUrl": posts.get_post_content_url(post),
+    }
 
 
 def _card_name(post: model.Post) -> str:
@@ -250,8 +278,15 @@ def get_card(
     result = view.normalised(
         post.post_id, data["spec"], {"card": data["card"], "format": file_format}
     )
+    result["format"] = file_format if posts.has_file(post) else None
     result["lorebook"] = (
         view.normalised_lorebook(merged) if merged is not None else None
+    )
+    row = db.session.get(CardRow, post.post_id)
+    result["avatar"] = avatar_resource(
+        posts.try_get_post_by_id(row.avatar_post_id)
+        if row is not None and row.avatar_post_id is not None
+        else None
     )
     result["lorebooks"] = [
         {

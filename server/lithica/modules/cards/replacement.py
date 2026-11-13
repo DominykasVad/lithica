@@ -86,6 +86,7 @@ def replace(
     posts.update_post_content(post, content, allow_document=True, defer_file=True)
     auto_tags = posts.update_post_auto_tags(post)
     data = uploads.build_version_data(post, user)
+    data["avatar"] = document.data.get("avatar")
     documents.write(post, data, document.version, user, "File replaced.")
 
     kept_id: int | None = None

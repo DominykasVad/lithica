@@ -271,6 +271,7 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 - 2026-11-12 — 7.1c — Skip keeping an icon that matches a hidden post; return no kept post ID.
 - 2026-11-13 — 7.2 — Non-multipart request bodies are limited by max_base64_upload_size (encoded), not max_upload_size.
 - 2026-11-13 — 7.2 — Card duplicates by data: SHA-256 of {spec, card} without books, at every door that creates a card or gives one a file; document edits are not checked.
+- 2026-11-13 — 7.2 — A card's main avatar is named in its document (`avatar`); its other `avatar-of` images are alternates.
 
 ---
 
