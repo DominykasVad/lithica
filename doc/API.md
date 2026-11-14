@@ -461,6 +461,8 @@ adds:
   `File replaced.` unless its data is identical. Version 0 stays. Only the
   new file's books are linked, found or created as on upload; historical
   versions keep their previous links. The previous file leaves storage.
+  A card without a file may get its first file through this route;
+  `keptPostId` is then `null` and the card's main avatar stays.
 - **`POST modules/cards/post/<post_id>/file/compare`** (`compare_card_file`):
   the same file inputs, with `posts:edit:content`; no version is needed and
   nothing is written. Returns `{samePixels, similarity, oldPicture,
@@ -1981,7 +1983,8 @@ characters), and `version` (the current document version).
 `book` JSON, `spec` (`v2` or `v3`, default `v3`), and the same safety, tags,
 external IDs, note and version options. It returns `{post, outcome}`; the card
 route additionally returns `skippedImages`. `fields=` selects fields of `post`.
-The outcome is `created`, `updated`, or `unchanged`.
+The outcome is `created`, `updated`, or `unchanged`, and describes the post's
+document only: added images or external IDs alone still give `unchanged`.
 
 Resolution is ordered:
 

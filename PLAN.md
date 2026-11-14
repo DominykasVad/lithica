@@ -273,6 +273,7 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 - 2026-11-13 — 7.2 — Card duplicates by data: SHA-256 of {spec, card} without books, at every door that creates a card or gives one a file; document edits are not checked.
 - 2026-11-13 — 7.2 — A card's main avatar is named in its document (`avatar`); its other `avatar-of` images are alternates.
 - 2026-11-13 — 7.2 — A data duplicate sent with an unknown external ID gains the ID instead of being refused.
+- 2026-11-14 — 7.2 — The card file replace route may give a file-less card its first file (no picture kept, nothing retired).
 
 ---
 
