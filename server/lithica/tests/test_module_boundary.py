@@ -9,7 +9,6 @@ import tomllib
 from pathlib import Path
 
 import pytest
-from importlinter import cli
 
 SERVER_DIR = Path(__file__).resolve().parent.parent.parent
 PACKAGE_DIR = SERVER_DIR / "lithica"
@@ -26,8 +25,8 @@ def _contracts() -> dict[str, dict]:
     return {contract["type"]: contract for contract in settings["contracts"]}
 
 
-def test_contracts_hold(capsys):
-    status = cli.lint_imports(config_filename=str(PYPROJECT), no_cache=True)
+def test_contracts_hold(capsys, lint_imports):
+    status = lint_imports(config_filename=str(PYPROJECT), no_cache=True)
     assert status == 0, capsys.readouterr().out
 
 
@@ -50,7 +49,7 @@ def test_modules_are_guarded_from_each_other():
 
 
 @pytest.fixture
-def demo_package(tmp_path, monkeypatch):
+def demo_package(tmp_path, monkeypatch, lint_imports):
     """
     A small package laid out like lithica, checked with contracts of the
     same two kinds as ours; returns a function that writes a file in it and
@@ -87,7 +86,7 @@ modules = ["boundarydemo.modules.*"]
         (root / path).write_text(source)
 
     def check() -> int:
-        return cli.lint_imports(config_filename=str(config), no_cache=True)
+        return lint_imports(config_filename=str(config), no_cache=True)
 
     yield write, check
     for loaded in [name for name in sys.modules if name.startswith("boundarydemo")]:

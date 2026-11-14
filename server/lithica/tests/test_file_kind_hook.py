@@ -11,9 +11,7 @@ from lithica.tests.fixtures.modules import dummy
 from lithica.tests.fixtures.modules.dummy.model import DummyHook
 
 
-def test_hook_savepoint(post_factory, user_factory, caplog, monkeypatch):
-    # Alembic configures logging with disable_existing_loggers=True.
-    monkeypatch.setattr(post_content.logger, "disabled", False)
+def test_hook_savepoint(post_factory, user_factory, caplog):
     caplog.set_level(logging.WARNING, logger=post_content.__name__)
     post, user = post_factory(), user_factory()
     db.session.add_all([post, user])

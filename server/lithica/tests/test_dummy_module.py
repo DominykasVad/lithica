@@ -14,7 +14,6 @@ from importlib.util import module_from_spec, spec_from_loader
 from pathlib import Path
 
 import pytest
-from importlinter import cli
 from PIL import Image, PngImagePlugin
 
 from lithica import db, errors, model, registry
@@ -896,7 +895,7 @@ def test_extractor_that_refuses_a_file_refuses_the_upload(site, user):
     # rolls the refused request back, while the tests share one transaction.
 
 
-def test_proof_module_keeps_to_the_import_boundary(tmp_path, capsys):
+def test_proof_module_keeps_to_the_import_boundary(tmp_path, capsys, lint_imports):
     # the same two rules as for lithica.modules, for the package the dummy
     # module lives in, and one more: the engine does not know the tests
     config = tmp_path / "boundary.toml"
@@ -924,7 +923,7 @@ forbidden_modules = ["lithica.tests"]
 """
         % ", ".join('"%s"' % part for part in _engine_parts())
     )
-    status = cli.lint_imports(config_filename=str(config), no_cache=True)
+    status = lint_imports(config_filename=str(config), no_cache=True)
     assert status == 0, capsys.readouterr().out
 
 
