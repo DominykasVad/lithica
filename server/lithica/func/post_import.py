@@ -155,18 +155,21 @@ def _examine_file(path: str, content: Content, seen: dict[str, str]) -> Outcome:
         if checksum in seen:
             return Outcome(path, SKIPPED, "The same file as %s" % seen[checksum])
         seen[checksum] = path
+        # the engine's answer, or a module's for a file the engine does not know
+        mime_type = file_types.get_mime_type(content)
+        if mime_type == "application/octet-stream":
+            return Outcome(path, REFUSED, "Unhandled file type: %r" % mime_type)
+        extraction = post_content.extract(mime_type, content)
+        if extraction.rejections:
+            return Outcome(path, REFUSED, extraction.rejections[0])
+        post_content.check_duplicates(model.Post(), extraction.contents)
         existing = posts.search_by_image_exact(content)
         if existing is not None:
             return Outcome(
                 path, SKIPPED, "Post already uploaded (%d)" % existing.post_id
             )
-        # the engine's answer, or a module's for a file the engine does not know
-        mime_type = file_types.get_mime_type(content)
-        if mime_type == "application/octet-stream":
-            return Outcome(path, REFUSED, "Unhandled file type: %r" % mime_type)
-        rejections = post_content.extract(mime_type, content).rejections
-        if rejections:
-            return Outcome(path, REFUSED, rejections[0])
+    except posts.PostAlreadyUploadedError as ex:
+        return Outcome(path, SKIPPED, str(ex))
     except errors.ValidationError as ex:
         return Outcome(path, REFUSED, str(ex))
     except Exception as ex:

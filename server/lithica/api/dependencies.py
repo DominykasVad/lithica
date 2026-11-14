@@ -308,6 +308,9 @@ _MISSING = object()
 # what the server accepts in one request when max_upload_size is not set
 DEFAULT_MAX_UPLOAD_SIZE = 1024 * 1024 * 1024
 
+# the decoded size of a base64 upload when max_base64_upload_size is not set
+DEFAULT_MAX_BASE64_UPLOAD_SIZE = 64 * 1024 * 1024
+
 # an uploaded file up to this size is kept in memory, a larger one on disk
 MAX_MEMORY_FILE_SIZE = 1024 * 1024
 
@@ -393,12 +396,24 @@ def max_upload_size() -> int:
     return config.config.get("max_upload_size") or DEFAULT_MAX_UPLOAD_SIZE
 
 
+def max_base64_upload_size() -> int:
+    """Effective decoded upload limit; JSON bodies allow for base64 expansion."""
+    return min(
+        config.config.get("max_base64_upload_size") or DEFAULT_MAX_BASE64_UPLOAD_SIZE,
+        max_upload_size(),
+    )
+
+
 async def _body(request: Request) -> AsyncIterator[bytes]:
     """
     The request body, in pieces of about a megabyte, refused once it is
     larger than the max_upload_size setting.
     """
-    limit = max_upload_size()
+    limit = (
+        max_upload_size()
+        if "multipart" in request.headers.get("Content-Type", "")
+        else ((max_base64_upload_size() + 2) // 3) * 4 + MAX_MEMORY_FILE_SIZE
+    )
     too_large = HttpError(
         413,
         "RequestTooLargeError",

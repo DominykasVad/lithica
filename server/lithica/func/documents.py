@@ -25,6 +25,16 @@ def _kind(name: str) -> registry.DocumentKind:
 
 
 def get(post: model.Post, *, lock: bool = False) -> model.PostDocument:
+    if lock:
+        # File replacement and ID edits lock posts first. Use one lock order,
+        # also serializing data writes with safety/tag changes before inheritance.
+        have_documents([post], lock=True)
+        from lithica.func import posts
+
+        if visibility.hides_nsfw():
+            visibility.hiding_tag_ids(refresh=True)
+        if posts.try_get_post_by_id(post.post_id) is None:
+            raise DocumentNotFoundError("Document not found.")
     query = sa.select(model.PostDocument).where(
         model.PostDocument.post_id == post.post_id
     )

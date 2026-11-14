@@ -105,6 +105,7 @@ def test_info_api(
             "postKinds": ["media"],
             "typedRelationTypes": [],
             "maxUploadSize": limit,
+            "maxBase64UploadSize": 67108864,
             "visibility": "open",
             "nsfwTag": "nsfw",
             "nsfwHidesNames": False,
@@ -127,6 +128,7 @@ def test_info_api(
             "postKinds": ["media"],
             "typedRelationTypes": [],
             "maxUploadSize": limit,
+            "maxBase64UploadSize": 67108864,
             "visibility": "open",
             "nsfwTag": "nsfw",
             "nsfwHidesNames": False,
@@ -145,6 +147,7 @@ def test_info_api(
             "postKinds": ["media"],
             "typedRelationTypes": [],
             "maxUploadSize": limit,
+            "maxBase64UploadSize": 67108864,
             "visibility": "open",
             "nsfwTag": "nsfw",
             "nsfwHidesNames": False,
@@ -349,6 +352,7 @@ def test_info_says_the_upload_limit_the_server_checks(
     user = user_factory(rank=model.User.RANK_REGULAR)
     reported = ok(client.get("/info", user=user))["maxUploadSize"]
     assert reported == 2048 == dependencies.max_upload_size()
+    assert ok(client.get("/info", user=user))["maxBase64UploadSize"] == 2048
     # what is said is what is checked: one byte more is refused
     response = client.post(
         "/uploads", user=user, files={"content": b"x" * (reported + 1)}

@@ -309,6 +309,7 @@ def charx_thumbnail(handle: BinaryIO) -> bytes | None:
 module = registry.Module(
     name=NAME,
     after_file_or_kind=uploads.convert,
+    duplicate_of=documents.duplicate_of,
     job_types=[registry.JobType("cards-convert", jobs.run)],
     admin_commands=[
         registry.AdminCommand(
@@ -331,6 +332,7 @@ module = registry.Module(
     document_kinds=[
         registry.DocumentKind(
             "card",
+            schema_version=2,
             validate=documents.validate_card,
             max_size=card_format.MAX_CARD_SIZE,
             after_write=documents.after_card,

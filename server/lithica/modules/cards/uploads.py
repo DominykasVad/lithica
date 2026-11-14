@@ -8,7 +8,14 @@ from sqlalchemy.orm import undefer
 from lithica import db, errors, model, registry
 from lithica.func import documents, posts, visibility
 from lithica.modules.cards import card as card_format
-from lithica.modules.cards.documents import split_card, validate_lorebook
+from lithica.modules.cards.documents import (
+    after_card,
+    card_key,
+    split_card,
+    validate_card,
+    validate_lorebook,
+)
+from lithica.modules.cards.model import Card
 
 
 def convert(post: model.Post, user: model.User | None) -> None:
@@ -25,7 +32,14 @@ def convert(post: model.Post, user: model.User | None) -> None:
     db.session.refresh(post, ["kind", "safety", "user_id", "user", "tags"])
     if post.kind != "card":
         return
-    if db.session.get(model.PostDocument, post.post_id) is not None:
+    document = db.session.get(model.PostDocument, post.post_id)
+    if document is not None:
+        row = db.session.get(Card, post.post_id)
+        if row is None:
+            after_card(post.post_id, validate_card(document.data))
+        elif row.data_hash is None:
+            # Do not rebuild links from JSON that may retain deleted book IDs.
+            row.data_hash = card_key(document.data["spec"], document.data["card"])
         return
     if (
         db.session.scalar(
@@ -63,57 +77,72 @@ def build_version_data(post: model.Post, user: model.User | None) -> registry.Pa
     if row is None:
         raise errors.ValidationError("The file has no character card.")
     data, book = split_card(row.kind, row.payload["card"])
-    if book is not None:
-        book = validate_lorebook(book)
-        digest = hashlib.sha256(documents.encode_content(book)).hexdigest()
-        # Tags may have been created in this upload after request visibility
-        # was first computed. Use the canonical tag walk on the flushed state.
-        hiding = visibility.hiding_tag_ids(refresh=True)
-        nsfw = any(tag.tag_id in hiding for tag in post.tags)
-        tagged = (
-            sa.exists()
-            .where(model.PostTag.post_id == model.Post.post_id)
-            .where(model.PostTag.tag_id.in_(hiding))
-        )
-        match = db.session.execute(
-            sa.select(model.Post.post_id, model.Post.safety)
-            .join(model.PostDocument, model.PostDocument.post_id == model.Post.post_id)
-            .where(
-                model.Post.kind == "lorebook",
-                model.PostDocument.kind == "lorebook",
-                model.PostDocument.hash == digest,
-                tagged if nsfw else ~tagged,
-            )
-            .order_by(model.Post.post_id)
-            .limit(1)
-            .execution_options(**{visibility.ALL_POSTS: True})
-        ).first()
-        if match is None:
-            new = posts.create_fileless_post(
-                "lorebook",
-                post.user,
-                post.safety,
-                [visibility.nsfw_tag()] if nsfw else [],
-            )
-            db.session.flush()
-            documents.create(new, "lorebook", book, user, f"From card {post.post_id}.")
-            book_id = new.post_id
-        else:
-            book_id, safety = match
-            order = [
-                model.Post.SAFETY_SAFE,
-                model.Post.SAFETY_SKETCHY,
-                model.Post.SAFETY_UNSAFE,
-            ]
-            if order.index(post.safety) > order.index(safety):
-                # Never cache a hidden entity across the visibility boundary.
-                db.session.execute(
-                    sa.update(model.Post)
-                    .where(
-                        model.Post.post_id == book_id,
-                        model.Post.safety.in_(order[: order.index(post.safety)]),
-                    )
-                    .values(safety=post.safety)
-                )
-        data["lorebooks"] = [book_id]
+    link_embedded_book(data, book, post, user)
     return data
+
+
+def find_book(book: registry.Payload, nsfw: bool) -> tuple[int, str] | None:
+    book = validate_lorebook(book)
+    digest = hashlib.sha256(documents.encode_content(book)).hexdigest()
+    hiding = visibility.hiding_tag_ids(refresh=True)
+    tagged = (
+        sa.exists()
+        .where(model.PostTag.post_id == model.Post.post_id)
+        .where(model.PostTag.tag_id.in_(hiding))
+    )
+    match = db.session.execute(
+        sa.select(model.Post.post_id, model.Post.safety)
+        .join(model.PostDocument, model.PostDocument.post_id == model.Post.post_id)
+        .where(
+            model.Post.kind == "lorebook",
+            model.PostDocument.kind == "lorebook",
+            model.PostDocument.hash == digest,
+            tagged if nsfw else ~tagged,
+        )
+        .order_by(model.Post.post_id)
+        .limit(1)
+        .execution_options(**{visibility.ALL_POSTS: True})
+    ).first()
+    return (match[0], match[1]) if match is not None else None
+
+
+def link_embedded_book(
+    data: registry.Payload,
+    book: registry.Payload | None,
+    post: model.Post,
+    user: model.User | None,
+) -> None:
+    """The same splitting and sharing policy for uploaded and data-only cards."""
+    if book is None:
+        return
+    book = validate_lorebook(book)
+    hiding = visibility.hiding_tag_ids(refresh=True)
+    nsfw = any(tag.tag_id in hiding for tag in post.tags)
+    match = find_book(book, nsfw)
+    if match is None:
+        new = posts.create_fileless_post(
+            "lorebook",
+            post.user,
+            post.safety,
+            [visibility.nsfw_tag()] if nsfw else [],
+        )
+        db.session.flush()
+        documents.create(new, "lorebook", book, user, f"From card {post.post_id}.")
+        book_id = new.post_id
+    else:
+        book_id, safety = match
+        order = [
+            model.Post.SAFETY_SAFE,
+            model.Post.SAFETY_SKETCHY,
+            model.Post.SAFETY_UNSAFE,
+        ]
+        if order.index(post.safety) > order.index(safety):
+            db.session.execute(
+                sa.update(model.Post)
+                .where(
+                    model.Post.post_id == book_id,
+                    model.Post.safety.in_(order[: order.index(post.safety)]),
+                )
+                .values(safety=post.safety)
+            )
+    data["lorebooks"] = [book_id]

@@ -9,7 +9,7 @@ for (const kind of ["picture", "png", "charx"] as const) {
     request,
   }) => {
     const seed = randomInt(1_000_000);
-    const card = v3Card({ name: `Share ${kind}`, creator: "Lithica tests" });
+    const card = v3Card({ name: `Share ${kind} ${seed}`, creator: "Lithica tests" });
     const bytes =
       kind === "picture"
         ? picture(seed)

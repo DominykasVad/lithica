@@ -461,6 +461,8 @@ adds:
   `File replaced.` unless its data is identical. Version 0 stays. Only the
   new file's books are linked, found or created as on upload; historical
   versions keep their previous links. The previous file leaves storage.
+  A card without a file may get its first file through this route;
+  `keptPostId` is then `null` and the card's main avatar stays.
 - **`POST modules/cards/post/<post_id>/file/compare`** (`compare_card_file`):
   the same file inputs, with `posts:edit:content`; no version is needed and
   nothing is written. Returns `{samePixels, similarity, oldPicture,
@@ -1934,3 +1936,93 @@ and are forbidden to app tokens. There are no job mutation routes.
 Use `lithica-admin jobs list [--status S] [--type T] [--limit N]` to inspect jobs,
 and `lithica-admin jobs retry <id>...` or `jobs retry --failed` to retry failures.
 Retries reset attempts and scheduling, retaining the last error until success.
+
+
+### JSON temporary uploads
+
+`POST /uploads` also accepts `{"contentBase64": "..."}` in JSON. Supply
+exactly one of the multipart `content` file, `contentUrl`, or `contentBase64`.
+Base64 uses the standard alphabet, required padding and no whitespace or
+`data:` prefix. The answer is the same temporary upload token. Other routes
+ignore `contentBase64`; use the token there.
+
+`GET /info` reports `maxBase64UploadSize`, the smaller of the restart settings
+`max_base64_upload_size` (64 MiB by default) and `max_upload_size`. Decoded
+content exceeding it receives 413 `RequestTooLargeError`. All non-multipart
+bodies are limited to `ceil(maxBase64UploadSize / 3) * 4 + 1 MiB`, including
+metadata. Multipart bodies retain `max_upload_size`.
+
+
+Cards are duplicates by SHA-256 of the canonical `{spec, card}` document data,
+with the embedded book removed and binary fields stripped as on upload.
+The current card document decides; avatar and book links do not affect identity.
+The file checksum (including retired files) is checked too. Upload, import
+(including dry run), card-file replacement and explicit kind promotion use
+these checks; document
+edits and restores do not. A hidden duplicate receives the bare
+`PostAlreadyUploadedError`, without its ID or URLs.
+
+
+A card document (schema version 2) names its main image as `avatar`, a media
+post ID or `null`. Older versions without the field read as `null`; validation
+drops deleted or non-media avatars. Other `avatar-of` relations are alternate
+avatars. The card answer and `card` post field return a visible avatar as
+`{id, thumbnailUrl, contentUrl}`, otherwise `null`. Fileless cards have a
+`null` format. Replacing a file retains the main avatar.
+
+
+### Cards and lorebooks from data
+
+`POST /modules/cards/cards` (`create_card_from_data`) accepts a required `card`
+JSON object (V1, V2 or V3), `safety` (required for creation), optional `tags`, `images` (below),
+`lorebooks` (ordered lorebook post IDs, deduplicated after the embedded book,
+at most 100 total), `externalIds` (`[{host, id}]`), `note` (at most 256
+characters), and `version` (the current document version).
+
+`POST /modules/cards/lorebooks` (`create_lorebook_from_data`) accepts required
+`book` JSON, `spec` (`v2` or `v3`, default `v3`), and the same safety, tags,
+external IDs, note and version options. It returns `{post, outcome}`; the card
+route additionally returns `skippedImages`. `fields=` selects fields of `post`.
+The outcome is `created`, `updated`, or `unchanged`, and describes the post's
+document only: added images or external IDs alone still give `unchanged`.
+
+Resolution is ordered:
+
+1. Known external IDs must all name one visible post of the requested kind
+   with a document. Conflicts, hidden targets and wrong kinds receive 409
+   `ExternalIdTakenError` without post identifiers.
+2. Otherwise a current card data hash (or identical book document on the same
+   NSFW side) resolves the target. With external IDs, unknown IDs are added to
+   it. Without IDs, it receives `PostAlreadyUploadedError` (bare if hidden).
+3. Otherwise create a fileless post and document version 0.
+
+Creation requires `posts:create:identified`; new tags require `tags:create`.
+External IDs require `posts:edit:external_ids`. Updates also require
+`posts:edit:document`, retain tags and safety, replace book links, and add IDs
+without removing any. An omitted version uses the current version; a stale
+version receives 409 as in the document API. Identical data creates no version.
+Notes default to "Created from data." or "Updated from data.". Uploaded and
+data-only cards share the same embedded-book splitting and lookup.
+All changes in a request are transactional. App-token `write` includes these
+privileges; `upload` is needed for temporary uploads and `read` for reading.
+
+
+The card route accepts `images`, at most 200 objects. Each has `role`
+(`avatar`, `alternate-avatar`, `gallery`, or `expression`), exactly one of
+`token` (a temporary upload) or `postId` (visible media), and an optional
+`label` (required and nonempty for expressions, trimmed, at most 128
+characters). Only one image may be the main `avatar`. Avatar roles create
+`avatar-of`, gallery creates `gallery-of`, and expressions create
+`expression-of`. Repeating an image with the same relation type is invalid.
+
+Tokens must contain an engine image, animation or video; JSON and CHARX are
+refused with the image's zero-based index before posts are written. Existing
+visible media is linked unchanged. A hidden, non-media or retired token match
+is skipped: only its index appears in `skippedImages`, never its post ID.
+A `postId` that is hidden, missing or not media is an indexed validation error.
+New media is unlisted, with the card's safety and NSFW tag and the importing
+user as uploader. A card PNG used here remains media. Existing relations are
+no-ops; updates add images and remove none. A valid `avatar` image sets the
+main avatar in the document; omitting it preserves the current avatar.
+Images require `posts:edit:typed_relations`. Files are deferred until the rest
+of the request succeeds, and partial new files are removed on rollback.

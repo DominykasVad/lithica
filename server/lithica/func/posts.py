@@ -782,6 +782,7 @@ def create_post(
     user: model.User | None,
     *,
     defer_file: bool = False,
+    as_media: bool = False,
 ) -> tuple[model.Post, list[model.Tag]]:
     post = model.Post()
     post.safety = model.Post.SAFETY_SAFE
@@ -794,9 +795,9 @@ def create_post(
     post.mime_type = ""
 
     if defer_file:
-        update_post_content(post, content, defer_file=True)
+        update_post_content(post, content, defer_file=True, as_media=as_media)
     else:
-        update_post_content(post, content)
+        update_post_content(post, content, as_media=as_media)
     new_tags = update_post_tags(post, tag_names)
 
     db.session.add(post)
@@ -1233,9 +1234,11 @@ def warn_about_pending_backfills() -> None:
             )
 
 
-def _update_post_contents(post: model.Post, content: ContentLike) -> None:
+def _update_post_contents(
+    post: model.Post, content: ContentLike, *, as_media: bool = False
+) -> None:
     try:
-        post_content.update_post_contents(post, content)
+        post_content.update_post_contents(post, content, as_media=as_media)
     except post_content.ContentRejectedError as ex:
         # a module refused the file, in its words
         raise InvalidPostContentError(str(ex)) from ex
@@ -1247,6 +1250,7 @@ def update_post_content(
     *,
     allow_document: bool = False,
     defer_file: bool = False,
+    as_media: bool = False,
 ) -> None:
     """Replace file metadata; modules may explicitly retain document ownership.
 
@@ -1263,7 +1267,8 @@ def update_post_content(
             "Replacing the file of a post with a document comes later."
         )
     # create_post sets the file fields to "" first, so a new upload passes
-    require_file(post)
+    if not allow_document:
+        require_file(post)
     assert post
     if not content:
         raise InvalidPostContentError("Post content missing.")
@@ -1299,32 +1304,38 @@ def update_post_content(
     checksum = util.get_sha1(content)
     post.checksum = checksum
     post.checksum_md5 = util.get_md5(content)
+    # Extraction runs before the checksum check below: an exact re-upload is
+    # extracted before it is refused, and a module's rejection wins over the
+    # duplicate error.
+    with db.session.no_autoflush:
+        # Card data takes precedence when the same carrier is also a media avatar.
+        # Both constraints are checked before pending file metadata can flush.
+        _update_post_contents(post, content, as_media=as_media)
     # every post, also one this user may not see: a file is on the site once.
     # Only its id: a post loaded here would stay in the session, where a
     # lookup by id later in the request finds it without a query
     same_ids = (
         db.session.query(model.Post.post_id)
+        .autoflush(False)
         .filter(_checksum_matches(checksum))
         .filter(model.Post.post_id != post.post_id)
         .execution_options(**{visibility.ALL_POSTS: True})
         .all()
     )
-    # a new post gets its id only as the query flushes it: not itself
+    # Exclude the current post even when it already has an ID.
     other_post_id = next(
         (row.post_id for row in same_ids if row.post_id != post.post_id), None
     )
     if other_post_id:
         # one this user may see is loaded as any other lookup
-        other_post = try_get_post_by_id(other_post_id)
+        with db.session.no_autoflush:
+            other_post = try_get_post_by_id(other_post_id)
         raise PostAlreadyUploadedError(other_post)
 
-    own_retired = db.session.get(model.PostRetiredChecksum, post.checksum)
-    if own_retired is not None and own_retired.post_id == post.post_id:
-        db.session.delete(own_retired)
-
-    # Before anything of the post goes to the session: a module may refuse
-    # the file here, and a refused file must leave nothing behind.
-    _update_post_contents(post, content)
+    with db.session.no_autoflush:
+        own_retired = db.session.get(model.PostRetiredChecksum, post.checksum)
+        if own_retired is not None and own_retired.post_id == post.post_id:
+            db.session.delete(own_retired)
 
     if update_signature:
         purge_post_signature(post)
@@ -1364,7 +1375,9 @@ def update_post_content(
     setattr(post, "__content", content)
 
 
-def update_post_auto_tags(post: model.Post) -> list[model.Tag]:
+def update_post_auto_tags(
+    post: model.Post, *, wanted: list[tuple[str, str]] | None = None
+) -> list[model.Tag]:
     """
     Add the tags the loaded modules derive from what was extracted from the
     post's file (see lithica.registry.Module.auto_tag). Tags the post has
@@ -1376,7 +1389,8 @@ def update_post_auto_tags(post: model.Post) -> list[model.Tag]:
     It never fails the request: a module's wish for a tag is not worth an
     upload.
     """
-    wanted = post_content.get_auto_tags(post)
+    if wanted is None:
+        wanted = post_content.get_auto_tags(post)
     if not wanted:
         return []
     present = {name.name.lower() for tag in post.tags for name in tag.names}

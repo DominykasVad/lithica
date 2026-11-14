@@ -308,6 +308,8 @@ class Module:
                     called after a new file or kind, with the post and actor;
                     the engine flushes first and isolates each hook in a
                     savepoint. Failures log only post id and exception type.
+    duplicate_of    current module-data duplicate ID, before file storage;
+                    never the post itself; a scalar lookup across visibility
     auto_tag        tags to add to a post, from what was extracted
     search_filters  named tokens of the post search, e.g. `dummy-text:...`
     post_fields     extra fields of the post resource
@@ -338,6 +340,9 @@ class Module:
     file_types: Sequence[FileType] = ()
     extractors: Sequence[Extractor] = ()
     after_file_or_kind: Callable[[model.Post, model.User | None], None] | None = None
+    duplicate_of: (
+        Callable[[model.Post, Sequence[ExtractedContent]], int | None] | None
+    ) = None
     auto_tag: AutoTag | None = None
     search_filters: Mapping[str, Filter] = field(default_factory=dict[str, "Filter"])
     post_fields: Mapping[str, PostField] = field(default_factory=dict[str, PostField])

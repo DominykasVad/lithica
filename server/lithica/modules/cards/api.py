@@ -1,14 +1,15 @@
 """The routes of the cards module, and what they return."""
 
 from collections.abc import Sequence
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 import sqlalchemy as sa
+import sqlalchemy.orm as sa_orm
 from fastapi import APIRouter, Depends, Request
 from pydantic import Field
 from starlette.responses import FileResponse, Response
 
-from lithica import db, errors, model
+from lithica import db, errors, model, registry
 from lithica.api import resources
 from lithica.api.dependencies import (
     RequestDataParam,
@@ -21,15 +22,34 @@ from lithica.api.routing import ERROR_RESPONSES, ApiRouter
 from lithica.api.schemas import (
     Bool,
     Int,
+    IntList,
     RequestModel,
     Str,
+    StrList,
     optional,
     request_body,
     required,
 )
-from lithica.func import documents, file_types, file_uploads, files, mime, posts
+from lithica.func import (
+    documents,
+    file_types,
+    file_uploads,
+    files,
+    mime,
+    post_metadata,
+    posts,
+)
 from lithica.modules.cards import card as card_format
-from lithica.modules.cards import filename, pictures, reading, replacement, view
+from lithica.modules.cards import (
+    data_creation,
+    filename,
+    media,
+    pictures,
+    reading,
+    related_images,
+    replacement,
+    view,
+)
 from lithica.modules.cards.model import (
     Card as CardRow,
 )
@@ -43,6 +63,12 @@ from lithica.modules.cards.model import (
 CardNotFoundError = replacement.CardNotFoundError
 
 
+class CardAvatar(resources.Resource):
+    id: int
+    thumbnail_url: str | None
+    content_url: str | None
+
+
 class CardSummary(resources.Resource):
     """The summary of a post's card, for lists of posts: the post field `card`."""
 
@@ -50,6 +76,7 @@ class CardSummary(resources.Resource):
     creator: str | None = Field(description="The card's creator, shortened.")
     spec: str = Field(description="`v1`, `v2` or `v3`.")
     format: str | None = Field(description="The file: `png` or `charx`.")
+    avatar: CardAvatar | None
     greeting_count: int | None = Field(
         description="The first message and the alternate greetings."
     )
@@ -105,7 +132,10 @@ class LorebookNotFoundError(errors.NotFoundError):
 class Card(resources.Resource):
     post_id: int
     spec: str = Field(description="The version of the card format: v1, v2 or v3.")
-    format: str = Field(description="The file the card came in: png or charx.")
+    format: str | None = Field(
+        description="The file the card came in: png or charx; null without a file."
+    )
+    avatar: CardAvatar | None
     name: str
     description: str
     personality: str
@@ -140,6 +170,7 @@ def card_fields(
 ) -> dict[int, dict[str, Any] | None]:
     """Current summaries, file format and linked entry totals in one query."""
     ids = [post.post_id for post in posts]
+    file_ids = {post.post_id for post in posts if post.mime_type is not None}
     found: dict[int, dict[str, Any] | None] = dict.fromkeys(ids)
     if not ids:
         return found
@@ -162,18 +193,34 @@ def card_fields(
         .correlate(CardRow)
         .scalar_subquery()
     )
-    for row, format_, count in db.session.execute(
-        sa.select(CardRow, file_format, entries).where(CardRow.post_id.in_(ids))
+    avatars = sa.select(model.Post).where(model.Post.kind == "media").subquery()
+    avatar = sa_orm.aliased(model.Post, avatars)
+    for row, format_, count, picture in db.session.execute(
+        sa.select(CardRow, file_format, entries, avatar)
+        .outerjoin(avatar, avatar.post_id == CardRow.avatar_post_id)
+        .where(CardRow.post_id.in_(ids))
+        .options(sa_orm.lazyload("*"))
     ):
         found[row.post_id] = {
             "name": row.name,
             "creator": row.creator,
             "spec": card_format.SPEC_NAMES[row.spec],
-            "format": format_,
+            "format": format_ if row.post_id in file_ids else None,
+            "avatar": avatar_resource(picture),
             "greetingCount": row.greetings,
             "lorebookEntryCount": count,
         }
     return found
+
+
+def avatar_resource(post: model.Post | None) -> dict[str, object] | None:
+    if post is None or post.kind != "media":
+        return None
+    return {
+        "id": post.post_id,
+        "thumbnailUrl": posts.get_post_thumbnail_url(post),
+        "contentUrl": posts.get_post_content_url(post),
+    }
 
 
 def _card_name(post: model.Post) -> str:
@@ -250,8 +297,15 @@ def get_card(
     result = view.normalised(
         post.post_id, data["spec"], {"card": data["card"], "format": file_format}
     )
+    result["format"] = file_format if posts.has_file(post) else None
     result["lorebook"] = (
         view.normalised_lorebook(merged) if merged is not None else None
+    )
+    row = db.session.get(CardRow, post.post_id)
+    result["avatar"] = avatar_resource(
+        posts.try_get_post_by_id(row.avatar_post_id)
+        if row is not None and row.avatar_post_id is not None
+        else None
     )
     result["lorebooks"] = [
         {
@@ -506,6 +560,132 @@ def get_card_file_picture(
             "Cache-Control": "no-store",
         },
     )
+
+
+class DataOptions(RequestModel):
+    safety: Str = optional()
+    tags: StrList = Field(default_factory=list[str])
+    external_ids: list[dict[str, str]] = optional()
+    note: Annotated[str, Field(max_length=256)] = optional()
+    version: Int = optional()
+
+
+class RelatedImageInput(RequestModel):
+    role: related_images.Role
+    token: str | None = None
+    post_id: int | None = None
+    label: str | None = None
+
+
+class CardDataInput(DataOptions):
+    card: registry.Payload = required()
+    lorebooks: IntList = Field(default_factory=list[int])
+    images: list[RelatedImageInput] = Field(
+        default_factory=list[RelatedImageInput], max_length=200
+    )
+
+
+class LorebookDataInput(DataOptions):
+    book: registry.Payload = required()
+    spec: Literal["v2", "v3"] = "v3"
+
+
+class DataCreated(resources.Resource):
+    post: resources.Post
+    outcome: Literal["created", "updated", "unchanged"]
+
+
+class CardDataCreated(DataCreated):
+    skipped_images: list[int]
+
+
+def _data_options(body: DataOptions) -> data_creation.Options:
+    return data_creation.Options(
+        safety=body.safety if body.has("safety") else None,
+        tags=body.tags,
+        external_ids=post_metadata.external_pairs(body.external_ids)
+        if body.has("external_ids")
+        else None,
+        note=body.note if body.has("note") else None,
+        version=body.version if body.has("version") else None,
+    )
+
+
+@cards.post(
+    "/cards",
+    operation_id="create_card_from_data",
+    response_model=CardDataCreated,
+    openapi_extra=request_body(CardDataInput),
+    summary="Create or update a card from data",
+)
+def create_card_from_data(
+    user: Annotated[model.User, Depends(require("posts:create:identified"))],
+    fields: Annotated[list[str], Depends(fields_of(posts.PostSerializer))],
+    body: Annotated[CardDataInput, Depends(read_body(CardDataInput))],
+) -> dict[str, Any]:
+    """Resolve external IDs, then current card data; create version 0 or update.
+
+    Safety is required on creation. Updates retain safety and tags. A supplied
+    document version must be current; unchanged data adds no version. External
+    IDs are added, never removed. The entire request is atomic.
+    """
+    images = related_images.prepare(
+        [
+            related_images.Image(i.role, i.token, i.post_id, i.label)
+            for i in body.images
+        ],
+        user,
+    )
+    created_images: list[model.Post] = []
+    pending_files: list[str] = []
+    try:
+        with db.session.begin_nested():
+            post, outcome, skipped, created_images = data_creation.create_card(
+                body.require("card"), user, _data_options(body), body.lorebooks, images
+            )
+            # Any: heterogeneous API response, described by CardDataCreated.
+            result: dict[str, Any] = {
+                "post": posts.serialize_post(post, user, fields),
+                "outcome": outcome,
+                "skippedImages": skipped,
+            }
+            pending_files = media.release(created_images)
+        db.session.commit()
+    except Exception:
+        # Only this request's new media can have reached disk, and only after
+        # all validation, documents, IDs, relations and snapshots succeeded.
+        try:
+            media.discard(pending_files)
+        finally:
+            db.session.rollback()
+        raise
+    return result
+
+
+@cards.post(
+    "/lorebooks",
+    operation_id="create_lorebook_from_data",
+    response_model=DataCreated,
+    openapi_extra=request_body(LorebookDataInput),
+    summary="Create or update a lorebook from data",
+)
+def create_lorebook_from_data(
+    user: Annotated[model.User, Depends(require("posts:create:identified"))],
+    fields: Annotated[list[str], Depends(fields_of(posts.PostSerializer))],
+    body: Annotated[LorebookDataInput, Depends(read_body(LorebookDataInput))],
+) -> dict[str, Any]:
+    """Resolve external IDs, then identical book data on the same NSFW side.
+
+    New books require safety. Updates require document-edit privilege and keep
+    safety and tags; a stale document version receives 409. IDs are additive.
+    """
+    with db.session.begin_nested():
+        post, outcome = data_creation.create_lorebook(
+            body.require("book"), body.spec, user, _data_options(body)
+        )
+        result = {"post": posts.serialize_post(post, user, fields), "outcome": outcome}
+    db.session.commit()
+    return result
 
 
 # both, under the module's path; a plain router, so that the download is not

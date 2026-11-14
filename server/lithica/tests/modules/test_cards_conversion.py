@@ -123,7 +123,7 @@ def test_cli_count_refusal_and_worker(
 ) -> None:
     post_id = legacy_committed_card
     assert admin.main(["cards", "convert", "--count"]) == 0
-    assert "1 cards without a document" in capsys.readouterr().out
+    assert "1 cards needing conversion or a data hash" in capsys.readouterr().out
     with db.session_scope():
         assert db.session.query(model.Job).count() == 0
     assert admin.main(["cards", "convert"]) == 0

@@ -1922,6 +1922,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/modules/cards/cards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create or update a card from data
+         * @description Resolve external IDs, then current card data; create version 0 or update.
+         *
+         *     Safety is required on creation. Updates retain safety and tags. A supplied
+         *     document version must be current; unchanged data adds no version. External
+         *     IDs are added, never removed. The entire request is atomic.
+         */
+        post: operations["create_card_from_data"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/modules/cards/lorebooks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create or update a lorebook from data
+         * @description Resolve external IDs, then identical book data on the same NSFW side.
+         *
+         *     New books require safety. Updates require document-edit privilege and keep
+         *     safety and tags; a stale document version receives 409. IDs are additive.
+         */
+        post: operations["create_lorebook_from_data"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/modules/cards/post/{post_id}/download": {
         parameters: {
             query?: never;
@@ -2042,9 +2089,10 @@ export interface components {
             spec?: string;
             /**
              * Format
-             * @description The file the card came in: png or charx.
+             * @description The file the card came in: png or charx; null without a file.
              */
-            format?: string;
+            format?: string | null;
+            avatar?: components["schemas"]["CardAvatar"] | null;
             /** Name */
             name?: string;
             /** Description */
@@ -2075,6 +2123,26 @@ export interface components {
             lorebooks?: components["schemas"]["LorebookLink"][];
             /** @description `null` for a card without one. */
             lorebook?: components["schemas"]["Lorebook"] | null;
+        };
+        /** CardAvatar */
+        CardAvatar: {
+            /** Id */
+            id?: number;
+            /** Thumbnailurl */
+            thumbnailUrl?: string | null;
+            /** Contenturl */
+            contentUrl?: string | null;
+        };
+        /** CardDataCreated */
+        CardDataCreated: {
+            post?: components["schemas"]["Post"];
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome?: "created" | "updated" | "unchanged";
+            /** Skippedimages */
+            skippedImages?: number[];
         };
         /** CardFileComparison */
         CardFileComparison: {
@@ -2117,6 +2185,15 @@ export interface components {
             score?: number;
             /** Ownscore */
             ownScore?: number;
+        };
+        /** DataCreated */
+        DataCreated: {
+            post?: components["schemas"]["Post"];
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome?: "created" | "updated" | "unchanged";
         };
         /** DocumentVersion */
         DocumentVersion: {
@@ -2256,6 +2333,11 @@ export interface components {
              * @description The largest request the server takes, in bytes, as it checks it (`max_upload_size`); `null` if there is no limit. A larger one is refused with 413 `RequestTooLargeError`.
              */
             maxUploadSize?: number | null;
+            /**
+             * Maxbase64Uploadsize
+             * @description Effective decoded base64 upload limit in bytes; JSON bodies allow 4/3 expansion plus 1 MiB.
+             */
+            maxBase64UploadSize?: number;
             /**
              * Acceptedtypes
              * @description The types of file a post can be made from on this site: the engine's, then those of the modules switched on. A hint for clients, to point out at once a file that would be refused: the server decides by the file's content, not by its name or the type a browser gives it.
@@ -3250,6 +3332,7 @@ export interface components {
              * @description The file: `png` or `charx`.
              */
             format?: string | null;
+            avatar?: components["schemas"]["CardAvatar"] | null;
             /**
              * Greetingcount
              * @description The first message and the alternate greetings.
@@ -5416,10 +5499,12 @@ export interface operations {
             content: {
                 "application/json": {
                     contentUrl?: string;
+                    contentBase64?: string;
                 };
                 "multipart/form-data": {
                     metadata?: {
                         contentUrl?: string;
+                        contentBase64?: string;
                     };
                     /** Format: binary */
                     content?: string;
@@ -6859,6 +6944,120 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CardFileComparison"];
+                };
+            };
+            /** @description The request was refused. */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_card_from_data: {
+        parameters: {
+            query?: {
+                /** @description Record this request as a login of the authenticated user. */
+                "bump-login"?: boolean;
+                /** @description Comma-separated names of the fields to return. All fields are returned when it is absent. */
+                fields?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    safety?: string;
+                    tags?: string[];
+                    externalIds?: {
+                        [key: string]: string;
+                    }[];
+                    note?: string;
+                    version?: number;
+                    card: {
+                        [key: string]: unknown;
+                    };
+                    lorebooks?: number[];
+                    images?: {
+                        /**
+                         * Role
+                         * @enum {string}
+                         */
+                        role: "avatar" | "alternate-avatar" | "gallery" | "expression";
+                        /** Token */
+                        token?: string | null;
+                        /** Postid */
+                        postId?: number | null;
+                        /** Label */
+                        label?: string | null;
+                    }[];
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardDataCreated"];
+                };
+            };
+            /** @description The request was refused. */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_lorebook_from_data: {
+        parameters: {
+            query?: {
+                /** @description Record this request as a login of the authenticated user. */
+                "bump-login"?: boolean;
+                /** @description Comma-separated names of the fields to return. All fields are returned when it is absent. */
+                fields?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    safety?: string;
+                    tags?: string[];
+                    externalIds?: {
+                        [key: string]: string;
+                    }[];
+                    note?: string;
+                    version?: number;
+                    book: {
+                        [key: string]: unknown;
+                    };
+                    /** @enum {string} */
+                    spec?: "v2" | "v3";
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataCreated"];
                 };
             };
             /** @description The request was refused. */

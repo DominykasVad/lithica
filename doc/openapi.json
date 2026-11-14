@@ -5004,6 +5004,9 @@
                 "properties": {
                   "contentUrl": {
                     "type": "string"
+                  },
+                  "contentBase64": {
+                    "type": "string"
                   }
                 },
                 "type": "object"
@@ -5016,6 +5019,9 @@
                   "metadata": {
                     "properties": {
                       "contentUrl": {
+                        "type": "string"
+                      },
+                      "contentBase64": {
                         "type": "string"
                       }
                     },
@@ -8336,6 +8342,307 @@
         }
       }
     },
+    "/modules/cards/cards": {
+      "post": {
+        "tags": [
+          "cards"
+        ],
+        "summary": "Create or update a card from data",
+        "description": "Resolve external IDs, then current card data; create version 0 or update.\n\nSafety is required on creation. Updates retain safety and tags. A supplied\ndocument version must be current; unchanged data adds no version. External\nIDs are added, never removed. The entire request is atomic.",
+        "operationId": "create_card_from_data",
+        "security": [
+          {
+            "basicAuth": []
+          },
+          {
+            "tokenAuth": []
+          },
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "bump-login",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Record this request as a login of the authenticated user.",
+              "default": false,
+              "title": "Bump-Login"
+            },
+            "description": "Record this request as a login of the authenticated user."
+          },
+          {
+            "name": "fields",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated names of the fields to return. All fields are returned when it is absent.",
+              "title": "Fields"
+            },
+            "description": "Comma-separated names of the fields to return. All fields are returned when it is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CardDataCreated"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "The request was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "safety": {
+                    "type": "string"
+                  },
+                  "tags": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "externalIds": {
+                    "items": {
+                      "additionalProperties": {
+                        "type": "string"
+                      },
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "note": {
+                    "maxLength": 256,
+                    "type": "string"
+                  },
+                  "version": {
+                    "type": "integer"
+                  },
+                  "card": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "lorebooks": {
+                    "items": {
+                      "type": "integer"
+                    },
+                    "type": "array"
+                  },
+                  "images": {
+                    "items": {
+                      "properties": {
+                        "role": {
+                          "enum": [
+                            "avatar",
+                            "alternate-avatar",
+                            "gallery",
+                            "expression"
+                          ],
+                          "title": "Role",
+                          "type": "string"
+                        },
+                        "token": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "title": "Token"
+                        },
+                        "postId": {
+                          "anyOf": [
+                            {
+                              "type": "integer"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "title": "Postid"
+                        },
+                        "label": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "title": "Label"
+                        }
+                      },
+                      "required": [
+                        "role"
+                      ],
+                      "title": "RelatedImageInput",
+                      "type": "object"
+                    },
+                    "maxItems": 200,
+                    "type": "array"
+                  }
+                },
+                "type": "object",
+                "required": [
+                  "card"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/modules/cards/lorebooks": {
+      "post": {
+        "tags": [
+          "cards"
+        ],
+        "summary": "Create or update a lorebook from data",
+        "description": "Resolve external IDs, then identical book data on the same NSFW side.\n\nNew books require safety. Updates require document-edit privilege and keep\nsafety and tags; a stale document version receives 409. IDs are additive.",
+        "operationId": "create_lorebook_from_data",
+        "security": [
+          {
+            "basicAuth": []
+          },
+          {
+            "tokenAuth": []
+          },
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "bump-login",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Record this request as a login of the authenticated user.",
+              "default": false,
+              "title": "Bump-Login"
+            },
+            "description": "Record this request as a login of the authenticated user."
+          },
+          {
+            "name": "fields",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated names of the fields to return. All fields are returned when it is absent.",
+              "title": "Fields"
+            },
+            "description": "Comma-separated names of the fields to return. All fields are returned when it is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataCreated"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "The request was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "safety": {
+                    "type": "string"
+                  },
+                  "tags": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "externalIds": {
+                    "items": {
+                      "additionalProperties": {
+                        "type": "string"
+                      },
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "note": {
+                    "maxLength": 256,
+                    "type": "string"
+                  },
+                  "version": {
+                    "type": "integer"
+                  },
+                  "book": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "spec": {
+                    "enum": [
+                      "v2",
+                      "v3"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "type": "object",
+                "required": [
+                  "book"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
     "/modules/cards/post/{post_id}/download": {
       "get": {
         "tags": [
@@ -8600,9 +8907,26 @@
             "description": "The version of the card format: v1, v2 or v3."
           },
           "format": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Format",
-            "description": "The file the card came in: png or charx."
+            "description": "The file the card came in: png or charx; null without a file."
+          },
+          "avatar": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CardAvatar"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "name": {
             "type": "string",
@@ -8684,6 +9008,65 @@
         "additionalProperties": false,
         "type": "object",
         "title": "Card"
+      },
+      "CardAvatar": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "thumbnailUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thumbnailurl"
+          },
+          "contentUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contenturl"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "CardAvatar"
+      },
+      "CardDataCreated": {
+        "properties": {
+          "post": {
+            "$ref": "#/components/schemas/Post"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "created",
+              "updated",
+              "unchanged"
+            ],
+            "title": "Outcome"
+          },
+          "skippedImages": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Skippedimages"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "CardDataCreated"
       },
       "CardFileComparison": {
         "properties": {
@@ -8797,6 +9180,25 @@
         "additionalProperties": false,
         "type": "object",
         "title": "Comment"
+      },
+      "DataCreated": {
+        "properties": {
+          "post": {
+            "$ref": "#/components/schemas/Post"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "created",
+              "updated",
+              "unchanged"
+            ],
+            "title": "Outcome"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "DataCreated"
       },
       "DocumentVersion": {
         "properties": {
@@ -9082,6 +9484,11 @@
             ],
             "title": "Maxuploadsize",
             "description": "The largest request the server takes, in bytes, as it checks it (`max_upload_size`); `null` if there is no limit. A larger one is refused with 413 `RequestTooLargeError`."
+          },
+          "maxBase64UploadSize": {
+            "type": "integer",
+            "title": "Maxbase64Uploadsize",
+            "description": "Effective decoded base64 upload limit in bytes; JSON bodies allow 4/3 expansion plus 1 MiB."
           },
           "acceptedTypes": {
             "items": {
@@ -11416,6 +11823,16 @@
             ],
             "description": "The file: `png` or `charx`.",
             "title": "Format"
+          },
+          "avatar": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CardAvatar"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "greetingCount": {
             "anyOf": [

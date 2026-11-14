@@ -1,6 +1,6 @@
 """Post kinds, distinct from the kinds of extracted content that support them."""
 
-from lithica import errors, model, registry
+from lithica import db, errors, model, registry
 
 
 class InvalidPostKindError(errors.ValidationError):
@@ -42,6 +42,25 @@ def derived_kind(post: model.Post) -> str:
     )
 
 
+def _assign_kind(post: model.Post, kind: str) -> None:
+    from lithica.func import post_content
+
+    previous = post.kind
+    with db.session.no_autoflush:
+        post.kind = kind
+        try:
+            post_content.check_duplicates(
+                post,
+                [
+                    registry.ExtractedContent(row.kind, row.payload)
+                    for row in post.contents
+                ],
+            )
+        except Exception:
+            post.kind = previous
+            raise
+
+
 def derive_existing(post: model.Post) -> None:
     """Set an existing post's derived kind, retaining disabled-module kinds.
 
@@ -49,7 +68,7 @@ def derive_existing(post: model.Post) -> None:
     after successful extraction changes the loaded content-kind set or
     leaves the stored kind unsupported, preserving other manual choices.
     """
-    from lithica.func import documents
+    from lithica.func import documents, posts
 
     if documents.have_documents([post], lock=True):
         return
@@ -57,7 +76,13 @@ def derive_existing(post: model.Post) -> None:
     if post.kind == model.Post.KIND_MEDIA or post.kind in {
         kind.name for kind in registry.post_kinds()
     }:
-        post.kind = derived_kind(post)
+        derived = derived_kind(post)
+        if derived != post.kind:
+            try:
+                _assign_kind(post, derived)
+            except posts.PostAlreadyUploadedError:
+                # Reextract/backfill keeps media rather than making a second card.
+                return
     if post.kind != before:
         from lithica.func import post_content
 
@@ -86,5 +111,5 @@ def set_kind(post: model.Post, kind: str) -> bool:
         )
     if post.kind == kind:
         return False
-    post.kind = kind
+    _assign_kind(post, kind)
     return True

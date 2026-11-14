@@ -382,6 +382,10 @@ class Info(Resource):
         "(`max_upload_size`); `null` if there is no limit. A larger one is refused "
         "with 413 `RequestTooLargeError`."
     )
+    max_base64_upload_size: int = Field(
+        description="Effective decoded base64 upload limit in bytes; "
+        "JSON bodies allow 4/3 expansion plus 1 MiB."
+    )
     accepted_types: list[AcceptedType] = Field(
         description="The types of file a post can be made from on this site: the "
         "engine's, then those of the modules switched on. A hint for clients, to "
