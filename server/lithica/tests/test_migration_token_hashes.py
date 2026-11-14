@@ -71,8 +71,8 @@ def migration_db(worker_id, _pg_database_url, tmp_path, monkeypatch):
         "script_location", os.path.join(SERVER_DIR, "lithica", "migrations")
     )
     engine = sa.create_engine(url)
-    # alembic's env.py configures logging from alembic.ini, which switches
-    # off every logger that exists: the other tests of this process need them
+    # Alembic configures logging from alembic.ini; restore the calling
+    # process's logging state after the test.
     root = logging.getLogger()
     root_state = (root.level, list(root.handlers))
     loggers = {

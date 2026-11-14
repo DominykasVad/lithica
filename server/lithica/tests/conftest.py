@@ -5,6 +5,7 @@ import random
 import string
 import sys
 import textwrap
+from collections.abc import Callable
 from datetime import datetime
 from typing import Any
 from unittest.mock import Mock, patch
@@ -201,6 +202,19 @@ def query_logger(pytestconfig):
         coloredlogs.install(fmt="[%(asctime)-15s] %(name)s %(message)s", isatty=True)
         logging.basicConfig()
         logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
+
+
+@pytest.fixture
+def lint_imports(monkeypatch: pytest.MonkeyPatch) -> Callable[..., int]:
+    """Check import contracts without the CLI replacing pytest's logging."""
+    from importlinter import cli
+
+    def keep_logging(verbose: bool) -> None:
+        # import-linter's dictConfig disables other loggers in this process.
+        pass
+
+    monkeypatch.setattr(cli, "_configure_logging", keep_logging)
+    return cli.lint_imports
 
 
 @pytest.fixture(scope="function", autouse=True)

@@ -27,7 +27,9 @@ import lithica.registry  # noqa: E402
 
 alembic_config = alembic.context.config
 assert alembic_config.config_file_name
-logging.config.fileConfig(alembic_config.config_file_name)
+logging.config.fileConfig(
+    alembic_config.config_file_name, disable_existing_loggers=False
+)
 
 lithica_config = lithica.config.config
 alembic_config.set_main_option("sqlalchemy.url", lithica_config["database"])
