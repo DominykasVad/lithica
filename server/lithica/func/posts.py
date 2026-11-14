@@ -1304,6 +1304,9 @@ def update_post_content(
     checksum = util.get_sha1(content)
     post.checksum = checksum
     post.checksum_md5 = util.get_md5(content)
+    # Extraction runs before the checksum check below: an exact re-upload is
+    # extracted before it is refused, and a module's rejection wins over the
+    # duplicate error.
     with db.session.no_autoflush:
         # Card data takes precedence when the same carrier is also a media avatar.
         # Both constraints are checked before pending file metadata can flush.

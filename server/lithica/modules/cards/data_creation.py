@@ -41,9 +41,15 @@ def _external_target(pairs: list[tuple[str, str]], kind: str) -> model.Post | No
             db.session.scalars(
                 sa.select(model.PostExternalId.post_id)
                 .where(
-                    sa.tuple_(
-                        model.PostExternalId.host, model.PostExternalId.external_id
-                    ).in_(pairs)
+                    sa.or_(
+                        *(
+                            sa.and_(
+                                model.PostExternalId.host == host,
+                                model.PostExternalId.external_id == external_id,
+                            )
+                            for host, external_id in pairs
+                        )
+                    )
                 )
                 .execution_options(**{visibility.ALL_POSTS: True})
             )
