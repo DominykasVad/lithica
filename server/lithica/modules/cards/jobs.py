@@ -9,6 +9,7 @@ from sqlalchemy.orm import Query
 
 from lithica import db, model, registry
 from lithica.func import jobs
+from lithica.modules.cards import file_images
 from lithica.modules.cards.model import Card
 from lithica.modules.cards.uploads import convert
 
@@ -24,6 +25,12 @@ def pending(after: int = 0) -> Query[model.Post]:
             sa.exists().where(
                 Card.post_id == model.Post.post_id, Card.data_hash.is_(None)
             ),
+            sa.and_(
+                model.Post.mime_type.is_not(None),
+                sa.exists().where(
+                    Card.post_id == model.Post.post_id, Card.images_read.is_(False)
+                ),
+            ),
         ),
     )
 
@@ -35,7 +42,7 @@ def run(payload: registry.Payload) -> None:
         db.session.flush()
         try:
             with db.session.begin_nested():
-                convert(post, post.user)
+                convert(post, None)
                 db.session.flush()
         except Exception as error:
             logger.warning(
@@ -55,7 +62,7 @@ def configure(parser: argparse.ArgumentParser) -> None:
     convert_parser.add_argument(
         "--count",
         action="store_true",
-        help="only count cards needing conversion or a data hash",
+        help="only count cards needing conversion, a data hash or file images",
     )
 
 
@@ -92,5 +99,36 @@ def command(arguments: argparse.Namespace) -> int:
     if not arguments.count and count:
         jobs.enqueue("cards-convert", {"after": 0})
         db.session.commit()
-    print(f"cards convert: {count} cards needing conversion or a data hash")  # noqa: T201
+    print(  # noqa: T201
+        f"cards convert: {count} cards needing conversion or a data hash "
+        "(including file images)"
+    )
     return 0
+
+
+def run_images(payload: registry.Payload) -> None:
+    post_id = int(payload["postId"])
+    # Use the same post-then-projection lock order as conversion/replacement.
+    post = db.session.scalar(sa.select(model.Post).where(model.Post.post_id == post_id))
+    if post is None:
+        return
+    from lithica.func import documents
+
+    documents.have_documents([post], lock=True)
+    db.session.refresh(post)
+    if (
+        post.kind != "card"
+        or post.checksum != payload.get("checksum")
+        or not post.mime_type
+    ):
+        return
+    db.session.execute(
+        sa.select(Card.post_id).where(Card.post_id == post_id).with_for_update()
+    )
+    row = db.session.get(Card, post_id)
+    if row is None:
+        return
+    db.session.refresh(row)
+    if row.images_read:
+        return
+    file_images.backfill(post, None)

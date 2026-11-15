@@ -32,18 +32,28 @@ def existing(content: ContentLike) -> tuple[int | None, bool]:
 
 
 def obtain(
-    content: ContentLike, parent: model.Post, user: model.User
+    content: ContentLike,
+    parent: model.Post,
+    user: model.User | None,
+    *,
+    from_file: bool = False,
 ) -> tuple[model.Post | None, bool]:
     """Reuse visible media unchanged, or prepare a new media post without files."""
     post_id, allowed = existing(content)
     if not allowed:
         return None, False
-    auth.verify_privilege(user, "posts:edit:typed_relations")
+    if not from_file:
+        assert user is not None
+        auth.verify_privilege(user, "posts:edit:typed_relations")
     if post_id is not None:
         return posts.try_get_post_by_id(post_id), False
     names = [visibility.nsfw_tag()] if visibility.is_nsfw(parent) else []
     post, _new_tags = posts.create_post(
-        content, names, user, defer_file=True, as_media=True
+        content,
+        names,
+        parent.user if from_file else user,
+        defer_file=True,
+        as_media=True,
     )
     posts.update_post_flags(post, posts.get_default_flags(content))
     post.listed = False
@@ -54,7 +64,11 @@ def obtain(
 
 
 def relate(
-    post: model.Post, parent: model.Post, role: str, label: str | None, user: model.User
+    post: model.Post,
+    parent: model.Post,
+    role: str,
+    label: str | None,
+    user: model.User | None,
 ) -> None:
     found = db.session.scalar(
         sa.select(model.PostTypedRelation.typed_relation_id).where(
@@ -64,9 +78,7 @@ def relate(
         )
     )
     if found is None:
-        post_metadata.create_typed_relation(
-            post.post_id, parent.post_id, role, label, user
-        )
+        post_metadata.relate_posts(post, parent, role, label, user)
 
 
 def release(created: list[model.Post]) -> list[str]:

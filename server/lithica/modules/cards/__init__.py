@@ -310,7 +310,10 @@ module = registry.Module(
     name=NAME,
     after_file_or_kind=uploads.convert,
     duplicate_of=documents.duplicate_of,
-    job_types=[registry.JobType("cards-convert", jobs.run)],
+    job_types=[
+        registry.JobType("cards-convert", jobs.run),
+        registry.JobType("cards-images", jobs.run_images),
+    ],
     admin_commands=[
         registry.AdminCommand(
             "cards",

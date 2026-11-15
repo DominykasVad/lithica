@@ -18,6 +18,11 @@ def test_card_answer_matches_file_and_lorebook_endpoint(site, user):
     post_id = upload(client, user, source)
     answer = ok(client.get(f"/modules/cards/post/{post_id}", user=user))
     expected = view.normalised(post_id, "card_v2", {"format": "png", "card": source})
+    expected["avatar"] = api.avatar_resource(
+        posts.get_post_by_id(
+            documents.get(posts.get_post_by_id(post_id)).data["avatar"]
+        )
+    )
     assert {k: v for k, v in answer.items() if k != "lorebooks"} == expected
     book_id = answer["lorebooks"][0]["id"]
     book = ok(client.get(f"/modules/cards/lorebook/{book_id}", user=user))

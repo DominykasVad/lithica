@@ -10,7 +10,7 @@ from typing import BinaryIO
 import pytest
 
 from lithica import config, db, errors, model, registry
-from lithica.func import documents, post_metadata, posts, util
+from lithica.func import documents, posts, util
 from lithica.tests.api.http import ok
 from lithica.tests.api.test_tokens import _app_token, _as
 from lithica.tests.conftest import ApiClient
@@ -190,7 +190,12 @@ def test_existing_icon_is_linked_without_changing_fields_or_duplicate_relation(
     icon_post = posts.get_post_by_id(icon_id)
     fields = (icon_post.version, icon_post.listed, icon_post.safety, icon_post.user_id)
     post_id = _charx(client, user, icon)
-    post_metadata.create_typed_relation(icon_id, post_id, "avatar-of", None, user)
+    assert (
+        db.session.query(model.PostTypedRelation)
+        .filter_by(from_post_id=icon_id, to_post_id=post_id, type="avatar-of")
+        .count()
+        == 1
+    )
     db.session.commit()
     count = db.session.query(model.Post).filter_by(kind="media").count()
     answer = ok(
@@ -224,7 +229,10 @@ def test_existing_nonmedia_icon_is_not_kept(site: Site, user: model.User) -> Non
         replace(client, user, post_id, cards.png_card(cards.v2_card(), shade=80))
     )
     assert answer["keptPostId"] is None
-    assert db.session.query(model.PostTypedRelation).count() == 0
+    assert (
+        db.session.query(model.PostTypedRelation).filter_by(to_post_id=post_id).count()
+        == 0
+    )
 
 
 def test_existing_hidden_icon_is_skipped(
@@ -251,7 +259,7 @@ def test_existing_hidden_icon_is_skipped(
         db.session.query(model.PostTypedRelation)
         .filter_by(from_post_id=icon_id)
         .count()
-        == 0
+        == 1
     )
 
 
@@ -388,7 +396,7 @@ def test_retired_icon_is_skipped_without_exposing_its_owner(
     assert answer["keptPostId"] is None
     assert answer["samePicture"] is False
     assert db.session.query(model.Post).count() == count
-    assert db.session.query(model.PostTypedRelation).count() == 0
+    assert db.session.query(model.PostTypedRelation).count() == 1
     post = posts.get_post_by_id(post_id)
     assert post.version == 2 and documents.get(post).version == 1
     assert (

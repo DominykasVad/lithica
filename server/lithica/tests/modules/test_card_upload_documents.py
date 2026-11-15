@@ -147,6 +147,10 @@ def test_anonymous_nsfw_tag_created_during_upload(site, user_factory):
     post = posts.get_post_by_id(result["id"])
     book_id = documents.get(post).data["lorebooks"][0]
     assert visibility.is_nsfw(posts.get_post_by_id(book_id))
+    avatar_id = documents.get(post).data["avatar"]
+    assert avatar_id is not None
+    avatar = posts.get_post_by_id(avatar_id)
+    assert avatar.user_id is None and visibility.is_nsfw(avatar)
 
 
 def test_document_owns_uploaded_card_kind_and_file(site, user):

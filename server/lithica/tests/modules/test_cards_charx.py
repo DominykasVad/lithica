@@ -147,7 +147,7 @@ def test_upload_with_an_icon(site, user):
         },
     }
     # the icon makes it findable by picture
-    assert db.session.query(model.PostSignature).count() == 1
+    assert db.session.query(model.PostSignature).count() == 2
 
 
 def test_upload_without_an_icon_gets_the_placeholder(site, user):
@@ -482,8 +482,8 @@ def test_nothing_is_ever_extracted_to_disk(site, user, monkeypatch, tmp_path):
         body={"safety": "safe"},
         files={"content": cards.charx(**{"../evil.txt": b"evil"})},
     )
-    # the data directory holds the upload and its thumbnail, and nothing of
-    # what was in the archives; nor does the working directory
+    # Only the carrier, its main picture media and their thumbnails are stored.
+    # Archive paths and unrelated entries never reach the working directory.
     found = []
     for folder, _folders, files in os.walk(config.config["data_dir"]):
         found += [
@@ -493,6 +493,8 @@ def test_nothing_is_ever_extracted_to_disk(site, user, monkeypatch, tmp_path):
     assert sorted(os.path.basename(path).split(".")[-1] for path in found) == [
         "charx",
         "jpg",
+        "jpg",
+        "png",
     ]
     assert os.listdir(working_dir) == []
     assert created["type"] == "charx"

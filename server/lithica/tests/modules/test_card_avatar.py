@@ -30,7 +30,7 @@ def test_avatar_schema_restore_delete_and_replace(
     )["id"]
     post = posts.get_post_by_id(post_id)
     document = documents.get(post)
-    assert document.schema_version == 2 and document.data["avatar"] is None
+    assert document.schema_version == 2 and document.data["avatar"] is not None
     data = deepcopy(document.data)
     data["avatar"] = image
     documents.write(post, data, 0, user)

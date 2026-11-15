@@ -321,6 +321,16 @@ def test_token_names_keep_clear_of_the_engine():
 # the post field
 
 
+def _avatar(post_id: int) -> dict[str, object]:
+    avatar_id = db.session.get(model.PostDocument, post_id).data["avatar"]
+    avatar = posts.get_post_by_id(avatar_id)
+    return {
+        "id": avatar_id,
+        "thumbnailUrl": posts.get_post_thumbnail_url(avatar),
+        "contentUrl": posts.get_post_content_url(avatar),
+    }
+
+
 def test_post_field(site, user):
     client = site(["cards"])
     card = _upload(client, user, cards.png_card(cards.v2_card(), shade=1))
@@ -338,7 +348,7 @@ def test_post_field(site, user):
             "creator": "somebody",
             "spec": "v2",
             "format": "png",
-            "avatar": None,
+            "avatar": _avatar(card["id"]),
             "greetingCount": 3,
             "lorebookEntryCount": 2,
         },
@@ -434,7 +444,7 @@ def test_post_field_of_a_card_stored_before_there_were_summaries(site, user):
         "creator": "somebody",
         "spec": "v2",
         "format": "png",
-        "avatar": None,
+        "avatar": _avatar(created["id"]),
         "greetingCount": 3,
         "lorebookEntryCount": 2,
     }
@@ -463,7 +473,7 @@ def test_card_of_a_v2_picture(site, user):
     assert_fits(api.Card, card)
     assert card == {
         "postId": created["id"],
-        "avatar": None,
+        "avatar": _avatar(created["id"]),
         "lorebooks": [
             {
                 "id": db.session.get(model.PostDocument, created["id"]).data[
