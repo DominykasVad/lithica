@@ -42,6 +42,7 @@ from lithica.func import (
 from lithica.modules.cards import card as card_format
 from lithica.modules.cards import (
     data_creation,
+    file_images,
     filename,
     media,
     pictures,
@@ -67,6 +68,18 @@ class CardAvatar(resources.Resource):
     id: int
     thumbnail_url: str | None
     content_url: str | None
+
+
+class CardImagePost(CardAvatar):
+    mime_type: str | None
+
+
+class CardFileImage(resources.Resource):
+    uri: str
+    asset_type: str | None
+    relation: str
+    label: str | None
+    post: CardImagePost
 
 
 class CardSummary(resources.Resource):
@@ -136,6 +149,8 @@ class Card(resources.Resource):
         description="The file the card came in: png or charx; null without a file."
     )
     avatar: CardAvatar | None
+    images: list[CardFileImage]
+    images_read: bool
     name: str
     description: str
     personality: str
@@ -307,6 +322,8 @@ def get_card(
         if row is not None and row.avatar_post_id is not None
         else None
     )
+    result["images"] = file_images.list_images(post.post_id)
+    result["imagesRead"] = row.images_read if row is not None else False
     result["lorebooks"] = [
         {
             "id": id_,
@@ -399,7 +416,7 @@ def replace_card_file(
     """Replace a converted card's file against its post version.
 
     keepOldPicture defaults to true. Differing old pictures become related
-    media when permitted; identical pixels are never kept. Creates a document
+    media; identical pixels retain the existing avatar post. Creates a document
     version noted `File replaced.` only when data changes. Refused files leave
     database state and stored files unchanged; stale post versions give 409.
     """
@@ -526,7 +543,10 @@ class CardPictureInput(RequestModel):
     responses={
         200: {
             "description": "The card's picture, with its detected image type.",
-            "content": {"image/*": {"schema": {"type": "string", "format": "binary"}}},
+            "content": {
+                "image/*": {"schema": {"type": "string", "format": "binary"}},
+                "video/*": {"schema": {"type": "string", "format": "binary"}},
+            },
         }
     },
 )
@@ -535,7 +555,7 @@ def get_card_file_picture(
     _auth_user: Annotated[model.User, Depends(require("uploads:create"))],
     body: Annotated[CardPictureInput, Depends(read_body(CardPictureInput))],
 ) -> Response:
-    """Return a temporary PNG card's picture or a CHARX's engine-image icon.
+    """Return a temporary PNG card's stripped picture or a CHARX's media icon.
 
     Accepts only a contentToken in the body. Returns 404 when no picture
     exists, with nosniff, sandbox CSP and no-store headers on image responses.

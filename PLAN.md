@@ -278,6 +278,7 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 - 2026-11-15 — 7.3 — Images from a card file by asset type: main icon → avatar, other icons → alternate avatars, emotion → expression (asset name as label), the rest → embedded-in.
 - 2026-11-15 — 7.3 — The main picture is taken in the upload request (version 0 names it); the other images by a background job.
 - 2026-11-15 — 7.3 — A file replace makes the new file's picture the avatar; identical pixels keep the old avatar post.
+- 2026-11-15 — 7.3 — Image jobs resolve existing media as the card uploader; a missing uploader is anonymous.
 
 ---
 

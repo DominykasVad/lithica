@@ -262,3 +262,128 @@ def test_fileless_card_gains_main_or_alternate_avatar(
     assert image.type == "avatar-of" and image.uri == "ccdefault:"
     assert answer["keptPostId"] is None and answer["samePicture"] is False
     assert db.session.query(model.PostRetiredChecksum).count() == 0
+
+
+def test_answer_image_order_mime_and_visibility(
+    site: Site, user: model.User, user_factory: Callable[..., model.User]
+) -> None:
+    from io import BytesIO
+
+    from PIL import Image
+
+    client = site(["cards"])
+    blobs: dict[str, bytes] = {"main.png": cards.picture()}
+    for path, format_ in (("smile.gif", "GIF"), ("wall.webp", "WEBP")):
+        output = BytesIO()
+        Image.new("RGB", (16, 16), (40, 60, 80)).save(output, format_)
+        blobs[path] = output.getvalue()
+    raw = cards.v3_card(
+        name="Formats",
+        assets=[
+            {"type": "emotion", "name": "smile", "uri": "embeded://smile.gif"},
+            {"type": "icon", "name": "main", "uri": "embeded://main.png"},
+            {"type": "background", "name": "wall", "uri": "embedded://wall.webp"},
+        ],
+    )
+    parent = upload(client, user, cards.charx(raw, **blobs))
+    jobs.run_images(
+        db.session.query(model.Job).filter_by(type="cards-images").one().payload
+    )
+    answer = ok(client.get(f"/modules/cards/post/{parent}", user=user))
+    assert answer["imagesRead"] is True
+    images = answer["images"]
+    assert [i["post"]["mimeType"] for i in images] == [
+        "image/gif",
+        "image/png",
+        "image/webp",
+    ]
+    assert [i["relation"] for i in images] == [
+        "expression-of",
+        "avatar-of",
+        "embedded-in",
+    ]
+    assert [i["label"] for i in images] == ["smile", "main", "wall"]
+    assert [i["assetType"] for i in images] == ["emotion", "icon", "background"]
+    assert answer["avatar"]["id"] == images[1]["post"]["id"]
+    assert [i["post"]["contentUrl"].rsplit(".", 1)[1] for i in images] == [
+        "gif",
+        "png",
+        "webp",
+    ]
+    posts.update_post_tags(posts.get_post_by_id(images[0]["post"]["id"]), ["nsfw"])
+    db.session.commit()
+    config.config["visibility"] = "nsfw-login"
+    config.config["privileges"]["posts:view"] = "anonymous"
+    anonymous = user_factory(rank=model.User.RANK_ANONYMOUS)
+    hidden = ok(client.get(f"/modules/cards/post/{parent}", user=anonymous))
+    assert [i["uri"] for i in hidden["images"]] == [
+        "embeded://main.png",
+        "embedded://wall.webp",
+    ]
+    assert hidden["imagesRead"] is True
+
+
+def test_card_post_field_query_count_ignores_image_rows(
+    site: Site, user: model.User
+) -> None:
+    import sqlalchemy as sa
+    import sqlalchemy.event as sa_event
+
+    from lithica.modules.cards import api
+
+    client = site(["cards"])
+    parent = upload(client, user, with_assets())
+
+    def query_count() -> int:
+        db.session.expire_all()
+        post = posts.get_post_by_id(parent)
+        count = 0
+
+        def queried(*_args: object) -> None:
+            nonlocal count
+            count += 1
+
+        sa_event.listen(sa.engine.Engine, "before_cursor_execute", queried)
+        try:
+            assert api.card_fields([post], user)[parent] is not None
+        finally:
+            sa_event.remove(sa.engine.Engine, "before_cursor_execute", queried)
+        return count
+
+    before = query_count()
+    jobs.run_images(
+        db.session.query(model.Job).filter_by(type="cards-images").one().payload
+    )
+    assert db.session.query(CardImage).count() == 3
+    assert query_count() == before == 1
+
+
+def test_same_media_keeps_each_asset_label(site: Site, user: model.User) -> None:
+    client = site(["cards"])
+    content = cards.png_with(
+        cards.text_chunk(
+            b"ccv3",
+            cards.encoded(
+                cards.v3_card(
+                    assets=[
+                        {"type": "emotion", "name": "happy", "uri": "__asset:a"},
+                        {"type": "emotion", "name": "sad", "uri": "__asset:b"},
+                    ]
+                )
+            ),
+        ),
+        cards.text_chunk(b"chara-ext-asset_:a", base64.b64encode(cards.picture(21))),
+        cards.text_chunk(b"chara-ext-asset_:b", base64.b64encode(cards.picture(21))),
+    )
+    parent = upload(client, user, content)
+    jobs.run_images(
+        db.session.query(model.Job).filter_by(type="cards-images").one().payload
+    )
+    answer = ok(client.get(f"/modules/cards/post/{parent}", user=user))
+    images = answer["images"]
+    assert [image["label"] for image in images] == ["happy", "sad"]
+    assert images[0]["post"]["id"] == images[1]["post"]["id"]
+    relation = (
+        db.session.query(model.PostTypedRelation).filter_by(to_post_id=parent).one()
+    )
+    assert relation.type == "expression-of" and relation.label == "happy"

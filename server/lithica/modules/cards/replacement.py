@@ -70,6 +70,7 @@ def replace(
 
     kept_id: int | None = None
     if old is not None and not same and keep_old_picture and allowed:
+        created = False
         if old_media is None:
             old_media, created = media.obtain(old, post, user, from_file=True)
             if created and old_media is not None:
@@ -77,7 +78,7 @@ def replace(
         if old_media is not None:
             kept_id = old_media.post_id
             for role in ("avatar-of", "gallery-of"):
-                media.relate(old_media, post, role, None, user)
+                media.relate(old_media, post, role, None, user, created=created)
     elif (
         not same
         and not keep_old_picture

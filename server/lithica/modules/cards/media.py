@@ -69,7 +69,17 @@ def relate(
     role: str,
     label: str | None,
     user: model.User | None,
+    *,
+    created: bool = False,
 ) -> None:
+    # Existing media can become hidden after preparation. Only a post just
+    # created by obtain() may bypass that lookup (its inherited NSFW tag can
+    # already hide it from the uploader of its own file).
+    if not created:
+        visible = posts.try_get_post_by_id(post.post_id)
+        if visible is None or visible.kind != "media":
+            raise posts.PostNotFoundError("Related media not found.")
+        post = visible
     found = db.session.scalar(
         sa.select(model.PostTypedRelation.typed_relation_id).where(
             model.PostTypedRelation.from_post_id == post.post_id,

@@ -23,6 +23,7 @@ def upgrade() -> None:
         sa.Column("post_id", sa.Integer(), nullable=False),
         sa.Column("type", sa.String(length=32), nullable=False),
         sa.Column("asset_type", sa.String(length=64), nullable=True),
+        sa.Column("label", sa.String(length=128), nullable=True),
         sa.Column("position", sa.Integer(), nullable=False),
         sa.ForeignKeyConstraint(["card_post_id"], ["post.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["post_id"], ["post.id"], ondelete="CASCADE"),

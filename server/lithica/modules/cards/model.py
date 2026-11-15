@@ -64,4 +64,5 @@ class CardImage(Base):
     )
     type: Mapped[str] = mapped_column(sa.String(32))
     asset_type: Mapped[str | None] = mapped_column(sa.String(64))
+    label: Mapped[str | None] = mapped_column(sa.String(128))
     position: Mapped[int] = mapped_column(sa.Integer)

@@ -90,6 +90,7 @@ def attach(
     skipped: list[int] = []
     created: list[model.Post] = []
     for image in images:
+        new = False
         post = image.post
         if image.content is not None:
             post, new = media.obtain(image.content, parent, user)
@@ -100,7 +101,7 @@ def attach(
             skipped.append(image.index)
             continue
         try:
-            media.relate(post, parent, image.relation, image.label, user)
+            media.relate(post, parent, image.relation, image.label, user, created=new)
         except posts.PostNotFoundError:
             # Visibility may change after preparation; never echo a token's ID.
             if image.content is None:

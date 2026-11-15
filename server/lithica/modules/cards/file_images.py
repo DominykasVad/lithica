@@ -4,6 +4,7 @@ import logging
 from dataclasses import dataclass, field
 
 import sqlalchemy as sa
+from sqlalchemy.orm import lazyload
 
 from lithica import db, model
 from lithica.func import documents, files, jobs, posts
@@ -34,6 +35,10 @@ def attach(
     for image in images:
         existing = db.session.get(CardImage, (post.post_id, image.uri))
         if existing is not None:
+            visible = posts.try_get_post_by_id(existing.post_id)
+            if visible is None or visible.kind != "media":
+                skipped += 1
+                continue
             if image.main:
                 result.avatar = existing.post_id
             continue
@@ -50,7 +55,9 @@ def attach(
                 if picture is None:
                     skipped += 1
                     continue
-                media.relate(picture, post, image.relation, image.label, user)
+                media.relate(
+                    picture, post, image.relation, image.label, user, created=created
+                )
                 db.session.add(
                     CardImage(
                         card_post_id=post.post_id,
@@ -58,6 +65,7 @@ def attach(
                         post_id=picture.post_id,
                         type=image.relation,
                         asset_type=image.asset_type,
+                        label=image.label,
                         position=image.position,
                     )
                 )
@@ -149,3 +157,28 @@ def backfill(post: model.Post, user: model.User | None) -> None:
             post, data, document.version, user, "Images read from the file."
         )
     finish(post, result)
+
+
+def list_images(post_id: int) -> list[dict[str, object]]:
+    rows = db.session.execute(
+        sa.select(CardImage, model.Post)
+        .join(model.Post, model.Post.post_id == CardImage.post_id)
+        .where(CardImage.card_post_id == post_id, model.Post.kind == "media")
+        .order_by(CardImage.position, CardImage.uri)
+        .options(lazyload("*"))
+    )
+    return [
+        {
+            "uri": row.uri,
+            "assetType": row.asset_type,
+            "relation": row.type,
+            "label": row.label,
+            "post": {
+                "id": picture.post_id,
+                "mimeType": picture.mime_type,
+                "contentUrl": posts.get_post_content_url(picture),
+                "thumbnailUrl": posts.get_post_thumbnail_url(picture),
+            },
+        }
+        for row, picture in rows
+    ]

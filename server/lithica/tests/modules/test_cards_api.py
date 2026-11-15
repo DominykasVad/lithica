@@ -474,6 +474,16 @@ def test_card_of_a_v2_picture(site, user):
     assert card == {
         "postId": created["id"],
         "avatar": _avatar(created["id"]),
+        "imagesRead": True,
+        "images": [
+            {
+                "uri": "ccdefault:",
+                "assetType": None,
+                "relation": "avatar-of",
+                "label": None,
+                "post": {**_avatar(created["id"]), "mimeType": "image/png"},
+            }
+        ],
         "lorebooks": [
             {
                 "id": db.session.get(model.PostDocument, created["id"]).data[

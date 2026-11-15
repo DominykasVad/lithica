@@ -8,7 +8,7 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Query
 
 from lithica import db, model, registry
-from lithica.func import jobs
+from lithica.func import jobs, posts, visibility
 from lithica.modules.cards import file_images
 from lithica.modules.cards.model import Card
 from lithica.modules.cards.uploads import convert
@@ -42,7 +42,17 @@ def run(payload: registry.Payload) -> None:
         db.session.flush()
         try:
             with db.session.begin_nested():
-                convert(post, None)
+                # Resolve the uploader under the card lock: account deletion
+                # must not leave a stale authenticated viewer from the batch.
+                db.session.execute(
+                    sa.select(model.Post.post_id)
+                    .where(model.Post.post_id == post_id)
+                    .with_for_update()
+                    .execution_options(**{visibility.ALL_POSTS: True})
+                )
+                db.session.refresh(post, ["user_id", "user"])
+                with visibility.as_viewer(post.user):
+                    convert(post, None)
                 db.session.flush()
         except Exception as error:
             logger.warning(
@@ -109,12 +119,17 @@ def command(arguments: argparse.Namespace) -> int:
 def run_images(payload: registry.Payload) -> None:
     post_id = int(payload["postId"])
     # Use the same post-then-projection lock order as conversion/replacement.
-    post = db.session.scalar(sa.select(model.Post).where(model.Post.post_id == post_id))
+    locked_id = db.session.scalar(
+        sa.select(model.Post.post_id)
+        .where(model.Post.post_id == post_id)
+        .with_for_update()
+        .execution_options(**{visibility.ALL_POSTS: True})
+    )
+    if locked_id is None:
+        return
+    post = posts.try_get_post_by_id(post_id)
     if post is None:
         return
-    from lithica.func import documents
-
-    documents.have_documents([post], lock=True)
     db.session.refresh(post)
     if (
         post.kind != "card"
@@ -129,6 +144,8 @@ def run_images(payload: registry.Payload) -> None:
     if row is None:
         return
     db.session.refresh(row)
-    if row.images_read:
+    document = db.session.get(model.PostDocument, post_id)
+    if row.images_read or document is None or document.kind != "card":
         return
-    file_images.backfill(post, None)
+    with visibility.as_viewer(post.user):
+        file_images.backfill(post, None)
