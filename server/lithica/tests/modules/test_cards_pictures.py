@@ -14,12 +14,12 @@ from lithica.modules.cards import pictures
 from lithica.tests.modules import cards
 
 
-def test_png_picture_keeps_bytes(tmp_path: Path) -> None:
+def test_png_picture_strips_card_chunks(tmp_path: Path) -> None:
     content = cards.png_card(cards.v2_card())
-    assert pictures.picture(content) == content
+    assert pictures.picture(content) == cards.picture()
     path = tmp_path / "card.png"
     path.write_bytes(content)
-    assert pictures.picture(Content(str(path))) == content
+    assert pictures.picture(Content(str(path))) == cards.picture()
 
 
 def test_charx_picture_is_main_icon() -> None:
@@ -122,3 +122,9 @@ def test_valid_png_header_with_undecodable_chunks(broken_first: bool) -> None:
         "oldPicture": True,
         "newPicture": True,
     }
+
+
+def test_legacy_charx_icon_uri_keeps_preview_compatibility() -> None:
+    icon = cards.picture(30)
+    content = cards.charx(cards.charx_card("__asset:" + cards.ICON_PATH), icon)
+    assert pictures.picture(content) == icon

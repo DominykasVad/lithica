@@ -128,15 +128,14 @@ def test_replacement_book_uses_nsfw_side_and_inherits_safety(
 
 
 @pytest.mark.parametrize(
-    "keep,shade,status", [(True, 0, 200), (False, 80, 200), (True, 80, 403)]
+    "keep,shade,status", [(True, 0, 200), (False, 80, 200), (True, 80, 200)]
 )
-def test_typed_relation_privilege_only_when_preserving_picture(
+def test_file_images_need_no_typed_relation_privilege(
     site: Site, user: model.User, keep: bool, shade: int, status: int
 ) -> None:
     client = site(["cards"])
     config.config["privileges"]["posts:edit:typed_relations"] = "administrator"
     post_id = upload(client, user, cards.v2_card())
-    before = _disk()
     response = replace(
         client,
         user,
@@ -145,9 +144,14 @@ def test_typed_relation_privilege_only_when_preserving_picture(
         keepOldPicture=keep,
     )
     assert response.status_code == status, response.text
-    if status == 403:
-        assert _disk() == before
-        assert documents.get(posts.get_post_by_id(post_id)).version == 0
+    avatar = documents.get(posts.get_post_by_id(post_id)).data["avatar"]
+    assert avatar is not None
+    assert (
+        db.session.query(model.PostTypedRelation)
+        .filter_by(from_post_id=avatar, to_post_id=post_id, type="avatar-of")
+        .count()
+        == 1
+    )
 
 
 def test_charx_without_icon_needs_no_relation_privilege(
@@ -202,7 +206,7 @@ def test_existing_icon_is_linked_without_changing_fields_or_duplicate_relation(
         replace(client, user, post_id, cards.png_card(cards.v2_card(), shade=80))
     )
     assert answer["keptPostId"] == icon_id
-    assert db.session.query(model.Post).filter_by(kind="media").count() == count
+    assert db.session.query(model.Post).filter_by(kind="media").count() == count + 1
     assert (
         icon_post.version,
         icon_post.listed,
@@ -230,7 +234,9 @@ def test_existing_nonmedia_icon_is_not_kept(site: Site, user: model.User) -> Non
     )
     assert answer["keptPostId"] is None
     assert (
-        db.session.query(model.PostTypedRelation).filter_by(to_post_id=post_id).count()
+        db.session.query(model.PostTypedRelation)
+        .filter_by(from_post_id=icon_id, to_post_id=post_id)
+        .count()
         == 0
     )
 
@@ -395,8 +401,8 @@ def test_retired_icon_is_skipped_without_exposing_its_owner(
     assert answer["post"]["id"] == post_id
     assert answer["keptPostId"] is None
     assert answer["samePicture"] is False
-    assert db.session.query(model.Post).count() == count
-    assert db.session.query(model.PostTypedRelation).count() == 1
+    assert db.session.query(model.Post).count() == count + 1
+    assert db.session.query(model.PostTypedRelation).count() == 2
     post = posts.get_post_by_id(post_id)
     assert post.version == 2 and documents.get(post).version == 1
     assert (

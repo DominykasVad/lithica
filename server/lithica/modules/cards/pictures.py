@@ -7,10 +7,9 @@ from typing import TypedDict
 from PIL import Image
 
 from lithica import errors
-from lithica.func import content as content_module
 from lithica.func import image_hash, images, mime
 from lithica.func.content import Content, ContentLike
-from lithica.modules.cards import charx
+from lithica.modules.cards import assets, charx, png
 
 
 class Comparison(TypedDict):
@@ -21,17 +20,27 @@ class Comparison(TypedDict):
 
 
 def picture(content: ContentLike) -> bytes | None:
-    """Return a PNG's bytes or a CHARX's main icon, never an outside URL."""
-    if mime.get_mime_type(content) == "image/png":
-        return content_module.read(content)
+    """Return a PNG's stripped picture or a CHARX's main icon, never a URL."""
     source = content.open() if isinstance(content, Content) else BytesIO(content)
     with source:
+        if mime.get_mime_type(content) == "image/png":
+            return png.stripped(source, limit=assets.MAX_IMAGE_SIZE)
         try:
             with charx.opened(source) as archive:
-                icon = charx.main_icon(archive)
+                uri = charx.icon_uri(archive.card)
+                icon = (
+                    charx.data_uri_bytes(uri, assets.MAX_IMAGE_SIZE)
+                    if uri is not None and uri.startswith("data:")
+                    else charx.asset_bytes(archive, uri, assets.MAX_IMAGE_SIZE)
+                    if uri is not None
+                    else None
+                )
         except (charx.NotCharx, charx.Rejected):
             return None
-    if icon is None or not mime.is_image(mime.get_mime_type(icon)):
+    if icon is None:
+        return None
+    detected = mime.get_mime_type(icon)
+    if not (mime.is_image(detected) or mime.is_video(detected)):
         return None
     return icon
 

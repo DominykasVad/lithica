@@ -161,3 +161,104 @@ def test_bad_asset_never_fails_upload(site: Site, user: model.User) -> None:
     ):
         parent = upload(client, user, with_assets())
     assert documents.get(posts.get_post_by_id(parent)).data["avatar"] is None
+
+
+@pytest.mark.parametrize("shared", [False, True])
+def test_replacement_discards_only_unrelated_old_media(
+    site: Site, user: model.User, shared: bool
+) -> None:
+    from lithica.func import files
+    from lithica.tests.modules.test_card_file_replace import replace
+
+    client = site(["cards"])
+    config.config["delete_source_files"] = True
+    parent = upload(client, user, cards.png_card(cards.v2_card(name="First")))
+    old = documents.get(posts.get_post_by_id(parent)).data["avatar"]
+    old_path = posts.get_post_content_path(posts.get_post_by_id(old))
+    if shared:
+        other = upload(client, user, cards.png_card(cards.v2_card(name="Second")))
+        assert documents.get(posts.get_post_by_id(other)).data["avatar"] == old
+    answer = ok(
+        replace(
+            client,
+            user,
+            parent,
+            cards.png_card(cards.v2_card(name="New"), shade=80),
+            keepOldPicture=False,
+        )
+    )
+    assert answer["keptPostId"] is None
+    assert documents.get(posts.get_post_by_id(parent)).data["avatar"] != old
+    assert (
+        db.session.query(model.PostTypedRelation)
+        .filter_by(from_post_id=old, to_post_id=parent, type="avatar-of")
+        .count()
+        == 0
+    )
+    assert (posts.try_get_post_by_id(old) is not None) == shared
+    assert files.has(old_path) == shared
+
+
+def test_failed_replacement_keeps_old_media_files(site: Site, user: model.User) -> None:
+    from lithica import errors
+    from lithica.func import files
+    from lithica.modules.cards import replacement
+
+    client = site(["cards"])
+    config.config["delete_source_files"] = True
+    parent = upload(client, user, cards.png_card(cards.v2_card()))
+    post = posts.get_post_by_id(parent)
+    old = documents.get(post).data["avatar"]
+    old_path = posts.get_post_content_path(posts.get_post_by_id(old))
+    root = Path(config.config["data_dir"])
+    before = {
+        p.relative_to(root): p.read_bytes() for p in root.rglob("*") if p.is_file()
+    }
+    with (
+        pytest.raises(errors.ValidationError),
+        db.session.begin_nested(),
+        patch(
+            "lithica.modules.cards.replacement.snapshots.modify",
+            side_effect=errors.ValidationError("late refusal"),
+        ),
+    ):
+        replacement.replace(
+            post,
+            cards.png_card(cards.v2_card(name="New"), shade=80),
+            post.version,
+            False,
+            user,
+        )
+    assert files.has(old_path)
+    assert posts.get_post_by_id(old).kind == "media"
+    assert documents.get(post).data["avatar"] == old
+    after = {
+        p.relative_to(root): p.read_bytes() for p in root.rglob("*") if p.is_file()
+    }
+    assert after == before
+
+
+@pytest.mark.parametrize("has_avatar", [False, True])
+def test_fileless_card_gains_main_or_alternate_avatar(
+    site: Site, user: model.User, has_avatar: bool
+) -> None:
+    from lithica.tests.modules.test_card_file_replace import replace
+
+    client = site(["cards"])
+    old = upload(client, user, cards.picture(50)) if has_avatar else None
+    post = posts.create_fileless_post("card", user)
+    db.session.flush()
+    documents.create(
+        post,
+        "card",
+        {"spec": "card_v1", "card": cards.V1_CARD, "lorebooks": [], "avatar": old},
+        user,
+    )
+    db.session.commit()
+    answer = ok(replace(client, user, post.post_id, cards.png_card(cards.V1_CARD)))
+    image = db.session.query(CardImage).filter_by(card_post_id=post.post_id).one()
+    avatar = documents.get(post).data["avatar"]
+    assert avatar == (old if has_avatar else image.post_id)
+    assert image.type == "avatar-of" and image.uri == "ccdefault:"
+    assert answer["keptPostId"] is None and answer["samePicture"] is False
+    assert db.session.query(model.PostRetiredChecksum).count() == 0

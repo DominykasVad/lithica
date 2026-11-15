@@ -107,7 +107,7 @@ def test_saved_content_token_works(
     )
     if route.endswith("file-picture"):
         assert response.status_code == 200, response.text
-        assert response.content == content
+        assert response.content == cards.picture()
     elif route.endswith("reverse-search"):
         assert ok(response)["exactPost"]["id"] == card_id
     else:

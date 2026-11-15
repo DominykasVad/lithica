@@ -44,7 +44,9 @@ def test_avatar_schema_restore_delete_and_replace(
             client, user, post_id, cards.png_card(cards.v2_card(name="New"), shade=80)
         )
     )
-    assert documents.get(post).data["avatar"] == image
+    new_avatar = documents.get(post).data["avatar"]
+    assert new_avatar is not None and new_avatar != image
+    db.session.delete(posts.get_post_by_id(new_avatar))
     db.session.delete(posts.get_post_by_id(image))
     db.session.flush()
     db.session.expire_all()

@@ -307,7 +307,7 @@ def main_icon(charx: Charx) -> bytes | None:
 
 def asset_bytes(charx: Charx, uri: str, limit: int) -> bytes | None:
     """Read only an explicitly named entry through the archive's safe reader."""
-    for prefix in _EMBEDDED_PREFIXES[:2]:
+    for prefix in _EMBEDDED_PREFIXES:
         if uri.startswith(prefix):
             entry = charx.find(uri[len(prefix) :])
             if entry is not None:
