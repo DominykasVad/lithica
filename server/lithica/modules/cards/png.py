@@ -246,6 +246,7 @@ def stripped(handle: BinaryIO, *, limit: int | None = None) -> bytes | None:
     result = bytearray(SIGNATURE)
     position = 8
     first = True
+    saw_data = False
     while position + 12 <= size:
         handle.seek(position)
         header = handle.read(8)
@@ -253,7 +254,11 @@ def stripped(handle: BinaryIO, *, limit: int | None = None) -> bytes | None:
         end = position + 12 + length
         if end > size or (first and (kind != b"IHDR" or length != 13)):
             return None
+        if not first and kind == b"IHDR":
+            return None
         first = False
+        if kind == b"IDAT" and length:
+            saw_data = True
         remove = False
         if kind in _TEXT_CHUNKS:
             keyword = handle.read(min(length, MAX_KEYWORD_SIZE + 1)).partition(b"\x00")
@@ -266,7 +271,7 @@ def stripped(handle: BinaryIO, *, limit: int | None = None) -> bytes | None:
             handle.seek(position)
             result.extend(handle.read(length + 12))
         if kind == b"IEND":
-            return bytes(result) if length == 0 else None
+            return bytes(result) if length == 0 and saw_data else None
         position = end
     return None
 

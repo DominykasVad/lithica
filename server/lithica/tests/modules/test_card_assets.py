@@ -129,3 +129,30 @@ def test_corrupt_and_oversized_compressed_asset() -> None:
     )
     assert png.read_asset(BytesIO(content), "x", 20) is None
     assert png.stripped(BytesIO(cards.picture()), limit=10) is None
+
+
+@pytest.mark.parametrize("make", [cards.v2_card, cards.v3_card])
+def test_main_uri_priority_retains_first_position(make: Callable[..., dict]) -> None:
+    raw = make(
+        assets=[
+            {"type": "background", "name": "earlier", "uri": "__asset:shared"},
+            {"type": "icon", "name": "other", "uri": "__asset:other"},
+            {"type": "icon", "name": "main", "uri": "__asset:shared"},
+        ]
+    )
+    found = assets.images(raw, True)
+    assert [(i.uri, i.relation, i.label, i.main, i.position) for i in found] == [
+        ("__asset:shared", "avatar-of", "main", True, 0),
+        ("__asset:other", "avatar-of", "other", False, 1),
+    ]
+
+
+def test_stripping_requires_image_chunks_and_removes_long_asset_keywords() -> None:
+    plain = cards.picture()
+    start = plain.index(b"IDAT") - 4
+    no_pixels = plain[:start] + cards._chunk(b"IEND", b"")
+    assert png.stripped(BytesIO(no_pixels)) is None
+    original = cards.png_with(
+        cards.text_chunk(b"chara-ext-asset_:" + b"x" * 2000, b"data")
+    )
+    assert png.stripped(BytesIO(original)) == plain

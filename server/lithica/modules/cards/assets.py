@@ -4,6 +4,7 @@ from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from io import BytesIO
+from itertools import chain
 from typing import BinaryIO, cast
 
 from lithica import errors
@@ -47,10 +48,16 @@ def images(card: dict[str, object], is_png: bool) -> list[Image]:
     raw = fields.get("assets")
     if not isinstance(raw, list):
         return [Image("ccdefault:", None, "avatar-of", None, True)] if is_png else []
-    main_uri = charx.icon_uri(card) if kind == card_format.KIND_V3 else None
+    main = card_format.main_icon_asset(fields)
+    positions: dict[str, int] = {}
+    for position, value in enumerate(cast(list[object], raw)):
+        if isinstance(value, dict):
+            uri = cast(dict[str, object], value).get("uri")
+            if isinstance(uri, str):
+                positions.setdefault(uri, position)
     candidates: list[Image] = []
     seen: set[str] = set()
-    for position, value in enumerate(cast(list[object], raw)):
+    for value in chain([main] if main is not None else [], cast(list[object], raw)):
         if not isinstance(value, dict):
             continue
         asset = cast(dict[str, object], value)
@@ -84,12 +91,10 @@ def images(card: dict[str, object], is_png: bool) -> list[Image]:
             if type_ == "emotion" and label
             else "embedded-in"
         )
-        candidates.append(
-            Image(
-                uri, type_, role, label, type_ == "icon" and uri == main_uri, position
-            )
-        )
-    return sorted(candidates, key=lambda image: not image.main)[:MAX_IMAGES]
+        candidates.append(Image(uri, type_, role, label, value is main, positions[uri]))
+        if len(candidates) == MAX_IMAGES:
+            break
+    return candidates
 
 
 @contextmanager

@@ -253,19 +253,8 @@ def verify_icon(charx: Charx) -> None:
 def icon_uri(card: dict[str, object]) -> str | None:
     """The URI of the main icon: the icon named `main`, or else the first."""
     data = cast(dict[str, object], card["data"])
-    assets = data.get("assets")
-    if not isinstance(assets, list):
-        return None
-    icons: list[dict[str, object]] = []
-    for asset in cast(list[object], assets):
-        if isinstance(asset, dict):
-            fields = cast(dict[str, object], asset)
-            if fields.get("type") == "icon" and isinstance(fields.get("uri"), str):
-                icons.append(fields)
-    if not icons:
-        return None
-    main = next((icon for icon in icons if icon.get("name") == "main"), icons[0])
-    return cast(str, main["uri"])
+    icon = card_format.main_icon_asset(data)
+    return cast(str, icon["uri"]) if icon is not None else None
 
 
 def data_uri_bytes(uri: str, limit: int) -> bytes | None:

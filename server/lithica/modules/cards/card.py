@@ -286,3 +286,21 @@ def card_tags(kind: str, card: dict[str, Any]) -> list[str]:
             if len(names) == MAX_CARD_TAGS:
                 break
     return names
+
+
+def main_icon_asset(fields: dict[str, object]) -> dict[str, object] | None:
+    """Select the named main icon, or the first icon, in any card format."""
+    assets = fields.get("assets")
+    if not isinstance(assets, list):
+        return None
+    icons: list[dict[str, object]] = []
+    for value in cast(list[object], assets):
+        if isinstance(value, dict):
+            asset = cast(dict[str, object], value)
+            if asset.get("type") == "icon" and isinstance(asset.get("uri"), str):
+                icons.append(asset)
+    return (
+        next((icon for icon in icons if icon.get("name") == "main"), icons[0])
+        if icons
+        else None
+    )
