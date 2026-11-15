@@ -1,6 +1,7 @@
 """The current file's image map and repeat-safe ingestion into engine media."""
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 import sqlalchemy as sa
@@ -27,60 +28,96 @@ def attach(
     source: assets.Source,
     images: list[assets.Image],
     user: model.User | None,
-    *,
-    preferred_avatar: model.Post | None = None,
 ) -> Result:
+    """Attach each image, reading one at a time."""
     result = Result()
-    skipped = 0
-    for image in images:
-        existing = db.session.get(CardImage, (post.post_id, image.uri))
-        if existing is not None:
-            visible = posts.try_get_post_by_id(existing.post_id)
-            if visible is None or visible.kind != "media":
-                skipped += 1
-                continue
-            if image.main:
-                result.avatar = existing.post_id
-            continue
-        try:
-            with db.session.begin_nested():
-                content = source.picture(image)
-                if content is None:
-                    skipped += 1
-                    continue
-                if image.main and preferred_avatar is not None:
-                    picture, created = preferred_avatar, False
-                else:
-                    picture, created = media.obtain(content, post, user, from_file=True)
-                if picture is None:
-                    skipped += 1
-                    continue
-                media.relate(
-                    picture, post, image.relation, image.label, user, created=created
-                )
-                db.session.add(
-                    CardImage(
-                        card_post_id=post.post_id,
-                        uri=image.uri,
-                        post_id=picture.post_id,
-                        type=image.relation,
-                        asset_type=image.asset_type,
-                        label=image.label,
-                        position=image.position,
-                    )
-                )
-                db.session.flush()
-            if created:
-                result.created.append(picture)
-            if image.main:
-                result.avatar = picture.post_id
-        except Exception:
-            # One malformed image, an unavailable duplicate or a relation limit
-            # cannot lose the card. Never log names, URIs, paths or payloads.
-            skipped += 1
+    skipped = sum(
+        not _attach_one(post, image, lambda i=image: source.picture(i), user, result)
+        for image in images
+    )
     if skipped:
         logger.info("Card file images skipped: %d", skipped)
     return result
+
+
+def attach_main(
+    post: model.Post,
+    source: assets.Source,
+    user: model.User | None,
+    *,
+    preferred_avatar: model.Post | None = None,
+) -> tuple[Result, assets.Image | None]:
+    """Attach the card's picture (`assets.Source.main`) as its avatar."""
+    result = Result()
+    try:
+        found = source.main()
+    except Exception:
+        # A malformed picture cannot lose the card; never log its payload.
+        found = None
+    if found is None:
+        if any(i.main for i in source.images):
+            logger.info("Card file images skipped: 1")
+        return result, None
+    image, content = found
+    if not _attach_one(
+        post, image, lambda: content, user, result, preferred_avatar=preferred_avatar
+    ):
+        logger.info("Card file images skipped: 1")
+    return result, image
+
+
+def _attach_one(
+    post: model.Post,
+    image: assets.Image,
+    read: Callable[[], bytes | None],
+    user: model.User | None,
+    result: Result,
+    *,
+    preferred_avatar: model.Post | None = None,
+) -> bool:
+    existing = db.session.get(CardImage, (post.post_id, image.uri))
+    if existing is not None:
+        visible = posts.try_get_post_by_id(existing.post_id)
+        if visible is None or visible.kind != "media":
+            return False
+        if image.main:
+            result.avatar = existing.post_id
+        return True
+    try:
+        with db.session.begin_nested():
+            content = read()
+            if content is None:
+                return False
+            if image.main and preferred_avatar is not None:
+                picture, created = preferred_avatar, False
+            else:
+                picture, created = media.obtain(content, post, user, from_file=True)
+            if picture is None:
+                return False
+            media.relate(
+                picture, post, image.relation, image.label, user, created=created
+            )
+            db.session.add(
+                CardImage(
+                    card_post_id=post.post_id,
+                    uri=image.uri,
+                    post_id=picture.post_id,
+                    type=image.relation,
+                    asset_type=image.asset_type,
+                    label=image.label,
+                    position=image.position,
+                )
+            )
+            db.session.flush()
+    except Exception:
+        # One malformed image, an unavailable duplicate or a relation limit
+        # cannot lose the card. Never log names, URIs, paths or payloads.
+        return False
+    if created:
+        result.created.append(picture)
+    if image.main:
+        result.avatar = picture.post_id
+    return True
 
 
 def start(
@@ -100,14 +137,10 @@ def start(
         return Result()
     try:
         with assets.opened(content) as source:
-            result = attach(
-                post,
-                source,
-                [i for i in source.images if i.main],
-                user,
-                preferred_avatar=preferred_avatar,
+            result, main = attach_main(
+                post, source, user, preferred_avatar=preferred_avatar
             )
-            result.pending = any(not i.main for i in source.images)
+            result.pending = bool(source.others(main))
     except (charx.NotCharx, charx.Rejected):
         return Result()
     if result.pending:
@@ -130,11 +163,12 @@ def read_all(post: model.Post, user: model.User | None) -> Result:
         return Result()
     try:
         with assets.opened(content) as source:
-            result = Result()
-            for image in source.images:
+            result, main = attach_main(post, source, user)
+            media.release(result.created)
+            result.created = []
+            db.session.flush()
+            for image in source.others(main):
                 item = attach(post, source, [image], user)
-                if image.main:
-                    result.avatar = item.avatar
                 # Keep only one image's bytes in memory. The engine tracks the
                 # new files through the outer transaction and removes them on
                 # rollback, including files from completed image savepoints.

@@ -473,8 +473,8 @@ adds:
   cannot be signed. Similarity is advice only; it never decides preservation.
 - **`POST modules/cards/file-picture`** (`get_card_file_picture`): send only
   `{"contentToken": "..."}` in the body, with `uploads:create`. The token
-  never belongs in a URL. Returns a PNG card's bytes or a CHARX's main icon,
-  with the detected engine image type; no engine image gives 404. This is a
+  never belongs in a URL. Returns the card's picture (below), with the
+  detected engine image type; no engine image gives 404. This is a
   non-JSON response, with `X-Content-Type-Options: nosniff`,
   `Content-Security-Policy: default-src 'none'; sandbox` and
   `Cache-Control: no-store`.
@@ -492,7 +492,8 @@ fetched. The card's `assets` list selects the images and their roles:
   An emotion without a usable name becomes `embedded-in`, without a label.
 - Other asset types become `embedded-in`; their usable names are labels too.
 - `embeded://` and `embedded://` read CHARX entries through the bounded archive
-  reader; `__asset:` reads a PNG asset chunk. Base64 `data:` URIs are supported.
+  reader; `__asset:` reads a PNG asset chunk (in a CHARX, an entry, as a legacy
+  form). Base64 `data:` URIs are supported.
   `ccdefault:` is a PNG's own picture and names nothing in CHARX. A PNG without
   an assets list has its own picture as its one main icon.
 - Only engine images, animations and videos detected from bytes are accepted.
@@ -500,7 +501,17 @@ fetched. The card's `assets` list selects the images and their roles:
   32 MiB decoded. URIs over 1024 characters are skipped. Bad or unavailable
   assets are skipped individually and never fail the card upload.
 
-A PNG picture is the original file with card and asset `tEXt`, `zTXt` and
+A card's picture is its declared main icon (the `icon` named `main`, or else
+the first icon), from an embedded asset or a `data:` URI, in PNG and CHARX
+alike. A PNG whose card names `ccdefault:`, has no assets list or no icon, or
+whose declared icon cannot be read (missing, too large, not an engine image)
+uses its stripped carrier instead; a CHARX then has no picture. Upload, the
+picture route, comparison, replacement and `cards convert` all use this
+picture. A PNG whose main icon is an embedded asset gets no media post for its
+carrier unless its assets list names `ccdefault:`; the card post's own
+thumbnail remains the carrier.
+
+A PNG's stripped carrier is the original file with card and asset `tEXt`, `zTXt` and
 `iTXt` chunks removed (`ccv3`, `chara`, and `chara-ext-asset_:` keywords).
 Every other chunk, including other text and animation chunks, is byte-identical,
 with its original CRC. The uploaded carrier remains untouched.
@@ -544,7 +555,7 @@ main icon is an alternate. Cards without files are untouched.
 
 Replacing a file selects its new main picture as the avatar. Identical pixels
 reuse the old avatar post and its relation, even when PNG bytes differ. For
-different pixels, `keepOldPicture` keeps the old stripped picture as `avatar-of`
+different pixels, `keepOldPicture` keeps the old file's picture as `avatar-of`
 and `gallery-of`; `keptPostId` identifies it. Without that choice its `avatar-of`
 relation to this card is removed and its post is deleted only if no typed
 relations remain. Hidden, retired and non-media matches are skipped without
@@ -554,7 +565,7 @@ The old file's other image relations remain. Its current-file URI mappings are
 replaced, and a new image job handles the new file's remaining images.
 
 Every former carrier file's SHA-1 is retired on its card; keeping a stripped
-PNG or a CHARX icon never keeps the carrier itself. Retired files remain duplicates at uploads, content edits, alternate
+carrier or an icon never keeps the carrier itself. Retired files remain duplicates at uploads, content edits, alternate
 formats, imports (including dry runs), and merges with content. The error
 names the post that retired the file; a hidden post gives only the bare
 duplicate message. Reverse search's exact match returns the retiring post,

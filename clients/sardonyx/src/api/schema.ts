@@ -2013,7 +2013,7 @@ export interface paths {
         put?: never;
         /**
          * Get a temporary card file's picture
-         * @description Return a temporary PNG card's stripped picture or a CHARX's media icon.
+         * @description Return a temporary card file's picture: its main icon or a PNG's carrier.
          *
          *     Accepts only a contentToken in the body. Returns 404 when no picture
          *     exists, with nosniff, sandbox CSP and no-store headers on image responses.

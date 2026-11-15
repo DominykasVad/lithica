@@ -1,15 +1,14 @@
 """Pictures carried by card files, compared independently of their metadata."""
 
 import warnings
-from io import BytesIO
 from typing import TypedDict
 
 from PIL import Image
 
 from lithica import errors
-from lithica.func import image_hash, images, mime
-from lithica.func.content import Content, ContentLike
-from lithica.modules.cards import assets, charx, png
+from lithica.func import image_hash, images
+from lithica.func.content import ContentLike
+from lithica.modules.cards import assets, charx
 
 
 class Comparison(TypedDict):
@@ -20,29 +19,13 @@ class Comparison(TypedDict):
 
 
 def picture(content: ContentLike) -> bytes | None:
-    """Return a PNG's stripped picture or a CHARX's main icon, never a URL."""
-    source = content.open() if isinstance(content, Content) else BytesIO(content)
-    with source:
-        if mime.get_mime_type(content) == "image/png":
-            return png.stripped(source, limit=assets.MAX_IMAGE_SIZE)
-        try:
-            with charx.opened(source) as archive:
-                uri = charx.icon_uri(archive.card)
-                icon = (
-                    charx.data_uri_bytes(uri, assets.MAX_IMAGE_SIZE)
-                    if uri is not None and uri.startswith("data:")
-                    else charx.asset_bytes(archive, uri, assets.MAX_IMAGE_SIZE)
-                    if uri is not None
-                    else None
-                )
-        except (charx.NotCharx, charx.Rejected):
-            return None
-    if icon is None:
+    """The card's picture by `assets.Source.main`; nothing is fetched."""
+    try:
+        with assets.opened(content) as source:
+            found = source.main()
+    except (charx.NotCharx, charx.Rejected):
         return None
-    detected = mime.get_mime_type(icon)
-    if not (mime.is_image(detected) or mime.is_video(detected)):
-        return None
-    return icon
+    return found[1] if found is not None else None
 
 
 def same_pixels(old: bytes | None, new: bytes | None) -> bool:

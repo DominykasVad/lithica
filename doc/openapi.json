@@ -8714,7 +8714,7 @@
           "cards"
         ],
         "summary": "Get a temporary card file's picture",
-        "description": "Return a temporary PNG card's stripped picture or a CHARX's media icon.\n\nAccepts only a contentToken in the body. Returns 404 when no picture\nexists, with nosniff, sandbox CSP and no-store headers on image responses.",
+        "description": "Return a temporary card file's picture: its main icon or a PNG's carrier.\n\nAccepts only a contentToken in the body. Returns 404 when no picture\nexists, with nosniff, sandbox CSP and no-store headers on image responses.",
         "operationId": "get_card_file_picture",
         "security": [
           {

@@ -2,7 +2,7 @@
 
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from io import BytesIO
 from itertools import chain
 from typing import BinaryIO, cast
@@ -15,6 +15,7 @@ from lithica.modules.cards import charx, png
 
 MAX_IMAGES = 200
 MAX_IMAGE_SIZE = 32 * 1024 * 1024
+CARRIER = "ccdefault:"
 
 
 @dataclass(frozen=True)
@@ -31,6 +32,7 @@ class Image:
 class Source:
     images: list[Image]
     read: Callable[[str], bytes | None]
+    is_png: bool
 
     def picture(self, image: Image) -> bytes | None:
         data = self.read(image.uri)
@@ -38,6 +40,34 @@ class Source:
             return None
         detected = mime.get_mime_type(data)
         return data if mime.is_image(detected) or mime.is_video(detected) else None
+
+    def main(self) -> tuple[Image, bytes] | None:
+        """
+        The card's picture: its declared main icon. A PNG's stripped carrier
+        when the card names `ccdefault:`, no icon, or an icon that cannot be
+        read; a CHARX then has none.
+        """
+        declared = next((i for i in self.images if i.main), None)
+        if declared is not None:
+            data = self.picture(declared)
+            if data is not None:
+                return declared, data
+        if not self.is_png or (declared is not None and declared.uri == CARRIER):
+            return None
+        listed = next((i for i in self.images if i.uri == CARRIER), None)
+        carrier = (
+            replace(listed, relation="avatar-of", main=True)
+            if listed is not None
+            else Image(CARRIER, None, "avatar-of", None, True)
+        )
+        data = self.picture(carrier)
+        return (carrier, data) if data is not None else None
+
+    def others(self, main: Image | None) -> list[Image]:
+        """Every image except the declared main icon and the chosen picture."""
+        return [
+            i for i in self.images if not i.main and (main is None or i.uri != main.uri)
+        ]
 
 
 def images(card: dict[str, object], is_png: bool) -> list[Image]:
@@ -47,7 +77,7 @@ def images(card: dict[str, object], is_png: bool) -> list[Image]:
     fields = card_format.fields_of(kind, card)
     raw = fields.get("assets")
     if not isinstance(raw, list):
-        return [Image("ccdefault:", None, "avatar-of", None, True)] if is_png else []
+        return [Image(CARRIER, None, "avatar-of", None, True)] if is_png else []
     main = card_format.main_icon_asset(fields)
     positions: dict[str, int] = {}
     for position, value in enumerate(cast(list[object], raw)):
@@ -76,8 +106,10 @@ def images(card: dict[str, object], is_png: bool) -> list[Image]:
             continue
         seen.add(uri)
         if not uri.startswith(
-            ("data:", "__asset:" if is_png else "embeded://", "embedded://")
-        ) and not (is_png and uri == "ccdefault:"):
+            ("data:", "__asset:")
+            if is_png
+            else ("data:", "embeded://", "embedded://", "__asset:")
+        ) and not (is_png and uri == CARRIER):
             continue
         name = asset.get("name")
         try:
@@ -109,7 +141,7 @@ def opened(content: ContentLike) -> Generator[Source]:
             card = png.read_card(handle)
 
             def read(uri: str) -> bytes | None:
-                if uri == "ccdefault:":
+                if uri == CARRIER:
                     return png.stripped(handle, limit=MAX_IMAGE_SIZE)
                 if uri.startswith("__asset:"):
                     return png.read_asset(
@@ -119,7 +151,7 @@ def opened(content: ContentLike) -> Generator[Source]:
                     return charx.data_uri_bytes(uri, MAX_IMAGE_SIZE)
                 return None
 
-            yield Source(images(card, True) if card else [], read)
+            yield Source(images(card, True) if card else [], read, True)
         else:
             with charx.opened(handle) as archive:
 
@@ -128,4 +160,4 @@ def opened(content: ContentLike) -> Generator[Source]:
                         return charx.data_uri_bytes(uri, MAX_IMAGE_SIZE)
                     return charx.asset_bytes(archive, uri, MAX_IMAGE_SIZE)
 
-                yield Source(images(archive.card, False), read_charx)
+                yield Source(images(archive.card, False), read_charx, False)

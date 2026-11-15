@@ -279,6 +279,7 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 - 2026-11-15 — 7.3 — The main picture is taken in the upload request (version 0 names it); the other images by a background job.
 - 2026-11-15 — 7.3 — A file replace makes the new file's picture the avatar; identical pixels keep the old avatar post.
 - 2026-11-15 — 7.3 — Image jobs resolve existing media as the card uploader; a missing uploader is anonymous.
+- 2026-11-15 — 7.3 — A card's picture is its declared main icon; a PNG's stripped carrier only for `ccdefault:`, no assets list or an unreadable icon.
 
 ---
 
@@ -493,7 +494,7 @@ release `v0.5.0`. Design: decisions 0003, 0005, 0006, 0010, 0011 and 0013 in
 - [x] Decode uploaded PNG pixels through a bounded view without text chunks, preserving stored bytes and Pillow's existing limits.
 
 ### 7.3 A card's own images
-- [ ] A card file's own images become unlisted media posts related to the card, inheriting its safety and NSFW tag: the main picture (a PNG's picture with the card chunks removed, a CHARX's main icon) as the avatar named in the document, other icons as alternate avatars (`avatar-of`), emotions as expressions labelled by name (`expression-of`), the rest `embedded-in`; listed by the card with their file URLs.
+- [x] A card file's own images become unlisted media posts related to the card, inheriting its safety and NSFW tag: the main picture (a PNG's picture with the card chunks removed, a CHARX's main icon) as the avatar named in the document, other icons as alternate avatars (`avatar-of`), emotions as expressions labelled by name (`expression-of`), the rest `embedded-in`; listed by the card with their file URLs.
 
 ### 7.4 Archiving card images
 - [ ] Card text refers to assets by a Lithica reference the clients resolve, not by a file URL (signed URLs expire).

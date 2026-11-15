@@ -10,7 +10,7 @@ from unittest.mock import patch
 import pytest
 
 from lithica import config, db, model
-from lithica.func import documents, posts
+from lithica.func import documents, posts, util
 from lithica.modules.cards import jobs
 from lithica.modules.cards.model import Card, CardImage
 from lithica.tests.api.http import ok
@@ -380,10 +380,59 @@ def test_same_media_keeps_each_asset_label(site: Site, user: model.User) -> None
         db.session.query(model.Job).filter_by(type="cards-images").one().payload
     )
     answer = ok(client.get(f"/modules/cards/post/{parent}", user=user))
-    images = answer["images"]
+    # The card names no icon, so its stripped carrier is the avatar.
+    images = [i for i in answer["images"] if i["relation"] == "expression-of"]
     assert [image["label"] for image in images] == ["happy", "sad"]
     assert images[0]["post"]["id"] == images[1]["post"]["id"]
     relation = (
-        db.session.query(model.PostTypedRelation).filter_by(to_post_id=parent).one()
+        db.session.query(model.PostTypedRelation)
+        .filter_by(to_post_id=parent, type="expression-of")
+        .one()
     )
     assert relation.type == "expression-of" and relation.label == "happy"
+
+
+def _declared_icon_card(icon: bytes) -> bytes:
+    raw = cards.v3_card(
+        assets=[
+            {"type": "icon", "name": "main", "uri": "__asset:main"},
+            {"type": "emotion", "name": "smile", "uri": "__asset:smile"},
+        ]
+    )
+    return cards.png_with(
+        cards.text_chunk(b"ccv3", cards.encoded(raw)),
+        cards.text_chunk(b"chara-ext-asset_:main", base64.b64encode(icon)),
+        cards.text_chunk(
+            b"chara-ext-asset_:smile", base64.b64encode(cards.picture(20))
+        ),
+    )
+
+
+def test_declared_main_icon_is_the_avatar_without_a_carrier_post(
+    site: Site, user: model.User
+) -> None:
+    client = site(["cards"])
+    parent = upload(client, user, _declared_icon_card(cards.picture(40)))
+    avatar = documents.get(posts.get_post_by_id(parent)).data["avatar"]
+    assert posts.get_post_by_id(avatar).checksum == util.get_sha1(cards.picture(40))
+    jobs.run_images(
+        db.session.query(model.Job).filter_by(type="cards-images").one().payload
+    )
+    uris = {r.uri: r.post_id for r in db.session.query(CardImage)}
+    assert uris.keys() == {"__asset:main", "__asset:smile"}
+    assert uris["__asset:main"] == avatar
+
+
+def test_unreadable_declared_icon_makes_the_carrier_the_avatar(
+    site: Site, user: model.User
+) -> None:
+    client = site(["cards"])
+    parent = upload(client, user, _declared_icon_card(b"not a picture"))
+    avatar = documents.get(posts.get_post_by_id(parent)).data["avatar"]
+    assert posts.get_post_by_id(avatar).checksum == util.get_sha1(cards.picture())
+    jobs.run_images(
+        db.session.query(model.Job).filter_by(type="cards-images").one().payload
+    )
+    uris = {r.uri: r.post_id for r in db.session.query(CardImage)}
+    assert uris.keys() == {"ccdefault:", "__asset:smile"}
+    assert uris["ccdefault:"] == avatar
