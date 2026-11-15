@@ -8,7 +8,7 @@ from PIL import Image
 
 from lithica import errors
 from lithica.func import content as content_module
-from lithica.func import image_hash, mime
+from lithica.func import image_hash, images, mime
 from lithica.func.content import Content, ContentLike
 from lithica.modules.cards import charx
 
@@ -43,13 +43,14 @@ def same_pixels(old: bytes | None, new: bytes | None) -> bool:
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("error", Image.DecompressionBombWarning)
-            with Image.open(BytesIO(old)) as first, Image.open(BytesIO(new)) as second:
+            with images.pillow_image(old) as first, images.pillow_image(new) as second:
                 if first.size != second.size:
                     return False
                 with first.convert("RGBA") as first_rgba:
                     with second.convert("RGBA") as second_rgba:
                         return first_rgba.tobytes() == second_rgba.tobytes()
     except (
+        errors.ProcessingError,
         OSError,
         ValueError,
         SyntaxError,

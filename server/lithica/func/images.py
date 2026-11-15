@@ -4,6 +4,8 @@ import math
 import re
 import shlex
 import subprocess
+from collections.abc import Generator
+from contextlib import contextmanager
 from io import BytesIO
 
 from PIL import Image as PILImage
@@ -12,7 +14,7 @@ from pillow_heif import register_heif_opener
 
 from lithica import errors
 from lithica.func import content as content_module
-from lithica.func import mime, util
+from lithica.func import mime, png, util
 from lithica.func.content import Content, ContentLike
 
 logger = logging.getLogger(__name__)
@@ -25,12 +27,20 @@ if not features.check("avif"):
     import pillow_avif  # noqa: F401
 
 
+@contextmanager
+def pillow_image(content: ContentLike) -> Generator[PILImage.Image]:
+    """Open pixel content while retaining Pillow's existing decoding limits."""
+    with png.for_decoding(content) as pixels:
+        source = pixels.path if isinstance(pixels, Content) else BytesIO(pixels)
+        with PILImage.open(source) as image:
+            yield image
+
+
 def convert_heif_to_png(content: ContentLike) -> bytes:
-    source = content.path if isinstance(content, Content) else BytesIO(content)
-    img = PILImage.open(source)
-    img_byte_arr = BytesIO()
-    img.save(img_byte_arr, format="PNG")
-    return img_byte_arr.getvalue()
+    with pillow_image(content) as img:
+        img_byte_arr = BytesIO()
+        img.save(img_byte_arr, format="PNG")
+        return img_byte_arr.getvalue()
 
 
 class Image:
@@ -286,7 +296,10 @@ class Image:
             self.content = convert_heif_to_png(self.content)
         extension = mime.get_extension(mime_type)
         assert extension
-        with content_module.as_file(self.content, suffix="." + extension) as path:
+        with (
+            png.for_decoding(self.content) as pixels,
+            content_module.as_file(pixels, suffix="." + extension) as path,
+        ):
             cli = [program, "-loglevel", "32" if get_logs else "24"] + cli
             cli = [part.format(path=path) for part in cli]
             proc = subprocess.Popen(

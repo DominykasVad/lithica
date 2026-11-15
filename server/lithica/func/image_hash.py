@@ -1,14 +1,14 @@
 import logging
 import math
-from io import BytesIO
 from typing import Any, cast
 
 import numpy as np
-from PIL import Image, features
+from PIL import features
 from pillow_heif import register_heif_opener
 
 from lithica import errors
-from lithica.func.content import Content, ContentLike
+from lithica.func import images
+from lithica.func.content import ContentLike
 
 register_heif_opener()
 if not features.check("avif"):
@@ -44,9 +44,8 @@ NpMatrix = np.ndarray
 
 def _preprocess_image(content: ContentLike) -> NpMatrix:
     try:
-        source = content.path if isinstance(content, Content) else BytesIO(content)
-        img = Image.open(source)
-        return np.asarray(img.convert("L"), dtype=np.uint8)
+        with images.pillow_image(content) as img:
+            return np.asarray(img.convert("L"), dtype=np.uint8)
     except (OSError, ValueError) as ex:
         raise errors.ProcessingError(
             "Unable to generate a signature hash for this image."
