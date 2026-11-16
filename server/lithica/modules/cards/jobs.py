@@ -52,7 +52,7 @@ def run(payload: registry.Payload) -> None:
                 )
                 db.session.refresh(post, ["user_id", "user"])
                 with visibility.as_viewer(post.user):
-                    convert(post, None)
+                    convert(post, post.user)
                 db.session.flush()
         except Exception as error:
             logger.warning(
