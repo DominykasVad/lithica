@@ -484,6 +484,9 @@ release `v0.5.0`. Design: decisions 0003, 0005, 0006, 0010, 0011 and 0013 in
 - [x] Related images with roles (6.3): the main avatar (named in the card document), alternate avatars, gallery, expressions with their labels; unlisted, with the card's safety and NSFW tag.
 - [x] Tests that a bulk import works within the limits: hundreds of cards created one after another through the API, a re-run updating instead of duplicating.
 
+### PNG decoding prerequisite (fix-png-text-decoding)
+- [x] Decode uploaded PNG pixels through a bounded view without text chunks, preserving stored bytes and Pillow's existing limits.
+
 ### 7.3 A card's own images
 - [ ] A PNG card's picture and a CHARX's embedded images (icon, backgrounds, sprites) become unlisted posts related to the card (`avatar-of`, `embedded-in`), inheriting its safety and NSFW tag; listed with their file URLs (served with their image type).
 
