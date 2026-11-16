@@ -389,6 +389,9 @@ def config_injector():
         config.config = new_config_content
 
     yield injector
+    # Close the session while the injected config (its data_dir) still
+    # applies: closing removes the files of uncommitted new posts.
+    db.session.close()
     config.config = original_config
 
 
