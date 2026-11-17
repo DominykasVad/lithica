@@ -785,6 +785,7 @@ def create_post(
     as_media: bool = False,
 ) -> tuple[model.Post, list[model.Tag]]:
     post = model.Post()
+    setattr(post, "__new_post_file", True)
     post.safety = model.Post.SAFETY_SAFE
     post.user = user
     post.creation_time = util.utcnow()
@@ -839,6 +840,17 @@ def _after_post_update(_mapper: Any, _connection: Any, post: model.Post) -> None
 def _before_post_delete(_mapper: Any, _connection: Any, post: model.Post) -> None:
     if post.post_id and has_file(post):
         if config.config["delete_source_files"]:
+            if getattr(post, "__delete_files_after_commit", False):
+                session = sa_orm.object_session(post)
+                assert session is not None
+                _file_changes(session)[1].update(
+                    (
+                        get_post_content_path(post),
+                        get_post_thumbnail_path(post),
+                        get_post_thumbnail_backup_path(post),
+                    )
+                )
+                return
             files.delete(get_post_content_path(post))
             files.delete(get_post_thumbnail_path(post))
 
@@ -850,6 +862,17 @@ def _sync_post_content(post: model.Post) -> None:
 
     if hasattr(post, "__content"):
         content = getattr(post, "__content")
+        if getattr(post, "__new_post_file", False):
+            session = sa_orm.object_session(post)
+            assert session is not None
+            _file_changes(session)[0].update(
+                (
+                    get_post_content_path(post),
+                    get_post_thumbnail_path(post),
+                    get_post_thumbnail_backup_path(post),
+                )
+            )
+            delattr(post, "__new_post_file")
         files.save(get_post_content_path(post), content)
         delattr(post, "__content")
         regenerate_thumb = True
@@ -941,6 +964,69 @@ def _forget_obsolete_post_files(
         session.info.pop("obsolete_post_files", None)
     else:
         _obsolete_post_files(session).pop(transaction, None)
+
+
+# New post IDs are never reused. Their files can safely be cleaned on rollback,
+# or (for an explicitly deferred deletion) after the database commit succeeds.
+# Keep changes scoped to savepoints: a hook can fail while its upload commits.
+type _PostFileChanges = dict[sa_orm.SessionTransaction, tuple[set[str], set[str]]]
+
+
+def _post_file_changes(session: sa_orm.Session) -> _PostFileChanges:
+    return cast(_PostFileChanges, session.info.setdefault("post_file_changes", {}))
+
+
+def _file_changes(session: sa_orm.Session) -> tuple[set[str], set[str]]:
+    transaction = session.get_nested_transaction() or session.get_transaction()
+    assert transaction is not None
+    return _post_file_changes(session).setdefault(transaction, (set(), set()))
+
+
+@sa_event.listens_for(sa_orm.Session, "after_commit")
+def _commit_post_files(session: sa_orm.Session) -> None:
+    transaction = session.get_nested_transaction()
+    if transaction is None:
+        changes = session.info.pop("post_file_changes", {})
+        for _created, deleted in changes.values():
+            for path in deleted:
+                files.delete(path)
+        return
+    changes = _post_file_changes(session).pop(transaction, None)
+    if changes is not None:
+        assert transaction.parent is not None
+        parent = _post_file_changes(session).setdefault(
+            transaction.parent, (set(), set())
+        )
+        parent[0].update(changes[0])
+        parent[1].update(changes[1])
+
+
+@sa_event.listens_for(sa_orm.Session, "after_soft_rollback")
+def _rollback_post_files(
+    session: sa_orm.Session, transaction: sa_orm.SessionTransaction
+) -> None:
+    pending = _post_file_changes(session)
+    if transaction.parent is None:
+        changes = list(pending.values())
+        session.info.pop("post_file_changes", None)
+    else:
+        changes = [pending.pop(transaction, (set(), set()))]
+    for created, _deleted in changes:
+        for path in created:
+            files.delete(path)
+
+
+@sa_event.listens_for(sa_orm.Session, "after_transaction_end")
+def _close_post_files(
+    session: sa_orm.Session, transaction: sa_orm.SessionTransaction
+) -> None:
+    # Session.close() rolls back without after_soft_rollback. A committed
+    # transaction has already cleared these records in after_commit.
+    if transaction.parent is None:
+        pending = session.info.pop("post_file_changes", {})
+        for created, _deleted in pending.values():
+            for path in created:
+                files.delete(path)
 
 
 def release_post_content(post: model.Post) -> None:
@@ -1554,8 +1640,10 @@ def feature_post(post: model.Post, user: model.User | None) -> None:
     db.session.add(post_feature)
 
 
-def delete(post: model.Post) -> None:
+def delete(post: model.Post, *, defer_files: bool = False) -> None:
     assert post
+    if defer_files:
+        setattr(post, "__delete_files_after_commit", True)
     db.session.delete(post)
 
 

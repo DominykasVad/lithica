@@ -1,5 +1,6 @@
 """Pixel identity is independent of card text, encoding and signature advice."""
 
+import base64
 import struct
 import zlib
 from io import BytesIO
@@ -10,16 +11,16 @@ import pytest
 from PIL import Image
 
 from lithica.func.content import Content
-from lithica.modules.cards import pictures
+from lithica.modules.cards import pictures, png
 from lithica.tests.modules import cards
 
 
-def test_png_picture_keeps_bytes(tmp_path: Path) -> None:
+def test_png_picture_strips_card_chunks(tmp_path: Path) -> None:
     content = cards.png_card(cards.v2_card())
-    assert pictures.picture(content) == content
+    assert pictures.picture(content) == cards.picture()
     path = tmp_path / "card.png"
     path.write_bytes(content)
-    assert pictures.picture(Content(str(path))) == content
+    assert pictures.picture(Content(str(path))) == cards.picture()
 
 
 def test_charx_picture_is_main_icon() -> None:
@@ -122,3 +123,56 @@ def test_valid_png_header_with_undecodable_chunks(broken_first: bool) -> None:
         "oldPicture": True,
         "newPicture": True,
     }
+
+
+def test_legacy_charx_icon_uri_keeps_preview_compatibility() -> None:
+    icon = cards.picture(30)
+    content = cards.charx(cards.charx_card("__asset:" + cards.ICON_PATH), icon)
+    assert pictures.picture(content) == icon
+
+
+def _png_with_icon(icon: bytes | None, uri: str = "__asset:main") -> bytes:
+    raw = cards.v3_card(
+        assets=[
+            {"type": "emotion", "name": "smile", "uri": "__asset:smile"},
+            {"type": "icon", "name": "main", "uri": uri},
+        ]
+    )
+    chunks = [cards.text_chunk(b"ccv3", cards.encoded(raw))]
+    if icon is not None:
+        chunks.append(
+            cards.text_chunk(b"chara-ext-asset_:main", base64.b64encode(icon))
+        )
+    return cards.png_with(*chunks)
+
+
+def test_png_picture_is_its_declared_main_icon() -> None:
+    first, second = _png_with_icon(cards.picture(40)), _png_with_icon(cards.picture(90))
+    # Equal carriers, different declared icons: different pictures.
+    assert png.stripped(BytesIO(first)) == png.stripped(BytesIO(second))
+    assert pictures.picture(first) == cards.picture(40)
+    assert pictures.picture(second) == cards.picture(90)
+    result = pictures.compare(pictures.picture(first), pictures.picture(second))
+    assert not result["samePixels"]
+
+
+def test_png_data_uri_main_icon_is_its_picture() -> None:
+    icon = cards.picture(40)
+    uri = "data:image/png;base64," + base64.b64encode(icon).decode()
+    assert pictures.picture(_png_with_icon(None, uri)) == icon
+
+
+@pytest.mark.parametrize("icon", [None, b"not a picture"])
+def test_png_unreadable_main_icon_falls_back_to_carrier(icon: bytes | None) -> None:
+    assert pictures.picture(_png_with_icon(icon)) == cards.picture()
+
+
+@pytest.mark.parametrize("uri", ["ccdefault:", None])
+def test_png_carrier_for_ccdefault_or_no_icon(uri: str | None) -> None:
+    assets = [{"type": "emotion", "name": "smile", "uri": "__asset:smile"}]
+    if uri is not None:
+        assets.append({"type": "icon", "name": "main", "uri": uri})
+    content = cards.png_with(
+        cards.text_chunk(b"ccv3", cards.encoded(cards.v3_card(assets=assets)))
+    )
+    assert pictures.picture(content) == cards.picture()

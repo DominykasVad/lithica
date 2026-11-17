@@ -12,6 +12,9 @@ class Card(Base):
     post_id: Mapped[int] = mapped_column(
         sa.ForeignKey("post.id", ondelete="CASCADE"), primary_key=True
     )
+    images_read: Mapped[bool] = mapped_column(
+        sa.Boolean, default=False, server_default=sa.false()
+    )
     spec: Mapped[str] = mapped_column(sa.Unicode(32))
     name: Mapped[str] = mapped_column(sa.Unicode(200))
     creator: Mapped[str] = mapped_column(sa.Unicode(200))
@@ -47,3 +50,19 @@ class CardLorebook(Base):
         sa.ForeignKey("post.id", ondelete="CASCADE"), index=True
     )
     position: Mapped[int] = mapped_column(sa.Integer, primary_key=True)
+
+
+class CardImage(Base):
+    __tablename__ = "cards_card_image"
+
+    card_post_id: Mapped[int] = mapped_column(
+        sa.ForeignKey("post.id", ondelete="CASCADE"), primary_key=True
+    )
+    uri: Mapped[str] = mapped_column(sa.String(1024), primary_key=True)
+    post_id: Mapped[int] = mapped_column(
+        sa.ForeignKey("post.id", ondelete="CASCADE"), index=True
+    )
+    type: Mapped[str] = mapped_column(sa.String(32))
+    asset_type: Mapped[str | None] = mapped_column(sa.String(64))
+    label: Mapped[str | None] = mapped_column(sa.String(128))
+    position: Mapped[int] = mapped_column(sa.Integer)

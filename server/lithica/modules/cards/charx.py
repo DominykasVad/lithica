@@ -250,35 +250,24 @@ def verify_icon(charx: Charx) -> None:
         raise Rejected("The icon of the card is an archive, not a picture.")
 
 
-def _icon_uri(card: dict[str, object]) -> str | None:
+def icon_uri(card: dict[str, object]) -> str | None:
     """The URI of the main icon: the icon named `main`, or else the first."""
     data = cast(dict[str, object], card["data"])
-    assets = data.get("assets")
-    if not isinstance(assets, list):
-        return None
-    icons: list[dict[str, object]] = []
-    for asset in cast(list[object], assets):
-        if isinstance(asset, dict):
-            fields = cast(dict[str, object], asset)
-            if fields.get("type") == "icon" and isinstance(fields.get("uri"), str):
-                icons.append(fields)
-    if not icons:
-        return None
-    main = next((icon for icon in icons if icon.get("name") == "main"), icons[0])
-    return cast(str, main["uri"])
+    icon = card_format.main_icon_asset(data)
+    return cast(str, icon["uri"]) if icon is not None else None
 
 
-def _data_uri_bytes(uri: str) -> bytes | None:
+def data_uri_bytes(uri: str, limit: int) -> bytes | None:
     header, separator, data = uri.partition(",")
     if not separator or not header.endswith(";base64"):
         return None
-    if len(data) > MAX_ICON_SIZE * 4 // 3 + 4:
+    if len(data) > (limit + 2) // 3 * 4:
         return None
     try:
         picture = base64.b64decode(data + "=" * (-len(data) % 4), validate=True)
     except (binascii.Error, ValueError):
         return None
-    return picture if len(picture) <= MAX_ICON_SIZE else None
+    return picture if len(picture) <= limit else None
 
 
 def main_icon(charx: Charx) -> bytes | None:
@@ -288,11 +277,11 @@ def main_icon(charx: Charx) -> bytes | None:
     never fetched, and `ccdefault:` names none. None as well for a picture
     that is missing, too large or unreadable.
     """
-    uri = _icon_uri(charx.card)
+    uri = icon_uri(charx.card)
     if uri is None:
         return None
     if uri.startswith("data:"):
-        return _data_uri_bytes(uri)
+        return data_uri_bytes(uri, MAX_ICON_SIZE)
     for prefix in _EMBEDDED_PREFIXES:
         if uri.startswith(prefix):
             entry = charx.find(uri[len(prefix) :])
@@ -302,4 +291,17 @@ def main_icon(charx: Charx) -> bytes | None:
                 return _read_entry(charx.archive, entry, MAX_ICON_SIZE)
             except NotCharx:
                 return None
+    return None
+
+
+def asset_bytes(charx: Charx, uri: str, limit: int) -> bytes | None:
+    """Read only an explicitly named entry through the archive's safe reader."""
+    for prefix in _EMBEDDED_PREFIXES:
+        if uri.startswith(prefix):
+            entry = charx.find(uri[len(prefix) :])
+            if entry is not None:
+                try:
+                    return _read_entry(charx.archive, entry, limit)
+                except NotCharx:
+                    return None
     return None

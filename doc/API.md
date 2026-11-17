@@ -473,29 +473,99 @@ adds:
   cannot be signed. Similarity is advice only; it never decides preservation.
 - **`POST modules/cards/file-picture`** (`get_card_file_picture`): send only
   `{"contentToken": "..."}` in the body, with `uploads:create`. The token
-  never belongs in a URL. Returns a PNG card's bytes or a CHARX's main icon,
-  with the detected engine image type; no engine image gives 404. This is a
+  never belongs in a URL. Returns the card's picture (below), with the
+  detected engine image type; no engine image gives 404. This is a
   non-JSON response, with `X-Content-Type-Options: nosniff`,
   `Content-Security-Policy: default-src 'none'; sandbox` and
   `Cache-Control: no-store`.
 
-When replacing a file, the old picture is its PNG file or its CHARX main
-icon (engine image types only). Unless `keepOldPicture` is false, a picture
-with different pixels becomes an unlisted `media` post, uploaded by the
-replacing user, with the card's safety and NSFW tag, no other or automatic
-tags, and both `avatar-of` and `gallery-of` relations to the card. A kept
-PNG retains its extracted content but gets no card document. Keeping a
-picture additionally requires `posts:edit:typed_relations`; the app-token
-`write` right already includes both privileges. An existing media post with
-that file is linked without changing its fields or duplicating relations.
-An existing non-media post, one hidden from the viewer, or one whose file is
-retired is skipped;
-`keptPostId` is `null` when nothing is kept. Identical pictures are never
-kept, regardless of the client's choice; the server compares the pixels.
+A card file's own images become unlisted `media` posts with the card's
+uploader, safety and NSFW tag (and no other or automatic tags). Visible existing
+media is linked unchanged; hidden, retired or non-media matches are skipped.
+These images need no privilege beyond uploading the card. No outside URLs are
+fetched. The card's `assets` list selects the images and their roles:
 
-A former file's SHA-1 is retired on its card, except when a kept PNG holds
-that file itself. CHARX originals are retired even when their icons are
-kept. Retired files remain duplicates at uploads, content edits, alternate
+- The `icon` named `main`, or the first icon, is the document's `avatar`.
+  Other icons are alternate avatars, related `avatar-of`.
+- `emotion` assets are related `expression-of`, labelled by their name through
+  the typed relation label rules (trimmed, at most 128 characters, no controls).
+  An emotion without a usable name becomes `embedded-in`, without a label.
+- Other asset types become `embedded-in`; their usable names are labels too.
+- `embeded://` and `embedded://` read CHARX entries through the bounded archive
+  reader; `__asset:` reads a PNG asset chunk (in a CHARX, an entry, as a legacy
+  form). Base64 `data:` URIs are supported.
+  `ccdefault:` is a PNG's own picture and names nothing in CHARX. A PNG without
+  an assets list has its own picture as its one main icon.
+- Only engine images, animations and videos detected from bytes are accepted.
+  At most 200 images are considered, with the main icon first, each at most
+  32 MiB decoded. URIs over 1024 characters are skipped. Bad or unavailable
+  assets are skipped individually and never fail the card upload.
+
+A card's picture is its declared main icon (the `icon` named `main`, or else
+the first icon), from an embedded asset or a `data:` URI, in PNG and CHARX
+alike. A PNG whose card names `ccdefault:`, has no assets list or no icon, or
+whose declared icon cannot be read (missing, too large, not an engine image)
+uses its stripped carrier instead; a CHARX then has no picture. Upload, the
+picture route, comparison, replacement and `cards convert` all use this
+picture. A PNG whose main icon is an embedded asset gets no media post for its
+carrier unless its assets list names `ccdefault:`; the card post's own
+thumbnail remains the carrier.
+
+A PNG's stripped carrier is the original file with card and asset `tEXt`, `zTXt` and
+`iTXt` chunks removed (`ccv3`, `chara`, and `chara-ext-asset_:` keywords).
+Every other chunk, including other text and animation chunks, is byte-identical,
+with its original CRC. The uploaded carrier remains untouched.
+
+The main picture is read during upload/import conversion, before document
+version 0 is written. Other images are read by a `cards-images` job with
+`{postId, checksum}`. It locks the card and skips a later replacement's checksum
+or a post that is no longer a card. Retries reuse media and URI mappings.
+Jobs resolve existing media with the card uploader's visibility; a deleted or
+missing uploader is anonymous. Requests use the requesting user's visibility.
+`cards_card_image` maps only the current file's asset URIs to media and relation
+types, with each URI's cleaned label, asset type and original zero-based
+assets-list position (0 for a PNG without an assets list). `(card_post_id, uri)`
+is unique; repeated URIs
+keep their first position. These mappings are for later reference resolution
+and export, rather than an inventory of all historical image relations.
+Two URIs with identical bytes may share one media post while retaining their
+own labels here; the engine relation keeps its first label.
+
+`GET modules/cards/post/<id>` also returns `imagesRead` and `images`. Each
+visible image, sorted by its original position, is:
+
+```json5
+{
+  "uri": "embeded://assets/emotion/smile.webp",
+  "assetType": "emotion", // null for a PNG picture without an assets list
+  "relation": "expression-of",
+  "label": "smile",
+  "post": {"id": 42, "mimeType": "image/webp", "contentUrl": "...", "thumbnailUrl": "..."}
+}
+```
+
+Hidden media is omitted. The engine serves media with the type detected from
+its bytes, including WebP, GIF and video. The `card` post field is unchanged.
+`imagesRead` is true once the current file's images have been processed; a
+main-picture-only file finishes in its upload request. `lithica-admin cards
+convert` (including `--count`) also covers existing file-backed cards whose
+images have not been read. It adds one version noted `Images read from the
+file.` only when setting a null avatar; an existing avatar stays and the file's
+main icon is an alternate. Cards without files are untouched.
+
+Replacing a file selects its new main picture as the avatar. Identical pixels
+reuse the old avatar post and its relation, even when PNG bytes differ. For
+different pixels, `keepOldPicture` keeps the old file's picture as `avatar-of`
+and `gallery-of`; `keptPostId` identifies it. Without that choice its `avatar-of`
+relation to this card is removed and its post is deleted only if no typed
+relations remain. Hidden, retired and non-media matches are skipped without
+exposing their IDs. New media files are removed on rollback; discarded media
+file deletion waits for commit and follows `delete_source_files`.
+The old file's other image relations remain. Its current-file URI mappings are
+replaced, and a new image job handles the new file's remaining images.
+
+Every former carrier file's SHA-1 is retired on its card; keeping a stripped
+carrier or an icon never keeps the carrier itself. Retired files remain duplicates at uploads, content edits, alternate
 formats, imports (including dry runs), and merges with content. The error
 names the post that retired the file; a hidden post gives only the bare
 duplicate message. Reverse search's exact match returns the retiring post,

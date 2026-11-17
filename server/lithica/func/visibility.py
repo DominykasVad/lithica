@@ -15,12 +15,13 @@ when a snapshot is serialized (`redact_snapshot_data`).
 
 Fail closed: a request is filtered until its user has been authenticated
 as somebody (`set_viewer`). Work outside a request (the admin command, a
-background job) is never filtered.
+background job) is unfiltered unless it explicitly chooses `as_viewer`.
 
 In `login`, anonymous users have no privileges at all (lithica.func.auth).
 """
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
+from contextlib import contextmanager
 from typing import Any
 
 import sqlalchemy as sa
@@ -70,6 +71,25 @@ def set_viewer(user: model.User) -> None:
     values = db.scope_values()
     if values is not None:
         values[_SEES_ALL] = user.rank != model.User.RANK_ANONYMOUS
+
+
+@contextmanager
+def as_viewer(user: model.User | None) -> Iterator[None]:
+    """Temporarily resolve posts as this viewer, including outside requests."""
+    values = db.scope_values()
+    if values is None:
+        with db.session_scope(), as_viewer(user):
+            yield
+        return
+    previous = {key: values[key] for key in (_REQUEST, _SEES_ALL) if key in values}
+    values[_REQUEST] = True
+    values[_SEES_ALL] = user is not None and user.rank != model.User.RANK_ANONYMOUS
+    try:
+        yield
+    finally:
+        for key in (_REQUEST, _SEES_ALL):
+            values.pop(key, None)
+        values.update(previous)
 
 
 def hides_nsfw() -> bool:

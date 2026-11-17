@@ -16,8 +16,8 @@ COMMITTED = os.path.join(
 
 # routes that answer with a file
 FILE_DOWNLOADS = {
-    "download_card": "application/octet-stream",
-    "get_card_file_picture": "image/*",
+    "download_card": ("application/octet-stream",),
+    "get_card_file_picture": ("image/*", "video/*"),
 }
 
 # requests that take no body
@@ -149,9 +149,8 @@ def test_every_operation_is_documented(document):
         if operation["operationId"] in FILE_DOWNLOADS:
             # the one kind of route that does not answer with JSON
             assert content == {
-                FILE_DOWNLOADS[operation["operationId"]]: {
-                    "schema": {"type": "string", "format": "binary"}
-                }
+                media_type: {"schema": {"type": "string", "format": "binary"}}
+                for media_type in FILE_DOWNLOADS[operation["operationId"]]
             }, where
         else:
             assert content["application/json"]["schema"], where

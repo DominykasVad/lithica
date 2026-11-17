@@ -8096,7 +8096,7 @@
           "cards"
         ],
         "summary": "Replace a character card's file",
-        "description": "Replace a converted card's file against its post version.\n\nkeepOldPicture defaults to true. Differing old pictures become related\nmedia when permitted; identical pixels are never kept. Creates a document\nversion noted `File replaced.` only when data changes. Refused files leave\ndatabase state and stored files unchanged; stale post versions give 409.",
+        "description": "Replace a converted card's file against its post version.\n\nkeepOldPicture defaults to true. Differing old pictures become related\nmedia; identical pixels retain the existing avatar post. Creates a document\nversion noted `File replaced.` only when data changes. Refused files leave\ndatabase state and stored files unchanged; stale post versions give 409.",
         "operationId": "replace_card_file",
         "security": [
           {
@@ -8714,7 +8714,7 @@
           "cards"
         ],
         "summary": "Get a temporary card file's picture",
-        "description": "Return a temporary PNG card's picture or a CHARX's engine-image icon.\n\nAccepts only a contentToken in the body. Returns 404 when no picture\nexists, with nosniff, sandbox CSP and no-store headers on image responses.",
+        "description": "Return a temporary card file's picture: its main icon or a PNG's carrier.\n\nAccepts only a contentToken in the body. Returns 404 when no picture\nexists, with nosniff, sandbox CSP and no-store headers on image responses.",
         "operationId": "get_card_file_picture",
         "security": [
           {
@@ -8744,6 +8744,12 @@
             "description": "The card's picture, with its detected image type.",
             "content": {
               "image/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "video/*": {
                 "schema": {
                   "type": "string",
                   "format": "binary"
@@ -8928,6 +8934,17 @@
               }
             ]
           },
+          "images": {
+            "items": {
+              "$ref": "#/components/schemas/CardFileImage"
+            },
+            "type": "array",
+            "title": "Images"
+          },
+          "imagesRead": {
+            "type": "boolean",
+            "title": "Imagesread"
+          },
           "name": {
             "type": "string",
             "title": "Name"
@@ -9098,6 +9115,46 @@
         "type": "object",
         "title": "CardFileComparison"
       },
+      "CardFileImage": {
+        "properties": {
+          "uri": {
+            "type": "string",
+            "title": "Uri"
+          },
+          "assetType": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assettype"
+          },
+          "relation": {
+            "type": "string",
+            "title": "Relation"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "post": {
+            "$ref": "#/components/schemas/CardImagePost"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "CardFileImage"
+      },
       "CardFileReplaced": {
         "properties": {
           "post": {
@@ -9122,6 +9179,50 @@
         "additionalProperties": false,
         "type": "object",
         "title": "CardFileReplaced"
+      },
+      "CardImagePost": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "thumbnailUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thumbnailurl"
+          },
+          "contentUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contenturl"
+          },
+          "mimeType": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mimetype"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "CardImagePost"
       },
       "Comment": {
         "properties": {

@@ -1,5 +1,7 @@
 """Replace a card file without passing failures through best-effort hooks."""
 
+import sqlalchemy as sa
+
 from lithica import db, errors, model
 from lithica.func import (
     documents,
@@ -8,9 +10,10 @@ from lithica.func import (
     snapshots,
     util,
     versions,
+    visibility,
 )
 from lithica.func.content import ContentLike
-from lithica.modules.cards import media, pictures, uploads
+from lithica.modules.cards import file_images, media, pictures, uploads
 
 
 class CardNotFoundError(errors.NotFoundError):
@@ -48,28 +51,69 @@ def replace(
     old = old_picture(post)
     same = pictures.same_pixels(old, pictures.picture(content))
     original_checksum = post.checksum
-    original_png = post.mime_type == "image/png"
+    old_id, allowed = media.existing(old) if old is not None else (None, False)
+    old_media = posts.try_get_post_by_id(old_id) if old_id is not None else None
 
-    # Metadata and signatures may flush. No file reaches storage until all
-    # document and relation work below has succeeded.
+    # The document and image map are validated before any deferred file is saved.
     posts.update_post_content(post, content, allow_document=True, defer_file=True)
     auto_tags = posts.update_post_auto_tags(post)
     data = uploads.build_version_data(post, user)
-    data["avatar"] = document.data.get("avatar")
+    images = file_images.start(
+        post, user, content, preferred_avatar=old_media if same else None
+    )
+    data["avatar"] = (
+        document.data.get("avatar")
+        if original_checksum is None and document.data.get("avatar") is not None
+        else images.avatar
+    )
     documents.write(post, data, document.version, user, "File replaced.")
 
     kept_id: int | None = None
-    kept: model.Post | None = None
-    if old is not None and not same and keep_old_picture:
-        picture, created = media.obtain(old, post, user)
-        if picture is not None:
-            kept_id = picture.post_id
-            if created:
-                kept = picture
+    if old is not None and not same and keep_old_picture and allowed:
+        created = False
+        if old_media is None:
+            old_media, created = media.obtain(old, post, user, from_file=True)
+            if created and old_media is not None:
+                images.created.append(old_media)
+        if old_media is not None:
+            kept_id = old_media.post_id
             for role in ("avatar-of", "gallery-of"):
-                media.relate(picture, post, role, None, user)
-    if original_checksum is not None and not (original_png and kept_id is not None):
+                media.relate(old_media, post, role, None, user, created=created)
+    elif (
+        not same
+        and not keep_old_picture
+        and old_media is not None
+        and old_media.post_id != images.avatar
+    ):
+        db.session.execute(
+            sa.delete(model.PostTypedRelation).where(
+                model.PostTypedRelation.from_post_id == old_media.post_id,
+                model.PostTypedRelation.to_post_id == post.post_id,
+                model.PostTypedRelation.type == "avatar-of",
+            )
+        )
+        db.session.execute(
+            sa.select(model.Post.post_id)
+            .where(model.Post.post_id == old_media.post_id)
+            .with_for_update()
+        )
+        remaining = db.session.scalar(
+            sa.select(model.PostTypedRelation.typed_relation_id)
+            .where(
+                sa.or_(
+                    model.PostTypedRelation.from_post_id == old_media.post_id,
+                    model.PostTypedRelation.to_post_id == old_media.post_id,
+                )
+            )
+            .limit(1)
+            .execution_options(**{visibility.ALL_POSTS: True})
+        )
+        if remaining is None:
+            snapshots.delete(old_media, user)
+            posts.delete(old_media, defer_files=True)
+    if original_checksum is not None:
         posts.retire_checksum(post, original_checksum, "replaced")
+    file_images.finish(post, images)
     versions.bump_version(post)
     post.last_edit_time = util.utcnow()
     db.session.flush()
@@ -78,6 +122,4 @@ def replace(
     snapshots.modify(post, user)
     db.session.flush()
     posts.release_post_content(post)
-    if kept is not None:
-        posts.release_post_content(kept)
     return kept_id, same

@@ -15,11 +15,13 @@ trusted, and nothing here raises for what the file holds: a picture whose
 card cannot be read is a picture.
 """
 
+import base64
+import binascii
 import struct
 import zlib
 from collections.abc import Iterator
 from dataclasses import dataclass, field
-from typing import BinaryIO
+from typing import BinaryIO, cast
 
 from lithica.modules.cards import card as card_format
 
@@ -229,3 +231,101 @@ def read_text(handle: BinaryIO, chunk: CardChunk) -> bytes | None:
     ):
         raise Oversized
     return found
+
+
+def stripped(handle: BinaryIO, *, limit: int | None = None) -> bytes | None:
+    """Copy complete chunks verbatim, excluding all card and asset text chunks.
+
+    The optional bound is used by image ingestion before allocating picture bytes.
+    Chunk lengths are checked against the actual file before reading or seeking.
+    """
+    size = handle.seek(0, 2)
+    handle.seek(0)
+    if handle.read(8) != SIGNATURE:
+        return None
+    result = bytearray(SIGNATURE)
+    position = 8
+    first = True
+    saw_data = False
+    while position + 12 <= size:
+        handle.seek(position)
+        header = handle.read(8)
+        length, kind = struct.unpack(">I4s", header)
+        end = position + 12 + length
+        if end > size or (first and (kind != b"IHDR" or length != 13)):
+            return None
+        if not first and kind == b"IHDR":
+            return None
+        first = False
+        if kind == b"IDAT" and length:
+            saw_data = True
+        remove = False
+        if kind in _TEXT_CHUNKS:
+            keyword = handle.read(min(length, MAX_KEYWORD_SIZE + 1)).partition(b"\x00")
+            remove = keyword[0].startswith(ASSET_PREFIX) or (
+                bool(keyword[1]) and keyword[0] in (V3_KEYWORD, V2_KEYWORD)
+            )
+        if not remove:
+            if limit is not None and len(result) + length + 12 > limit:
+                return None
+            handle.seek(position)
+            result.extend(handle.read(length + 12))
+        if kind == b"IEND":
+            return bytes(result) if length == 0 and saw_data else None
+        position = end
+    return None
+
+
+def read_asset(handle: BinaryIO, path: str, limit: int) -> bytes | None:
+    """Decode one asset; compressed and encoded bytes have explicit bounds too."""
+    try:
+        wanted = ASSET_PREFIX + path.encode("latin-1")
+    except UnicodeEncodeError:
+        return None
+    size = handle.seek(0, 2)
+    handle.seek(0)
+    encoded_limit = (limit + 2) // 3 * 4
+    for kind, offset, length in _chunks(handle):
+        if offset + length + 4 > size:
+            return None
+        if kind not in _TEXT_CHUNKS:
+            continue
+        handle.seek(offset)
+        start = handle.read(min(length, MAX_KEYWORD_SIZE + 1))
+        keyword, sep, _ = start.partition(b"\x00")
+        if not sep or keyword != wanted:
+            continue
+        remaining = length - len(keyword) - 1
+        if remaining > encoded_limit + MAX_KEYWORD_SIZE:
+            return None
+        handle.seek(offset + len(keyword) + 1)
+        text = _text_of(kind, handle.read(remaining), encoded_limit)
+        if text is None or len(text) > encoded_limit:
+            return None
+        try:
+            decoded = base64.b64decode(text, validate=True)
+        except (binascii.Error, ValueError):
+            return None
+        return decoded if len(decoded) <= limit else None
+    return None
+
+
+def read_card(handle: BinaryIO) -> dict[str, object] | None:
+    """Read the same first valid card as extraction, retaining its data URIs."""
+    embedded = read(handle)
+    for keyword in (V3_KEYWORD, V2_KEYWORD):
+        for chunk in embedded.cards:
+            if chunk.keyword != keyword:
+                continue
+            try:
+                text = read_text(handle, chunk)
+            except Oversized:
+                return None
+            value = card_format.decode(text) if text is not None else None
+            kind = card_format.kind_of(value)
+            if kind is not None and (
+                keyword != V3_KEYWORD or kind == card_format.KIND_V3
+            ):
+                if card_format.stored(value) is not None:
+                    return cast(dict[str, object], value)
+    return None

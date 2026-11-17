@@ -93,9 +93,31 @@ def get_typed_relation(relation_id: int) -> model.PostTypedRelation:
 
 
 def create_typed_relation(
-    from_id: int, to_id: int, type_name: str, label: str | None, user: model.User
+    from_id: int, to_id: int, type_name: str, label: str | None, user: model.User | None
 ) -> model.PostTypedRelation:
-    source, target = posts.get_post_by_id(from_id), posts.get_post_by_id(to_id)
+    return relate_posts(
+        posts.get_post_by_id(from_id),
+        posts.get_post_by_id(to_id),
+        type_name,
+        label,
+        user,
+    )
+
+
+def relate_posts(
+    source: model.Post,
+    target: model.Post,
+    type_name: str,
+    label: str | None,
+    user: model.User | None,
+) -> model.PostTypedRelation:
+    """Relate posts the caller has already resolved or created in this transaction.
+
+    The ID-based API resolves both ends with visibility before entering here.
+    Modules may also relate their own newly created unlisted/NSFW posts, while
+    retaining the same kind, label, duplicate, locking and count invariants.
+    """
+    from_id, to_id = source.post_id, target.post_id
     item = relation_type(type_name)
     if from_id == to_id:
         raise InvalidTypedRelationError("A typed relation must have distinct posts.")
@@ -140,7 +162,7 @@ def create_typed_relation(
         type=type_name,
         label=label,
         creation_time=util.utcnow(),
-        user_id=user.user_id,
+        user_id=user.user_id if user else None,
     )
     db.session.add(row)
     db.session.flush()

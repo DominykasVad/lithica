@@ -63,6 +63,32 @@ def test_conversion(site: Site, user: model.User) -> None:
     assert db.session.query(Lorebook).count() == 1
 
 
+@pytest.mark.parametrize("deleted", [False, True])
+def test_conversion_job_acts_as_the_uploader(
+    site: Site, user: model.User, deleted: bool
+) -> None:
+    client = site(["cards"])
+    registry.use(
+        [replace(module, after_file_or_kind=None) for module in registry.modules()]
+    )
+    card_id = upload(client, user, cards.v2_card(name="Owned"))
+    expected = None if deleted else user.user_id
+    if deleted:
+        db.session.delete(user)
+    db.session.commit()
+    jobs.run({"after": 0})
+    assert jobs.pending().count() == 0
+    version = (
+        db.session.query(model.PostDocumentVersion)
+        .filter_by(post_id=card_id, number=0)
+        .one()
+    )
+    assert version.user_id == expected
+    book_id = db.session.query(Lorebook.post_id).scalar()
+    assert book_id is not None
+    assert posts.get_post_by_id(book_id).user_id == expected
+
+
 def test_conversion_batches(site: Site, user: model.User) -> None:
     site(["cards"])
     for i in range(101):

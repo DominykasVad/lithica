@@ -73,7 +73,7 @@ def test_picture_response(site, user, form):
         assert response.status_code == 404
     else:
         assert response.status_code == 200, response.text
-        assert response.content == picture
+        assert response.content == (cards.picture() if form == "png" else picture)
         assert response.headers["Content-Type"] == "image/png"
         assert response.headers["X-Content-Type-Options"] == "nosniff"
         assert (

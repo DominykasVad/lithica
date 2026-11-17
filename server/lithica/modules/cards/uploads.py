@@ -8,6 +8,7 @@ from sqlalchemy.orm import undefer
 from lithica import db, errors, model, registry
 from lithica.func import documents, posts, visibility
 from lithica.modules.cards import card as card_format
+from lithica.modules.cards import file_images
 from lithica.modules.cards.documents import (
     after_card,
     card_key,
@@ -29,7 +30,9 @@ def convert(post: model.Post, user: model.User | None) -> None:
     )
     # The batch may have loaded this post before a concurrent edit committed.
     # Read metadata under the lock before classifying or inheriting it.
-    db.session.refresh(post, ["kind", "safety", "user_id", "user", "tags"])
+    db.session.refresh(
+        post, ["kind", "safety", "user_id", "user", "tags", "checksum", "mime_type"]
+    )
     if post.kind != "card":
         return
     document = db.session.get(model.PostDocument, post.post_id)
@@ -40,6 +43,7 @@ def convert(post: model.Post, user: model.User | None) -> None:
         elif row.data_hash is None:
             # Do not rebuild links from JSON that may retain deleted book IDs.
             row.data_hash = card_key(document.data["spec"], document.data["card"])
+        file_images.backfill(post, user)
         return
     if (
         db.session.scalar(
@@ -54,7 +58,10 @@ def convert(post: model.Post, user: model.User | None) -> None:
     ):
         return
     data = build_version_data(post, user)
+    images = file_images.start(post, user)
+    data["avatar"] = images.avatar
     documents.create(post, "card", data, user, "Read from the file.")
+    file_images.finish(post, images)
 
 
 def build_version_data(post: model.Post, user: model.User | None) -> registry.Payload:

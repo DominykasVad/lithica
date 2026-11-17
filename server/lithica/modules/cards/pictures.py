@@ -1,16 +1,14 @@
 """Pictures carried by card files, compared independently of their metadata."""
 
 import warnings
-from io import BytesIO
 from typing import TypedDict
 
 from PIL import Image
 
 from lithica import errors
-from lithica.func import content as content_module
-from lithica.func import image_hash, images, mime
-from lithica.func.content import Content, ContentLike
-from lithica.modules.cards import charx
+from lithica.func import image_hash, images
+from lithica.func.content import ContentLike
+from lithica.modules.cards import assets, charx
 
 
 class Comparison(TypedDict):
@@ -21,19 +19,13 @@ class Comparison(TypedDict):
 
 
 def picture(content: ContentLike) -> bytes | None:
-    """Return a PNG's bytes or a CHARX's main icon, never an outside URL."""
-    if mime.get_mime_type(content) == "image/png":
-        return content_module.read(content)
-    source = content.open() if isinstance(content, Content) else BytesIO(content)
-    with source:
-        try:
-            with charx.opened(source) as archive:
-                icon = charx.main_icon(archive)
-        except (charx.NotCharx, charx.Rejected):
-            return None
-    if icon is None or not mime.is_image(mime.get_mime_type(icon)):
+    """The card's picture by `assets.Source.main`; nothing is fetched."""
+    try:
+        with assets.opened(content) as source:
+            found = source.main()
+    except (charx.NotCharx, charx.Rejected):
         return None
-    return icon
+    return found[1] if found is not None else None
 
 
 def same_pixels(old: bytes | None, new: bytes | None) -> bool:

@@ -234,7 +234,12 @@ def test_nonmedia_and_retired_tokens_are_skipped(
     assert (
         documents.get(posts.get_post_by_id(result["post"]["id"])).data["avatar"] is None
     )
-    assert db.session.query(model.PostTypedRelation).count() == 0
+    assert (
+        db.session.query(model.PostTypedRelation)
+        .filter_by(to_post_id=result["post"]["id"])
+        .count()
+        == 0
+    )
 
 
 def test_related_privilege_and_late_failure_leave_no_files(

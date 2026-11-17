@@ -69,7 +69,7 @@ def test_import_of_cards(admin, library, user, tmp_path, capsys):
 
     v2, v3, charx, plain = (
         db.session.query(model.Post)
-        .filter(model.Post.mime_type.is_not(None))
+        .filter(model.Post.mime_type.is_not(None), model.Post.listed.is_(True))
         .order_by(model.Post.post_id)
         .all()
     )
@@ -111,7 +111,7 @@ def test_import_of_cards(admin, library, user, tmp_path, capsys):
     # a second run creates nothing
     assert _import(admin, folder, user) == 0
     assert "0 created, 4 skipped, 2 refused, 0 failed" in capsys.readouterr().out
-    assert db.session.query(model.Post).count() == 6
+    assert db.session.query(model.Post).count() == 9
 
 
 def test_import_of_the_sample_cards(admin, library, user, capsys):

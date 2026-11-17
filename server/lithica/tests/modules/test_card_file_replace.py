@@ -33,6 +33,7 @@ def test_png_replace(site, user, keep, shade):
     original = cards.png_card(cards.v2_card(), shade=0)
     post_id = upload(client, user, cards.v2_card(), safety="unsafe", tags=["nsfw"])
     old_checksum = util.get_sha1(original)
+    old_avatar = documents.get(posts.get_post_by_id(post_id)).data["avatar"]
     result = ok(
         replace(
             client,
@@ -54,8 +55,12 @@ def test_png_replace(site, user, keep, shade):
         assert kept.kind == "media" and not kept.listed and kept.safety == "unsafe"
         assert kept.user_id == user.user_id
         assert [t.first_name for t in kept.tags] == ["nsfw"]
-        assert kept.contents and db.session.get(model.PostDocument, kept_id) is None
-        assert files.get(posts.get_post_content_path(kept)) == original
+        assert (
+            kept.contents == [] and db.session.get(model.PostDocument, kept_id) is None
+        )
+        assert kept_id == old_avatar
+        assert files.get(posts.get_post_content_path(kept)) == cards.picture()
+        assert documents.get(post).data["avatar"] != old_avatar
         relations = (
             db.session.query(model.PostTypedRelation)
             .filter_by(from_post_id=kept_id)
@@ -65,22 +70,23 @@ def test_png_replace(site, user, keep, shade):
             (post_id, "avatar-of"),
             (post_id, "gallery-of"),
         }
-        assert db.session.get(model.PostRetiredChecksum, old_checksum) is None
     else:
         assert kept_id is None
-        assert (
-            db.session.get(model.PostRetiredChecksum, old_checksum).post_id == post_id
-        )
+        if shade == 0:
+            assert documents.get(post).data["avatar"] == old_avatar
+        else:
+            assert db.session.get(model.Post, old_avatar) is None
+    assert db.session.get(model.PostRetiredChecksum, old_checksum).post_id == post_id
 
 
-def test_identical_data_changes_file_only(site, user):
+def test_identical_card_text_with_new_pixels_changes_avatar_version(site, user):
     client = site(["cards"])
     post_id = upload(client, user, cards.v2_card())
     result = ok(
         replace(client, user, post_id, cards.png_card(cards.v2_card(), shade=80))
     )
     assert result["keptPostId"] is not None
-    assert documents.get(posts.get_post_by_id(post_id)).version == 0
+    assert documents.get(posts.get_post_by_id(post_id)).version == 1
 
 
 @pytest.mark.parametrize("mode", ["same", "plain", "duplicate", "stale"])

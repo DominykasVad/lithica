@@ -1887,7 +1887,7 @@ export interface paths {
          * @description Replace a converted card's file against its post version.
          *
          *     keepOldPicture defaults to true. Differing old pictures become related
-         *     media when permitted; identical pixels are never kept. Creates a document
+         *     media; identical pixels retain the existing avatar post. Creates a document
          *     version noted `File replaced.` only when data changes. Refused files leave
          *     database state and stored files unchanged; stale post versions give 409.
          */
@@ -2013,7 +2013,7 @@ export interface paths {
         put?: never;
         /**
          * Get a temporary card file's picture
-         * @description Return a temporary PNG card's picture or a CHARX's engine-image icon.
+         * @description Return a temporary card file's picture: its main icon or a PNG's carrier.
          *
          *     Accepts only a contentToken in the body. Returns 404 when no picture
          *     exists, with nosniff, sandbox CSP and no-store headers on image responses.
@@ -2093,6 +2093,10 @@ export interface components {
              */
             format?: string | null;
             avatar?: components["schemas"]["CardAvatar"] | null;
+            /** Images */
+            images?: components["schemas"]["CardFileImage"][];
+            /** Imagesread */
+            imagesRead?: boolean;
             /** Name */
             name?: string;
             /** Description */
@@ -2155,6 +2159,18 @@ export interface components {
             /** Newpicture */
             newPicture?: boolean;
         };
+        /** CardFileImage */
+        CardFileImage: {
+            /** Uri */
+            uri?: string;
+            /** Assettype */
+            assetType?: string | null;
+            /** Relation */
+            relation?: string;
+            /** Label */
+            label?: string | null;
+            post?: components["schemas"]["CardImagePost"];
+        };
         /** CardFileReplaced */
         CardFileReplaced: {
             post?: components["schemas"]["Post"];
@@ -2162,6 +2178,17 @@ export interface components {
             keptPostId?: number | null;
             /** Samepicture */
             samePicture?: boolean;
+        };
+        /** CardImagePost */
+        CardImagePost: {
+            /** Id */
+            id?: number;
+            /** Thumbnailurl */
+            thumbnailUrl?: string | null;
+            /** Contenturl */
+            contentUrl?: string | null;
+            /** Mimetype */
+            mimeType?: string | null;
         };
         /** Comment */
         Comment: {
@@ -7130,6 +7157,7 @@ export interface operations {
                 };
                 content: {
                     "image/*": string;
+                    "video/*": string;
                 };
             };
             /** @description The request was refused. */

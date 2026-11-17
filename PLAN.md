@@ -274,6 +274,13 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 - 2026-11-13 — 7.2 — A card's main avatar is named in its document (`avatar`); its other `avatar-of` images are alternates.
 - 2026-11-13 — 7.2 — A data duplicate sent with an unknown external ID gains the ID instead of being refused.
 - 2026-11-14 — 7.2 — The card file replace route may give a file-less card its first file (no picture kept, nothing retired).
+- 2026-11-15 — 7.3 — A PNG card's picture is a media post of its own: the file with its card and asset chunks removed, every other chunk byte-identical.
+- 2026-11-15 — 7.3 — Images from a card file by asset type: main icon → avatar, other icons → alternate avatars, emotion → expression (asset name as label), the rest → embedded-in.
+- 2026-11-15 — 7.3 — The main picture is taken in the upload request (version 0 names it); the other images by a background job.
+- 2026-11-15 — 7.3 — A file replace makes the new file's picture the avatar; identical pixels keep the old avatar post.
+- 2026-11-15 — 7.3 — Image jobs resolve existing media as the card uploader; a missing uploader is anonymous.
+- 2026-11-15 — 7.3 — A card's picture is its declared main icon; a PNG's stripped carrier only for `ccdefault:`, no assets list or an unreadable icon.
+- 2026-11-16 — 7.3 — The engine removes the files of new posts on rollback (savepoints included) and can delete a post's files after commit (`posts.delete(defer_files=True)`).
 
 ---
 
@@ -484,11 +491,8 @@ release `v0.5.0`. Design: decisions 0003, 0005, 0006, 0010, 0011 and 0013 in
 - [x] Related images with roles (6.3): the main avatar (named in the card document), alternate avatars, gallery, expressions with their labels; unlisted, with the card's safety and NSFW tag.
 - [x] Tests that a bulk import works within the limits: hundreds of cards created one after another through the API, a re-run updating instead of duplicating.
 
-### PNG decoding prerequisite (fix-png-text-decoding)
-- [x] Decode uploaded PNG pixels through a bounded view without text chunks, preserving stored bytes and Pillow's existing limits.
-
 ### 7.3 A card's own images
-- [ ] A PNG card's picture and a CHARX's embedded images (icon, backgrounds, sprites) become unlisted posts related to the card (`avatar-of`, `embedded-in`), inheriting its safety and NSFW tag; listed with their file URLs (served with their image type).
+- [x] A card file's own images become unlisted media posts related to the card, inheriting its safety and NSFW tag: the main picture (a PNG's picture with the card chunks removed, a CHARX's main icon) as the avatar named in the document, other icons as alternate avatars (`avatar-of`), emotions as expressions labelled by name (`expression-of`), the rest `embedded-in`; listed by the card with their file URLs.
 
 ### 7.4 Archiving card images
 - [ ] Card text refers to assets by a Lithica reference the clients resolve, not by a file URL (signed URLs expire).
