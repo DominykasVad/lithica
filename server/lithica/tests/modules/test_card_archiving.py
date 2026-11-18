@@ -1,18 +1,23 @@
 import logging
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+from threading import Event
 from time import sleep
 from unittest.mock import patch
 
 import pytest
 
-from lithica import config, db, model
-from lithica.func import documents, jobs, net, posts
-from lithica.modules.cards import archiving
+from lithica import config, db, model, registry
+from lithica.func import documents, jobs, net, posts, util
+from lithica.modules.cards import archived_links, archiving
+from lithica.modules.cards.documents import split_card
 from lithica.modules.cards.model import ArchivedLink, Card
-from lithica.tests.api.http import assert_error, ok
+from lithica.tests.api.http import assert_error, ok, shipped_config
 from lithica.tests.conftest import ApiClient
 from lithica.tests.func.test_net_download_guard import (
     PUBLIC_IP,
+    _WebServer,
 )
 from lithica.tests.func.test_net_download_guard import (
     network as network,
@@ -249,6 +254,98 @@ def test_stale_job_leaves_changed_or_deleted_card_alone(
     assert db.session.query(ArchivedLink).count() == 0
     if changed == "checksum":
         assert not db.session.get(Card, post_id).archive_queued
+
+
+@pytest.mark.parametrize("change", ["edit", "delete", "record"])
+def test_card_can_change_while_archive_download_is_blocked(
+    change: str,
+    committing_session: None,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    user_factory: Callable[..., model.User],
+    tag_category_factory: Callable[..., model.TagCategory],
+    web: _WebServer,
+) -> None:
+    monkeypatch.setattr(
+        config,
+        "config",
+        shipped_config(str(tmp_path), modules=["cards"], allow_private_downloads=True),
+    )
+    registry.load_configured()
+    downloading, release = Event(), Event()
+
+    def image() -> tuple[int, dict[str, str], bytes]:
+        downloading.set()
+        assert release.wait(10)
+        return 200, {}, cards.picture(73)
+
+    web.routes["/image"] = image
+    url = f"http://127.0.0.1:{web.port}/image"
+    with db.session_scope():
+        user = user_factory(rank=model.User.RANK_ADMINISTRATOR)
+        db.session.add_all([user, tag_category_factory(name="default", default=True)])
+        db.session.flush()
+        post = posts.create_fileless_post("card", user)
+        data, _ = split_card("card_v3", cards.v3_card(first_mes=f"![image]({url})"))
+        documents.create(post, "card", data, user)
+        assert archiving.queue(post, True, user)
+        post_id = post.post_id
+        db.session.commit()
+
+    def change_card() -> None:
+        with db.session_scope():
+            post = posts.get_post_by_id(post_id)
+            if change == "delete":
+                posts.delete(post, defer_files=True)
+            else:
+                document = documents.get(post, lock=True)
+                if change == "edit":
+                    document.data["card"]["data"]["name"] = "Edited during download"
+                    documents.write(post, document.data, document.version, post.user)
+                else:
+                    db.session.add(
+                        ArchivedLink(
+                            card_post_id=post_id,
+                            url=url,
+                            url_hash=archived_links.url_hash(url),
+                            status="failed",
+                            reason="not-media",
+                            attempts=1,
+                            last_attempt_time=util.utcnow(),
+                        )
+                    )
+            db.session.commit()
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        worker = pool.submit(jobs.work_once)
+        try:
+            assert downloading.wait(5)
+            pool.submit(change_card).result(timeout=3)
+        finally:
+            release.set()
+        assert worker.result(timeout=10)
+
+    with db.session_scope():
+        assert db.session.query(model.Job).one().status == "done"
+        if change == "edit":
+            post = posts.get_post_by_id(post_id)
+            assert documents.get(post).version == 1
+            row = db.session.query(ArchivedLink).one()
+            assert row.status == "archived"
+            assert posts.get_post_by_id(row.post_id).source == url
+        else:
+            assert db.session.query(model.Post).filter_by(kind="media").count() == 0
+            assert not any(path.is_file() for path in tmp_path.rglob("*"))
+            if change == "delete":
+                assert db.session.get(model.Post, post_id) is None
+                assert db.session.query(ArchivedLink).count() == 0
+            else:
+                row = db.session.query(ArchivedLink).one()
+                assert (row.status, row.reason, row.attempts) == (
+                    "failed",
+                    "not-media",
+                    1,
+                )
 
 
 def test_hidden_duplicate_is_unavailable_and_visible_posts_are_filtered(

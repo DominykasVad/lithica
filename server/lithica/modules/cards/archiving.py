@@ -2,6 +2,7 @@
 
 import logging
 from collections import Counter
+from contextlib import ExitStack
 from datetime import datetime
 
 import sqlalchemy as sa
@@ -20,6 +21,7 @@ from lithica.func import (
     util,
     visibility,
 )
+from lithica.func.content import Content
 from lithica.modules.cards import archived_links, card, image_links, media
 from lithica.modules.cards.model import ArchivedLink, ArchiveReason, Card
 
@@ -144,37 +146,41 @@ def _existing(url: str) -> model.Post | None:
     )
 
 
+def _download(url: str, cleanup: ExitStack) -> Content | ArchiveReason:
+    try:
+        content = net.download(url, max_size=MAX_SIZE, log_failures=False)
+    except net.DownloadTooLargeError:
+        return "too-large"
+    except (net.DownloadError, net.InvalidDownloadUrlError, ValueError):
+        return "failed"
+    cleanup.callback(content.delete)
+    mime_type = mime.get_mime_type(content)
+    return (
+        content if mime.is_image(mime_type) or mime.is_video(mime_type) else "not-media"
+    )
+
+
 def _archive_one(
-    post: model.Post, url: str
-) -> tuple[int | None, ArchiveReason | None, bool]:
+    post: model.Post, url: str, download: Content | ArchiveReason | None
+) -> tuple[int | None, ArchiveReason | None, bool] | None:
     picture = _existing(url)
     if picture is not None:
         media.relate(picture, post, "archived-from", None, post.user)
         return picture.post_id, None, True
 
-    try:
-        content = net.download(url, max_size=MAX_SIZE, log_failures=False)
-    except net.DownloadTooLargeError:
-        return None, "too-large", False
-    except (net.DownloadError, net.InvalidDownloadUrlError, ValueError):
-        return None, "failed", False
-
-    try:
-        mime_type = mime.get_mime_type(content)
-        if not (mime.is_image(mime_type) or mime.is_video(mime_type)):
-            return None, "not-media", False
-        picture, created = media.obtain(content, post, post.user, from_file=True)
-        if picture is None:
-            return None, "unavailable", False
-        if created and not util.value_exceeds_column_size(url, model.Post.source):
-            posts.update_post_source(picture, url)
-        media.relate(picture, post, "archived-from", None, post.user, created=created)
-        if created:
-            media.release([picture])
-            db.session.flush()
-        return picture.post_id, None, not created
-    finally:
-        content.delete()
+    if not isinstance(download, Content):
+        # If the reusable post disappeared, leave the URL due for another batch.
+        return (None, download, False) if download is not None else None
+    picture, created = media.obtain(download, post, post.user, from_file=True)
+    if picture is None:
+        return None, "unavailable", False
+    if created and not util.value_exceeds_column_size(url, model.Post.source):
+        posts.update_post_source(picture, url)
+    media.relate(picture, post, "archived-from", None, post.user, created=created)
+    if created:
+        media.release([picture])
+        db.session.flush()
+    return picture.post_id, None, not created
 
 
 def _record(
@@ -199,11 +205,17 @@ def _record(
 
 
 def _attempt(
-    post: model.Post, url: str, previous: ArchivedLink | None
-) -> tuple[ArchiveReason | None, bool]:
+    post: model.Post,
+    url: str,
+    download: Content | ArchiveReason | None,
+    previous: ArchivedLink | None,
+) -> tuple[ArchiveReason | None, bool] | None:
     try:
         with db.session.begin_nested():
-            post_id, reason, reused = _archive_one(post, url)
+            result = _archive_one(post, url, download)
+            if result is None:
+                return None
+            post_id, reason, reused = result
             _record(post.post_id, url, previous, post_id, reason)
         return reason, reused
     except posts.InvalidPostContentError:
@@ -212,8 +224,11 @@ def _attempt(
         posts.PostAlreadyUploadedError,
         posts.PostNotFoundError,
         post_metadata.InvalidTypedRelationError,
-        IntegrityError,
     ):
+        failure = "unavailable"
+    except IntegrityError:
+        if previous is None and url in archived_links.current(post.post_id, [url]):
+            return None  # Another writer already recorded the URL.
         failure = "unavailable"
     # The failed attempt's savepoint has rolled back any media or relation.
     with db.session.begin_nested():
@@ -221,11 +236,32 @@ def _attempt(
     return failure, False
 
 
-def _run(payload: registry.Payload) -> None:
-    post_id = int(payload["postId"])
+def _due(
+    urls: list[str], rows: dict[str, ArchivedLink], cutoff: datetime | None
+) -> list[str]:
+    return [
+        url
+        for url in urls
+        if (existing := rows.get(url)) is None
+        or (
+            cutoff is not None
+            and existing.status == "failed"
+            and existing.last_attempt_time < cutoff
+        )
+    ]
+
+
+def _finish_batch(
+    payload: registry.Payload,
+    post_id: int,
+    cutoff: datetime | None,
+    prepared: dict[str, Content | ArchiveReason | None],
+) -> None:
     row = _locked_card(post_id)
     if row is None or not row.archive_queued:
         return
+    # The unlocked read may have loaded any of these rows before an edit.
+    db.session.expire_all()
     post = posts.try_get_post_by_id(post_id)
     document = db.session.get(model.PostDocument, post_id)
     if (
@@ -246,31 +282,26 @@ def _run(payload: registry.Payload) -> None:
         return
 
     with visibility.as_viewer(post.user):
+        if visibility.hides_nsfw():
+            visibility.hiding_tag_ids(refresh=True)
         urls, _, extra = image_links.collect(document.data)
         rows = archived_links.current(post_id, urls)
-        retry_before = payload.get("retryBefore")
-        cutoff = datetime.fromisoformat(retry_before) if retry_before else None
-        due = [
-            url
-            for url in urls
-            if (existing := rows.get(url)) is None
-            or (
-                cutoff is not None
-                and existing.status == "failed"
-                and existing.last_attempt_time < cutoff
-            )
-        ]
         reused = 0
         archived = 0
         failures: Counter[ArchiveReason] = Counter()
-        for url in due[:BATCH_SIZE]:
-            reason, used_existing = _attempt(post, url, rows.get(url))
+        for url in _due(urls, rows, cutoff):
+            if url not in prepared:
+                continue
+            result = _attempt(post, url, prepared[url], rows.get(url))
+            if result is None:
+                continue
+            reason, used_existing = result
             if reason is None:
                 archived += 1
                 reused += int(used_existing)
             else:
                 failures[reason] += 1
-        if len(due) > BATCH_SIZE:
+        if _due(urls, archived_links.current(post_id, urls), cutoff):
             jobs.enqueue(JOB, payload)
         else:
             row.archive_queued = False
@@ -282,6 +313,32 @@ def _run(payload: registry.Payload) -> None:
             reused,
             *(failures[reason] for reason in _MAX_LOG_REASONS),
         )
+
+
+def _run(payload: registry.Payload) -> None:
+    post_id = int(payload["postId"])
+    row = db.session.get(Card, post_id)
+    if row is None or not row.archive_queued:
+        return
+    post = posts.try_get_post_by_id(post_id)
+    document = db.session.get(model.PostDocument, post_id)
+    retry_before = payload.get("retryBefore")
+    cutoff = datetime.fromisoformat(retry_before) if retry_before else None
+    with ExitStack() as cleanup:
+        prepared: dict[str, Content | ArchiveReason | None] = {}
+        if (
+            post is not None
+            and post.kind == "card"
+            and post.checksum == payload.get("checksum")
+            and document is not None
+            and document.kind == "card"
+        ):
+            urls, _, _ = image_links.collect(document.data)
+            due = _due(urls, archived_links.current(post_id, urls), cutoff)
+            with visibility.as_viewer(post.user):
+                for url in due[:BATCH_SIZE]:
+                    prepared[url] = None if _existing(url) else _download(url, cleanup)
+        _finish_batch(payload, post_id, cutoff, prepared)
 
 
 def run(payload: registry.Payload) -> None:
