@@ -482,8 +482,8 @@ adds:
 A card file's own images become unlisted `media` posts with the card's
 uploader, safety and NSFW tag (and no other or automatic tags). Visible existing
 media is linked unchanged; hidden, retired or non-media matches are skipped.
-These images need no privilege beyond uploading the card. No outside URLs are
-fetched. The card's `assets` list selects the images and their roles:
+These images need no privilege beyond uploading the card. The card's
+`assets` list selects the embedded images and their roles:
 
 - The `icon` named `main`, or the first icon, is the document's `avatar`.
   Other icons are alternate avatars, related `avatar-of`.
@@ -552,6 +552,75 @@ convert` (including `--count`) also covers existing file-backed cards whose
 images have not been read. It adds one version noted `Images read from the
 file.` only when setting a null avatar; an existing avatar stays and the file's
 main icon is an alternate. Cards without files are untouched.
+
+### Archived card images
+
+`GET modules/cards/post/<id>` includes `links`, `references`, `archiveQueued`
+and `untrackedLinks`. The card document keeps the author's URLs. Archiving
+writes a separate per-card map and does not change its version or duplicate hash.
+
+- `links` lists the first 500 distinct current URLs in order. It includes
+  absolute HTTP(S) URLs at most 2048 characters long from Markdown images
+  and their reference definitions, HTML `img src`, `img` and `source`
+  `srcset`, CSS `url()` in style attributes and blocks, and HTTPS asset
+  URIs. Extensions, linked lorebooks, ordinary links and bare URLs are
+  excluded. `untrackedLinks` counts the remaining distinct URLs.
+- Each link gives `url`, `status` (`new`, `archived` or `failed`),
+  nullable `reason`, `attempts`, nullable `lastAttemptTime` (UTC), and
+  nullable `post` (`id`, `mimeType`, `contentUrl`, `thumbnailUrl`).
+  A new link has zero attempts and no attempt time. An archived link
+  has a null post for viewers who cannot see the media. Deleting its
+  media removes the row. Editing a URL out of the card preserves its
+  row so restoring that document version brings the mapping back.
+- A failed link gives `failed` for a download refusal, unreachable
+  address, timeout or HTTP error, `too-large` above the size limit,
+  `not-media` for other file types, or `unavailable` for an unavailable
+  duplicate such as a hidden or retired post.
+- `references` lists direct `lithica:post/<id>` references found in the
+  same image contexts. Each gives `id` and the same nullable `post`
+  resource. A direct reference is never downloaded.
+- Clients resolve both forms to the returned post's file URLs. Clients
+  must never fetch an unarchived URL from the card themselves.
+
+`POST modules/cards/post/<id>/archive` (`archive_card_images`) accepts
+`{retryFailed}`, which defaults to true, and returns `{queued}`. It
+requires `posts:edit:typed_relations` and `uploads:create` (app token
+rights `write` and `upload`). The action needs a visible card with a
+document and returns false if its job is already queued or running.
+
+The `cards-archive` job resolves existing archives and media as the card
+uploader. It checks up to ten due URLs per run and queues a continuation
+when more are due. Each URL reuses an existing visible archive where
+possible, or downloads through the guarded downloader with a 32 MiB
+limit or the site's download limit, whichever is smaller. It accepts
+engine images, animations and video. New media is unlisted, inherits the
+card's safety and NSFW tag, and records the URL as its source. Media is
+related `archived-from` the card. `archiveQueued` indicates pending work.
+
+The cards module declares three runtime site settings. `cards.archive_mode`
+starts at `manual`, and may be set to `automatic`. The other settings are
+`cards.archive_creators` and `cards.archive_tags`, both lists of strings
+initially empty. With automatic mode on, a card queues after conversion,
+creation from data, or a new document version (including file replacement
+and restore) when its creator or any tag name matches a rule. Comparisons
+ignore case, and creator names are trimmed. With both lists empty, nothing
+matches. Changing a tag by itself does not queue a job. Automatic runs
+only try new URLs.
+
+`POST modules/cards/post/<id>/archived-links/replace` (`replace_archived_links`)
+requires `posts:edit:document` and `{version}` with the current **document**
+version. An out-of-date version returns 409. For each archived URL in the
+current card, the action replaces its image occurrences with
+`lithica:post/<id>` when the user can see the archived post. Other text,
+including enclosing quotes and titles, is preserved.
+
+The response is `{post, replaced}`, where `fields=` selects the post fields
+and `replaced` counts changed URL occurrences. A change creates one version
+noted `Archived links replaced with Lithica references.` and updates the
+card's duplicate hash. A zero count creates no version. The archived map
+stays available for future restores.
+
+
 
 Replacing a file selects its new main picture as the avatar. Identical pixels
 reuse the old avatar post and its relation, even when PNG bytes differ. For
@@ -1976,6 +2045,9 @@ delete an override and restore the starting value. `lithica-admin settings list`
 shows both values; `settings reset <name>...` or `settings reset --all` removes
 overrides from the shell.
 
+Loaded modules may declare runtime settings under `<module>.<name>`, with
+starting values in the module's config.yaml section. Unloading a module hides
+its settings from the API and admin CLI and preserves their stored overrides.
 
 ### Feature switches
 

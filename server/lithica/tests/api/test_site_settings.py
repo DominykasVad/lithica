@@ -1,6 +1,6 @@
 import pytest
 
-from lithica import model
+from lithica import config, model, registry
 from lithica.func import site_settings
 from lithica.tests.api.http import shipped_config
 
@@ -112,3 +112,43 @@ def test_request_reads_stored_settings_once(client, site, session):
             assert len(queries) == count
     finally:
         sa_event.remove(session.get_bind(), "before_cursor_execute", record)
+
+
+def test_module_settings_are_validated_and_preserved(client, site, monkeypatch) -> None:
+    monkeypatch.setitem(config.config, "dummy", {"example": "off"})
+    registry.load(["dummy"], "lithica.tests.fixtures.modules")
+    path = "/site-settings"
+    name = "dummy.example"
+
+    def setting() -> dict[str, object] | None:
+        answer = client.get(path, user=site)
+        assert answer.status_code == 200
+        return next(
+            (item for item in answer.json()["settings"] if item["name"] == name), None
+        )
+
+    def update(version: int, value: object) -> int:
+        return client.put(
+            path, user=site, body={"version": version, "values": {name: value}}
+        ).status_code
+
+    assert setting() == {
+        "name": name,
+        "type": "choice",
+        "value": "off",
+        "startingValue": "off",
+        "runtime": True,
+        "stored": False,
+        "choices": ["off", "on"],
+    }
+    assert update(1, True) == 400
+    assert update(1, "on") == 200
+    registry.use([])
+    assert setting() is None
+    assert update(2, None) == 400
+    registry.load(["dummy"], "lithica.tests.fixtures.modules")
+    saved = setting()
+    assert saved is not None and saved["value"] == "on"
+    assert update(2, None) == 200
+    reset = setting()
+    assert reset is not None and reset["value"] == "off"

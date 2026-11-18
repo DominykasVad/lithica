@@ -15,6 +15,7 @@ from typing import Any
 from lithica import config, errors
 from lithica.func import file_types
 from lithica.func.content import Content
+from lithica.version import get_version
 
 logger = logging.getLogger(__name__)
 _dl_chunk_size = 2**15
@@ -302,16 +303,19 @@ def _build_opener(
     return opener
 
 
-def _generic_download_error(url: str, reason: object) -> DownloadError:
+def _generic_download_error(
+    url: str, reason: object, *, log_failures: bool
+) -> DownloadError:
     # One message for a refused address, a failed connection and a timeout:
     # telling them apart would let the client map the server's network.
     # The reason goes to the log only.
-    host = urllib.parse.urlsplit(url).hostname
-    logger.warning("Download from host %r failed: %s", host, reason)
+    if log_failures:
+        host = urllib.parse.urlsplit(url).hostname
+        logger.warning("Download from host %r failed: %s", host, reason)
     return DownloadError(GENERIC_DOWNLOAD_ERROR, extra_fields={"URL": url})
 
 
-def _verify_url(url: str) -> None:
+def _verify_url(url: str, *, log_failures: bool = True) -> None:
     """Scheme and address check of a URL before anything is sent to it."""
     parts = _verify_url_scheme(url)
     assert parts.hostname
@@ -319,10 +323,23 @@ def _verify_url(url: str) -> None:
         port = parts.port or (443 if parts.scheme.lower() == "https" else 80)
         _resolve_allowed_addresses(parts.hostname, port)
     except (OSError, ValueError) as ex:
-        raise _generic_download_error(url, ex) from None
+        raise _generic_download_error(url, ex, log_failures=log_failures) from None
 
 
-def download(url: str, use_video_downloader: bool = False) -> Content:
+def _download_user_agent() -> str:
+    return config.config.get("user_agent") or (
+        f"Mozilla/5.0 (compatible; Lithica/{get_version()}; "
+        "+https://github.com/DominykasVad/lithica)"
+    )
+
+
+def download(
+    url: str,
+    use_video_downloader: bool = False,
+    *,
+    max_size: int | None = None,
+    log_failures: bool = True,
+) -> Content:
     """
     Fetch the URL into a temporary file. The caller owns the result and
     deletes it when done (see lithica.func.content); nothing of the
@@ -335,22 +352,26 @@ def download(url: str, use_video_downloader: bool = False) -> Content:
         # yt-dlp fetches the URL itself, so it is checked before yt-dlp
         # sees it. This cannot bind yt-dlp to the checked address the way
         # the download below is bound.
-        _verify_url(url)
+        _verify_url(url, log_failures=log_failures)
         try:
             url = _get_yt_dlp_content_url(url) or url
         except errors.ThirdPartyError as ex:
             yt_dlp_error = ex
         _verify_url_scheme(url)
 
+    size_limit: int = config.config["max_dl_filesize"]
+    if max_size is not None:
+        size_limit = min(size_limit, max_size)
     request = urllib.request.Request(url)
-    if config.config["user_agent"]:
-        request.add_header("User-Agent", config.config["user_agent"])
+    request.add_header("User-Agent", _download_user_agent())
     request.add_header("Referer", url)
 
     downloaded = Content.create_temporary()
     deadline = _Deadline(DOWNLOAD_TOTAL_TIMEOUT)
     try:
-        _download_into(downloaded, request, url, deadline)
+        _download_into(
+            downloaded, request, url, deadline, size_limit, log_failures=log_failures
+        )
         if (
             yt_dlp_error
             # what neither the engine nor a module knows
@@ -366,7 +387,13 @@ def download(url: str, use_video_downloader: bool = False) -> Content:
 
 
 def _download_into(
-    target: Content, request: urllib.request.Request, url: str, deadline: _Deadline
+    target: Content,
+    request: urllib.request.Request,
+    url: str,
+    deadline: _Deadline,
+    size_limit: int,
+    *,
+    log_failures: bool,
 ) -> None:
     length_tally = 0
     try:
@@ -382,10 +409,9 @@ def _download_into(
                 if not chunk:
                     break
                 length_tally += len(chunk)
-                if length_tally > config.config["max_dl_filesize"]:
+                if length_tally > size_limit:
                     raise DownloadTooLargeError(
-                        "Download target exceeds maximum. (%d)"
-                        % (config.config["max_dl_filesize"]),
+                        "Download target exceeds maximum. (%d)" % size_limit,
                         extra_fields={"URL": url},
                     )
                 output.write(chunk)
@@ -394,7 +420,7 @@ def _download_into(
     except urllib.error.HTTPError as ex:
         if 300 <= ex.code < 400:
             # a redirect that was not followed: too many hops, or a loop
-            raise _generic_download_error(url, ex) from None
+            raise _generic_download_error(url, ex, log_failures=log_failures) from None
         raise DownloadError(
             "Download target returned HTTP %d. (%s)" % (ex.code, ex.reason),
             extra_fields={"URL": url},
@@ -409,13 +435,18 @@ def _download_into(
                 deadline.seconds,
                 ex,
             )
-        raise _generic_download_error(url, reason) from None
+        raise _generic_download_error(url, reason, log_failures=log_failures) from None
 
 
 def _get_yt_dlp_content_url(url: str) -> str:
-    cmd = ["yt-dlp", "--format", "best", "--no-playlist"]
-    if config.config["user_agent"]:
-        cmd.extend(["--user-agent", config.config["user_agent"]])
+    cmd = [
+        "yt-dlp",
+        "--format",
+        "best",
+        "--no-playlist",
+        "--user-agent",
+        _download_user_agent(),
+    ]
     # "--" ends the options: the URL comes from the user, and without it a
     # value starting with "-" would be read by yt-dlp as an option.
     cmd.extend(["--get-url", "--", url])

@@ -1,6 +1,7 @@
 """The routes of the cards module, and what they return."""
 
 from collections.abc import Sequence
+from datetime import datetime
 from typing import Annotated, Any, Literal
 
 import sqlalchemy as sa
@@ -39,8 +40,9 @@ from lithica.func import (
     post_metadata,
     posts,
 )
-from lithica.modules.cards import card as card_format
 from lithica.modules.cards import (
+    archived_links,
+    archiving,
     data_creation,
     file_images,
     filename,
@@ -51,11 +53,13 @@ from lithica.modules.cards import (
     replacement,
     view,
 )
+from lithica.modules.cards import card as card_format
 from lithica.modules.cards.model import (
-    Card as CardRow,
+    ArchiveReason,
+    CardLorebook,
 )
 from lithica.modules.cards.model import (
-    CardLorebook,
+    Card as CardRow,
 )
 from lithica.modules.cards.model import (
     Lorebook as LorebookRow,
@@ -142,6 +146,20 @@ class LorebookNotFoundError(errors.NotFoundError):
     pass
 
 
+class ArchivedLink(resources.Resource):
+    url: str
+    status: Literal["new", "archived", "failed"]
+    reason: ArchiveReason | None
+    attempts: int
+    last_attempt_time: datetime | None
+    post: CardImagePost | None
+
+
+class ImageReference(resources.Resource):
+    id: int
+    post: CardImagePost | None
+
+
 class Card(resources.Resource):
     post_id: int
     spec: str = Field(description="The version of the card format: v1, v2 or v3.")
@@ -151,6 +169,10 @@ class Card(resources.Resource):
     avatar: CardAvatar | None
     images: list[CardFileImage]
     images_read: bool
+    links: list[ArchivedLink]
+    references: list[ImageReference]
+    archive_queued: bool
+    untracked_links: int
     name: str
     description: str
     personality: str
@@ -324,6 +346,8 @@ def get_card(
     )
     result["images"] = file_images.list_images(post.post_id)
     result["imagesRead"] = row.images_read if row is not None else False
+    result["archiveQueued"] = row.archive_queued if row is not None else False
+    result.update(archived_links.describe(post.post_id, data))
     result["lorebooks"] = [
         {
             "id": id_,
@@ -335,6 +359,66 @@ def get_card(
         for id_, book in books
     ]
     return result
+
+
+class ArchiveImagesInput(RequestModel):
+    retry_failed: Bool = True
+
+
+class ArchiveImagesAnswer(resources.Resource):
+    queued: bool
+
+
+@cards.post(
+    "/post/{post_id}/archive",
+    operation_id="archive_card_images",
+    response_model=ArchiveImagesAnswer,
+    summary="Queue archiving for a card's image links",
+    openapi_extra=request_body(ArchiveImagesInput),
+)
+def archive_card_images(
+    post_id: str,
+    auth_user: Annotated[model.User, Depends(require("posts:edit:typed_relations"))],
+    _upload_user: Annotated[model.User, Depends(require("uploads:create"))],
+    body: Annotated[ArchiveImagesInput, Depends(read_body(ArchiveImagesInput))],
+) -> dict[str, bool]:
+    """Queue the current card's external images. retryFailed defaults to true."""
+    queued = archiving.queue(_post(post_id), body.retry_failed, auth_user)
+    db.session.commit()
+    return {"queued": queued}
+
+
+class ReplaceArchivedLinksInput(RequestModel):
+    version: Int = required()
+
+
+class ReplaceArchivedLinksAnswer(resources.Resource):
+    post: resources.Post
+    replaced: int
+
+
+@cards.post(
+    "/post/{post_id}/archived-links/replace",
+    operation_id="replace_archived_links",
+    response_model=ReplaceArchivedLinksAnswer,
+    summary="Replace archived card URLs with Lithica references",
+    openapi_extra=request_body(ReplaceArchivedLinksInput),
+)
+def replace_archived_links(
+    post_id: str,
+    auth_user: Annotated[model.User, Depends(require("posts:edit:document"))],
+    fields: Annotated[list[str], Depends(fields_of(posts.PostSerializer))],
+    body: Annotated[
+        ReplaceArchivedLinksInput, Depends(read_body(ReplaceArchivedLinksInput))
+    ],
+) -> dict[str, object]:
+    """Replace visible archived image URLs in one version. A stale version gives 409."""
+    post = _post(post_id)
+    replaced = archived_links.replace_in_document(
+        post, body.require("version"), auth_user
+    )
+    db.session.commit()
+    return {"post": posts.serialize_post(post, auth_user, fields), "replaced": replaced}
 
 
 @cards.get(

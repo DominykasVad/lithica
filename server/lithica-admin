@@ -466,7 +466,10 @@ def main(args: list[str] | None = None) -> int:
                     if bool(command.names) == command.all_settings:
                         raise errors.ValidationError("Give names or --all")
                     names = (
-                        list(site_settings.stored())
+                        sorted(
+                            site_settings.stored().keys()
+                            & site_settings.declarations().keys()
+                        )
                         if command.all_settings
                         else command.names
                     )

@@ -1,5 +1,8 @@
 """Current card summaries and ordered links; documents retain their history."""
 
+from datetime import datetime
+from typing import Literal
+
 import sqlalchemy as sa
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -13,6 +16,9 @@ class Card(Base):
         sa.ForeignKey("post.id", ondelete="CASCADE"), primary_key=True
     )
     images_read: Mapped[bool] = mapped_column(
+        sa.Boolean, default=False, server_default=sa.false()
+    )
+    archive_queued: Mapped[bool] = mapped_column(
         sa.Boolean, default=False, server_default=sa.false()
     )
     spec: Mapped[str] = mapped_column(sa.Unicode(32))
@@ -66,3 +72,24 @@ class CardImage(Base):
     asset_type: Mapped[str | None] = mapped_column(sa.String(64))
     label: Mapped[str | None] = mapped_column(sa.String(128))
     position: Mapped[int] = mapped_column(sa.Integer)
+
+
+ArchiveStatus = Literal["archived", "failed"]
+ArchiveReason = Literal["failed", "too-large", "not-media", "unavailable"]
+
+
+class ArchivedLink(Base):
+    __tablename__ = "cards_archived_link"
+
+    card_post_id: Mapped[int] = mapped_column(
+        sa.ForeignKey("post.id", ondelete="CASCADE"), primary_key=True
+    )
+    url_hash: Mapped[str] = mapped_column(sa.String(64), primary_key=True, index=True)
+    url: Mapped[str] = mapped_column(sa.String(2048))
+    post_id: Mapped[int | None] = mapped_column(
+        sa.ForeignKey("post.id", ondelete="CASCADE"), index=True
+    )
+    status: Mapped[ArchiveStatus] = mapped_column(sa.String(8))
+    reason: Mapped[ArchiveReason | None] = mapped_column(sa.String(16))
+    attempts: Mapped[int] = mapped_column(sa.Integer)
+    last_attempt_time: Mapped[datetime] = mapped_column(sa.DateTime)

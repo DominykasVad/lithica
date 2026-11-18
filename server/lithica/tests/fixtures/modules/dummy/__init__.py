@@ -198,6 +198,7 @@ def after_file_or_kind(post: engine_model.Post, user: engine_model.User | None) 
 module = registry.Module(
     after_file_or_kind=after_file_or_kind,
     name="dummy",
+    site_settings=[registry.SiteSetting("example", "choice", choices=("off", "on"))],
     post_kinds=[registry.PostKind("dummy_document", frozenset())],
     document_kinds=[
         registry.DocumentKind(

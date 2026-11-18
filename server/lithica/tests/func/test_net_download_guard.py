@@ -14,9 +14,10 @@ from unittest.mock import patch
 
 import pytest
 
-from lithica import errors, registry
+from lithica import config, errors, registry
 from lithica.func import net
 from lithica.tests.api.http import enabled_config
+from lithica.version import get_version
 
 PUBLIC_IP = "93.184.216.34"
 OTHER_PUBLIC_IP = "151.101.1.69"
@@ -133,6 +134,46 @@ def inject_config(config_injector):
 def _assert_generic_error(excinfo):
     assert type(excinfo.value) is net.DownloadError
     assert str(excinfo.value) == net.GENERIC_DOWNLOAD_ERROR
+
+
+@pytest.mark.parametrize(
+    ("setting", "present"),
+    [
+        pytest.param(None, False, id="unset"),
+        pytest.param(None, True, id="null"),
+        pytest.param("", True, id="empty"),
+        pytest.param("Custom Downloader/1.0", True, id="configured"),
+    ],
+)
+def test_download_user_agent(
+    web: _WebServer,
+    monkeypatch: pytest.MonkeyPatch,
+    setting: str | None,
+    present: bool,
+) -> None:
+    monkeypatch.setitem(config.config, "allow_private_downloads", True)
+    if present:
+        monkeypatch.setitem(config.config, "user_agent", setting)
+    else:
+        monkeypatch.delitem(config.config, "user_agent")
+    expected = setting or (
+        f"Mozilla/5.0 (compatible; Lithica/{get_version()}; "
+        "+https://github.com/DominykasVad/lithica)"
+    )
+
+    def echo_agent(handler: _Handler) -> None:
+        header = handler.headers["User-Agent"].encode()
+        handler.send_response(200)
+        handler.send_header("Content-Length", str(len(header)))
+        handler.end_headers()
+        handler.wfile.write(header)
+
+    web.raw_routes["/agent"] = echo_agent
+    content = net.download(f"http://127.0.0.1:{web.port}/agent")
+    try:
+        assert content == expected.encode()
+    finally:
+        content.delete()
 
 
 def test_download_from_public_host(web, network):
@@ -430,7 +471,8 @@ def test_http_error_of_a_public_host_is_reported(web, network):
     assert "HTTP 404" in str(excinfo.value)
 
 
-def test_download_too_large(web, network, config_injector):
+@pytest.mark.parametrize(("max_size", "limit"), [(None, 10), (8, 8), (20, 10)])
+def test_download_too_large(web, network, config_injector, max_size, limit) -> None:
     config_injector(
         enabled_config(
             {
@@ -442,8 +484,8 @@ def test_download_too_large(web, network, config_injector):
     )
     network.hosts["public.example"] = [PUBLIC_IP]
     web.routes["/big"] = (200, {}, b"x" * 100)
-    with pytest.raises(net.DownloadTooLargeError):
-        net.download("http://public.example/big")
+    with pytest.raises(net.DownloadTooLargeError, match=rf"\({limit}\)"):
+        net.download("http://public.example/big", max_size=max_size)
 
 
 def test_environment_proxy_is_not_used(web, network, monkeypatch):
@@ -783,3 +825,18 @@ def test_finished_download_leaves_no_timer_running(web, network):
     while timers() > before and time.monotonic() < deadline:
         time.sleep(0.01)
     assert timers() == before
+
+
+@pytest.mark.parametrize("error", [None, ConnectionRefusedError, TimeoutError])
+def test_quiet_download_preserves_generic_failure(network, caplog, error) -> None:
+    url = "http://card-host.example/secret-path"
+    network.hosts["card-host.example"] = ["10.0.0.5" if error is None else PUBLIC_IP]
+    with patch("lithica.func.net.socket.create_connection", side_effect=error):
+        with pytest.raises(net.DownloadError) as quiet:
+            net.download(url, log_failures=False)
+        assert not caplog.records
+        with pytest.raises(net.DownloadError) as default:
+            net.download(url)
+    assert str(quiet.value) == str(default.value) == net.GENERIC_DOWNLOAD_ERROR
+    assert quiet.value.extra_fields == default.value.extra_fields
+    assert "card-host.example" in caplog.text

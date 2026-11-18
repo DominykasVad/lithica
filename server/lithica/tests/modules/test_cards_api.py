@@ -475,6 +475,10 @@ def test_card_of_a_v2_picture(site, user):
         "postId": created["id"],
         "avatar": _avatar(created["id"]),
         "imagesRead": True,
+        "links": [],
+        "references": [],
+        "archiveQueued": False,
+        "untrackedLinks": 0,
         "images": [
             {
                 "uri": "ccdefault:",

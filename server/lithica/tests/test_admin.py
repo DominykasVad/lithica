@@ -563,3 +563,32 @@ def test_jobs_list_retry(admin, config_injector, tmp_path, capsys):
     db.session.commit()
     assert admin.main(["jobs", "retry", "--failed"]) == 0
     assert jobs.get(id).status == "queued"
+
+
+def test_module_settings_list_and_reset(
+    admin, config_injector, tmpdir, capsys, monkeypatch
+) -> None:
+    from lithica import registry
+    from lithica.func import site_settings
+    from lithica.tests.api.http import shipped_config
+
+    settings = shipped_config(str(tmpdir.mkdir("module-settings-data")))
+    settings.update({"modules": ["dummy"], "dummy": {"example": "off"}})
+    config_injector(settings)
+    monkeypatch.setattr(registry, "MODULE_PACKAGE", "lithica.tests.fixtures.modules")
+    registry.load_configured()
+    with db.session_scope():
+        site_settings.update(1, {"dummy.example": "on"}, None)
+        db.session.commit()
+    assert admin.main(["settings", "list"]) == 0
+    assert "dummy.example: 'on'" in capsys.readouterr().out
+    settings["modules"] = []
+    assert admin.main(["settings", "list"]) == 0
+    assert "dummy.example" not in capsys.readouterr().out
+    assert admin.main(["settings", "reset", "--all"]) == 0
+    with db.session_scope():
+        assert site_settings.stored() == {"dummy.example": "on"}
+    settings["modules"] = ["dummy"]
+    assert admin.main(["settings", "reset", "dummy.example"]) == 0
+    with db.session_scope():
+        assert site_settings.stored() == {}
