@@ -8348,7 +8348,7 @@
           "cards"
         ],
         "summary": "Create or update a card from data",
-        "description": "Resolve external IDs, then current card data; create version 0 or update.\n\nSafety is required on creation. Updates retain safety and tags. A supplied\ndocument version must be current; unchanged data adds no version. External\nIDs are added, never removed. The entire request is atomic.",
+        "description": "Resolve external IDs, then current card data; create version 0 or keep.\n\nSafety is required on creation. A found card is kept as it is unless\n`onExisting` is `update`; updates retain safety and tags, a supplied document\nversion must be current, and unchanged data adds no version. External IDs\nare added, never removed. The entire request is atomic.",
         "operationId": "create_card_from_data",
         "security": [
           {
@@ -8443,6 +8443,14 @@
                   "version": {
                     "type": "integer"
                   },
+                  "onExisting": {
+                    "description": "What to do with a post the request resolves to: `keep` adds only unknown external IDs, `update` writes the request to it.",
+                    "enum": [
+                      "keep",
+                      "update"
+                    ],
+                    "type": "string"
+                  },
                   "card": {
                     "additionalProperties": true,
                     "type": "object"
@@ -8526,7 +8534,7 @@
           "cards"
         ],
         "summary": "Create or update a lorebook from data",
-        "description": "Resolve external IDs, then identical book data on the same NSFW side.\n\nNew books require safety. Updates require document-edit privilege and keep\nsafety and tags; a stale document version receives 409. IDs are additive.",
+        "description": "Resolve external IDs, then identical book data on the same NSFW side.\n\nNew books require safety. A found book is kept as it is unless `onExisting`\nis `update`; updates require document-edit privilege and keep safety and\ntags; a stale document version receives 409. IDs are additive.",
         "operationId": "create_lorebook_from_data",
         "security": [
           {
@@ -8620,6 +8628,14 @@
                   },
                   "version": {
                     "type": "integer"
+                  },
+                  "onExisting": {
+                    "description": "What to do with a post the request resolves to: `keep` adds only unknown external IDs, `update` writes the request to it.",
+                    "enum": [
+                      "keep",
+                      "update"
+                    ],
+                    "type": "string"
                   },
                   "book": {
                     "additionalProperties": true,

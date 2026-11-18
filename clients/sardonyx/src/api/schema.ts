@@ -1933,11 +1933,12 @@ export interface paths {
         put?: never;
         /**
          * Create or update a card from data
-         * @description Resolve external IDs, then current card data; create version 0 or update.
+         * @description Resolve external IDs, then current card data; create version 0 or keep.
          *
-         *     Safety is required on creation. Updates retain safety and tags. A supplied
-         *     document version must be current; unchanged data adds no version. External
-         *     IDs are added, never removed. The entire request is atomic.
+         *     Safety is required on creation. A found card is kept as it is unless
+         *     `onExisting` is `update`; updates retain safety and tags, a supplied document
+         *     version must be current, and unchanged data adds no version. External IDs
+         *     are added, never removed. The entire request is atomic.
          */
         post: operations["create_card_from_data"];
         delete?: never;
@@ -1959,8 +1960,9 @@ export interface paths {
          * Create or update a lorebook from data
          * @description Resolve external IDs, then identical book data on the same NSFW side.
          *
-         *     New books require safety. Updates require document-edit privilege and keep
-         *     safety and tags; a stale document version receives 409. IDs are additive.
+         *     New books require safety. A found book is kept as it is unless `onExisting`
+         *     is `update`; updates require document-edit privilege and keep safety and
+         *     tags; a stale document version receives 409. IDs are additive.
          */
         post: operations["create_lorebook_from_data"];
         delete?: never;
@@ -7006,6 +7008,11 @@ export interface operations {
                     }[];
                     note?: string;
                     version?: number;
+                    /**
+                     * @description What to do with a post the request resolves to: `keep` adds only unknown external IDs, `update` writes the request to it.
+                     * @enum {string}
+                     */
+                    onExisting?: "keep" | "update";
                     card: {
                         [key: string]: unknown;
                     };
@@ -7069,6 +7076,11 @@ export interface operations {
                     }[];
                     note?: string;
                     version?: number;
+                    /**
+                     * @description What to do with a post the request resolves to: `keep` adds only unknown external IDs, `update` writes the request to it.
+                     * @enum {string}
+                     */
+                    onExisting?: "keep" | "update";
                     book: {
                         [key: string]: unknown;
                     };

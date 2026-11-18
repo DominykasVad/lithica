@@ -2047,11 +2047,12 @@ avatars. The card answer and `card` post field return a visible avatar as
 JSON object (V1, V2 or V3), `safety` (required for creation), optional `tags`, `images` (below),
 `lorebooks` (ordered lorebook post IDs, deduplicated after the embedded book,
 at most 100 total), `externalIds` (`[{host, id}]`), `note` (at most 256
-characters), and `version` (the current document version).
+characters), `onExisting` (below), and `version` (the current document
+version; only with `onExisting: "update"`).
 
 `POST /modules/cards/lorebooks` (`create_lorebook_from_data`) accepts required
 `book` JSON, `spec` (`v2` or `v3`, default `v3`), and the same safety, tags,
-external IDs, note and version options. It returns `{post, outcome}`; the card
+external IDs, note, `onExisting` and version options. It returns `{post, outcome}`; the card
 route additionally returns `skippedImages`. `fields=` selects fields of `post`.
 The outcome is `created`, `updated`, or `unchanged`, and describes the post's
 document only: added images or external IDs alone still give `unchanged`.
@@ -2064,10 +2065,21 @@ Resolution is ordered:
 2. Otherwise a current card data hash (or identical book document on the same
    NSFW side) resolves the target. With external IDs, unknown IDs are added to
    it. Without IDs, it receives `PostAlreadyUploadedError` (bare if hidden).
-3. Otherwise create a fileless post and document version 0.
+3. Otherwise create a fileless post and document version 0, whatever
+   `onExisting` says.
+
+`onExisting` says what happens to a post found in steps 1 or 2: `keep` (the
+default) or `update`; any other value is a `ValidationError`, and so is
+`version` with `keep`. Lithica stays the source of truth after a first import,
+so `keep` writes nothing of the post's content: no document version, no book
+links, no avatar, and no images (none is read, created or related;
+`skippedImages` is empty). It only adds the request's unknown external IDs and
+answers `unchanged`; it does not need `posts:edit:document`. `update` writes
+the request to the post as described below.
 
 Creation requires `posts:create:identified`; new tags require `tags:create`.
-External IDs require `posts:edit:external_ids`. Updates also require
+External IDs require `posts:edit:external_ids`. Updates (`onExisting:
+"update"`) also require
 `posts:edit:document`, retain tags and safety, replace book links, and add IDs
 without removing any. An omitted version uses the current version; a stale
 version receives 409 as in the document API. Identical data creates no version.

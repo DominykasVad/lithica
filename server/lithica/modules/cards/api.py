@@ -588,6 +588,11 @@ class DataOptions(RequestModel):
     external_ids: list[dict[str, str]] = optional()
     note: Annotated[str, Field(max_length=256)] = optional()
     version: Int = optional()
+    on_existing: Literal["keep", "update"] = Field(
+        default="keep",
+        description="What to do with a post the request resolves to: `keep` "
+        "adds only unknown external IDs, `update` writes the request to it.",
+    )
 
 
 class RelatedImageInput(RequestModel):
@@ -628,6 +633,7 @@ def _data_options(body: DataOptions) -> data_creation.Options:
         else None,
         note=body.note if body.has("note") else None,
         version=body.version if body.has("version") else None,
+        on_existing=body.on_existing,
     )
 
 
@@ -643,19 +649,16 @@ def create_card_from_data(
     fields: Annotated[list[str], Depends(fields_of(posts.PostSerializer))],
     body: Annotated[CardDataInput, Depends(read_body(CardDataInput))],
 ) -> dict[str, Any]:
-    """Resolve external IDs, then current card data; create version 0 or update.
+    """Resolve external IDs, then current card data; create version 0 or keep.
 
-    Safety is required on creation. Updates retain safety and tags. A supplied
-    document version must be current; unchanged data adds no version. External
-    IDs are added, never removed. The entire request is atomic.
+    Safety is required on creation. A found card is kept as it is unless
+    `onExisting` is `update`; updates retain safety and tags, a supplied document
+    version must be current, and unchanged data adds no version. External IDs
+    are added, never removed. The entire request is atomic.
     """
-    images = related_images.prepare(
-        [
-            related_images.Image(i.role, i.token, i.post_id, i.label)
-            for i in body.images
-        ],
-        user,
-    )
+    images = [
+        related_images.Image(i.role, i.token, i.post_id, i.label) for i in body.images
+    ]
     created_images: list[model.Post] = []
     pending_files: list[str] = []
     try:
@@ -696,8 +699,9 @@ def create_lorebook_from_data(
 ) -> dict[str, Any]:
     """Resolve external IDs, then identical book data on the same NSFW side.
 
-    New books require safety. Updates require document-edit privilege and keep
-    safety and tags; a stale document version receives 409. IDs are additive.
+    New books require safety. A found book is kept as it is unless `onExisting`
+    is `update`; updates require document-edit privilege and keep safety and
+    tags; a stale document version receives 409. IDs are additive.
     """
     with db.session.begin_nested():
         post, outcome = data_creation.create_lorebook(

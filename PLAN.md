@@ -281,6 +281,7 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 - 2026-11-15 — 7.3 — Image jobs resolve existing media as the card uploader; a missing uploader is anonymous.
 - 2026-11-15 — 7.3 — A card's picture is its declared main icon; a PNG's stripped carrier only for `ccdefault:`, no assets list or an unreadable icon.
 - 2026-11-16 — 7.3 — The engine removes the files of new posts on rollback (savepoints included) and can delete a post's files after commit (`posts.delete(defer_files=True)`).
+- 2026-11-18 — 7.2 — Imports keep existing posts by default (`onExisting: keep`); updating them is explicit.
 
 ---
 

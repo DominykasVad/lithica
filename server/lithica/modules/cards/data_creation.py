@@ -28,6 +28,7 @@ class Options:
     external_ids: list[tuple[str, str]] | None = None
     note: str | None = None
     version: int | None = None
+    on_existing: Literal["keep", "update"] = "keep"
 
 
 Outcome = Literal["created", "updated", "unchanged"]
@@ -157,6 +158,8 @@ def _check_options(options: Options, user: model.User) -> None:
         raise errors.ValidationError("Notes cannot contain NUL or lone surrogates.")
     if options.note is not None and len(options.note) > 256:
         raise errors.ValidationError("A document note may have at most 256 characters.")
+    if options.version is not None and options.on_existing == "keep":
+        raise errors.ValidationError("A version is given only with onExisting update.")
 
 
 def create_card(
@@ -164,7 +167,7 @@ def create_card(
     user: model.User,
     options: Options,
     lorebooks: list[int],
-    images: Sequence[related_images.Prepared] = (),
+    images: Sequence[related_images.Image] = (),
 ) -> tuple[model.Post, Outcome, list[int], list[model.Post]]:
     _check_options(options, user)
     spec = card_format.kind_of(raw)
@@ -175,6 +178,11 @@ def create_card(
         raise errors.ValidationError("Card exceeds its size limit.")
     data, book = card_documents.split_card(spec, stored)
     target = _resolve("card", data, options)
+    if target is not None and options.on_existing == "keep":
+        # Lithica owns a post after its first import: only add unknown IDs.
+        _add_ids(target, options, user)
+        return target, "unchanged", [], []
+    prepared = related_images.prepare(images, user)
     new_tags: list[model.Tag] = []
     if target is None:
         target, new_tags = _new_post("card", user, options, spec, stored)
@@ -199,7 +207,7 @@ def create_card(
     data["lorebooks"] = list(dict.fromkeys(data["lorebooks"] + ids))
     if len(data["lorebooks"]) > 100:
         raise errors.ValidationError("A card may link at most 100 lorebooks.")
-    avatar, skipped, created_images = related_images.attach(target, images, user)
+    avatar, skipped, created_images = related_images.attach(target, prepared, user)
     if avatar is not None:
         data["avatar"] = avatar
     if current is None:
@@ -234,6 +242,10 @@ def create_lorebook(
     _check_options(options, user)
     data = card_documents.validate_lorebook({"spec": "card_" + spec, "book": book})
     target = _resolve("lorebook", data, options)
+    if target is not None and options.on_existing == "keep":
+        # Lithica owns a post after its first import: only add unknown IDs.
+        _add_ids(target, options, user)
+        return target, "unchanged"
     new_tags: list[model.Tag] = []
     if target is None:
         target, new_tags = _new_post("lorebook", user, options)

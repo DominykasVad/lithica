@@ -94,7 +94,7 @@ def test_bulk_import_twice(
     for index, body in enumerate(bodies):
         if index in changed:
             body["card"]["data"]["description"] = f"Changed {index}"
-        answer = ok(create(client, user, **body))
+        answer = ok(create(client, user, **body, onExisting="update"))
         assert answer["post"]["id"] == ids[index]
         assert answer["outcome"] == ("updated" if index in changed else "unchanged")
         assert answer["skippedImages"] == []
