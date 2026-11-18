@@ -1864,6 +1864,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/modules/cards/post/{post_id}/archived-links/replace": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Replace archived card URLs with Lithica references
+         * @description Replace visible archived image URLs in one version. A stale version gives 409.
+         */
+        post: operations["replace_archived_links"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/modules/cards/lorebook/{post_id}": {
         parameters: {
             query?: never;
@@ -3102,6 +3122,12 @@ export interface components {
         PostsAround: {
             prev?: components["schemas"]["Post"] | null;
             next?: components["schemas"]["Post"] | null;
+        };
+        /** ReplaceArchivedLinksAnswer */
+        ReplaceArchivedLinksAnswer: {
+            post?: components["schemas"]["Post"];
+            /** Replaced */
+            replaced?: number;
         };
         /** ShareLink */
         ShareLink: {
@@ -6931,6 +6957,48 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ArchiveImagesAnswer"];
+                };
+            };
+            /** @description The request was refused. */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    replace_archived_links: {
+        parameters: {
+            query?: {
+                /** @description Record this request as a login of the authenticated user. */
+                "bump-login"?: boolean;
+                /** @description Comma-separated names of the fields to return. All fields are returned when it is absent. */
+                fields?: string | null;
+            };
+            header?: never;
+            path: {
+                post_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    version: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplaceArchivedLinksAnswer"];
                 };
             };
             /** @description The request was refused. */

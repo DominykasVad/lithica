@@ -388,6 +388,39 @@ def archive_card_images(
     return {"queued": queued}
 
 
+class ReplaceArchivedLinksInput(RequestModel):
+    version: Int = required()
+
+
+class ReplaceArchivedLinksAnswer(resources.Resource):
+    post: resources.Post
+    replaced: int
+
+
+@cards.post(
+    "/post/{post_id}/archived-links/replace",
+    operation_id="replace_archived_links",
+    response_model=ReplaceArchivedLinksAnswer,
+    summary="Replace archived card URLs with Lithica references",
+    openapi_extra=request_body(ReplaceArchivedLinksInput),
+)
+def replace_archived_links(
+    post_id: str,
+    auth_user: Annotated[model.User, Depends(require("posts:edit:document"))],
+    fields: Annotated[list[str], Depends(fields_of(posts.PostSerializer))],
+    body: Annotated[
+        ReplaceArchivedLinksInput, Depends(read_body(ReplaceArchivedLinksInput))
+    ],
+) -> dict[str, object]:
+    """Replace visible archived image URLs in one version. A stale version gives 409."""
+    post = _post(post_id)
+    replaced = archived_links.replace_in_document(
+        post, body.require("version"), auth_user
+    )
+    db.session.commit()
+    return {"post": posts.serialize_post(post, auth_user, fields), "replaced": replaced}
+
+
 @cards.get(
     "/lorebook/{post_id}", response_model=LorebookAnswer, summary="Get a lorebook"
 )

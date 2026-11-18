@@ -496,7 +496,7 @@ release `v0.5.0`. Design: decisions 0003, 0005, 0006, 0010, 0011 and 0013 in
 - [x] A card file's own images become unlisted media posts related to the card, inheriting its safety and NSFW tag: the main picture (a PNG's picture with the card chunks removed, a CHARX's main icon) as the avatar named in the document, other icons as alternate avatars (`avatar-of`), emotions as expressions labelled by name (`expression-of`), the rest `embedded-in`; listed by the card with their file URLs.
 
 ### 7.4 Archiving card images
-- [ ] Card text keeps its URLs: each card maps a URL in its text to its archived post (or the reason it failed); a card may name a post as `lithica:post/<id>`; an action replaces archived URLs with such references as one new version (0014).
+- [x] Card text keeps its URLs: each card maps a URL in its text to its archived post (or the reason it failed); a card may name a post as `lithica:post/<id>`; an action replaces archived URLs with such references as one new version (0014).
 - [x] Finding image links in a card's text (Markdown and HTML images, `srcset`, CSS `url()`).
 - [x] A background job (6.7) fetches them through the SSRF-safe downloader with size and type limits, makes each an unlisted post related `archived-from` the card, with the card's safety and NSFW tag, and records it in the card's map. Links that fail are recorded, and can be retried.
 - [x] Setting: manual or automatic, with rules (automatic only for given creators or tags). An "Archive images" action per card under a privilege. Automatic archiving with no rules archives nothing.

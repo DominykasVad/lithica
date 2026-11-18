@@ -607,6 +607,20 @@ ignore case, and creator names are trimmed. With both lists empty, nothing
 matches. Changing a tag by itself does not queue a job. Automatic runs
 only try new URLs.
 
+`POST modules/cards/post/<id>/archived-links/replace` (`replace_archived_links`)
+requires `posts:edit:document` and `{version}` with the current **document**
+version. An out-of-date version returns 409. For each archived URL in the
+current card, the action replaces its image occurrences with
+`lithica:post/<id>` when the user can see the archived post. Other text,
+including enclosing quotes and titles, is preserved.
+
+The response is `{post, replaced}`, where `fields=` selects the post fields
+and `replaced` counts changed URL occurrences. A change creates one version
+noted `Archived links replaced with Lithica references.` and updates the
+card's duplicate hash. A zero count creates no version. The archived map
+stays available for future restores.
+
+
 
 Replacing a file selects its new main picture as the avatar. Identical pixels
 reuse the old avatar post and its relation, even when PNG bytes differ. For

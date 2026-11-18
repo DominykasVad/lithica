@@ -1,6 +1,7 @@
 """The persistent URL map and viewer-filtered image resources."""
 
 from collections.abc import Iterable
+from copy import deepcopy
 from hashlib import sha256
 from itertools import batched
 
@@ -8,7 +9,7 @@ import sqlalchemy as sa
 from sqlalchemy.orm import lazyload
 
 from lithica import db, model, registry
-from lithica.func import posts
+from lithica.func import documents, posts, versions
 from lithica.modules.cards import image_links
 from lithica.modules.cards.model import ArchivedLink
 
@@ -84,3 +85,34 @@ def describe(post_id: int, data: registry.Payload) -> dict[str, object]:
         ],
         "untrackedLinks": untracked,
     }
+
+
+def replace_in_document(post: model.Post, version: int, user: model.User) -> int:
+    document = documents.get(post, lock=True)
+    db.session.refresh(post, ["kind"])
+    if post.kind != "card" or document.kind != "card":
+        raise documents.DocumentNotFoundError("Card document not found.")
+    versions.verify_version(document, version)
+
+    archived = db.session.execute(
+        sa.select(ArchivedLink.url, ArchivedLink.post_id).where(
+            ArchivedLink.card_post_id == post.post_id,
+            ArchivedLink.status == "archived",
+            ArchivedLink.post_id.is_not(None),
+        )
+    ).all()
+    visible = visible_posts(row.post_id for row in archived)
+    targets = {row.url: row.post_id for row in archived if row.post_id in visible}
+    if not targets:
+        return 0
+    data = deepcopy(document.data)
+    replaced = image_links.replace(data, targets)
+    if replaced:
+        documents.write(
+            post,
+            data,
+            version,
+            user if user.rank != model.User.RANK_ANONYMOUS else None,
+            "Archived links replaced with Lithica references.",
+        )
+    return replaced

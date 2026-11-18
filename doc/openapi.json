@@ -8104,6 +8104,105 @@
         }
       }
     },
+    "/modules/cards/post/{post_id}/archived-links/replace": {
+      "post": {
+        "tags": [
+          "cards"
+        ],
+        "summary": "Replace archived card URLs with Lithica references",
+        "description": "Replace visible archived image URLs in one version. A stale version gives 409.",
+        "operationId": "replace_archived_links",
+        "security": [
+          {
+            "basicAuth": []
+          },
+          {
+            "tokenAuth": []
+          },
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "post_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Post Id"
+            }
+          },
+          {
+            "name": "bump-login",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Record this request as a login of the authenticated user.",
+              "default": false,
+              "title": "Bump-Login"
+            },
+            "description": "Record this request as a login of the authenticated user."
+          },
+          {
+            "name": "fields",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated names of the fields to return. All fields are returned when it is absent.",
+              "title": "Fields"
+            },
+            "description": "Comma-separated names of the fields to return. All fields are returned when it is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReplaceArchivedLinksAnswer"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "The request was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "version": {
+                    "type": "integer"
+                  }
+                },
+                "type": "object",
+                "required": [
+                  "version"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
     "/modules/cards/lorebook/{post_id}": {
       "get": {
         "tags": [
@@ -11327,6 +11426,20 @@
         "additionalProperties": false,
         "type": "object",
         "title": "PostsAround"
+      },
+      "ReplaceArchivedLinksAnswer": {
+        "properties": {
+          "post": {
+            "$ref": "#/components/schemas/Post"
+          },
+          "replaced": {
+            "type": "integer",
+            "title": "Replaced"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ReplaceArchivedLinksAnswer"
       },
       "ShareLink": {
         "properties": {
