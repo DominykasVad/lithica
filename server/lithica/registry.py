@@ -21,7 +21,7 @@ import pkgutil
 import re
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, BinaryIO, cast
+from typing import TYPE_CHECKING, Any, BinaryIO, Literal, cast
 
 from fastapi import APIRouter
 from fastapi.routing import APIRoute
@@ -246,6 +246,21 @@ class RelationType:
     to_kinds: frozenset[str] | None
 
 
+SiteSettingType = Literal["boolean", "integer", "string", "choice", "list"]
+
+
+@dataclass(frozen=True)
+class SiteSetting:
+    """A runtime setting whose starting value comes from the module's config."""
+
+    name: str
+    type: SiteSettingType
+    choices: tuple[str, ...] = ()
+    min: int | None = None
+    max_length: int | None = None
+    blank: bool = True
+
+
 @dataclass(frozen=True)
 class JobType:
     """Background work run with a payload, without a request or visibility limits.
@@ -327,6 +342,7 @@ class Module:
                     the fields above (a pydantic model, or any type pydantic
                     can describe), by field name. A field without one is
                     described as any JSON value.
+    site_settings   runtime settings under the module's config section
     job_types       background job types
     admin_commands  subcommands of `lithica-admin`
     """
@@ -355,6 +371,7 @@ class Module:
     post_field_schemas: Mapping[str, Any] = field(default_factory=dict[str, Any])
     admin_commands: Sequence[AdminCommand] = ()
     job_types: Sequence[JobType] = ()
+    site_settings: Sequence[SiteSetting] = ()
 
 
 _modules: tuple[Module, ...] = ()
@@ -400,6 +417,7 @@ def _verify(modules: Sequence[Module]) -> None:
     engine has.
     """
     from lithica import model
+    from lithica.func.site_settings import SETTINGS
 
     _verify_relation_types(modules)
     job_names: set[str] = set()
@@ -433,6 +451,20 @@ def _verify(modules: Sequence[Module]) -> None:
         if module.name in names:
             raise _refuse(module, "is listed twice.")
         names.add(module.name)
+
+        settings: set[str] = set()
+        for setting in module.site_settings:
+            if (
+                not NAME_PATTERN.fullmatch(setting.name)
+                or len(module.name) + 1 + len(setting.name) > 64
+                or f"{module.name}.{setting.name}" in SETTINGS
+                or setting.name in settings
+            ):
+                raise _refuse(
+                    module,
+                    "has an invalid or duplicate site setting %r." % setting.name,
+                )
+            settings.add(setting.name)
 
         if module.router is not None:
             for route in module.router.routes:
@@ -597,6 +629,12 @@ def use(modules: Sequence[Module]) -> None:
     global _modules
     _verify(modules)
     _modules = tuple(modules)
+
+
+def site_settings() -> Iterable[tuple[str, SiteSetting]]:
+    for module in _modules:
+        for item in module.site_settings:
+            yield f"{module.name}.{item.name}", item
 
 
 def relation_types() -> list[RelationType]:

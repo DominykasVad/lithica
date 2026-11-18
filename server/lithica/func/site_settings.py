@@ -2,15 +2,14 @@
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Literal, cast
+from typing import Any, cast
 
 import sqlalchemy as sa
 
-from lithica import config, db, errors, model
+from lithica import config, db, errors, model, registry
 from lithica.func import util
 
 logger = logging.getLogger(__name__)
-Type = Literal["boolean", "integer", "string", "choice", "list"]
 _CACHE = "site_settings.rows"
 _CACHE_VERSION = "site_settings.version"
 HIDING_TAGS_SCOPE_KEY = "visibility.hiding_tags"
@@ -20,7 +19,7 @@ FEATURES = ("pools", "favorites", "scores", "notes", "comments")
 @dataclass(frozen=True)
 class Setting:
     name: str
-    type: Type
+    type: registry.SiteSettingType
     runtime: bool = True
     choices: tuple[str, ...] = ()
     min: int | None = None
@@ -70,6 +69,23 @@ SETTINGS = {
 }
 
 
+def declarations() -> dict[str, Setting]:
+    return {
+        **SETTINGS,
+        **{
+            name: Setting(
+                name,
+                item.type,
+                choices=item.choices,
+                min=item.min,
+                max_length=item.max_length,
+                blank=item.blank,
+            )
+            for name, item in registry.site_settings()
+        },
+    }
+
+
 def starting(name: str) -> Any:
     value: Any = config.config
     for part in name.split("."):
@@ -101,7 +117,7 @@ def stored() -> dict[str, Any]:
 
 
 def get(name: str) -> Any:
-    declaration = SETTINGS[name]
+    declaration = SETTINGS.get(name) or declarations()[name]
     rows = stored() if declaration.runtime else {}
     if name in rows:
         if declaration.validate(rows[name]):
@@ -136,14 +152,15 @@ def describe() -> dict[str, Any]:
                 **({"choices": list(item.choices)} if item.choices else {}),
                 **({"min": item.min} if item.min is not None else {}),
             }
-            for item in SETTINGS.values()
+            for item in declarations().values()
         ],
     }
 
 
 def update(expected: int, changes: dict[str, Any], user: model.User | None) -> None:
+    settings = declarations()
     for name, value in changes.items():
-        item = SETTINGS.get(name)
+        item = settings.get(name)
         if (
             item is None
             or not item.runtime

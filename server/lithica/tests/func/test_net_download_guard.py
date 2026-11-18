@@ -430,7 +430,8 @@ def test_http_error_of_a_public_host_is_reported(web, network):
     assert "HTTP 404" in str(excinfo.value)
 
 
-def test_download_too_large(web, network, config_injector):
+@pytest.mark.parametrize(("max_size", "limit"), [(None, 10), (8, 8), (20, 10)])
+def test_download_too_large(web, network, config_injector, max_size, limit) -> None:
     config_injector(
         enabled_config(
             {
@@ -442,8 +443,8 @@ def test_download_too_large(web, network, config_injector):
     )
     network.hosts["public.example"] = [PUBLIC_IP]
     web.routes["/big"] = (200, {}, b"x" * 100)
-    with pytest.raises(net.DownloadTooLargeError):
-        net.download("http://public.example/big")
+    with pytest.raises(net.DownloadTooLargeError, match=rf"\({limit}\)"):
+        net.download("http://public.example/big", max_size=max_size)
 
 
 def test_environment_proxy_is_not_used(web, network, monkeypatch):
@@ -783,3 +784,18 @@ def test_finished_download_leaves_no_timer_running(web, network):
     while timers() > before and time.monotonic() < deadline:
         time.sleep(0.01)
     assert timers() == before
+
+
+@pytest.mark.parametrize("error", [None, ConnectionRefusedError, TimeoutError])
+def test_quiet_download_preserves_generic_failure(network, caplog, error) -> None:
+    url = "http://card-host.example/secret-path"
+    network.hosts["card-host.example"] = ["10.0.0.5" if error is None else PUBLIC_IP]
+    with patch("lithica.func.net.socket.create_connection", side_effect=error):
+        with pytest.raises(net.DownloadError) as quiet:
+            net.download(url, log_failures=False)
+        assert not caplog.records
+        with pytest.raises(net.DownloadError) as default:
+            net.download(url)
+    assert str(quiet.value) == str(default.value) == net.GENERIC_DOWNLOAD_ERROR
+    assert quiet.value.extra_fields == default.value.extra_fields
+    assert "card-host.example" in caplog.text
