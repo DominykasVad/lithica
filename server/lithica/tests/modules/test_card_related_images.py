@@ -347,6 +347,7 @@ def test_hidden_token_is_skipped_and_hidden_post_id_is_invalid(
         "card": cards.v3_card(),
         "externalIds": external(1),
         "images": [{"role": "avatar", "token": uploaded}],
+        "onExisting": "update",
     }
     answer = ok(
         client.post(

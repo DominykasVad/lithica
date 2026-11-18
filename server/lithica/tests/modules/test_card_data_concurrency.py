@@ -53,18 +53,17 @@ def test_update_inherits_metadata_after_waiting(
             assert post.safety == "safe"
             user = db.session.get(model.User, user_id)
             assert user is not None
-            prepared = related_images.prepare(
-                [related_images.Image("avatar", token=uploaded)], user
-            )
             info = db.session.connection().info
             info["card_replace_observer"] = True
             try:
                 updated, outcome, skipped, created = data_creation.create_card(
                     cards.v2_card(name="After"),
                     user,
-                    data_creation.Options(external_ids=[("test", "concurrent")]),
+                    data_creation.Options(
+                        external_ids=[("test", "concurrent")], on_existing="update"
+                    ),
                     [],
-                    prepared,
+                    [related_images.Image("avatar", token=uploaded)],
                 )
                 assert outcome == "updated" and not skipped
                 media.release(created)

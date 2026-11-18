@@ -45,8 +45,9 @@ def site(config_injector, tmpdir, tag_category_factory):
             }
         )
     )
+    # Committed, as on a real site: a refused request's rollback keeps it.
     db.session.add(tag_category_factory(name="default", default=True))
-    db.session.flush()
+    db.session.commit()
 
     def start(modules):
         # through the setting, which the admin CLI reads as well

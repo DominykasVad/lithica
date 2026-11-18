@@ -61,7 +61,9 @@ def test_create_and_update_outcomes(
     assert documents.get(post).version == 0
     assert documents.get_version(post, 0).note == "Import"
     assert (
-        ok(create(client, user, card, externalIds=external(1)))["outcome"]
+        ok(create(client, user, card, externalIds=external(1), onExisting="update"))[
+            "outcome"
+        ]
         == "unchanged"
     )
     changed = deepcopy(card)
@@ -75,6 +77,7 @@ def test_create_and_update_outcomes(
             safety="unsafe",
             tags=["ignored"],
             version=0,
+            onExisting="update",
         )
     )
     assert result["outcome"] == "updated"
@@ -83,7 +86,14 @@ def test_create_and_update_outcomes(
     assert documents.get(post).version == 1
     assert documents.get_version(post, 1).note == "Updated from data."
     assert (
-        create(client, user, changed, externalIds=external(1), version=0).status_code
+        create(
+            client,
+            user,
+            changed,
+            externalIds=external(1),
+            version=0,
+            onExisting="update",
+        ).status_code
         == 409
     )
     assert documents.get(post).version == 1
@@ -176,7 +186,15 @@ def test_explicit_lorebooks_and_replacement_of_links(
     post = posts.get_post_by_id(result["post"]["id"])
     assert documents.get(post).data["lorebooks"][-1] == book
     assert len(documents.get(post).data["lorebooks"]) == 2
-    ok(create(client, user, cards.v3_card(character_book={}), externalIds=external(1)))
+    ok(
+        create(
+            client,
+            user,
+            cards.v3_card(character_book={}),
+            externalIds=external(1),
+            onExisting="update",
+        )
+    )
     assert documents.get(post).data["lorebooks"] == []
 
 
@@ -193,11 +211,12 @@ def test_lorebook_resolution_versions_and_nsfw(
     }
     first = ok(client.post("/modules/cards/lorebooks", user=user, body=body))
     assert first["outcome"] == "created" and "skippedImages" not in first
+    update = {**body, "onExisting": "update"}
     assert (
-        ok(client.post("/modules/cards/lorebooks", user=user, body=body))["outcome"]
+        ok(client.post("/modules/cards/lorebooks", user=user, body=update))["outcome"]
         == "unchanged"
     )
-    changed = {**body, "book": {**cards.LOREBOOK, "name": "New"}, "version": 0}
+    changed = {**update, "book": {**cards.LOREBOOK, "name": "New"}, "version": 0}
     assert (
         ok(client.post("/modules/cards/lorebooks", user=user, body=changed))["outcome"]
         == "updated"
@@ -259,7 +278,10 @@ def test_document_privilege_and_validation_rollback(
     client = site(["cards"])
     first = ok(create(client, user, externalIds=external(1)))
     config.config["privileges"]["posts:edit:document"] = "administrator"
-    assert_error(create(client, user, externalIds=external(1)), errors.AuthError)
+    assert_error(
+        create(client, user, externalIds=external(1), onExisting="update"),
+        errors.AuthError,
+    )
     config.config["privileges"]["posts:edit:document"] = "regular"
     before = db.session.query(model.Post).count()
     assert_error(
@@ -344,3 +366,160 @@ def test_invalid_card_data_leaves_no_posts(
         errors.ValidationError,
     )
     assert db.session.query(model.Post).count() == 0
+
+
+def _ids(post_id: int) -> set[tuple[str, str]]:
+    return {(r.host, r.external_id) for r in posts.get_post_by_id(post_id).external_ids}
+
+
+def _state(post_id: int) -> tuple[object, ...]:
+    document = documents.get(posts.get_post_by_id(post_id))
+    return (
+        deepcopy(document.data),
+        document.version,
+        db.session.query(model.PostDocumentVersion).filter_by(post_id=post_id).count(),
+        sorted(
+            (r.card_post_id, r.lorebook_post_id) for r in db.session.query(CardLorebook)
+        ),
+        db.session.query(model.PostTypedRelation).count(),
+        db.session.query(model.Post).count(),
+    )
+
+
+def _book(client: ApiClient, user: model.User, **body: object) -> httpx2.Response:
+    return client.post(
+        "/modules/cards/lorebooks",
+        user=user,
+        body={"book": cards.LOREBOOK, "safety": "safe", **body},
+    )
+
+
+def test_keep_leaves_a_known_card_as_it_is(
+    site: Callable[[list[str]], ApiClient], user: model.User
+) -> None:
+    client = site(["cards"])
+    extra = ok(_book(client, user, book={"name": "Extra"}))["post"]["id"]
+    uploaded = client.post("/uploads", user=user, files={"content": cards.picture(40)})
+    images = [{"role": "avatar", "token": ok(uploaded)["token"]}]
+    post_id = ok(create(client, user, images=images, externalIds=external(1)))["post"][
+        "id"
+    ]
+    before = _state(post_id)
+    # A token that was never uploaded shows that no image is read.
+    result = ok(
+        create(
+            client,
+            user,
+            cards.v3_card(name="Changed", character_book={}),
+            externalIds=external(1) + external(2),
+            lorebooks=[extra],
+            images=[{"role": "avatar", "token": "missing"}],
+            safety="unsafe",
+            tags=["ignored"],
+        )
+    )
+    assert result["post"]["id"] == post_id
+    assert result["outcome"] == "unchanged" and result["skippedImages"] == []
+    assert _state(post_id) == before
+    assert _ids(post_id) == {("test", "1"), ("test", "2")}
+    post = posts.get_post_by_id(post_id)
+    assert post.safety == "safe" and "ignored" not in {t.first_name for t in post.tags}
+
+
+def test_keep_adopts_a_card_duplicate_without_writing(
+    site: Callable[[list[str]], ApiClient], user: model.User
+) -> None:
+    client = site(["cards"])
+    post_id = upload(client, user, cards.v3_card())
+    extra = ok(_book(client, user, book={"name": "Extra"}))["post"]["id"]
+    before = _state(post_id)
+    result = ok(
+        create(
+            client,
+            user,
+            externalIds=external(1),
+            lorebooks=[extra],
+            images=[{"role": "avatar", "token": "missing"}],
+            onExisting="keep",
+        )
+    )
+    assert result == {
+        "post": result["post"],
+        "outcome": "unchanged",
+        "skippedImages": [],
+    }
+    assert result["post"]["id"] == post_id
+    assert _state(post_id) == before
+    assert _ids(post_id) == {("test", "1")}
+
+
+def test_keep_leaves_a_known_or_duplicate_lorebook_as_it_is(
+    site: Callable[[list[str]], ApiClient], user: model.User
+) -> None:
+    client = site(["cards"])
+    post_id = ok(_book(client, user, externalIds=external(1), tags=["manual"]))["post"][
+        "id"
+    ]
+    before = _state(post_id)
+    changed = {**cards.LOREBOOK, "name": "Changed"}
+    result = ok(
+        _book(client, user, book=changed, externalIds=external(1) + external(2))
+    )
+    assert result["post"]["id"] == post_id and result["outcome"] == "unchanged"
+    assert _state(post_id) == before
+    assert _ids(post_id) == {("test", "1"), ("test", "2")}
+    # A data duplicate sent with new IDs is adopted the same way.
+    duplicate = ok(_book(client, user, book={"name": "Plain"}))["post"]["id"]
+    before = _state(duplicate)
+    result = ok(_book(client, user, book={"name": "Plain"}, externalIds=external(3)))
+    assert result["post"]["id"] == duplicate and result["outcome"] == "unchanged"
+    assert _state(duplicate) == before and _ids(duplicate) == {("test", "3")}
+    post = posts.get_post_by_id(post_id)
+    assert [t.first_name for t in post.tags] == ["manual"]
+
+
+@pytest.mark.parametrize("kind", ["card", "lorebook"])
+def test_keep_needs_no_document_privilege(
+    site: Callable[[list[str]], ApiClient], user: model.User, kind: str
+) -> None:
+    client = site(["cards"])
+    send = create if kind == "card" else _book
+    post_id = ok(send(client, user, externalIds=external(1)))["post"]["id"]
+    config.config["privileges"]["posts:edit:document"] = "administrator"
+    result = ok(send(client, user, externalIds=external(1) + external(2)))
+    assert result["outcome"] == "unchanged"
+    assert _ids(post_id) == {("test", "1"), ("test", "2")}
+    assert_error(
+        send(client, user, externalIds=external(1), onExisting="update"),
+        errors.AuthError,
+    )
+
+
+@pytest.mark.parametrize("kind", ["card", "lorebook"])
+@pytest.mark.parametrize(
+    "options",
+    [
+        {"version": 0},
+        {"version": 0, "onExisting": "keep"},
+        {"onExisting": "replace"},
+        {"onExisting": None},
+    ],
+)
+def test_bad_on_existing_is_refused(
+    site: Callable[[list[str]], ApiClient],
+    user: model.User,
+    kind: str,
+    options: registry.Payload,
+) -> None:
+    client = site(["cards"])
+    send = create if kind == "card" else _book
+    post_id = ok(send(client, user, externalIds=external(1)))["post"]["id"]
+    before = _state(post_id)
+    assert_error(
+        send(client, user, externalIds=external(1) + external(2), **options),
+        errors.ValidationError,
+    )
+    assert _state(post_id) == before and _ids(post_id) == {("test", "1")}
+    # Without a target, a refused value still creates nothing.
+    assert_error(send(client, user, safety="safe", **options), errors.ValidationError)
+    assert db.session.query(model.Post).count() == before[5]
