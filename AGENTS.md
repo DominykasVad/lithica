@@ -140,8 +140,16 @@ TypeScript's compiler API, which TypeScript 7 does not have.
    to the **Decision log** (see the rules there). Everything else (what you
    did, what you left alone, observations) goes in the commit message body.
 4. Report: what changed, what you verified and how, what you did not verify.
+5. Each commit passes the checks on its own. Run the fast checks (lint,
+   format, types, the tests the commit touches) before every commit, and
+   never commit while a test run is going. Before the first push, run the
+   full suite over every commit (`git rebase --exec "<checks>" <base>`) with
+   no `server/config.yaml` present: CI has none, and a local one can hide
+   missing test settings. Until the first push, a failing commit is fixed
+   in place (fixup and autosquash, signing kept); after it, only new
+   commits.
 
-Points 1 to 4 are written for the server. For the client the same holds with
+Points 1 to 5 are written for the server. For the client the same holds with
 the client's tools: lint, format check, typecheck, tests, the API types
 check and the build pass, and the PLAN.md tick is in the same commit. CI runs
 them in `.github/workflows/ci-sardonyx.yml`.
@@ -177,6 +185,8 @@ them in `.github/workflows/ci-sardonyx.yml`.
   ask. Do not pick silently.
 - Mechanical changes (renames, reformatting) go in their own commits, never
   mixed with behaviour changes.
+- Fix branches (`fix-*`) add no sections or checkboxes to PLAN.md; a fix
+  may add a decision-log line when it makes a real decision.
 
 ### API compatibility
 - Through phases 0–3 the HTTP API stays **wire-compatible** with
