@@ -26,6 +26,10 @@ def test_card_answer_matches_file_and_lorebook_endpoint(site, user):
     assert expected_avatar is not None
     expected["avatar"] = expected_avatar
     expected["imagesRead"] = True
+    expected["links"] = []
+    expected["references"] = []
+    expected["archiveQueued"] = False
+    expected["untrackedLinks"] = 0
     expected["images"] = [
         {
             "uri": "ccdefault:",

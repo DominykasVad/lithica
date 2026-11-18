@@ -411,6 +411,15 @@ def _writes(site: Site, read_asset: Any) -> dict[str, list[dict[str, Any]]]:
                 "status": 409,
             },
         ],
+        "POST /modules/cards/post/{post_id}/archive": [
+            {
+                "path": "/modules/cards/post/%d/archive" % post_id,
+                "body": {},
+                "hidden": True,
+                "status": 404,
+            }
+            for post_id in HIDDEN
+        ],
         "PUT /modules/cards/post/{post_id}/file": [
             {
                 "path": "/modules/cards/post/%d/file" % post_id,

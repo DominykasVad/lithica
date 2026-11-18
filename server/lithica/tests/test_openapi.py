@@ -105,11 +105,13 @@ def test_document_describes_the_whole_api(document):
         "/modules/cards/lorebook/{post_id}",
         "/modules/cards/lorebooks",
         "/modules/cards/post/{post_id}",
+        "/modules/cards/post/{post_id}/archive",
         "/modules/cards/post/{post_id}/download",
         "/modules/cards/post/{post_id}/file",
         "/modules/cards/post/{post_id}/file/compare",
     ]
     for path, method, operation_id in (
+        ("/modules/cards/post/{post_id}/archive", "post", "archive_card_images"),
         ("/modules/cards/post/{post_id}/file", "put", "replace_card_file"),
         ("/modules/cards/post/{post_id}/file/compare", "post", "compare_card_file"),
         ("/modules/cards/file-picture", "post", "get_card_file_picture"),
@@ -212,6 +214,7 @@ def test_request_bodies_list_their_required_fields(document):
         "replaceContent",
     }
     assert required("/posts", "post") == {"safety"}
+    assert required("/modules/cards/post/{post_id}/archive", "post") == set()
     assert required("/modules/cards/post/{post_id}/file", "put") == {"version"}
     assert required("/modules/cards/post/{post_id}/file/compare", "post") == set()
     assert required("/modules/cards/file-picture", "post") == {"contentToken"}

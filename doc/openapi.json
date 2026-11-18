@@ -8026,6 +8026,84 @@
         }
       }
     },
+    "/modules/cards/post/{post_id}/archive": {
+      "post": {
+        "tags": [
+          "cards"
+        ],
+        "summary": "Queue archiving for a card's image links",
+        "description": "Queue the current card's external images. retryFailed defaults to true.",
+        "operationId": "archive_card_images",
+        "security": [
+          {
+            "basicAuth": []
+          },
+          {
+            "tokenAuth": []
+          },
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "post_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Post Id"
+            }
+          },
+          {
+            "name": "bump-login",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Record this request as a login of the authenticated user.",
+              "default": false,
+              "title": "Bump-Login"
+            },
+            "description": "Record this request as a login of the authenticated user."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchiveImagesAnswer"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "The request was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "retryFailed": {
+                    "type": "boolean"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    },
     "/modules/cards/lorebook/{post_id}": {
       "get": {
         "tags": [
@@ -8917,6 +8995,80 @@
         "type": "object",
         "title": "AppToken"
       },
+      "ArchiveImagesAnswer": {
+        "properties": {
+          "queued": {
+            "type": "boolean",
+            "title": "Queued"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ArchiveImagesAnswer"
+      },
+      "ArchivedLink": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "new",
+              "archived",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "failed",
+                  "too-large",
+                  "not-media",
+                  "unavailable"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "attempts": {
+            "type": "integer",
+            "title": "Attempts"
+          },
+          "lastAttemptTime": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastattempttime"
+          },
+          "post": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CardImagePost"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ArchivedLink"
+      },
       "Card": {
         "properties": {
           "postId": {
@@ -8960,6 +9112,28 @@
           "imagesRead": {
             "type": "boolean",
             "title": "Imagesread"
+          },
+          "links": {
+            "items": {
+              "$ref": "#/components/schemas/ArchivedLink"
+            },
+            "type": "array",
+            "title": "Links"
+          },
+          "references": {
+            "items": {
+              "$ref": "#/components/schemas/ImageReference"
+            },
+            "type": "array",
+            "title": "References"
+          },
+          "archiveQueued": {
+            "type": "boolean",
+            "title": "Archivequeued"
+          },
+          "untrackedLinks": {
+            "type": "integer",
+            "title": "Untrackedlinks"
           },
           "name": {
             "type": "string",
@@ -9498,6 +9672,27 @@
         "additionalProperties": false,
         "type": "object",
         "title": "Features"
+      },
+      "ImageReference": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "post": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CardImagePost"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ImageReference"
       },
       "ImageSearchResult": {
         "properties": {

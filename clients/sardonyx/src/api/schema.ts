@@ -1844,6 +1844,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/modules/cards/post/{post_id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Queue archiving for a card's image links
+         * @description Queue the current card's external images. retryFailed defaults to true.
+         */
+        post: operations["archive_card_images"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/modules/cards/lorebook/{post_id}": {
         parameters: {
             query?: never;
@@ -2080,6 +2100,28 @@ export interface components {
             /** Version */
             version?: number;
         };
+        /** ArchiveImagesAnswer */
+        ArchiveImagesAnswer: {
+            /** Queued */
+            queued?: boolean;
+        };
+        /** ArchivedLink */
+        ArchivedLink: {
+            /** Url */
+            url?: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status?: "new" | "archived" | "failed";
+            /** Reason */
+            reason?: ("failed" | "too-large" | "not-media" | "unavailable") | null;
+            /** Attempts */
+            attempts?: number;
+            /** Lastattempttime */
+            lastAttemptTime?: string | null;
+            post?: components["schemas"]["CardImagePost"] | null;
+        };
         /** Card */
         Card: {
             /** Postid */
@@ -2099,6 +2141,14 @@ export interface components {
             images?: components["schemas"]["CardFileImage"][];
             /** Imagesread */
             imagesRead?: boolean;
+            /** Links */
+            links?: components["schemas"]["ArchivedLink"][];
+            /** References */
+            references?: components["schemas"]["ImageReference"][];
+            /** Archivequeued */
+            archiveQueued?: boolean;
+            /** Untrackedlinks */
+            untrackedLinks?: number;
             /** Name */
             name?: string;
             /** Description */
@@ -2313,6 +2363,12 @@ export interface components {
             notes?: boolean;
             /** Comments */
             comments?: boolean;
+        };
+        /** ImageReference */
+        ImageReference: {
+            /** Id */
+            id?: number;
+            post?: components["schemas"]["CardImagePost"] | null;
         };
         /** ImageSearchResult */
         ImageSearchResult: {
@@ -6835,6 +6891,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Card"];
+                };
+            };
+            /** @description The request was refused. */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    archive_card_images: {
+        parameters: {
+            query?: {
+                /** @description Record this request as a login of the authenticated user. */
+                "bump-login"?: boolean;
+            };
+            header?: never;
+            path: {
+                post_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    retryFailed?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArchiveImagesAnswer"];
                 };
             };
             /** @description The request was refused. */

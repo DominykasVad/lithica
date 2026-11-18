@@ -13,6 +13,7 @@ import sqlalchemy as sa
 
 from lithica import db, model, registry
 from lithica.func import documents, visibility
+from lithica.modules.cards import archiving
 from lithica.modules.cards import card as card_format
 from lithica.modules.cards.model import Card, CardLorebook, Lorebook
 
@@ -97,6 +98,9 @@ def after_card(post_id: int, data: registry.Payload) -> None:
             for i, book_id in enumerate(data["lorebooks"])
         ]
     )
+
+    db.session.flush()
+    archiving.queue_automatic(post_id, data)
 
 
 def after_lorebook(post_id: int, data: registry.Payload) -> None:

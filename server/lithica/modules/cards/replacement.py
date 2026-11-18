@@ -13,7 +13,7 @@ from lithica.func import (
     visibility,
 )
 from lithica.func.content import ContentLike
-from lithica.modules.cards import file_images, media, pictures, uploads
+from lithica.modules.cards import archiving, file_images, media, pictures, uploads
 
 
 class CardNotFoundError(errors.NotFoundError):
@@ -66,7 +66,11 @@ def replace(
         if original_checksum is None and document.data.get("avatar") is not None
         else images.avatar
     )
-    documents.write(post, data, document.version, user, "File replaced.")
+    previous_version = document.version
+    documents.write(post, data, previous_version, user, "File replaced.")
+    if document.version == previous_version:
+        # A different file can preserve all card data and its avatar.
+        archiving.queue_automatic(post.post_id, document.data)
 
     kept_id: int | None = None
     if old is not None and not same and keep_old_picture and allowed:

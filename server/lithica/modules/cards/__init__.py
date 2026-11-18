@@ -87,7 +87,16 @@ from typing import BinaryIO, cast
 
 from lithica import registry
 from lithica.func import tag_categories
-from lithica.modules.cards import api, charx, documents, jobs, png, search, uploads
+from lithica.modules.cards import (
+    api,
+    archiving,
+    charx,
+    documents,
+    jobs,
+    png,
+    search,
+    uploads,
+)
 from lithica.modules.cards import card as card_format
 
 NAME = "cards"
@@ -313,6 +322,14 @@ module = registry.Module(
     job_types=[
         registry.JobType("cards-convert", jobs.run),
         registry.JobType("cards-images", jobs.run_images),
+        registry.JobType(
+            archiving.JOB, archiving.run, lease_seconds=archiving.LEASE_SECONDS
+        ),
+    ],
+    site_settings=[
+        registry.SiteSetting("archive_mode", "choice", choices=("manual", "automatic")),
+        registry.SiteSetting("archive_creators", "list"),
+        registry.SiteSetting("archive_tags", "list"),
     ],
     admin_commands=[
         registry.AdminCommand(
