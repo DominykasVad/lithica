@@ -1,6 +1,6 @@
 # 0006: Archiving card images on the server
 
-- Status: Accepted
+- Status: Accepted; amended by [0014](0014-card-text-keeps-its-urls.md)
 - Date: 2026-11-04
 
 ## Context

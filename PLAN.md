@@ -496,13 +496,13 @@ release `v0.5.0`. Design: decisions 0003, 0005, 0006, 0010, 0011 and 0013 in
 - [x] A card file's own images become unlisted media posts related to the card, inheriting its safety and NSFW tag: the main picture (a PNG's picture with the card chunks removed, a CHARX's main icon) as the avatar named in the document, other icons as alternate avatars (`avatar-of`), emotions as expressions labelled by name (`expression-of`), the rest `embedded-in`; listed by the card with their file URLs.
 
 ### 7.4 Archiving card images
-- [ ] Card text refers to assets by a Lithica reference the clients resolve, not by a file URL (signed URLs expire).
+- [ ] Card text keeps its URLs: each card maps a URL in its text to its archived post (or the reason it failed); a card may name a post as `lithica:post/<id>`; an action replaces archived URLs with such references as one new version (0014).
 - [ ] Finding image links in a card's text (Markdown and HTML images, `srcset`, CSS `url()`).
-- [ ] A background job (6.7) fetches them through the SSRF-safe downloader with size and type limits, makes each an unlisted post related `archived-from` the card, with the card's safety and NSFW tag, and makes a new card version pointing to them. Links that fail are recorded, and can be retried.
-- [ ] Setting: manual or automatic, with rules (automatic only for given creators or tags). An "Archive images" action per card under a privilege.
+- [ ] A background job (6.7) fetches them through the SSRF-safe downloader with size and type limits, makes each an unlisted post related `archived-from` the card, with the card's safety and NSFW tag, and records it in the card's map. Links that fail are recorded, and can be retried.
+- [ ] Setting: manual or automatic, with rules (automatic only for given creators or tags). An "Archive images" action per card under a privilege. Automatic archiving with no rules archives nothing.
 
 ### 7.5 Export and the original
-- [ ] Download as: the original file (while kept), or built from the current version as PNG, CHARX or JSON, with the linked lorebooks embedded (merged in order when several, said so in the export) and the card's images as share links (6.5) or embedded (CHARX assets, data URIs in PNG/JSON).
+- [ ] Download as: the original file (while kept), or built from the current version as PNG, CHARX or JSON, with the linked lorebooks embedded (merged in order when several, said so in the export) and the card's images as share links (6.5) or embedded (CHARX assets, data URIs in PNG/JSON). Archived URLs and `lithica:` references in the text are resolved the same way.
 - [ ] Deleting the original: a privilege, a warning listing what is lost, confirmation by typing the card's name; the file's checksum is kept for duplicate detection.
 
 ### 7.6 Sardonyx
@@ -510,6 +510,7 @@ release `v0.5.0`. Design: decisions 0003, 0005, 0006, 0010, 0011 and 0013 in
 - [ ] Replacing a card's file: the old and new picture side by side with the similarity; no prompt for identical pixels; "keep the old picture" checked by default.
 - [ ] Lorebooks as pages of their own (the existing lorebook view), with their versions and the cards that link them; standalone books findable.
 - [ ] The styled-text frame shows archived images from this site (its image policy gains this site's file paths; outside hosts stay behind "Load images").
+- [ ] Card text shows archived images from this site in Markdown mode (the map and `lithica:` references resolved); a button for the replace action.
 
 ### 7.7 Release `v0.5.0`
 - [ ] `doc/UPGRADING.md` 0.4.0 → 0.5.0: the conversion and its duration, lorebooks as their own kind, cards from data and JSON uploads, versions and retention, archiving and its settings, export forms. Version, images, release.
