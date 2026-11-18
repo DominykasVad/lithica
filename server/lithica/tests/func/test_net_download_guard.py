@@ -14,9 +14,10 @@ from unittest.mock import patch
 
 import pytest
 
-from lithica import errors, registry
+from lithica import config, errors, registry
 from lithica.func import net
 from lithica.tests.api.http import enabled_config
+from lithica.version import get_version
 
 PUBLIC_IP = "93.184.216.34"
 OTHER_PUBLIC_IP = "151.101.1.69"
@@ -133,6 +134,46 @@ def inject_config(config_injector):
 def _assert_generic_error(excinfo):
     assert type(excinfo.value) is net.DownloadError
     assert str(excinfo.value) == net.GENERIC_DOWNLOAD_ERROR
+
+
+@pytest.mark.parametrize(
+    ("setting", "present"),
+    [
+        pytest.param(None, False, id="unset"),
+        pytest.param(None, True, id="null"),
+        pytest.param("", True, id="empty"),
+        pytest.param("Custom Downloader/1.0", True, id="configured"),
+    ],
+)
+def test_download_user_agent(
+    web: _WebServer,
+    monkeypatch: pytest.MonkeyPatch,
+    setting: str | None,
+    present: bool,
+) -> None:
+    monkeypatch.setitem(config.config, "allow_private_downloads", True)
+    if present:
+        monkeypatch.setitem(config.config, "user_agent", setting)
+    else:
+        monkeypatch.delitem(config.config, "user_agent")
+    expected = setting or (
+        f"Mozilla/5.0 (compatible; Lithica/{get_version()}; "
+        "+https://github.com/DominykasVad/lithica)"
+    )
+
+    def echo_agent(handler: _Handler) -> None:
+        header = handler.headers["User-Agent"].encode()
+        handler.send_response(200)
+        handler.send_header("Content-Length", str(len(header)))
+        handler.end_headers()
+        handler.wfile.write(header)
+
+    web.raw_routes["/agent"] = echo_agent
+    content = net.download(f"http://127.0.0.1:{web.port}/agent")
+    try:
+        assert content == expected.encode()
+    finally:
+        content.delete()
 
 
 def test_download_from_public_host(web, network):

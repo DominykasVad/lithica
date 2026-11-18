@@ -84,6 +84,9 @@ max_upload_size: 1073741824
 max_base64_upload_size: 67108864
 
 # settings used to download files from the web on behalf of the api users
+# When empty, send Mozilla/5.0 (compatible; Lithica/<version>;
+# +https://github.com/DominykasVad/lithica) with the running server's version.
+# Many image hosts refuse Python's default User-Agent.
 user_agent:
 max_dl_filesize: 25.0E+6 # maximum filesize limit in bytes
 # the server refuses to download from addresses that are not public

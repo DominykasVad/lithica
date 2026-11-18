@@ -8,6 +8,7 @@ from lithica import errors
 from lithica.func import net
 from lithica.func.util import get_sha1
 from lithica.tests.api.http import enabled_config
+from lithica.version import get_version
 
 
 @pytest.fixture(autouse=True)
@@ -180,6 +181,11 @@ def test_video_downloader_command():
         "--format",
         "best",
         "--no-playlist",
+        "--user-agent",
+        (
+            f"Mozilla/5.0 (compatible; Lithica/{get_version()}; "
+            "+https://github.com/DominykasVad/lithica)"
+        ),
         "--get-url",
         "--",
         "http://example.com/watch?v=1",

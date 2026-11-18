@@ -15,6 +15,7 @@ from typing import Any
 from lithica import config, errors
 from lithica.func import file_types
 from lithica.func.content import Content
+from lithica.version import get_version
 
 logger = logging.getLogger(__name__)
 _dl_chunk_size = 2**15
@@ -325,6 +326,13 @@ def _verify_url(url: str, *, log_failures: bool = True) -> None:
         raise _generic_download_error(url, ex, log_failures=log_failures) from None
 
 
+def _download_user_agent() -> str:
+    return config.config.get("user_agent") or (
+        f"Mozilla/5.0 (compatible; Lithica/{get_version()}; "
+        "+https://github.com/DominykasVad/lithica)"
+    )
+
+
 def download(
     url: str,
     use_video_downloader: bool = False,
@@ -355,8 +363,7 @@ def download(
     if max_size is not None:
         size_limit = min(size_limit, max_size)
     request = urllib.request.Request(url)
-    if config.config["user_agent"]:
-        request.add_header("User-Agent", config.config["user_agent"])
+    request.add_header("User-Agent", _download_user_agent())
     request.add_header("Referer", url)
 
     downloaded = Content.create_temporary()
@@ -432,9 +439,14 @@ def _download_into(
 
 
 def _get_yt_dlp_content_url(url: str) -> str:
-    cmd = ["yt-dlp", "--format", "best", "--no-playlist"]
-    if config.config["user_agent"]:
-        cmd.extend(["--user-agent", config.config["user_agent"]])
+    cmd = [
+        "yt-dlp",
+        "--format",
+        "best",
+        "--no-playlist",
+        "--user-agent",
+        _download_user_agent(),
+    ]
     # "--" ends the options: the URL comes from the user, and without it a
     # value starting with "-" would be read by yt-dlp as an option.
     cmd.extend(["--get-url", "--", url])
