@@ -58,3 +58,6 @@ Alongside, small:
 - Review of "the first account to sign up becomes administrator", now that
   `lithica-admin create-user` exists.
 - Sardonyx under a sub-path (`BASE_URL`), listed under "Later" in PLAN.md.
+- Per-host User-Agent overrides for downloads (`user_agent_hosts` in the
+  server's `config.yaml`, not a site setting, so no Sardonyx UI), once a host
+  refuses the default Lithica User-Agent (7.4).
