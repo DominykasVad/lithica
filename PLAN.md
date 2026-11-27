@@ -501,8 +501,10 @@ release `v0.5.0`. Design: decisions 0003, 0005, 0006, 0010, 0011 and 0013 in
 - [x] A background job (6.7) fetches them through the SSRF-safe downloader with size and type limits, makes each an unlisted post related `archived-from` the card, with the card's safety and NSFW tag, and records it in the card's map. Links that fail are recorded, and can be retried.
 - [x] Setting: manual or automatic, with rules (automatic only for given creators or tags). An "Archive images" action per card under a privilege. Automatic archiving with no rules archives nothing.
 
-### 7.5 Export and the original
-- [ ] Download as: the original file (while kept), or built from the current version as PNG, CHARX or JSON, with the linked lorebooks embedded (merged in order when several, said so in the export) and the card's images as share links (6.5) or embedded (CHARX assets, data URIs in PNG/JSON). Archived URLs and `lithica:` references in the text are resolved the same way.
+### 7.5a Export
+- [ ] Download built from the current version as PNG, CHARX or JSON in a chosen spec, with the linked lorebooks embedded (merged in order when several, said so in the export) and the card's images as share links (6.5) or embedded (CHARX assets, PNG asset chunks, data URIs in JSON and in text). Archived URLs and `lithica:` references in the text are resolved the same way.
+
+### 7.5b Deleting the original
 - [ ] Deleting the original: a privilege, a warning listing what is lost, confirmation by typing the card's name; the file's checksum is kept for duplicate detection.
 
 ### 7.6 Sardonyx
