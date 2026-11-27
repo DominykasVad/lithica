@@ -22,13 +22,16 @@ unpacked to, a table of contents with millions of entries. So:
 
 import base64
 import binascii
+import json
 import zipfile
 import zlib
-from collections.abc import Generator
+from collections.abc import Generator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import IO, BinaryIO, cast
+from typing import IO, Any, BinaryIO, cast
 
+from lithica.func import content as content_module
+from lithica.func.content import Content, ContentLike
 from lithica.modules.cards import card as card_format
 
 MIME_TYPE = "application/x-charx"
@@ -305,3 +308,88 @@ def asset_bytes(charx: Charx, uri: str, limit: int) -> bytes | None:
                 except NotCharx:
                     return None
     return None
+
+
+_COPY_BLOCK = 64 * 1024
+_ZIP_TIME = (2026, 1, 1, 0, 0, 0)
+
+
+def _content_size(content: ContentLike) -> int:
+    return content.size if isinstance(content, Content) else len(content)
+
+
+def _write_card_entry(zf: zipfile.ZipFile, card_bytes: bytes) -> None:
+    compressor = zlib.compressobj(
+        level=zlib.Z_DEFAULT_COMPRESSION, wbits=-zlib.MAX_WBITS
+    )
+    deflated_size = len(compressor.compress(card_bytes) + compressor.flush())
+    method = (
+        zipfile.ZIP_STORED
+        if len(card_bytes) > deflated_size * MAX_COMPRESSION_RATIO
+        else zipfile.ZIP_DEFLATED
+    )
+    info = zipfile.ZipInfo(CARD_NAME, date_time=_ZIP_TIME)
+    info.compress_type = method
+    zf.writestr(info, card_bytes, compress_type=method)
+
+
+def write(
+    dest: BinaryIO,
+    card: Mapping[str, Any],
+    entries: Sequence[tuple[str, ContentLike]] = (),
+    *,
+    icon_path: str | None = None,
+) -> None:
+    """Write a CHARX archive within every reader limit, streaming entries."""
+    card_bytes = json.dumps(card, ensure_ascii=False, separators=(",", ":")).encode(
+        "utf-8"
+    )
+    if len(card_bytes) > MAX_CARD_SIZE:
+        raise Rejected(
+            f"{CARD_NAME} exceeds the {_megabytes(MAX_CARD_SIZE)} CHARX limit. "
+            "Export with share links instead."
+        )
+    if 1 + len(entries) > MAX_ENTRIES:
+        raise Rejected(
+            f"The CHARX archive exceeds the {MAX_ENTRIES} entry limit. "
+            "Export with share links instead."
+        )
+    seen: set[str] = {CARD_NAME}
+    total_size = len(card_bytes)
+    for path, item in entries:
+        if _is_unsafe(path) or path in seen:
+            raise Rejected("The CHARX archive has an invalid or duplicate entry path.")
+        seen.add(path)
+        size = _content_size(item)
+        if path == icon_path:
+            if size > MAX_ICON_SIZE:
+                raise Rejected(
+                    f"The card icon exceeds the {_megabytes(MAX_ICON_SIZE)} CHARX "
+                    "icon limit. Export with share links instead."
+                )
+            if content_module.head(item, 8).startswith(_ARCHIVE_SIGNATURES):
+                raise Rejected("The icon of the card is an archive, not a picture.")
+        total_size += size
+        if total_size > MAX_TOTAL_SIZE:
+            raise Rejected(
+                f"The CHARX archive exceeds the {_megabytes(MAX_TOTAL_SIZE)} "
+                "unpacked size limit. Export with share links instead."
+            )
+
+    with zipfile.ZipFile(dest, "w", compression=zipfile.ZIP_STORED) as zf:
+        _write_card_entry(zf, card_bytes)
+        for path, item in entries:
+            info = zipfile.ZipInfo(path, date_time=_ZIP_TIME)
+            info.compress_type = zipfile.ZIP_STORED
+            if isinstance(item, Content):
+                with item.open() as src, zf.open(info, "w") as out:
+                    while block := src.read(_COPY_BLOCK):
+                        out.write(block)
+            else:
+                zf.writestr(info, item, compress_type=zipfile.ZIP_STORED)
+        for info in zf.infolist():
+            if info.file_size > info.compress_size * MAX_COMPRESSION_RATIO:
+                raise Rejected(
+                    "The archive has an entry that is compressed more than %d:1."
+                    % MAX_COMPRESSION_RATIO
+                )

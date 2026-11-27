@@ -17,12 +17,14 @@ card cannot be read is a picture.
 
 import base64
 import binascii
+import json
 import struct
 import zlib
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import BinaryIO, cast
+from typing import Any, BinaryIO, cast
 
+from lithica.func.content import Content, ContentLike
 from lithica.modules.cards import card as card_format
 
 SIGNATURE = b"\x89PNG\r\n\x1a\n"
@@ -329,3 +331,129 @@ def read_card(handle: BinaryIO) -> dict[str, object] | None:
                 if card_format.stored(value) is not None:
                     return cast(dict[str, object], value)
     return None
+
+
+_COPY_BLOCK = 64 * 1024
+
+
+def _write_text_chunk(dest: BinaryIO, keyword: bytes, text: bytes) -> None:
+    length = len(keyword) + 1 + len(text)
+    dest.write(struct.pack(">I4s", length, b"tEXt"))
+    crc = zlib.crc32(b"tEXt")
+    dest.write(keyword)
+    crc = zlib.crc32(keyword, crc)
+    dest.write(b"\x00")
+    crc = zlib.crc32(b"\x00", crc)
+    dest.write(text)
+    crc = zlib.crc32(text, crc)
+    dest.write(struct.pack(">I", crc & 0xFFFFFFFF))
+
+
+def _encode_card(card: Mapping[str, Any]) -> bytes:
+    raw = json.dumps(card, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    return base64.b64encode(raw)
+
+
+def _content_size(content: ContentLike) -> int:
+    return content.size if isinstance(content, Content) else len(content)
+
+
+def _copy_exact(src: BinaryIO, dest: BinaryIO, count: int) -> None:
+    remaining = count
+    while remaining > 0:
+        block = src.read(min(_COPY_BLOCK, remaining))
+        if not block:
+            raise ValueError("Unexpected end of PNG carrier.")
+        dest.write(block)
+        remaining -= len(block)
+
+
+def write(
+    carrier: BinaryIO,
+    dest: BinaryIO,
+    *,
+    v3: Mapping[str, Any] | None = None,
+    v2: Mapping[str, Any] | None = None,
+    assets: Sequence[tuple[str, ContentLike]] = (),
+    max_assets: int = MAX_ASSETS,
+    max_asset_size: int | None = None,
+) -> None:
+    """Stream carrier chunks to dest and insert card and asset tEXt chunks."""
+    v3_text = _encode_card(v3) if v3 is not None else b""
+    v2_text = _encode_card(v2) if v2 is not None else b""
+    if len(v3_text) + len(v2_text) > card_format.MAX_CARD_SIZE:
+        limit_mib = card_format.MAX_CARD_SIZE // (1024 * 1024)
+        raise Oversized(
+            f"The exported PNG card data exceeds the {limit_mib} MiB chunk limit. "
+            "Export with share links instead."
+        )
+    if len(assets) > max_assets:
+        raise Oversized(
+            f"The exported PNG has more than {max_assets} embedded images. "
+            "Export with share links instead."
+        )
+    prepared: list[tuple[bytes, ContentLike]] = []
+    for path, content in assets:
+        keyword = ASSET_PREFIX + path.encode("latin-1")
+        if len(keyword) > MAX_KEYWORD_SIZE:
+            raise Oversized("An embedded PNG asset name is too long.")
+        size = _content_size(content)
+        if max_asset_size is not None and size > max_asset_size:
+            limit_mib = max_asset_size // (1024 * 1024)
+            raise Oversized(
+                f"An embedded image exceeds the {limit_mib} MiB PNG asset limit. "
+                "Export with share links instead."
+            )
+        prepared.append((keyword, content))
+
+    size = carrier.seek(0, 2)
+    carrier.seek(0)
+    if carrier.read(len(SIGNATURE)) != SIGNATURE:
+        raise ValueError("Carrier is not a valid PNG.")
+    dest.write(SIGNATURE)
+
+    position = len(SIGNATURE)
+    first = True
+    saw_data = False
+    while position + 12 <= size:
+        carrier.seek(position)
+        header = carrier.read(8)
+        length, kind = struct.unpack(">I4s", header)
+        end = position + 12 + length
+        if end > size or (first and (kind != b"IHDR" or length != 13)):
+            raise ValueError("Carrier is not a valid PNG.")
+        if not first and kind == b"IHDR":
+            raise ValueError("Carrier is not a valid PNG.")
+        first = False
+        if kind == b"IDAT" and length:
+            saw_data = True
+        if kind == b"IEND":
+            if length != 0 or not saw_data:
+                raise ValueError("Carrier is not a valid PNG.")
+            if v3 is not None:
+                _write_text_chunk(dest, V3_KEYWORD, v3_text)
+            if v2 is not None:
+                _write_text_chunk(dest, V2_KEYWORD, v2_text)
+            for keyword, content in prepared:
+                if isinstance(content, Content):
+                    with content.open() as src:
+                        raw = src.read()
+                else:
+                    raw = content
+                _write_text_chunk(dest, keyword, base64.b64encode(raw))
+            carrier.seek(position)
+            _copy_exact(carrier, dest, 12)
+            return
+        remove = False
+        if kind in _TEXT_CHUNKS:
+            keyword_part = carrier.read(min(length, MAX_KEYWORD_SIZE + 1)).partition(
+                b"\x00"
+            )
+            remove = keyword_part[0].startswith(ASSET_PREFIX) or (
+                bool(keyword_part[1]) and keyword_part[0] in (V3_KEYWORD, V2_KEYWORD)
+            )
+        if not remove:
+            carrier.seek(position)
+            _copy_exact(carrier, dest, length + 12)
+        position = end
+    raise ValueError("Carrier is not a valid PNG.")
