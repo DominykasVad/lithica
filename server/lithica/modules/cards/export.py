@@ -149,9 +149,11 @@ def _main_icon_index(raw_assets: list[object]) -> int | None:
     return next((idx for idx, item in icons if item.get("name") == "main"), icons[0][0])
 
 
-def _visible_card_images(card_id: int) -> dict[int, model.Post]:
+def _visible_card_images(
+    card_id: int,
+) -> tuple[dict[str, model.Post], dict[int, model.Post]]:
     rows = db.session.execute(
-        sa.select(CardImage.position, model.Post)
+        sa.select(CardImage.uri, CardImage.position, model.Post)
         .join(model.Post, model.Post.post_id == CardImage.post_id)
         .where(
             CardImage.card_post_id == card_id,
@@ -161,10 +163,13 @@ def _visible_card_images(card_id: int) -> dict[int, model.Post]:
         .order_by(CardImage.position, CardImage.uri)
         .options(lazyload("*"))
     )
-    found: dict[int, model.Post] = {}
-    for position, media_post in rows:
-        found.setdefault(position, media_post)
-    return found
+    by_uri: dict[str, model.Post] = {}
+    by_data_pos: dict[int, model.Post] = {}
+    for row_uri, position, media_post in rows:
+        by_uri[row_uri] = media_post
+        if row_uri.startswith("data:"):
+            by_data_pos.setdefault(position, media_post)
+    return by_uri, by_data_pos
 
 
 def _visible_related_assets(
@@ -247,7 +252,7 @@ def _plan_assets(
     if isinstance(raw_assets, list):
         items = cast(list[object], raw_assets)
         main_idx = _main_icon_index(items)
-        by_pos = _visible_card_images(card_id)
+        by_uri, by_data_pos = _visible_card_images(card_id)
         for idx, item in enumerate(items):
             if idx == main_idx or not isinstance(item, dict):
                 continue
@@ -262,8 +267,10 @@ def _plan_assets(
                 cast(str, entry["name"]) if isinstance(entry.get("name"), str) else ""
             )
             resolved: model.Post | None = None
-            if idx in by_pos:
-                resolved = by_pos[idx]
+            if isinstance(uri, str) and uri in by_uri:
+                resolved = by_uri[uri]
+            elif export_data.is_embedded_marker(uri) and idx in by_data_pos:
+                resolved = by_data_pos[idx]
             elif isinstance(uri, str) and uri.strip().lower().startswith("https://"):
                 clean_uri = uri.strip()
                 row = archived_rows.get(clean_uri)

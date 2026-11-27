@@ -38,7 +38,7 @@ def _unix_seconds(value: datetime.datetime) -> int:
     return int(value.replace(tzinfo=datetime.UTC).timestamp())
 
 
-def _is_embedded_marker(value: object) -> bool:
+def is_embedded_marker(value: object) -> bool:
     if not isinstance(value, dict):
         return False
     mapping = cast(dict[object, object], value)
@@ -53,7 +53,7 @@ def _is_embedded_marker(value: object) -> bool:
 
 def clean_markers(value: object, *, skip_assets: bool = False) -> object:
     """Replace any remaining `{"embedded": ...}` marker with an empty string."""
-    if _is_embedded_marker(value):
+    if is_embedded_marker(value):
         return ""
     if isinstance(value, list):
         return [clean_markers(item) for item in cast(list[object], value)]

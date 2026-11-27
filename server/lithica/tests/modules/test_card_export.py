@@ -824,3 +824,112 @@ def test_share_link_mode_nsfw_domain_privilege_and_rollback(
     )
     assert allowed.status_code == 200
     assert db.session.query(model.ShareLink).count() == 2
+
+
+def test_assets_match_by_uri_and_position_only_for_data_markers(
+    client: ApiClient, user: model.User
+) -> None:
+    avatar_bytes = cards.picture(91)
+    first_bytes = cards.picture(92)
+    second_bytes = cards.picture(93)
+    data_bytes = cards.picture(94)
+    data_uri = f"data:image/png;base64,{base64.b64encode(data_bytes).decode('ascii')}"
+
+    avatar_id = _upload_media(client, user, avatar_bytes)
+    first_id = _upload_media(client, user, first_bytes)
+    second_id = _upload_media(client, user, second_bytes)
+    data_id = _upload_media(client, user, data_bytes)
+
+    # Document assets are reordered relative to the stored CardImage positions,
+    # include an unmatched URI, a marker at a non-data position, and a marker
+    # at a data: URI position.
+    card_payload = cards.v3_card(
+        name="ReorderedAssets",
+        assets=[
+            {"type": "icon", "uri": "ccdefault:", "name": "main", "ext": "png"},
+            {
+                "type": "x-item",
+                "uri": "embeded://assets/x/second.png",
+                "name": "second",
+                "ext": "png",
+            },
+            {
+                "type": "x-item",
+                "uri": "embeded://assets/x/missing.png",
+                "name": "missing",
+                "ext": "png",
+            },
+            {
+                "type": "x-item",
+                "uri": "embeded://assets/x/first.png",
+                "name": "first",
+                "ext": "png",
+            },
+            {
+                "type": "x-item",
+                "uri": data_uri,
+                "name": "inline-data",
+                "ext": "png",
+            },
+        ],
+    )
+    card_payload["data"].pop("character_book", None)
+    card_id = ok(
+        create(
+            client,
+            user,
+            card_payload,
+            images=[{"role": "avatar", "postId": avatar_id}],
+        )
+    )["post"]["id"]
+
+    # Stored CardImage map has first at position 1, second at position 2, and
+    # the data: URI at position 4.
+    db.session.add_all(
+        [
+            CardImage(
+                card_post_id=card_id,
+                uri="embeded://assets/x/first.png",
+                post_id=first_id,
+                type="embedded-in",
+                asset_type="x-item",
+                label="first",
+                position=1,
+            ),
+            CardImage(
+                card_post_id=card_id,
+                uri="embeded://assets/x/second.png",
+                post_id=second_id,
+                type="embedded-in",
+                asset_type="x-item",
+                label="second",
+                position=2,
+            ),
+            CardImage(
+                card_post_id=card_id,
+                uri=data_uri,
+                post_id=data_id,
+                type="embedded-in",
+                asset_type="x-item",
+                label="inline-data",
+                position=4,
+            ),
+        ]
+    )
+    db.session.commit()
+
+    resp = client.post(
+        f"/modules/cards/post/{card_id}/export",
+        user=user,
+        body={"format": "charx", "images": "embedded"},
+    )
+    assert resp.status_code == 200
+    # Only the unmatched embeded://assets/x/missing.png entry is skipped.
+    assert resp.headers["x-lithica-export-skipped"] == "1"
+    with charx.opened(io.BytesIO(resp.content)) as opened:
+        out_assets: list[dict[str, Any]] = opened.card["data"]["assets"]  # type: ignore[index]
+        by_name = {a["name"]: a["uri"] for a in out_assets}
+        assert list(by_name) == ["main", "second", "first", "inline-data"]
+        assert charx.asset_bytes(opened, by_name["second"], 1024**2) == second_bytes
+        assert charx.asset_bytes(opened, by_name["first"], 1024**2) == first_bytes
+        assert charx.asset_bytes(opened, by_name["inline-data"], 1024**2) == data_bytes
