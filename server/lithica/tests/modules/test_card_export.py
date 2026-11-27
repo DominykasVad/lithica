@@ -612,3 +612,215 @@ def test_export_limits_per_format(
     )
     assert r_asset.status_code == 400
     assert "PNG asset limit" in r_asset.json()["description"]
+
+
+def test_share_link_mode_reuse_and_png_avatar_excluded(
+    client: ApiClient, user: model.User, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config.config["privileges"]["share_links:create"] = "regular"
+    monkeypatch.setitem(config.config, "domain", "https://booru.test/")
+
+    avatar_id = _upload_media(client, user, cards.picture(71))
+    expr_id = _upload_media(client, user, cards.picture(72))
+    text_img_id = _upload_media(client, user, cards.picture(73))
+
+    card_id = ok(
+        create(
+            client,
+            user,
+            cards.v3_card(
+                name="LinkCard",
+                first_mes=f"Look: ![pic](lithica:post/{text_img_id})",
+            ),
+            images=[
+                {"role": "avatar", "postId": avatar_id},
+                {"role": "expression", "postId": expr_id, "label": "happy"},
+            ],
+        )
+    )["post"]["id"]
+
+    # Manual links (different note or with expiry) must never be reused.
+    from lithica.func import share_links
+
+    manual_other_note = share_links.create(
+        posts.get_post_by_id(expr_id), user, "Manual note", None
+    )
+    manual_expiring = share_links.create(
+        posts.get_post_by_id(expr_id), user, "Card export", "2099-01-01T00:00:00"
+    )
+    db.session.commit()
+
+    resp = client.post(
+        f"/modules/cards/post/{card_id}/export",
+        user=user,
+        body={"format": "png", "spec": "v3+v2", "images": "links"},
+    )
+    assert resp.status_code == 200
+    exported = png.read_card(io.BytesIO(resp.content))
+    assert exported is not None
+    # PNG's own picture never gets a share link.
+    assert db.session.query(model.ShareLink).filter_by(post_id=avatar_id).count() == 0
+    # Expression got a new "Card export" link (manual links not reused).
+    expr_links = (
+        db.session.query(model.ShareLink)
+        .filter_by(post_id=expr_id)
+        .order_by(model.ShareLink.id)
+        .all()
+    )
+    assert len(expr_links) == 3
+    export_link = next(
+        link
+        for link in expr_links
+        if link.id not in (manual_other_note.id, manual_expiring.id)
+    )
+    assert export_link.note == "Card export"
+    assert export_link.expires_at is None
+    expected_expr_url = (
+        f"https://booru.test/share/{share_links.derive_token(export_link.salt)}"
+    )
+    out_assets: list[dict[str, Any]] = exported["data"]["assets"]  # type: ignore[index]
+    assert out_assets[0]["uri"] == "ccdefault:"
+    assert out_assets[1]["uri"] == expected_expr_url
+
+    text_link = db.session.query(model.ShareLink).filter_by(post_id=text_img_id).one()
+    expected_text_url = (
+        f"https://booru.test/share/{share_links.derive_token(text_link.salt)}"
+    )
+    assert f"![pic]({expected_text_url})" in exported["data"]["first_mes"]  # type: ignore[index]
+
+    # Second export reuses the exact same "Card export" links.
+    resp2 = client.post(
+        f"/modules/cards/post/{card_id}/export",
+        user=user,
+        body={"format": "charx", "images": "links"},
+    )
+    assert resp2.status_code == 200
+    assert db.session.query(model.ShareLink).filter_by(post_id=expr_id).count() == 3
+    assert db.session.query(model.ShareLink).filter_by(post_id=text_img_id).count() == 1
+    # CHARX does create a link for the avatar (it is not a PNG carrier).
+    assert db.session.query(model.ShareLink).filter_by(post_id=avatar_id).count() == 1
+
+
+def test_share_link_mode_nsfw_domain_privilege_and_rollback(
+    client: ApiClient, user: model.User, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config.config["privileges"]["share_links:create"] = "power"
+    avatar_id = _upload_media(client, user, cards.picture(81))
+    safe_img_id = _upload_media(client, user, cards.picture(82))
+    nsfw_img_id = _upload_media(
+        client, user, cards.picture(83), tags=["nsfw"], safety="unsafe"
+    )
+
+    safe_card_id = ok(
+        create(
+            client,
+            user,
+            cards.v3_card(name="SafeCard"),
+            images=[
+                {"role": "avatar", "postId": avatar_id},
+                {"role": "expression", "postId": safe_img_id, "label": "ok"},
+            ],
+        )
+    )["post"]["id"]
+
+    # Privilege check: regular user lacks share_links:create (power).
+    monkeypatch.setitem(config.config, "domain", "https://booru.test")
+    no_priv = client.post(
+        f"/modules/cards/post/{safe_card_id}/export",
+        user=user,
+        body={"format": "json", "images": "links"},
+    )
+    assert no_priv.status_code == 403
+
+    # Grant privilege; missing domain refused.
+    config.config["privileges"]["share_links:create"] = "regular"
+    monkeypatch.setitem(config.config, "domain", "")
+    no_domain = client.post(
+        f"/modules/cards/post/{safe_card_id}/export",
+        user=user,
+        body={"format": "json", "images": "links"},
+    )
+    assert no_domain.status_code == 400
+    assert "domain" in no_domain.json()["description"]
+    assert db.session.query(model.ShareLink).count() == 0
+
+    monkeypatch.setitem(config.config, "domain", "https://booru.test")
+
+    # NSFW card with untagged images refused while share_links_nsfw is off.
+    nsfw_card_id = ok(
+        create(
+            client,
+            user,
+            cards.v3_card(name="NsfwCard"),
+            safety="unsafe",
+            tags=["nsfw"],
+            images=[
+                {"role": "avatar", "postId": avatar_id},
+                {"role": "expression", "postId": safe_img_id, "label": "ok"},
+            ],
+        )
+    )["post"]["id"]
+    refused_card = client.post(
+        f"/modules/cards/post/{nsfw_card_id}/export",
+        user=user,
+        body={"format": "json", "images": "links"},
+    )
+    assert refused_card.status_code == 400
+    assert (
+        "Share links for NSFW posts are disabled: 2 images are NSFW."
+        in refused_card.json()["description"]
+    )
+    assert db.session.query(model.ShareLink).count() == 0
+
+    # Embedded mode allows NSFW card even while share_links_nsfw is off.
+    ok_embedded = client.post(
+        f"/modules/cards/post/{nsfw_card_id}/export",
+        user=user,
+        body={"format": "json", "images": "embedded"},
+    )
+    assert ok_embedded.status_code == 200
+
+    # Safe card with one NSFW image refused, 0 links created.
+    mixed_card_id = ok(
+        create(
+            client,
+            user,
+            cards.v3_card(name="MixedCard"),
+            images=[
+                {"role": "avatar", "postId": avatar_id},
+                {"role": "expression", "postId": nsfw_img_id, "label": "spicy"},
+            ],
+        )
+    )["post"]["id"]
+    refused_img = client.post(
+        f"/modules/cards/post/{mixed_card_id}/export",
+        user=user,
+        body={"format": "json", "images": "links"},
+    )
+    assert refused_img.status_code == 400
+    assert (
+        "Share links for NSFW posts are disabled: 1 images are NSFW."
+        in refused_img.json()["description"]
+    )
+    assert db.session.query(model.ShareLink).count() == 0
+
+    # Refused by a format limit creates no share links either.
+    monkeypatch.setitem(config.config, "max_base64_upload_size", 50)
+    refused_limit = client.post(
+        f"/modules/cards/post/{safe_card_id}/export",
+        user=user,
+        body={"format": "json", "images": "links"},
+    )
+    assert refused_limit.status_code == 400
+    assert db.session.query(model.ShareLink).count() == 0
+    monkeypatch.setitem(config.config, "max_base64_upload_size", 64 * 1024 * 1024)
+
+    # Turning share_links_nsfw on permits the NSFW export.
+    monkeypatch.setitem(config.config, "share_links_nsfw", True)
+    allowed = client.post(
+        f"/modules/cards/post/{nsfw_card_id}/export",
+        user=user,
+        body={"format": "json", "images": "links"},
+    )
+    assert allowed.status_code == 200
+    assert db.session.query(model.ShareLink).count() == 2

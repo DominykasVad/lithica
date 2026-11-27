@@ -669,6 +669,8 @@ def export_card(
         image_mode=body.images,
         max_json_size=max_base64_upload_size(),
     )
+    if body.images == "links":
+        db.session.commit()
     return StreamingResponse(
         _stream_export(result),
         media_type=result.media_type,

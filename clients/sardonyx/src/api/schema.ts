@@ -2044,6 +2044,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/modules/cards/post/{post_id}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export the current version of a character card
+         * @description Build and download a character card from its current document version.
+         *
+         *     Accepts `format` (`png`, `charx`, `json`; default `png`), `spec` (`v3+v2`,
+         *     `v3`, `v2`; defaults to `v3+v2` for PNG and `v3` for CHARX and JSON), and
+         *     `images` (`embedded` or `links`; default `embedded`).
+         *
+         *     Returns the built file as an attachment with `X-Lithica-Export-Skipped`
+         *     counting unresolved or hidden images and references.
+         */
+        post: operations["export_card"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/modules/cards/file-picture": {
         parameters: {
             query?: never;
@@ -7295,6 +7322,52 @@ export interface operations {
                 };
                 content: {
                     "application/octet-stream": string;
+                };
+            };
+            /** @description The request was refused. */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    export_card: {
+        parameters: {
+            query?: {
+                /** @description Record this request as a login of the authenticated user. */
+                "bump-login"?: boolean;
+            };
+            header?: never;
+            path: {
+                post_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    format?: "png" | "charx" | "json";
+                    spec?: ("v3+v2" | "v3" | "v2") | null;
+                    /** @enum {string} */
+                    images?: "links" | "embedded";
+                };
+            };
+        };
+        responses: {
+            /** @description The exported character card file. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": string;
+                    "application/x-charx": string;
+                    "application/json": string;
                 };
             };
             /** @description The request was refused. */

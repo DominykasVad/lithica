@@ -13,8 +13,19 @@ from typing import Any, BinaryIO, Literal, cast
 import sqlalchemy as sa
 from sqlalchemy.orm import lazyload
 
-from lithica import db, errors, model
-from lithica.func import documents, file_types, files, images, mime, posts
+from lithica import config, db, errors, model
+from lithica.func import (
+    auth,
+    documents,
+    file_types,
+    files,
+    images,
+    mime,
+    posts,
+    share_links,
+    site_settings,
+    visibility,
+)
 from lithica.func.content import Content
 from lithica.modules.cards import (
     archived_links,
@@ -54,6 +65,7 @@ MEDIA_TYPES: dict[ExportFormat, str] = {
 _REFERENCE = re.compile(r"lithica:post/([0-9]+)\Z")
 _SAFE_SEGMENT = re.compile(r"[^a-z0-9_-]+")
 _SPOOL_MAX_SIZE = 4 * 1024 * 1024
+EXPORT_LINK_NOTE = "Card export"
 
 
 @dataclass
@@ -294,6 +306,25 @@ def _plan_assets(
     return planned, skipped
 
 
+def _get_or_create_export_link(
+    target: model.Post, user: model.User, domain: str
+) -> str:
+    existing = (
+        db.session.query(model.ShareLink)
+        .filter(
+            model.ShareLink.post_id == target.post_id,
+            model.ShareLink.user_id == user.user_id,
+            model.ShareLink.note == EXPORT_LINK_NOTE,
+            model.ShareLink.expires_at.is_(None),
+        )
+        .order_by(model.ShareLink.id)
+        .first()
+    )
+    if existing is None or share_links.expired(existing):
+        existing = share_links.create(target, user, EXPORT_LINK_NOTE, None)
+    return f"{domain}/share/{share_links.derive_token(existing.salt)}"
+
+
 def export_card(
     post: model.Post,
     user: model.User,
@@ -311,8 +342,14 @@ def export_card(
             f"Spec {chosen_spec!r} is not allowed for {fmt} exports "
             f"(allowed: {allowed})."
         )
+    domain = ""
     if image_mode == "links":
-        raise errors.ValidationError("Share-link export is not supported yet.")
+        auth.verify_privilege(user, "share_links:create")
+        domain = (config.config.get("domain") or "").strip().rstrip("/")
+        if not domain:
+            raise errors.ValidationError(
+                "Exports with share links need 'domain' to be set."
+            )
 
     if post.kind != "card":
         raise replacement.CardNotFoundError(
@@ -361,137 +398,187 @@ def export_card(
         )
         skipped += asset_skipped
 
-    data_uri_cache: dict[int, str] = {}
-
-    def _resolve_text_link(link: image_links.Link) -> str | None:
-        nonlocal skipped
+    def _lookup_text_target(link: image_links.Link) -> tuple[model.Post | None, bool]:
         if link.reference is not None:
             target = visible_media.get(link.reference)
-            if target is None:
-                skipped += 1
-                return None
-            return _data_uri(target, data_uri_cache)
+            return target, target is None
         if link.url not in tracked_set:
-            return None
+            return None, False
         row = archived_rows.get(link.url)
         if row is None or row.status != "archived" or row.post_id is None:
-            return None
+            return None, False
         target = visible_media.get(row.post_id)
-        if target is None:
-            skipped += 1
-            return None
-        return _data_uri(target, data_uri_cache)
+        return target, target is None
 
-    image_links.rewrite(work_doc, _resolve_text_link, include_assets=False)
-
-    built_assets: list[dict[str, Any]] = []
-    png_assets: list[tuple[str, Content]] = []
-    charx_entries: list[tuple[str, Content]] = []
-    charx_icon_path: str | None = None
-    embedded_uris: dict[int, str] = {}
-    next_asset_index = 0
-
-    if wants_v3:
+    linked_posts: dict[int, model.Post] = {}
+    if image_mode == "links":
         for item in planned_assets:
-            if isinstance(item, _KeepAsset):
-                built_assets.append(item.entry)
-            elif isinstance(item, _DefaultIcon):
-                built_assets.append(
-                    {
-                        "type": "icon",
-                        "uri": "ccdefault:",
-                        "name": "main",
-                        "ext": "png",
-                    }
-                )
-            else:
-                ext = _ext_for(item.post)
-                if fmt == "json":
-                    uri = _data_uri(item.post, data_uri_cache)
-                elif fmt == "png":
-                    uri = embedded_uris.get(item.post.post_id)
-                    if uri is None:
-                        path = f"{next_asset_index}.{ext}"
-                        next_asset_index += 1
-                        uri = f"__asset:{path}"
-                        embedded_uris[item.post.post_id] = uri
-                        png_assets.append((path, _stored_content(item.post)))
-                else:
-                    uri = embedded_uris.get(item.post.post_id)
-                    if uri is None:
-                        kind = _charx_kind(item.post.mime_type)
-                        path = (
-                            f"assets/{_safe_type(item.asset_type)}/"
-                            f"{kind}/{next_asset_index}.{ext}"
-                        )
-                        next_asset_index += 1
-                        uri = f"embeded://{path}"
-                        embedded_uris[item.post.post_id] = uri
-                        charx_entries.append((path, _stored_content(item.post)))
-                        if item.is_main:
-                            charx_icon_path = path
-                    elif item.is_main and charx_icon_path is None:
-                        charx_icon_path = uri.removeprefix("embeded://")
-                built_assets.append(
-                    {
-                        "type": item.asset_type,
-                        "uri": uri,
-                        "name": item.name,
-                        "ext": ext,
-                    }
-                )
+            if isinstance(item, _PostAsset):
+                linked_posts[item.post.post_id] = item.post
 
-    v3_card = export_data.build_v3(
-        work_doc["spec"],
-        work_doc["card"],
-        creation_time=post.creation_time,
-        modification_time=document.update_time,
-        books=books,
-        assets=built_assets if wants_v3 else [],
-    )
-    v2_card = export_data.to_v2(v3_card) if wants_v2 else None
-    name = card_format.as_text(v3_card["data"].get("name"))
+        def _collect_text_post(link: image_links.Link) -> None:
+            target, _ = _lookup_text_target(link)
+            if target is not None:
+                linked_posts[target.post_id] = target
+            return None
+
+        image_links.rewrite(work_doc, _collect_text_post, include_assets=False)
+
+        if not site_settings.get("share_links_nsfw"):
+            card_nsfw = visibility.is_nsfw(post)
+            nsfw_count = (
+                len(linked_posts)
+                if card_nsfw
+                else sum(
+                    1
+                    for media_post in linked_posts.values()
+                    if visibility.is_nsfw(media_post)
+                )
+            )
+            if card_nsfw or nsfw_count > 0:
+                raise errors.ValidationError(
+                    f"Share links for NSFW posts are disabled: {nsfw_count} images "
+                    "are NSFW. Export with embedded images instead."
+                )
 
     spool = tempfile.SpooledTemporaryFile(max_size=_SPOOL_MAX_SIZE)
     try:
-        if fmt == "json":
-            payload = v3_card if wants_v3 else v2_card
-            assert payload is not None
-            encoded = json.dumps(
-                payload, ensure_ascii=False, separators=(",", ":")
-            ).encode("utf-8")
-            if len(encoded) > max_json_size:
-                limit_mib = max_json_size // (1024 * 1024)
-                raise errors.ValidationError(
-                    f"The exported JSON exceeds the {limit_mib} MiB limit. "
-                    "Export with share links instead."
-                )
-            spool.write(encoded)
-        elif fmt == "charx":
-            try:
-                charx.write(
-                    cast(BinaryIO, spool),
-                    v3_card,
-                    charx_entries,
-                    icon_path=charx_icon_path,
-                )
-            except charx.Rejected as ex:
-                raise errors.ValidationError(str(ex)) from ex
-        else:
-            assert avatar is not None
-            try:
-                with _png_carrier(avatar) as carrier:
-                    png.write(
-                        carrier,
-                        cast(BinaryIO, spool),
-                        v3=v3_card if wants_v3 else None,
-                        v2=v2_card if wants_v2 else None,
-                        assets=png_assets,
-                        max_assets=assets.MAX_IMAGES,
-                        max_asset_size=assets.MAX_IMAGE_SIZE,
+        with db.session.begin_nested():
+            link_urls: dict[int, str] = {}
+            if image_mode == "links":
+                for pid, media_post in linked_posts.items():
+                    link_urls[pid] = _get_or_create_export_link(
+                        media_post, user, domain
                     )
-            except png.Oversized as ex:
-                raise errors.ValidationError(str(ex)) from ex
+
+            data_uri_cache: dict[int, str] = {}
+
+            def _resolve_text_link(link: image_links.Link) -> str | None:
+                nonlocal skipped
+                target, is_skipped = _lookup_text_target(link)
+                if is_skipped:
+                    skipped += 1
+                    return None
+                if target is None:
+                    return None
+                if image_mode == "links":
+                    return link_urls[target.post_id]
+                return _data_uri(target, data_uri_cache)
+
+            image_links.rewrite(work_doc, _resolve_text_link, include_assets=False)
+
+            built_assets: list[dict[str, Any]] = []
+            png_assets: list[tuple[str, Content]] = []
+            charx_entries: list[tuple[str, Content]] = []
+            charx_icon_path: str | None = None
+            embedded_uris: dict[int, str] = {}
+            next_asset_index = 0
+
+            if wants_v3:
+                for item in planned_assets:
+                    if isinstance(item, _KeepAsset):
+                        built_assets.append(item.entry)
+                    elif isinstance(item, _DefaultIcon):
+                        built_assets.append(
+                            {
+                                "type": "icon",
+                                "uri": "ccdefault:",
+                                "name": "main",
+                                "ext": "png",
+                            }
+                        )
+                    else:
+                        ext = _ext_for(item.post)
+                        if image_mode == "links":
+                            uri = link_urls[item.post.post_id]
+                        elif fmt == "json":
+                            uri = _data_uri(item.post, data_uri_cache)
+                        elif fmt == "png":
+                            uri = embedded_uris.get(item.post.post_id)
+                            if uri is None:
+                                path = f"{next_asset_index}.{ext}"
+                                next_asset_index += 1
+                                uri = f"__asset:{path}"
+                                embedded_uris[item.post.post_id] = uri
+                                png_assets.append((path, _stored_content(item.post)))
+                        else:
+                            uri = embedded_uris.get(item.post.post_id)
+                            if uri is None:
+                                kind = _charx_kind(item.post.mime_type)
+                                path = (
+                                    f"assets/{_safe_type(item.asset_type)}/"
+                                    f"{kind}/{next_asset_index}.{ext}"
+                                )
+                                next_asset_index += 1
+                                uri = f"embeded://{path}"
+                                embedded_uris[item.post.post_id] = uri
+                                charx_entries.append((path, _stored_content(item.post)))
+                                if item.is_main:
+                                    charx_icon_path = path
+                            elif item.is_main and charx_icon_path is None:
+                                charx_icon_path = uri.removeprefix("embeded://")
+                        built_assets.append(
+                            {
+                                "type": item.asset_type,
+                                "uri": uri,
+                                "name": item.name,
+                                "ext": ext,
+                            }
+                        )
+
+            v3_card = export_data.build_v3(
+                work_doc["spec"],
+                work_doc["card"],
+                creation_time=post.creation_time,
+                modification_time=document.update_time,
+                books=books,
+                assets=built_assets if wants_v3 else [],
+            )
+            v2_card = export_data.to_v2(v3_card) if wants_v2 else None
+            name = card_format.as_text(v3_card["data"].get("name"))
+
+            if fmt == "json":
+                payload = v3_card if wants_v3 else v2_card
+                assert payload is not None
+                encoded = json.dumps(
+                    payload, ensure_ascii=False, separators=(",", ":")
+                ).encode("utf-8")
+                if len(encoded) > max_json_size:
+                    limit_mib = max_json_size // (1024 * 1024)
+                    hint = (
+                        " Export with share links instead."
+                        if image_mode == "embedded"
+                        else ""
+                    )
+                    raise errors.ValidationError(
+                        f"The exported JSON exceeds the {limit_mib} MiB limit.{hint}"
+                    )
+                spool.write(encoded)
+            elif fmt == "charx":
+                try:
+                    charx.write(
+                        cast(BinaryIO, spool),
+                        v3_card,
+                        charx_entries,
+                        icon_path=charx_icon_path,
+                    )
+                except charx.Rejected as ex:
+                    raise errors.ValidationError(str(ex)) from ex
+            else:
+                assert avatar is not None
+                try:
+                    with _png_carrier(avatar) as carrier:
+                        png.write(
+                            carrier,
+                            cast(BinaryIO, spool),
+                            v3=v3_card if wants_v3 else None,
+                            v2=v2_card if wants_v2 else None,
+                            assets=png_assets,
+                            max_assets=assets.MAX_IMAGES,
+                            max_asset_size=assets.MAX_IMAGE_SIZE,
+                        )
+                except png.Oversized as ex:
+                    raise errors.ValidationError(str(ex)) from ex
         size = spool.tell()
         spool.seek(0)
         return ExportResult(
