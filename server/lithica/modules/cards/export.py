@@ -199,10 +199,8 @@ def _png_carrier(avatar: model.Post) -> Generator[BinaryIO]:
     stored = _stored_content(avatar)
     if avatar.mime_type == "image/png":
         with stored.open() as handle:
-            if png.stripped(handle) is not None:
-                handle.seek(0)
-                yield handle
-                return
+            yield handle
+            return
     source: Content
     if mime.is_image(avatar.mime_type or ""):
         source = stored
@@ -432,17 +430,17 @@ def export_card(
         image_links.rewrite(work_doc, _collect_text_post, include_assets=False)
 
         if not site_settings.get("share_links_nsfw"):
-            card_nsfw = visibility.is_nsfw(post)
-            nsfw_count = (
-                len(linked_posts)
-                if card_nsfw
-                else sum(
-                    1
-                    for media_post in linked_posts.values()
-                    if visibility.is_nsfw(media_post)
+            if visibility.is_nsfw(post):
+                raise errors.ValidationError(
+                    "Share links for NSFW posts are disabled: the card is NSFW. "
+                    "Export with embedded images instead."
                 )
+            nsfw_count = sum(
+                1
+                for media_post in linked_posts.values()
+                if visibility.is_nsfw(media_post)
             )
-            if card_nsfw or nsfw_count > 0:
+            if nsfw_count > 0:
                 raise errors.ValidationError(
                     f"Share links for NSFW posts are disabled: {nsfw_count} images "
                     "are NSFW. Export with embedded images instead."
@@ -586,6 +584,10 @@ def export_card(
                         )
                 except png.Oversized as ex:
                     raise errors.ValidationError(str(ex)) from ex
+                except ValueError as ex:
+                    raise errors.ValidationError(
+                        "The card's avatar could not be used as a PNG."
+                    ) from ex
         size = spool.tell()
         spool.seek(0)
         return ExportResult(

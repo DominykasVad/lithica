@@ -620,6 +620,34 @@ noted `Archived links replaced with Lithica references.` and updates the
 card's duplicate hash. A zero count creates no version. The archived map
 stays available for future restores.
 
+Replacing a file selects its new main picture as the avatar. Identical pixels
+reuse the old avatar post and its relation, even when PNG bytes differ. For
+different pixels, `keepOldPicture` keeps the old file's picture as `avatar-of`
+and `gallery-of`; `keptPostId` identifies it. Without that choice its `avatar-of`
+relation to this card is removed and its post is deleted only if no typed
+relations remain. Hidden, retired and non-media matches are skipped without
+exposing their IDs. New media files are removed on rollback; discarded media
+file deletion waits for commit and follows `delete_source_files`.
+The old file's other image relations remain. Its current-file URI mappings are
+replaced, and a new image job handles the new file's remaining images.
+
+Every former carrier file's SHA-1 is retired on its card; keeping a stripped
+carrier or an icon never keeps the carrier itself. Retired files remain duplicates at uploads, content edits, alternate
+formats, imports (including dry runs), and merges with content. The error
+names the post that retired the file; a hidden post gives only the bare
+duplicate message. Reverse search's exact match returns the retiring post,
+subject to normal visibility. Deleting that post frees the checksum. A post
+may take back its own retired file, clearing the retirement. `sha1:` and
+`content-checksum:` searches only match current files. Ordinary `PUT /post`
+content edits still refuse posts with documents; use the cards route.
+
+The card as its file had it is the post's
+[extracted content](#extracted-content), of the kind `card_v1`, `card_v2` or
+`card_v3`; it remains unchanged by document edits. Cards and lorebooks have
+[document versions](#documents): the engine's document routes list and read
+versions, and restore an old version as a new one, against the current
+version. `doc/openapi.json` describes the module's routes.
+
 ### Exporting cards
 
 `POST modules/cards/post/<id>/export` (`export_card`) builds a download from
@@ -658,36 +686,6 @@ Each linked image reuses the caller's non-expiring share link noted
 exports create none). The PNG's own picture never gets a share link. While
 `share_links_nsfw` is off, exporting with links is refused if the card or any
 linked image is NSFW.
-
-
-
-Replacing a file selects its new main picture as the avatar. Identical pixels
-reuse the old avatar post and its relation, even when PNG bytes differ. For
-different pixels, `keepOldPicture` keeps the old file's picture as `avatar-of`
-and `gallery-of`; `keptPostId` identifies it. Without that choice its `avatar-of`
-relation to this card is removed and its post is deleted only if no typed
-relations remain. Hidden, retired and non-media matches are skipped without
-exposing their IDs. New media files are removed on rollback; discarded media
-file deletion waits for commit and follows `delete_source_files`.
-The old file's other image relations remain. Its current-file URI mappings are
-replaced, and a new image job handles the new file's remaining images.
-
-Every former carrier file's SHA-1 is retired on its card; keeping a stripped
-carrier or an icon never keeps the carrier itself. Retired files remain duplicates at uploads, content edits, alternate
-formats, imports (including dry runs), and merges with content. The error
-names the post that retired the file; a hidden post gives only the bare
-duplicate message. Reverse search's exact match returns the retiring post,
-subject to normal visibility. Deleting that post frees the checksum. A post
-may take back its own retired file, clearing the retirement. `sha1:` and
-`content-checksum:` searches only match current files. Ordinary `PUT /post`
-content edits still refuse posts with documents; use the cards route.
-
-The card as its file had it is the post's
-[extracted content](#extracted-content), of the kind `card_v1`, `card_v2` or
-`card_v3`; it remains unchanged by document edits. Cards and lorebooks have
-[document versions](#documents): the engine's document routes list and read
-versions, and restore an old version as a new one, against the current
-version. `doc/openapi.json` describes the module's routes.
 
 ## Webhooks
 

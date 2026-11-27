@@ -491,6 +491,32 @@ def test_png_refused_without_avatar_and_handles_gif_and_video(
     assert resp_vid.content.startswith(png.SIGNATURE)
     assert _pixels(resp_vid.content) == _pixels(cards.picture(60))
 
+    # Truncated PNG avatar refused cleanly by png.write with 400, never 500.
+    bad_png_id = _upload_media(client, user, cards.picture(62))
+    bad_png_post = posts.get_post_by_id(bad_png_id)
+    storage.save(
+        posts.get_post_content_path(bad_png_post),
+        cards.picture(62)[:33],  # signature + IHDR, truncated before IDAT/IEND
+    )
+    bad_png_card_id = ok(
+        create(
+            client,
+            user,
+            cards.v3_card(name="BadPngAvatar"),
+            images=[{"role": "avatar", "postId": bad_png_id}],
+        )
+    )["post"]["id"]
+    resp_bad = client.post(
+        f"/modules/cards/post/{bad_png_card_id}/export",
+        user=user,
+        body={"format": "png"},
+    )
+    assert resp_bad.status_code == 400
+    assert (
+        resp_bad.json()["description"]
+        == "The card's avatar could not be used as a PNG."
+    )
+
 
 def test_text_links_resolution_and_extensions_untouched(
     client: ApiClient, user: model.User
@@ -767,8 +793,9 @@ def test_share_link_mode_nsfw_domain_privilege_and_rollback(
     )
     assert refused_card.status_code == 400
     assert (
-        "Share links for NSFW posts are disabled: 2 images are NSFW."
-        in refused_card.json()["description"]
+        refused_card.json()["description"]
+        == "Share links for NSFW posts are disabled: the card is NSFW. "
+        "Export with embedded images instead."
     )
     assert db.session.query(model.ShareLink).count() == 0
 
