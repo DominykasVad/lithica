@@ -420,6 +420,15 @@ def _writes(site: Site, read_asset: Any) -> dict[str, list[dict[str, Any]]]:
             }
             for post_id in HIDDEN
         ],
+        "POST /modules/cards/post/{post_id}/export": [
+            {
+                "path": "/modules/cards/post/%d/export" % post_id,
+                "body": {"format": "json"},
+                "hidden": True,
+                "status": 404,
+            }
+            for post_id in HIDDEN
+        ],
         "POST /modules/cards/post/{post_id}/archived-links/replace": [
             {
                 "path": "/modules/cards/post/%d/archived-links/replace" % post_id,

@@ -282,6 +282,9 @@ When a whole phase is finished (its last sub-phase merged), its entries are fold
 - 2026-11-15 — 7.3 — A card's picture is its declared main icon; a PNG's stripped carrier only for `ccdefault:`, no assets list or an unreadable icon.
 - 2026-11-16 — 7.3 — The engine removes the files of new posts on rollback (savepoints included) and can delete a post's files after commit (`posts.delete(defer_files=True)`).
 - 2026-11-18 — 7.2 — Imports keep existing posts by default (`onExisting: keep`); updating them is explicit.
+- 2026-11-27 — 7.5a — PNG export picture is the card's visible avatar; export is refused without one.
+- 2026-11-27 — 7.5a — Export with links is refused when the card or any linked image is NSFW while share_links_nsfw is off.
+- 2026-11-27 — 7.5a — Export reuses the exporting user's non-expiring share link noted "Card export" per post.
 
 ---
 
@@ -501,8 +504,10 @@ release `v0.5.0`. Design: decisions 0003, 0005, 0006, 0010, 0011 and 0013 in
 - [x] A background job (6.7) fetches them through the SSRF-safe downloader with size and type limits, makes each an unlisted post related `archived-from` the card, with the card's safety and NSFW tag, and records it in the card's map. Links that fail are recorded, and can be retried.
 - [x] Setting: manual or automatic, with rules (automatic only for given creators or tags). An "Archive images" action per card under a privilege. Automatic archiving with no rules archives nothing.
 
-### 7.5 Export and the original
-- [ ] Download as: the original file (while kept), or built from the current version as PNG, CHARX or JSON, with the linked lorebooks embedded (merged in order when several, said so in the export) and the card's images as share links (6.5) or embedded (CHARX assets, data URIs in PNG/JSON). Archived URLs and `lithica:` references in the text are resolved the same way.
+### 7.5a Export
+- [x] Download built from the current version as PNG, CHARX or JSON in a chosen spec, with the linked lorebooks embedded (merged in order when several, said so in the export) and the card's images as share links (6.5) or embedded (CHARX assets, PNG asset chunks, data URIs in JSON and in text). Archived URLs and `lithica:` references in the text are resolved the same way.
+
+### 7.5b Deleting the original
 - [ ] Deleting the original: a privilege, a warning listing what is lost, confirmation by typing the card's name; the file's checksum is kept for duplicate detection.
 
 ### 7.6 Sardonyx

@@ -17,6 +17,7 @@ COMMITTED = os.path.join(
 # routes that answer with a file
 FILE_DOWNLOADS = {
     "download_card": ("application/octet-stream",),
+    "export_card": ("image/png", "application/x-charx", "application/json"),
     "get_card_file_picture": ("image/*", "video/*"),
 }
 
@@ -108,11 +109,13 @@ def test_document_describes_the_whole_api(document):
         "/modules/cards/post/{post_id}/archive",
         "/modules/cards/post/{post_id}/archived-links/replace",
         "/modules/cards/post/{post_id}/download",
+        "/modules/cards/post/{post_id}/export",
         "/modules/cards/post/{post_id}/file",
         "/modules/cards/post/{post_id}/file/compare",
     ]
     for path, method, operation_id in (
         ("/modules/cards/post/{post_id}/archive", "post", "archive_card_images"),
+        ("/modules/cards/post/{post_id}/export", "post", "export_card"),
         (
             "/modules/cards/post/{post_id}/archived-links/replace",
             "post",
@@ -221,6 +224,7 @@ def test_request_bodies_list_their_required_fields(document):
     }
     assert required("/posts", "post") == {"safety"}
     assert required("/modules/cards/post/{post_id}/archive", "post") == set()
+    assert required("/modules/cards/post/{post_id}/export", "post") == set()
     assert required("/modules/cards/post/{post_id}/archived-links/replace", "post") == {
         "version"
     }

@@ -620,8 +620,6 @@ noted `Archived links replaced with Lithica references.` and updates the
 card's duplicate hash. A zero count creates no version. The archived map
 stays available for future restores.
 
-
-
 Replacing a file selects its new main picture as the avatar. Identical pixels
 reuse the old avatar post and its relation, even when PNG bytes differ. For
 different pixels, `keepOldPicture` keeps the old file's picture as `avatar-of`
@@ -649,6 +647,45 @@ The card as its file had it is the post's
 [document versions](#documents): the engine's document routes list and read
 versions, and restore an old version as a new one, against the current
 version. `doc/openapi.json` describes the module's routes.
+
+### Exporting cards
+
+`POST modules/cards/post/<id>/export` (`export_card`) builds a download from
+the card's current document version, with `posts:view`. Unlike JSON routes, it
+answers with the built file (`image/png`, `application/x-charx`, or
+`application/json`), `Content-Disposition` named after the character,
+`X-Content-Type-Options: nosniff`, `Cache-Control: no-store`, and
+`X-Lithica-Export-Skipped` counting unresolved or hidden images and references.
+Errors are JSON.
+
+Body fields (all optional):
+
+- `format`: `png` (default), `charx`, or `json`.
+- `spec`: `v3+v2` (default for PNG: `ccv3` and `chara` chunks), `v3` (default
+  for CHARX and JSON), or `v2` (PNG and JSON only).
+- `images`: `embedded` (default) or `links`.
+
+Linked lorebooks visible to the caller are embedded in link order; when several
+are merged, entry IDs are renumbered `0..n-1` and a note naming the merged
+lorebooks is appended to the book's description. Hidden avatars, images,
+archived posts and lorebooks are omitted without exposing their IDs. PNG
+exports use the card's visible avatar as the picture (re-encoding non-PNG
+images and video thumbnails to PNG) and are refused when no visible avatar
+exists.
+
+In `embedded` mode, CHARX stores assets at `embeded://assets/<type>/<kind>/<n>.<ext>`,
+PNG writes `chara-ext-asset_:<n>.<ext>` chunks referenced as `__asset:<n>.<ext>`,
+and JSON (plus resolved images in card text) uses base64 data URIs. Exports
+that exceed the module's reader limits (PNG 32 MiB chunk total, 32 MiB per
+asset, 200 images; CHARX 8 MiB `card.json`, 16 MiB icon, 1000 entries, 512 MiB
+unpacked, 100:1 ratio; JSON `max_base64_upload_size`) are refused.
+
+In `links` mode, `share_links:create` and a configured `domain` are required.
+Each linked image reuses the caller's non-expiring share link noted
+`Card export`, or creates one (committed before sending the file; refused
+exports create none). The PNG's own picture never gets a share link. While
+`share_links_nsfw` is off, exporting with links is refused if the card or any
+linked image is NSFW.
 
 ## Webhooks
 

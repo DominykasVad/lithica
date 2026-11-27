@@ -167,6 +167,7 @@ def test_walk(
         "/modules/cards/post/{post_id}/archive",
         "/modules/cards/post/{post_id}/archived-links/replace",
         "/modules/cards/post/{post_id}/download",
+        "/modules/cards/post/{post_id}/export",
         "/modules/cards/post/{post_id}/file",
         "/modules/cards/post/{post_id}/file/compare",
         "/posts",
