@@ -1,6 +1,6 @@
 """The routes of the cards module, and what they return."""
 
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
@@ -8,7 +8,7 @@ import sqlalchemy as sa
 import sqlalchemy.orm as sa_orm
 from fastapi import APIRouter, Depends, Request
 from pydantic import Field
-from starlette.responses import FileResponse, Response
+from starlette.responses import FileResponse, Response, StreamingResponse
 
 from lithica import db, errors, model, registry
 from lithica.api import resources
@@ -16,6 +16,7 @@ from lithica.api.dependencies import (
     RequestDataParam,
     fields_of,
     get_user,
+    max_base64_upload_size,
     read_body,
     require,
 )
@@ -44,6 +45,7 @@ from lithica.modules.cards import (
     archived_links,
     archiving,
     data_creation,
+    export,
     file_images,
     filename,
     media,
@@ -610,6 +612,74 @@ def download_card(
             ),
             # the file is somebody's upload: a browser must not guess at it
             "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
+class CardExportInput(RequestModel):
+    format: export.ExportFormat = "png"
+    spec: export.ExportSpec | None = None
+    images: export.ImageMode = "embedded"
+
+
+def _stream_export(result: export.ExportResult) -> Iterator[bytes]:
+    try:
+        while chunk := result.file.read(64 * 1024):
+            yield chunk
+    finally:
+        result.file.close()
+
+
+@downloads.post(
+    "/post/{post_id}/export",
+    operation_id="export_card",
+    response_class=StreamingResponse,
+    openapi_extra=request_body(CardExportInput),
+    summary="Export the current version of a character card",
+    responses={
+        200: {
+            "description": "The exported character card file.",
+            "content": {
+                media_type: {"schema": {"type": "string", "format": "binary"}}
+                for media_type in export.MEDIA_TYPES.values()
+            },
+        }
+    },
+)
+def export_card(
+    post_id: str,
+    auth_user: Annotated[model.User, Depends(require("posts:view"))],
+    body: Annotated[CardExportInput, Depends(read_body(CardExportInput))],
+) -> StreamingResponse:
+    """Build and download a character card from its current document version.
+
+    Accepts `format` (`png`, `charx`, `json`; default `png`), `spec` (`v3+v2`,
+    `v3`, `v2`; defaults to `v3+v2` for PNG and `v3` for CHARX and JSON), and
+    `images` (`embedded` or `links`; default `embedded`).
+
+    Returns the built file as an attachment with `X-Lithica-Export-Skipped`
+    counting unresolved or hidden images and references.
+    """
+    post = _post(post_id)
+    result = export.export_card(
+        post,
+        auth_user,
+        fmt=body.format,
+        spec=body.spec,
+        image_mode=body.images,
+        max_json_size=max_base64_upload_size(),
+    )
+    return StreamingResponse(
+        _stream_export(result),
+        media_type=result.media_type,
+        headers={
+            "Content-Disposition": filename.content_disposition(
+                result.name, post.post_id, result.extension
+            ),
+            "Content-Length": str(result.size),
+            "X-Content-Type-Options": "nosniff",
+            "Cache-Control": "no-store",
+            "X-Lithica-Export-Skipped": str(result.skipped),
         },
     )
 

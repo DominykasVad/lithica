@@ -434,17 +434,25 @@ def collect(data: registry.Payload) -> tuple[list[str], list[int], int]:
     return list(urls)[:MAX_LINKS], list(references), max(0, len(urls) - MAX_LINKS)
 
 
-def replace(data: registry.Payload, archived: Mapping[str, int]) -> int:
+def rewrite(
+    data: registry.Payload,
+    resolver: Callable[[Link], str | None],
+    *,
+    include_assets: bool = True,
+) -> int:
+    """Replace matched image links in card text (and optionally assets) in place."""
     count = 0
     for parent, key, text, asset in _fields(data):
+        if asset and not include_assets:
+            continue
         parts: list[str] = []
         previous = 0
         for link in _find(text, asset):
-            if (
-                link.start >= previous
-                and (post_id := archived.get(link.url)) is not None
-            ):
-                parts.extend((text[previous : link.start], f"lithica:post/{post_id}"))
+            if link.start < previous:
+                continue
+            replacement = resolver(link)
+            if replacement is not None:
+                parts.extend((text[previous : link.start], replacement))
                 previous = link.end
                 count += 1
         if parts:
@@ -455,3 +463,12 @@ def replace(data: registry.Payload, archived: Mapping[str, int]) -> int:
                 assert isinstance(key, int)
                 cast(list[object], parent)[key] = value
     return count
+
+
+def replace(data: registry.Payload, archived: Mapping[str, int]) -> int:
+    return rewrite(
+        data,
+        lambda link: (
+            f"lithica:post/{archived[link.url]}" if link.url in archived else None
+        ),
+    )

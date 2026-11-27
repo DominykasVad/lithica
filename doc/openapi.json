@@ -8901,6 +8901,124 @@
         }
       }
     },
+    "/modules/cards/post/{post_id}/export": {
+      "post": {
+        "tags": [
+          "cards"
+        ],
+        "summary": "Export the current version of a character card",
+        "description": "Build and download a character card from its current document version.\n\nAccepts `format` (`png`, `charx`, `json`; default `png`), `spec` (`v3+v2`,\n`v3`, `v2`; defaults to `v3+v2` for PNG and `v3` for CHARX and JSON), and\n`images` (`embedded` or `links`; default `embedded`).\n\nReturns the built file as an attachment with `X-Lithica-Export-Skipped`\ncounting unresolved or hidden images and references.",
+        "operationId": "export_card",
+        "security": [
+          {
+            "basicAuth": []
+          },
+          {
+            "tokenAuth": []
+          },
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "post_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Post Id"
+            }
+          },
+          {
+            "name": "bump-login",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Record this request as a login of the authenticated user.",
+              "default": false,
+              "title": "Bump-Login"
+            },
+            "description": "Record this request as a login of the authenticated user."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The exported character card file.",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "application/x-charx": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "The request was refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "format": {
+                    "enum": [
+                      "png",
+                      "charx",
+                      "json"
+                    ],
+                    "type": "string"
+                  },
+                  "spec": {
+                    "anyOf": [
+                      {
+                        "enum": [
+                          "v3+v2",
+                          "v3",
+                          "v2"
+                        ],
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "images": {
+                    "enum": [
+                      "links",
+                      "embedded"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    },
     "/modules/cards/file-picture": {
       "post": {
         "tags": [
